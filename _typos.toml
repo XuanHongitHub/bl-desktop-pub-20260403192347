@@ -5,6 +5,7 @@ extend-exclude = [
     "src/i18n/locales/*.json",
     "src-tauri/build.rs",
     "src-tauri/tests/fixtures/test.ovpn",
+    "*.md",
 ]
 
 [default.extend-words]
