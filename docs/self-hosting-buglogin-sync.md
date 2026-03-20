@@ -19,6 +19,8 @@ services:
       - "3929:3929"
     environment:
       - SYNC_TOKEN=your-secret-token-here
+      - CONTROL_API_TOKEN=your-control-api-token-here
+      - CONTROL_STATE_FILE=/data/control-state.json
       - PORT=3929
       - S3_ENDPOINT=http://minio:9000
       - S3_REGION=us-east-1
@@ -74,6 +76,8 @@ curl http://localhost:3929/readyz
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SYNC_TOKEN` | Yes | - | Bearer token used to authenticate requests from BugLogin clients |
+| `CONTROL_API_TOKEN` | No | - | Bearer token for `v1/control/*` endpoints. If empty, control-plane APIs run in open mode (development only). |
+| `CONTROL_STATE_FILE` | No | `./.data/control-state.json` | JSON snapshot path for temporary control-plane persistence (workspace/member/invite/share/coupon/audit). |
 | `PORT` | No | `3929` | Port the sync server listens on |
 | `S3_ENDPOINT` | No | - | S3-compatible endpoint URL (e.g., `http://minio:9000` or `https://s3.amazonaws.com`) |
 | `S3_REGION` | No | `us-east-1` | S3 region |
@@ -140,6 +144,23 @@ Once configured, you can enable sync on individual profiles, proxies, and groups
 |---|---|
 | `GET /health` | Basic health check. Returns `{"status":"ok"}` if the server is running. |
 | `GET /readyz` | Readiness check. Verifies S3 connectivity. Returns `{"status":"ready","s3":true}` or HTTP 503 if S3 is unreachable. |
+| `GET /config-status` | Runtime config visibility for auth/stripe/s3/control readiness. Useful for Admin Workspace checks. |
+
+## DB and Server Strategy (Release-Ready)
+
+Use a two-step rollout for control-plane data:
+
+1. **Now (simple + safe)**: keep `CONTROL_STATE_FILE` enabled so workspace governance data survives restarts without adding DB complexity.
+2. **Before large production rollout**: move control-plane authority data to Postgres.
+   - Reference schema: `buglogin-sync/docs/control-plane-postgres-schema.sql`
+   - Architecture notes: `buglogin-sync/docs/production-architecture.md`
+
+Recommended minimum topology for production:
+
+- `buglogin-sync` app service (API)
+- S3-compatible object storage (profile sync objects)
+- Postgres (control-plane authority data)
+- Reverse proxy with TLS (Nginx/Caddy/Traefik)
 
 ## Security Considerations
 
