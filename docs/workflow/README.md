@@ -20,10 +20,10 @@ Single entrypoint for the repository workflow standard.
 
 4. References (historical/analysis artifacts)
 - `docs/workflow/references/`
-- `docs/workflow/references/upstream-donutbrowser/` (upstream intake canonical log)
+- `docs/workflow/references/upstream-bugloginbrowser/` (upstream intake canonical log)
 
 ## Rule
 
 - Do not recreate `openspecs/`.
 - Keep OpenSpec + Superpowers + Beads synchronized for non-trivial changes.
-- For upstream intake from `zhom/donutbrowser`, use the canonical files under `docs/workflow/references/upstream-donutbrowser/`.
+- For upstream intake from `zhom/bugloginbrowser`, use the canonical files under `docs/workflow/references/upstream-bugloginbrowser/`.

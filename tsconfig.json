@@ -38,7 +38,7 @@
     "nodecar",
     "buglogin-sync",
     "src-tauri/target",
-    "donut-sync",
+    "buglogin-sync",
     "camoufox-js"
   ]
 }

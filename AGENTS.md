@@ -48,12 +48,12 @@
 - Use Superpowers skills when available and relevant before implementation steps; follow project/user instructions first when conflicts exist.
 - Track work with beads under `docs/workflow/beads/` (small, independent execution items with status) for visibility when tasks are split or long-running.
 
-## 8. Upstream DonutBrowser Intake
-- Upstream source for comparison/sync review: `https://github.com/zhom/donutbrowser`.
+## 8. Upstream BugLoginBrowser Intake
+- Upstream source for comparison/sync review: `https://github.com/zhom/bugloginbrowser`.
 - Never sync upstream blindly. Every upstream commit must be evaluated and logged before local adoption.
-- Canonical intake folder: `docs/workflow/references/upstream-donutbrowser/`.
+- Canonical intake folder: `docs/workflow/references/upstream-bugloginbrowser/`.
 - Required artifacts for intake:
-  - `docs/workflow/references/upstream-donutbrowser/upstream-intake-log.md`
-  - `docs/workflow/references/upstream-donutbrowser/commit-review-template.md`
+  - `docs/workflow/references/upstream-bugloginbrowser/upstream-intake-log.md`
+  - `docs/workflow/references/upstream-bugloginbrowser/commit-review-template.md`
 - Decision states per upstream commit: `adopt | adapt | defer | skip`.
 - If BugLogin has diverged heavily in touched modules, prefer `adapt` over direct port/cherry-pick.

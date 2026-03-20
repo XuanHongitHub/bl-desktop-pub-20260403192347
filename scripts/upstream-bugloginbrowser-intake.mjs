@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const LOG_PATH = path.resolve('docs/workflow/references/upstream-donutbrowser/upstream-intake-log.md');
+const LOG_PATH = path.resolve('docs/workflow/references/upstream-bugloginbrowser/upstream-intake-log.md');
 
 function readBaseSha() {
   const arg = process.argv[2]?.trim();
@@ -56,14 +56,14 @@ async function main() {
   const baseSha = readBaseSha();
 
   if (!baseSha) {
-    const url = 'https://api.github.com/repos/zhom/donutbrowser/commits?sha=main&per_page=20';
+    const url = 'https://api.github.com/repos/zhom/bugloginbrowser/commits?sha=main&per_page=20';
     const commits = await fetchJson(url);
     console.log('# Latest 20 commits on upstream main');
     printRows(commits);
     return;
   }
 
-  const compareUrl = `https://api.github.com/repos/zhom/donutbrowser/compare/${baseSha}...main`;
+  const compareUrl = `https://api.github.com/repos/zhom/bugloginbrowser/compare/${baseSha}...main`;
   const compare = await fetchJson(compareUrl);
 
   const commits = compare.commits ?? [];

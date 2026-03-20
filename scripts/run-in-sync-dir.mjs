@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const bugloginSyncDir = path.join(rootDir, "buglogin-sync");
-const legacySyncDir = path.join(rootDir, "donut-sync");
+const legacySyncDir = path.join(rootDir, "buglogin-sync");
 const syncDir = existsSync(bugloginSyncDir) ? bugloginSyncDir : legacySyncDir;
 
 const command = process.argv.slice(2).join(" ").trim();

@@ -1,7 +1,7 @@
-# Upstream Intake: DonutBrowser
+# Upstream Intake: BugLoginBrowser
 
 Canonical workflow for monitoring and evaluating upstream commits from:
-- `https://github.com/zhom/donutbrowser`
+- `https://github.com/zhom/bugloginbrowser`
 
 ## Why this exists
 
@@ -9,8 +9,8 @@ BugLogin is heavily customized and cannot safely consume upstream commits blindl
 
 ## Canonical files
 
-- `docs/workflow/references/upstream-donutbrowser/upstream-intake-log.md`
-- `docs/workflow/references/upstream-donutbrowser/commit-review-template.md`
+- `docs/workflow/references/upstream-bugloginbrowser/upstream-intake-log.md`
+- `docs/workflow/references/upstream-bugloginbrowser/commit-review-template.md`
 
 ## Intake cadence
 
@@ -49,11 +49,11 @@ For each upstream commit, assign exactly one:
 
 ```bash
 # Latest upstream main SHA
-git ls-remote https://github.com/zhom/donutbrowser.git refs/heads/main
+git ls-remote https://github.com/zhom/bugloginbrowser.git refs/heads/main
 
 # Optional: inspect recent commits via API
-curl -s "https://api.github.com/repos/zhom/donutbrowser/commits?sha=main&per_page=30"
+curl -s "https://api.github.com/repos/zhom/bugloginbrowser/commits?sha=main&per_page=30"
 
 # Generate markdown-ready commit rows since last reviewed SHA
-node scripts/upstream-donutbrowser-intake.mjs
+node scripts/upstream-bugloginbrowser-intake.mjs
 ```

@@ -1,16 +1,16 @@
-# Proposal: Upstream DonutBrowser Intake Workflow
+# Proposal: Upstream BugLoginBrowser Intake Workflow
 
-**Change ID:** `upstream-donutbrowser-intake-workflow`
+**Change ID:** `upstream-bugloginbrowser-intake-workflow`
 **Created:** 2026-03-19
 **Status:** Proposed
 
 ---
 
 ## Problem Statement
-BugLogin diverges significantly from the upstream DonutBrowser codebase. Without a strict upstream-intake process, pulling changes directly can introduce regressions, mismatch architecture direction, or reintroduce deprecated legacy logic.
+BugLogin diverges significantly from the upstream BugLoginBrowser codebase. Without a strict upstream-intake process, pulling changes directly can introduce regressions, mismatch architecture direction, or reintroduce deprecated legacy logic.
 
 ## Proposed Solution
-Establish a dedicated upstream workflow for `zhom/donutbrowser` that:
+Establish a dedicated upstream workflow for `zhom/bugloginbrowser` that:
 - tracks newly published upstream commits in a single log
 - evaluates each commit with a BugLogin-fit rubric before adoption
 - records explicit decision outcomes (`adopt`, `adapt`, `defer`, `skip`)
@@ -31,7 +31,7 @@ Establish a dedicated upstream workflow for `zhom/donutbrowser` that:
 
 ## Success Criteria
 
-- [ ] Single canonical location exists for DonutBrowser upstream tracking.
+- [ ] Single canonical location exists for BugLoginBrowser upstream tracking.
 - [ ] New upstream commit review includes impact/risk/decision notes.
 - [ ] Adoption decisions are traceable to BugLogin-specific constraints.
 - [ ] Intake batches can be executed safely without disrupting custom BugLogin logic.

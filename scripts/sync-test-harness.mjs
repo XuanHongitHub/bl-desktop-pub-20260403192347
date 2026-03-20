@@ -26,7 +26,7 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const CACHE_DIR = path.join(ROOT_DIR, ".cache", "sync-test");
 const SYNC_DIR = existsSync(path.join(ROOT_DIR, "buglogin-sync"))
   ? path.join(ROOT_DIR, "buglogin-sync")
-  : path.join(ROOT_DIR, "donut-sync");
+  : path.join(ROOT_DIR, "buglogin-sync");
 
 const MINIO_PORT = 9876;
 const MINIO_CONSOLE_PORT = 9877;

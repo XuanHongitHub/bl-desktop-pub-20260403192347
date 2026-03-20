@@ -29,7 +29,7 @@ pub fn data_dir() -> PathBuf {
     return PathBuf::from(dir);
   }
   // Legacy upstream env var — kept for backward compatibility
-  if let Ok(dir) = std::env::var("DONUTBROWSER_DATA_DIR") {
+  if let Ok(dir) = std::env::var("BUGLOGINBROWSER_DATA_DIR") {
     return PathBuf::from(dir);
   }
 
@@ -49,7 +49,7 @@ pub fn cache_dir() -> PathBuf {
     return PathBuf::from(dir);
   }
   // Legacy upstream env var — kept for backward compatibility
-  if let Ok(dir) = std::env::var("DONUTBROWSER_CACHE_DIR") {
+  if let Ok(dir) = std::env::var("BUGLOGINBROWSER_CACHE_DIR") {
     return PathBuf::from(dir);
   }
 

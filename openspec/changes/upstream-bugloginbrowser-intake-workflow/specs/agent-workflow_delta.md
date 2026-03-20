@@ -1,6 +1,6 @@
-# Delta: Upstream DonutBrowser Intake Governance
+# Delta: Upstream BugLoginBrowser Intake Governance
 
-**Change ID:** `upstream-donutbrowser-intake-workflow`
+**Change ID:** `upstream-bugloginbrowser-intake-workflow`
 **Affects:** workflow governance, upstream change intake safety, release readiness discipline
 
 ---
@@ -8,10 +8,10 @@
 ## ADDED
 
 ### Requirement: Upstream Intake Canonical Process
-Agents MUST use a single canonical workflow to review upstream commits from `zhom/donutbrowser` before porting code into BugLogin.
+Agents MUST use a single canonical workflow to review upstream commits from `zhom/bugloginbrowser` before porting code into BugLogin.
 
 #### Scenario: New upstream commits detected
-- GIVEN new commits exist on upstream DonutBrowser
+- GIVEN new commits exist on upstream BugLoginBrowser
 - WHEN intake starts
 - THEN each commit is logged in the canonical upstream tracking folder
 - AND each commit receives a decision state: `adopt`, `adapt`, `defer`, or `skip`
@@ -40,7 +40,7 @@ Adopted upstream changes MUST be implemented in small intake batches with tracea
 Workflow tracking now includes mandatory upstream intake records for non-trivial upstream sync work.
 
 #### Scenario: Upstream sync task initiated
-- GIVEN task scope includes syncing or evaluating upstream DonutBrowser changes
+- GIVEN task scope includes syncing or evaluating upstream BugLoginBrowser changes
 - WHEN planning starts
 - THEN OpenSpec + Superpowers + Beads must include upstream intake references
 - AND commit-level decisions must be documented before code porting

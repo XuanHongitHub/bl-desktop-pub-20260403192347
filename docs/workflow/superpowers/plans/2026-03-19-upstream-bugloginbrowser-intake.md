@@ -1,13 +1,13 @@
-# Plan: Upstream DonutBrowser Intake Workflow
+# Plan: Upstream BugLoginBrowser Intake Workflow
 
 - Date: 2026-03-19
 - Owner: codex
-- Related OpenSpec change: `openspec/changes/upstream-donutbrowser-intake-workflow/`
-- Related design spec: `docs/workflow/superpowers/specs/2026-03-19-upstream-donutbrowser-intake-design.md`
+- Related OpenSpec change: `openspec/changes/upstream-bugloginbrowser-intake-workflow/`
+- Related design spec: `docs/workflow/superpowers/specs/2026-03-19-upstream-bugloginbrowser-intake-design.md`
 
 ## Scope
 
-Define and operationalize a repeatable process to monitor, evaluate, and selectively port commits from `zhom/donutbrowser` into BugLogin.
+Define and operationalize a repeatable process to monitor, evaluate, and selectively port commits from `zhom/bugloginbrowser` into BugLogin.
 
 ## Phases
 

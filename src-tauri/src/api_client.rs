@@ -1122,7 +1122,7 @@ impl ApiClient {
     }
 
     log::info!("Fetching Wayfern version from configured metadata endpoint");
-    let url = "https://donutbrowser.com/wayfern.json";
+    let url = "https://bugloginbrowser.com/wayfern.json";
 
     let response = self
       .client

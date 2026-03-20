@@ -1,12 +1,12 @@
-# Spec: Upstream DonutBrowser Intake Workflow
+# Spec: Upstream BugLoginBrowser Intake Workflow
 
 - Date: 2026-03-19
 - Owner: codex
-- Related OpenSpec change: `openspec/changes/upstream-donutbrowser-intake-workflow/`
+- Related OpenSpec change: `openspec/changes/upstream-bugloginbrowser-intake-workflow/`
 
 ## Problem
 
-BugLogin and upstream DonutBrowser have diverged. If upstream commits are consumed ad-hoc, we risk pulling incompatible assumptions (UI, profile runtime logic, proxy flow, licensing remnants, build/runtime behavior).
+BugLogin and upstream BugLoginBrowser have diverged. If upstream commits are consumed ad-hoc, we risk pulling incompatible assumptions (UI, profile runtime logic, proxy flow, licensing remnants, build/runtime behavior).
 
 ## Goals
 
@@ -31,7 +31,7 @@ BugLogin and upstream DonutBrowser have diverged. If upstream commits are consum
 
 ## Technical Design
 
-- Canonical path: `docs/workflow/references/upstream-donutbrowser/`
+- Canonical path: `docs/workflow/references/upstream-bugloginbrowser/`
 - Files:
   - `README.md` for operating procedure
   - `commit-review-template.md` for one-commit analysis

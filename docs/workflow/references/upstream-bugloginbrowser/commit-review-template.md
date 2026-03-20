@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Upstream repository: `zhom/donutbrowser`
+- Upstream repository: `zhom/bugloginbrowser`
 - Upstream SHA: `<sha>`
 - Commit date: `YYYY-MM-DD`
 - Reviewer: `<name>`

@@ -28,7 +28,7 @@ pub const DEFAULT_EXCLUDE_PATTERNS: &[&str] = &[
   "**/LOCK",
   "**/*-journal",
   ".buglogin-sync/**",
-  ".donut-sync/**",
+  ".buglogin-sync/**",
 ];
 
 /// A single file entry in the manifest

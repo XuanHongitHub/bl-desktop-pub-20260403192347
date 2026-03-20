@@ -1,12 +1,12 @@
-# Implementation Tasks: Upstream DonutBrowser Intake Workflow
+# Implementation Tasks: Upstream BugLoginBrowser Intake Workflow
 
-**Change ID:** `upstream-donutbrowser-intake-workflow`
+**Change ID:** `upstream-bugloginbrowser-intake-workflow`
 
 ---
 
 ## Phase 1: Canonical Workflow Setup
 
-- [x] 1.1 Create dedicated upstream workflow docs under `docs/workflow/references/upstream-donutbrowser/` - 2026-03-19
+- [x] 1.1 Create dedicated upstream workflow docs under `docs/workflow/references/upstream-bugloginbrowser/` - 2026-03-19
 - [x] 1.2 Define commit triage rubric (`adopt`, `adapt`, `defer`, `skip`) - 2026-03-19
 - [x] 1.3 Define logging template for repeatable review notes - 2026-03-19
 

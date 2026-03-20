@@ -17,7 +17,7 @@ const WINDOWS_PROCESSES = [
   "buglogin-proxy.exe",
   "buglogin-daemon.exe",
   "buglogin-sync.exe",
-  "donut-sync.exe",
+  "buglogin-sync.exe",
   "minio.exe",
 ];
 
@@ -29,7 +29,7 @@ const UNIX_PATTERNS = [
   "buglogin-proxy",
   "buglogin-daemon",
   "buglogin-sync",
-  "donut-sync",
+  "buglogin-sync",
   "minio",
 ];
 

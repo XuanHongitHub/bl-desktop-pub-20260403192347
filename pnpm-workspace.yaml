@@ -1,7 +1,7 @@
 packages:
   - nodecar
   - buglogin-sync
-  - donut-sync
+  - buglogin-sync
 
 onlyBuiltDependencies:
   - '@biomejs/biome'
