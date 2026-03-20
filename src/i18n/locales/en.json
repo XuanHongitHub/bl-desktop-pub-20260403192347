@@ -1179,6 +1179,7 @@
     "logoutSuccess": "Logged out successfully.",
     "logoutFailed": "Failed to log out.",
     "inviteServerMissing": "Sync server URL is required to accept an invite token.",
+    "inviteDetected": "Invite link detected. Please complete login to accept access.",
     "inviteAccepted": "Invite accepted successfully.",
     "inviteAcceptFailed": "Logged in, but failed to accept invite token.",
     "googlePendingTitle": "Google Login Pending",

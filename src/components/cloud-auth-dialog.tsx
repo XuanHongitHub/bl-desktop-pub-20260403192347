@@ -21,6 +21,7 @@ import { Label } from "./ui/label";
 interface CloudAuthDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  prefilledInviteToken?: string | null;
 }
 
 interface SyncSettings {
@@ -46,7 +47,11 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export function CloudAuthDialog({ isOpen, onClose }: CloudAuthDialogProps) {
+export function CloudAuthDialog({
+  isOpen,
+  onClose,
+  prefilledInviteToken = null,
+}: CloudAuthDialogProps) {
   const { t } = useTranslation();
   const { requestOtp, verifyOtp } = useCloudAuth();
   const [step, setStep] = useState<AuthStep>("request");
@@ -66,6 +71,14 @@ export function CloudAuthDialog({ isOpen, onClose }: CloudAuthDialogProps) {
       setIsVerifyingOtp(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !prefilledInviteToken) {
+      return;
+    }
+    setInviteToken(prefilledInviteToken);
+    setStep("verify");
+  }, [isOpen, prefilledInviteToken]);
 
   const isBusy = isRequestingOtp || isVerifyingOtp;
 

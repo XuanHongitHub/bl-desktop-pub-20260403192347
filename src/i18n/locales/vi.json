@@ -1179,6 +1179,7 @@
     "logoutSuccess": "Đăng xuất thành công.",
     "logoutFailed": "Không thể đăng xuất.",
     "inviteServerMissing": "Cần cấu hình Sync server URL để chấp nhận invite token.",
+    "inviteDetected": "Đã phát hiện link mời. Vui lòng đăng nhập để nhận quyền.",
     "inviteAccepted": "Đã chấp nhận invite thành công.",
     "inviteAcceptFailed": "Đăng nhập thành công nhưng không thể chấp nhận invite token.",
     "googlePendingTitle": "Google Login đang chờ cấu hình",

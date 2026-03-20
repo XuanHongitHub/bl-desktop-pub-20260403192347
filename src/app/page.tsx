@@ -94,6 +94,26 @@ interface SavedProfileView {
 
 type ProfileViewMode = "active" | "archived";
 
+function extractInviteTokenFromUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    const token =
+      parsed.searchParams.get("token") ||
+      parsed.searchParams.get("invite_token") ||
+      parsed.searchParams.get("inviteToken");
+    if (!token) {
+      return null;
+    }
+    const normalizedToken = token.trim();
+    if (!normalizedToken) {
+      return null;
+    }
+    return normalizedToken;
+  } catch {
+    return null;
+  }
+}
+
 export default function Home() {
   const { t } = useTranslation();
 
@@ -211,6 +231,9 @@ export default function Home() {
   const [syncConfigDialogOpen, setSyncConfigDialogOpen] = useState(false);
   const [syncAllDialogOpen, setSyncAllDialogOpen] = useState(false);
   const [cloudAuthDialogOpen, setCloudAuthDialogOpen] = useState(false);
+  const [prefilledInviteToken, setPrefilledInviteToken] = useState<string | null>(
+    null,
+  );
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
   const [currentProfileForSync, setCurrentProfileForSync] =
     useState<BrowserProfile | null>(null);
@@ -490,6 +513,13 @@ export default function Home() {
 
       try {
         console.log("URL received for opening:", url);
+        const inviteToken = extractInviteTokenFromUrl(url);
+        if (inviteToken) {
+          setPrefilledInviteToken(inviteToken);
+          setCloudAuthDialogOpen(true);
+          showSuccessToast(t("authDialog.inviteDetected"));
+          return;
+        }
 
         // Always show profile selector for manual selection - never auto-open
         // Replace any existing pending URL with the new one
@@ -505,7 +535,7 @@ export default function Home() {
         }, 1000);
       }
     },
-    [processingUrls],
+    [processingUrls, t],
   );
 
   // Auto-update functionality - use the existing hook for compatibility
@@ -1593,7 +1623,10 @@ export default function Home() {
         authEmail={cloudUser?.email ?? null}
         isAuthenticated={Boolean(cloudUser)}
         isAuthBusy={isCloudAuthLoading}
-        onSignIn={() => setCloudAuthDialogOpen(true)}
+        onSignIn={() => {
+          setPrefilledInviteToken(null);
+          setCloudAuthDialogOpen(true);
+        }}
         onSignOut={() => {
           void handleCloudSignOut();
         }}
@@ -1764,7 +1797,11 @@ export default function Home() {
 
       <CloudAuthDialog
         isOpen={cloudAuthDialogOpen}
-        onClose={() => setCloudAuthDialogOpen(false)}
+        prefilledInviteToken={prefilledInviteToken}
+        onClose={() => {
+          setCloudAuthDialogOpen(false);
+          setPrefilledInviteToken(null);
+        }}
       />
 
       <SyncAllDialog
