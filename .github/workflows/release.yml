@@ -34,7 +34,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: out # Chỉnh lại thành out hoặc .next tùy cấu hình của bạn
+          path: dist # Chỉnh lại thành dist hoặc .next tùy cấu hình của bạn
 
   # JOB 2: Đóng gói đa nền tảng
   release:
