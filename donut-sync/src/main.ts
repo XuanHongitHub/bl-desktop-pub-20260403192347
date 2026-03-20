@@ -21,6 +21,6 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3929;
   await app.listen(port);
-  console.log(`Donut Sync service running on port ${port}`);
+  console.log(`BugLogin Sync service running on port ${port}`);
 }
 void bootstrap();

@@ -34,7 +34,7 @@ pub async fn start_vpn_worker(vpn_id: &str) -> Result<VpnWorkerConfig, Box<dyn s
 
   // Write decrypted config to a temp file
   let config_file_path = std::env::temp_dir()
-    .join(format!("donut_vpn_{}.conf", vpn_id))
+    .join(format!("buglogin_vpn_{}.conf", vpn_id))
     .to_string_lossy()
     .to_string();
 
@@ -81,7 +81,7 @@ pub async fn start_vpn_worker(vpn_id: &str) -> Result<VpnWorkerConfig, Box<dyn s
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::null());
 
-    let log_path = std::env::temp_dir().join(format!("donut-vpn-{}.log", id));
+    let log_path = std::env::temp_dir().join(format!("buglogin-vpn-{}.log", id));
     if let Ok(file) = std::fs::File::create(&log_path) {
       log::info!("VPN worker stderr will be logged to: {:?}", log_path);
       cmd.stderr(Stdio::from(file));
@@ -126,7 +126,7 @@ pub async fn start_vpn_worker(vpn_id: &str) -> Result<VpnWorkerConfig, Box<dyn s
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::null());
 
-    let log_path = std::env::temp_dir().join(format!("donut-vpn-{}.log", id));
+    let log_path = std::env::temp_dir().join(format!("buglogin-vpn-{}.log", id));
     if let Ok(file) = std::fs::File::create(&log_path) {
       log::info!("VPN worker stderr will be logged to: {:?}", log_path);
       cmd.stderr(Stdio::from(file));

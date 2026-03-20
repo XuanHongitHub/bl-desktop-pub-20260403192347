@@ -28,7 +28,7 @@ pub fn data_dir() -> PathBuf {
   if let Ok(dir) = std::env::var("BUGLOGIN_DATA_DIR") {
     return PathBuf::from(dir);
   }
-  // Legacy name from upstream Donut — kept for backward compatibility
+  // Legacy upstream env var — kept for backward compatibility
   if let Ok(dir) = std::env::var("DONUTBROWSER_DATA_DIR") {
     return PathBuf::from(dir);
   }
@@ -48,7 +48,7 @@ pub fn cache_dir() -> PathBuf {
   if let Ok(dir) = std::env::var("BUGLOGIN_CACHE_DIR") {
     return PathBuf::from(dir);
   }
-  // Legacy name from upstream Donut — kept for backward compatibility
+  // Legacy upstream env var — kept for backward compatibility
   if let Ok(dir) = std::env::var("DONUTBROWSER_CACHE_DIR") {
     return PathBuf::from(dir);
   }
@@ -171,7 +171,7 @@ mod tests {
 
   #[test]
   fn test_set_test_data_dir() {
-    let tmp = PathBuf::from("/tmp/test-donut-data");
+    let tmp = PathBuf::from("/tmp/test-buglogin-data");
     let _guard = set_test_data_dir(tmp.clone());
     assert_eq!(data_dir(), tmp);
     assert_eq!(profiles_dir(), tmp.join("profiles"));
@@ -180,7 +180,7 @@ mod tests {
 
   #[test]
   fn test_set_test_cache_dir() {
-    let tmp = PathBuf::from("/tmp/test-donut-cache");
+    let tmp = PathBuf::from("/tmp/test-buglogin-cache");
     let _guard = set_test_cache_dir(tmp.clone());
     assert_eq!(cache_dir(), tmp);
   }

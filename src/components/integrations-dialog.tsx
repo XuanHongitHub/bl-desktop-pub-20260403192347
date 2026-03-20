@@ -200,12 +200,6 @@ export function IntegrationsDialog({
               Authorization: `Bearer ${mcpConfig.token}`,
             },
           },
-          "donut-browser": {
-            url: `http://127.0.0.1:${mcpConfig.port}/mcp`,
-            headers: {
-              Authorization: `Bearer ${mcpConfig.token}`,
-            },
-          },
         },
       },
       null,
@@ -219,12 +213,6 @@ export function IntegrationsDialog({
       {
         mcpServers: {
           "buglogin-browser": {
-            url: `http://127.0.0.1:${mcpConfig.port}/mcp`,
-            headers: {
-              Authorization: `Bearer ${obfuscateToken(mcpConfig.token)}`,
-            },
-          },
-          "donut-browser": {
             url: `http://127.0.0.1:${mcpConfig.port}/mcp`,
             headers: {
               Authorization: `Bearer ${obfuscateToken(mcpConfig.token)}`,

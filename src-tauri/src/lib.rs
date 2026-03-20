@@ -409,12 +409,6 @@ async fn get_mcp_config(app_handle: tauri::AppHandle) -> Result<Option<McpConfig
         "headers": {
           "Authorization": format!("Bearer {}", token)
         }
-      },
-      "donut-browser": {
-        "url": format!("http://127.0.0.1:{}/mcp", port),
-        "headers": {
-          "Authorization": format!("Bearer {}", token)
-        }
       }
     }
   })

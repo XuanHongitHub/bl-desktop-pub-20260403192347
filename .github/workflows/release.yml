@@ -270,4 +270,4 @@ jobs:
         run: |
           brew tap --force homebrew/cask
           VERSION="${GITHUB_REF_NAME#v}"
-          brew bump-cask-pr --version "$VERSION" --no-browse donut
+          brew bump-cask-pr --version "$VERSION" --no-browse buglogin

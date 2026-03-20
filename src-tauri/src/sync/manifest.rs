@@ -27,6 +27,7 @@ pub const DEFAULT_EXCLUDE_PATTERNS: &[&str] = &[
   "**/LOG.old",
   "**/LOCK",
   "**/*-journal",
+  ".buglogin-sync/**",
   ".donut-sync/**",
 ];
 
@@ -444,7 +445,7 @@ pub fn compute_diff(local: &SyncManifest, remote: Option<&SyncManifest>) -> Mani
 
 /// Get the path to the hash cache file for a profile
 pub fn get_cache_path(profile_dir: &Path) -> std::path::PathBuf {
-  profile_dir.join(".donut-sync").join("cache.json")
+  profile_dir.join(".buglogin-sync").join("cache.json")
 }
 
 #[cfg(test)]

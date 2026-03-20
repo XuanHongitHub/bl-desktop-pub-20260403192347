@@ -116,8 +116,8 @@ pub struct AppAutoUpdater {
   extractor: &'static crate::extraction::Extractor,
 }
 
-const APP_UPDATE_GITHUB_OWNER: &str = "zhom";
-const APP_UPDATE_GITHUB_REPO: &str = "donutbrowser";
+const APP_UPDATE_GITHUB_OWNER: &str = "xuanhong04";
+const APP_UPDATE_GITHUB_REPO: &str = "bug-login-release";
 
 impl AppAutoUpdater {
   fn new() -> Self {
@@ -733,7 +733,7 @@ impl AppAutoUpdater {
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     log::info!("Starting background update download and install");
 
-    let temp_dir = std::env::temp_dir().join("donut_app_update");
+    let temp_dir = std::env::temp_dir().join("buglogin_app_update");
     fs::create_dir_all(&temp_dir)?;
 
     let filename = update_info
@@ -1402,7 +1402,7 @@ impl AppAutoUpdater {
 
       // Create a temporary restart script
       let temp_dir = std::env::temp_dir();
-      let script_path = temp_dir.join("donut_restart.sh");
+      let script_path = temp_dir.join("buglogin_restart.sh");
 
       // Create the restart script content
       let script_content = format!(
@@ -1458,8 +1458,8 @@ rm "{}"
       let pending = PENDING_INSTALLER_PATH.lock().unwrap().take();
 
       let temp_dir = std::env::temp_dir();
-      let script_path = temp_dir.join("donut_restart.bat");
-      let update_temp_dir = temp_dir.join("donut_app_update");
+      let script_path = temp_dir.join("buglogin_restart.bat");
+      let update_temp_dir = temp_dir.join("buglogin_app_update");
 
       let script_content = if let Some(installer_path) = pending {
         let ext = installer_path
@@ -1553,7 +1553,7 @@ del "%~f0"
 
       // Create a temporary restart script
       let temp_dir = std::env::temp_dir();
-      let script_path = temp_dir.join("donut_restart.sh");
+      let script_path = temp_dir.join("buglogin_restart.sh");
 
       // Create the restart script content
       let script_content = format!(
@@ -1775,18 +1775,18 @@ mod tests {
     let all_assets = vec![
       // macOS assets
       AppReleaseAsset {
-        name: "Donut.Browser_0.1.0_aarch64.dmg".to_string(),
+        name: "BugLogin.Browser_0.1.0_aarch64.dmg".to_string(),
         browser_download_url: "https://example.com/aarch64.dmg".to_string(),
         size: 12345,
       },
       AppReleaseAsset {
-        name: "Donut.Browser_0.1.0_x64.dmg".to_string(),
+        name: "BugLogin.Browser_0.1.0_x64.dmg".to_string(),
         browser_download_url: "https://example.com/x64.dmg".to_string(),
         size: 12345,
       },
       // Windows assets (NSIS naming: _ARCH-setup.exe)
       AppReleaseAsset {
-        name: "Donut_0.1.0_x64-setup.exe".to_string(),
+        name: "BugLogin_0.1.0_x64-setup.exe".to_string(),
         browser_download_url: "https://example.com/x64-setup.exe".to_string(),
         size: 12345,
       },
@@ -1802,7 +1802,7 @@ mod tests {
         size: 12345,
       },
       AppReleaseAsset {
-        name: "Donut.Browser-0.1.0-x86_64.AppImage".to_string(),
+        name: "BugLogin.Browser-0.1.0-x86_64.AppImage".to_string(),
         browser_download_url: "https://example.com/x86_64.AppImage".to_string(),
         size: 12345,
       },
@@ -1909,7 +1909,7 @@ mod tests {
         size: 12345,
       },
       AppReleaseAsset {
-        name: "Donut.Browser-0.1.0-x86_64.AppImage".to_string(),
+        name: "BugLogin.Browser-0.1.0-x86_64.AppImage".to_string(),
         browser_download_url: "https://example.com/x86_64.AppImage".to_string(),
         size: 12345,
       },
@@ -1949,13 +1949,13 @@ mod tests {
     let all_assets = vec![
       // macOS assets
       AppReleaseAsset {
-        name: "Donut.Browser_0.1.0_aarch64.dmg".to_string(),
+        name: "BugLogin.Browser_0.1.0_aarch64.dmg".to_string(),
         browser_download_url: "https://example.com/aarch64.dmg".to_string(),
         size: 12345,
       },
       // Windows assets
       AppReleaseAsset {
-        name: "Donut.Browser_0.1.0_x64.msi".to_string(),
+        name: "BugLogin.Browser_0.1.0_x64.msi".to_string(),
         browser_download_url: "https://example.com/x64.msi".to_string(),
         size: 12345,
       },
@@ -1966,7 +1966,7 @@ mod tests {
         size: 12345,
       },
       AppReleaseAsset {
-        name: "Donut.Browser-0.1.0-x86_64.AppImage".to_string(),
+        name: "BugLogin.Browser-0.1.0-x86_64.AppImage".to_string(),
         browser_download_url: "https://example.com/x86_64.AppImage".to_string(),
         size: 12345,
       },
