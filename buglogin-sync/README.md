@@ -25,6 +25,52 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## BugLogin API Surface
+
+This service now provides two API groups:
+
+- `v1/objects/*` for sync object storage (S3 presign/list/delete/subscribe).
+- `v1/control/*` for workspace control-plane APIs (workspace, membership, invite, entitlement, share, coupon, audit).
+
+Additional operational endpoints:
+
+- `GET /health`
+- `GET /readyz`
+- `GET /config-status`
+
+### Control-plane highlights
+
+- Workspace lifecycle:
+  - `POST /v1/control/workspaces`
+  - `GET /v1/control/workspaces`
+  - `GET /v1/control/workspaces/:workspaceId/overview`
+- Membership + invite:
+  - `GET /v1/control/workspaces/:workspaceId/members`
+  - `PATCH /v1/control/workspaces/:workspaceId/members/:targetUserId/role`
+  - `POST /v1/control/workspaces/:workspaceId/members/:targetUserId/remove`
+  - `POST /v1/control/workspaces/:workspaceId/members/invite`
+  - `GET /v1/control/workspaces/:workspaceId/invites`
+  - `POST /v1/control/workspaces/:workspaceId/invites/:inviteId/revoke`
+  - `POST /v1/control/auth/invite/accept`
+- Entitlement + sharing:
+  - `GET /v1/control/workspaces/:workspaceId/entitlement`
+  - `PATCH /v1/control/workspaces/:workspaceId/entitlement`
+  - `POST /v1/control/workspaces/:workspaceId/share-grants`
+  - `GET /v1/control/workspaces/:workspaceId/share-grants`
+  - `POST /v1/control/workspaces/:workspaceId/share-grants/:shareGrantId/revoke`
+- Coupon + admin:
+  - `POST /v1/control/workspaces/:workspaceId/coupons/select-best`
+  - `POST /v1/control/admin/coupons`
+  - `GET /v1/control/admin/coupons`
+  - `POST /v1/control/admin/coupons/:couponId/revoke`
+  - `GET /v1/control/admin/audit-logs`
+  - `GET /v1/control/admin/overview`
+
+> Current control-plane storage is in-memory for implementation bring-up.
+> Replace `ControlService` storage maps with Postgres repositories before production rollout.
+> Bootstrap schema for Postgres target is available at `docs/control-plane-postgres-schema.sql`.
+> Production topology recommendations are documented in `docs/production-architecture.md`.
+
 ## Project setup
 
 ```bash

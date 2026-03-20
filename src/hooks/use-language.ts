@@ -15,7 +15,7 @@ interface AppSettings {
 export function useLanguage() {
   const { i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
-  const [currentLanguage, setCurrentLanguage] = useState<string>("en");
+  const [currentLanguage, setCurrentLanguage] = useState<string>("vi");
 
   const loadLanguage = useCallback(async () => {
     try {
@@ -33,6 +33,10 @@ export function useLanguage() {
       ) {
         await i18n.changeLanguage(language);
         setCurrentLanguage(language);
+      } else {
+        // Migrate removed locales to the new default.
+        await i18n.changeLanguage("vi");
+        setCurrentLanguage("vi");
       }
     } catch (error) {
       console.error("Failed to load language setting:", error);

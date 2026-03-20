@@ -21,6 +21,7 @@ import { ImportProfileDialog } from "@/components/import-profile-dialog";
 import { IntegrationsDialog } from "@/components/integrations-dialog";
 import { LaunchOnLoginDialog } from "@/components/launch-on-login-dialog";
 import { PermissionDialog } from "@/components/permission-dialog";
+import { PlatformAdminWorkspace } from "@/components/platform-admin-workspace";
 import { ProfilesDataTable } from "@/components/profile-data-table";
 import { ProfileSelectorDialog } from "@/components/profile-selector-dialog";
 import { ProfileSyncDialog } from "@/components/profile-sync-dialog";
@@ -43,6 +44,7 @@ import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useProfileEvents } from "@/hooks/use-profile-events";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
+import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useUpdateNotifications } from "@/hooks/use-update-notifications";
 import { useVersionUpdater } from "@/hooks/use-version-updater";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
@@ -64,7 +66,6 @@ import type {
   AppSection,
   BrowserProfile,
   CamoufoxConfig,
-  SyncSettings,
   WayfernConfig,
 } from "@/types";
 
@@ -129,23 +130,13 @@ export default function Home() {
   const { user: cloudUser } = useCloudAuth();
   const crossOsUnlocked = true;
   const teamRole = normalizeTeamRole(cloudUser?.teamRole);
-
-  const [selfHostedSyncConfigured, setSelfHostedSyncConfigured] =
-    useState(false);
-
-  const checkSelfHostedSync = useCallback(async () => {
-    try {
-      const settings = await invoke<SyncSettings>("get_sync_settings");
-      const hasConfig = Boolean(
-        settings.sync_server_url && settings.sync_token,
-      );
-      setSelfHostedSyncConfigured(hasConfig && !cloudUser);
-    } catch {
-      setSelfHostedSyncConfigured(false);
-    }
-  }, [cloudUser]);
-
-  const syncUnlocked = crossOsUnlocked || selfHostedSyncConfigured;
+  const { entitlement, isReadOnly, runtimeConfig } = useRuntimeAccess();
+  const syncUnlocked = runtimeConfig?.s3_sync === "ready";
+  const canAccessAdminWorkspace =
+    !cloudUser ||
+    cloudUser?.platformRole === "platform_admin" ||
+    teamRole === "owner" ||
+    teamRole === "admin";
 
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
@@ -302,15 +293,51 @@ export default function Home() {
 
   const requireTeamPermission = useCallback(
     (action: TeamAction): boolean => {
+      if (isReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
+        return false;
+      }
+
       if (canPerformTeamAction(teamRole, action)) {
         return true;
       }
 
-      showErrorToast(t("sync.team.permissionDenied"));
+      showErrorToast(t("sync.team.permissionDenied"), {
+        description: "permission_denied",
+      });
       return false;
     },
-    [t, teamRole],
+    [isReadOnly, t, teamRole],
   );
+
+  const pendingConfigMessages = useMemo(() => {
+    const messages: string[] = [];
+
+    if (runtimeConfig?.auth === "pending_config") {
+      messages.push(t("runtime.pendingAuth"));
+    }
+
+    if (runtimeConfig?.stripe === "pending_config") {
+      messages.push(t("runtime.pendingStripe"));
+    }
+
+    if (runtimeConfig?.s3_sync === "pending_config") {
+      messages.push(t("runtime.pendingSync"));
+    }
+
+    return messages;
+  }, [runtimeConfig, t]);
+
+  useEffect(() => {
+    if (activeSection === "admin" && !canAccessAdminWorkspace) {
+      setActiveSection("profiles");
+      showErrorToast(t("adminWorkspace.noAccessTitle"), {
+        description: t("adminWorkspace.noAccessDescription"),
+      });
+    }
+  }, [activeSection, canAccessAdminWorkspace, t]);
 
   const handleSelectGroup = useCallback((groupId: string) => {
     setSelectedGroupId(groupId);
@@ -673,7 +700,7 @@ export default function Home() {
       launchAfterCreate?: boolean;
     }) => {
       if (!requireTeamPermission("create_profile")) {
-        throw new Error("Permission denied for viewer role");
+        throw new Error("permission_denied");
       }
 
       const loadingToastId = `profile-create-${Date.now()}`;
@@ -826,7 +853,7 @@ export default function Home() {
   const handleRenameProfile = useCallback(
     async (profileId: string, newName: string) => {
       if (!requireTeamPermission("rename_profile")) {
-        throw new Error("Permission denied for viewer role");
+        throw new Error("permission_denied");
       }
 
       try {
@@ -846,7 +873,7 @@ export default function Home() {
   const handleKillProfile = useCallback(
     async (profile: BrowserProfile) => {
       if (!requireTeamPermission("stop_profile")) {
-        throw new Error("Permission denied for viewer role");
+        throw new Error("permission_denied");
       }
 
       console.log("Starting stop for profile:", profile.name);
@@ -1332,11 +1359,6 @@ export default function Home() {
     }
   }, [isInitialized, checkAllPermissions]);
 
-  // Check self-hosted sync config on mount and when cloud user changes
-  useEffect(() => {
-    void checkSelfHostedSync();
-  }, [checkSelfHostedSync]);
-
   // Filter data by selected group and search query
   const filteredProfiles = useMemo(() => {
     const archivedIdSet = new Set(archivedProfileIds);
@@ -1426,6 +1448,28 @@ export default function Home() {
             onClose={() => void 0}
             mode="page"
           />
+        );
+      case "admin":
+        if (!canAccessAdminWorkspace) {
+          return (
+            <WorkspacePageShell
+              title={t("shell.sections.profiles")}
+              description={t("adminWorkspace.noAccessDescription")}
+              contentClassName="max-w-none space-y-4 pb-0"
+            />
+          );
+        }
+        return (
+          <WorkspacePageShell
+            title={t("shell.sections.admin")}
+            description={t("adminWorkspace.subtitle")}
+            contentClassName="max-w-none space-y-4 pb-0"
+          >
+            <PlatformAdminWorkspace
+              runtimeConfig={runtimeConfig}
+              entitlement={entitlement}
+            />
+          </WorkspacePageShell>
         );
       default:
         return (
@@ -1528,10 +1572,16 @@ export default function Home() {
         collapsed={sidebarCollapsed}
         onSectionChange={setActiveSection}
         onCollapsedChange={setSidebarCollapsed}
+        showAdminSection={canAccessAdminWorkspace}
       />
 
       <main className="app-shell-safe flex min-w-0 flex-1 flex-col overflow-hidden pl-6 pb-4 md:pl-8 md:pb-6">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {pendingConfigMessages.length > 0 && (
+            <div className="mb-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+              {pendingConfigMessages.join(" • ")}
+            </div>
+          )}
           {renderActiveSection()}
         </div>
       </main>
@@ -1682,7 +1732,6 @@ export default function Home() {
         isOpen={syncConfigDialogOpen}
         onClose={(loginOccurred) => {
           setSyncConfigDialogOpen(false);
-          void checkSelfHostedSync();
           if (loginOccurred) {
             setSyncAllDialogOpen(true);
           }

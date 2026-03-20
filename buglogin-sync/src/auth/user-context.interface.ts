@@ -4,4 +4,6 @@ export interface UserContext {
   teamPrefix: string | null; // 'teams/{id}/' or null
   profileLimit: number; // 0 for unlimited (self-hosted)
   teamProfileLimit: number; // 0 for unlimited or non-team users
+  maxSharedProfiles: number; // 0 for unlimited
+  syncStorageCapMb: number; // 0 for unlimited
 }

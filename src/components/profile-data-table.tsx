@@ -74,6 +74,7 @@ import {
 import { useBrowserState } from "@/hooks/use-browser-state";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
+import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useTableSorting } from "@/hooks/use-table-sorting";
 import { useTeamLocks } from "@/hooks/use-team-locks";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
@@ -959,8 +960,11 @@ export function ProfilesDataTable({
   const { storedProxies } = useProxyEvents();
   const { vpnConfigs } = useVpnEvents();
   const { user } = useCloudAuth();
+  const { isReadOnly: isEntitlementReadOnly } = useRuntimeAccess();
   const teamRole = normalizeTeamRole(user?.teamRole);
-  const isReadOnlyRole = !canPerformTeamAction(teamRole, "update_profile_note");
+  const isReadOnlyRole =
+    isEntitlementReadOnly ||
+    !canPerformTeamAction(teamRole, "update_profile_note");
   const { isProfileLocked, getLockInfo } = useTeamLocks(user?.id);
 
   const [proxyOverrides, setProxyOverrides] = React.useState<
@@ -1061,8 +1065,17 @@ export function ProfilesDataTable({
 
   const handleProxySelection = React.useCallback(
     async (profileId: string, proxyId: string | null) => {
+      if (isEntitlementReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
+        return;
+      }
+
       if (!canPerformTeamAction(teamRole, "assign_proxy")) {
-        showErrorToast(t("sync.team.permissionDenied"));
+        showErrorToast(t("sync.team.permissionDenied"), {
+          description: "permission_denied",
+        });
         return;
       }
 
@@ -1083,13 +1096,22 @@ export function ProfilesDataTable({
         setOpenProxySelectorFor(null);
       }
     },
-    [t, teamRole],
+    [isEntitlementReadOnly, t, teamRole],
   );
 
   const handleVpnSelection = React.useCallback(
     async (profileId: string, vpnId: string | null) => {
+      if (isEntitlementReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
+        return;
+      }
+
       if (!canPerformTeamAction(teamRole, "update_profile_vpn")) {
-        showErrorToast(t("sync.team.permissionDenied"));
+        showErrorToast(t("sync.team.permissionDenied"), {
+          description: "permission_denied",
+        });
         return;
       }
 
@@ -1110,13 +1132,22 @@ export function ProfilesDataTable({
         setOpenProxySelectorFor(null);
       }
     },
-    [t, teamRole],
+    [isEntitlementReadOnly, t, teamRole],
   );
 
   const handleCreateCountryProxy = React.useCallback(
     async (profileId: string, country: LocationItem) => {
+      if (isEntitlementReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
+        return;
+      }
+
       if (!canPerformTeamAction(teamRole, "assign_proxy")) {
-        showErrorToast(t("sync.team.permissionDenied"));
+        showErrorToast(t("sync.team.permissionDenied"), {
+          description: "permission_denied",
+        });
         return;
       }
 
@@ -1146,7 +1177,7 @@ export function ProfilesDataTable({
         });
       }
     },
-    [handleProxySelection, t, teamRole],
+    [handleProxySelection, isEntitlementReadOnly, t, teamRole],
   );
 
   // Use shared browser state hook
@@ -2906,6 +2937,7 @@ export function ProfilesDataTable({
             tooltip={t("profiles.actions.assignToGroup")}
             onClick={onBulkGroupAssignment}
             size="icon"
+            disabled={isReadOnlyRole}
           >
             <LuUsers />
           </DataTableActionBarAction>
@@ -2915,6 +2947,7 @@ export function ProfilesDataTable({
             tooltip={t("profiles.table.assignProxy")}
             onClick={onBulkProxyAssignment}
             size="icon"
+            disabled={isReadOnlyRole}
           >
             <FiWifi />
           </DataTableActionBarAction>
@@ -2928,7 +2961,7 @@ export function ProfilesDataTable({
             }
             onClick={onBulkExtensionGroupAssignment}
             size="icon"
-            disabled={!crossOsUnlocked}
+            disabled={!crossOsUnlocked || isReadOnlyRole}
           >
             <span className="relative">
               <LuPuzzle />
@@ -2949,7 +2982,7 @@ export function ProfilesDataTable({
             }
             onClick={onBulkCopyCookies}
             size="icon"
-            disabled={!crossOsUnlocked}
+            disabled={!crossOsUnlocked || isReadOnlyRole}
           >
             <span className="relative">
               <LuCookie />
@@ -2968,6 +3001,7 @@ export function ProfilesDataTable({
             size="icon"
             variant="destructive"
             className="border-destructive bg-destructive/50 hover:bg-destructive/70"
+            disabled={isReadOnlyRole}
           >
             <LuTrash2 />
           </DataTableActionBarAction>
@@ -2977,6 +3011,7 @@ export function ProfilesDataTable({
             tooltip={t("profiles.actions.archive")}
             onClick={onBulkArchive}
             size="icon"
+            disabled={isReadOnlyRole}
           >
             <LuArchive />
           </DataTableActionBarAction>

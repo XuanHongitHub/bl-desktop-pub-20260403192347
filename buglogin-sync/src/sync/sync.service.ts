@@ -204,6 +204,9 @@ export class SyncService implements OnModuleInit {
     if (ctx.mode === "cloud" && ctx.profileLimit > 0) {
       await this.checkProfileLimit(ctx);
     }
+    if (ctx.mode === "cloud" && ctx.syncStorageCapMb > 0) {
+      await this.checkStorageCap(ctx, key);
+    }
 
     const expiresIn = dto.expiresIn || 3600;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
@@ -345,10 +348,20 @@ export class SyncService implements OnModuleInit {
     const expiresIn = dto.expiresIn || 3600;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
+    const checkedStoragePrefixes = new Set<string>();
+
     const items = await Promise.all(
       dto.items.map(async (item) => {
         const key = this.scopeKey(ctx, item.key);
         this.validateKeyAccess(ctx, key);
+
+        if (ctx.mode === "cloud" && ctx.syncStorageCapMb > 0) {
+          const storagePrefix = this.resolveStoragePrefix(ctx, key);
+          if (!checkedStoragePrefixes.has(storagePrefix)) {
+            await this.checkStorageCap(ctx, key);
+            checkedStoragePrefixes.add(storagePrefix);
+          }
+        }
 
         const command = new PutCmd({
           Bucket: this.bucket,
@@ -721,6 +734,52 @@ export class SyncService implements OnModuleInit {
     if (count >= ctx.profileLimit) {
       throw new ForbiddenException(
         `Profile limit reached (${ctx.profileLimit}). Upgrade your plan for more profiles.`,
+      );
+    }
+  }
+
+  private resolveStoragePrefix(ctx: UserContext, key: string): string {
+    if (ctx.teamPrefix && key.startsWith(ctx.teamPrefix)) {
+      return ctx.teamPrefix;
+    }
+    return ctx.prefix;
+  }
+
+  private async countPrefixBytes(prefix: string): Promise<number> {
+    let totalBytes = 0;
+    let continuationToken: string | undefined;
+
+    do {
+      const result = await this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          MaxKeys: 1000,
+          ContinuationToken: continuationToken,
+        }),
+      );
+
+      totalBytes += (result.Contents || []).reduce(
+        (sum, object) => sum + (object.Size || 0),
+        0,
+      );
+      continuationToken = result.NextContinuationToken;
+    } while (continuationToken);
+
+    return totalBytes;
+  }
+
+  private async checkStorageCap(ctx: UserContext, key: string): Promise<void> {
+    if (ctx.syncStorageCapMb <= 0) return;
+
+    const capBytes = ctx.syncStorageCapMb * 1024 * 1024;
+    const currentUsage = await this.countPrefixBytes(
+      this.resolveStoragePrefix(ctx, key),
+    );
+
+    if (currentUsage >= capBytes) {
+      throw new ForbiddenException(
+        `Sync storage cap reached (${ctx.syncStorageCapMb} MB). Ask the workspace owner to upgrade.`,
       );
     }
   }

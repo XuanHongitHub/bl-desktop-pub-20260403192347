@@ -33,6 +33,8 @@ export function I18nProvider({ children }: I18nProviderProps) {
           SUPPORTED_LANGUAGES.some((lang) => lang.code === language)
         ) {
           await i18n.changeLanguage(language);
+        } else {
+          await i18n.changeLanguage("vi");
         }
       } catch (error) {
         console.error("Failed to initialize language:", error);

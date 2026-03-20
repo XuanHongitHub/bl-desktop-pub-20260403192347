@@ -8,10 +8,13 @@
 //! Create a file at `<AppData>/BugLogin/settings/buglogin-config.json`:
 //! ```json
 //! {
-//!   "cloud_api_url": "https://api.kmediaz.com",
-//!   "cloud_sync_url": "https://sync.kmediaz.com",
-//!   "update_check_url": "https://api.kmediaz.com/v1/app/check-update",
-//!   "browser_manifest_url": "https://api.kmediaz.com/v1/browsers/manifest"
+//!   "cloud_api_url": "https://api.buglogin.com",
+//!   "cloud_sync_url": "https://sync.buglogin.com",
+//!   "update_check_url": "https://api.buglogin.com/v1/app/check-update",
+//!   "browser_manifest_url": "https://api.buglogin.com/v1/browsers/manifest",
+//!   "auth_api_url": "https://auth.example.com",
+//!   "stripe_publishable_key": "pk_live_...",
+//!   "stripe_billing_url": "https://billing.example.com"
 //! }
 //! ```
 //!
@@ -40,17 +43,30 @@ pub struct AppEndpoints {
   /// Full URL to the browser version manifest JSON.
   /// Controls which browser versions are approved for deployment.
   pub browser_manifest_url: String,
+
+  /// Optional base URL for auth/control-plane API.
+  #[serde(default)]
+  pub auth_api_url: Option<String>,
+
+  /// Optional Stripe publishable key used by billing UI.
+  #[serde(default)]
+  pub stripe_publishable_key: Option<String>,
+
+  /// Optional billing portal/checkout endpoint.
+  #[serde(default)]
+  pub stripe_billing_url: Option<String>,
 }
 
 impl Default for AppEndpoints {
   fn default() -> Self {
     Self {
-      // NOTE: These are the intended production values.
-      // They will start working automatically once the kmediaz.com API is live.
-      cloud_api_url: "https://api.kmediaz.com".to_string(),
-      cloud_sync_url: "https://sync.kmediaz.com".to_string(),
-      update_check_url: "https://api.kmediaz.com/v1/app/check-update".to_string(),
-      browser_manifest_url: "https://api.kmediaz.com/v1/browsers/manifest".to_string(),
+      cloud_api_url: "https://api.buglogin.com".to_string(),
+      cloud_sync_url: "https://sync.buglogin.com".to_string(),
+      update_check_url: "https://api.buglogin.com/v1/app/check-update".to_string(),
+      browser_manifest_url: "https://api.buglogin.com/v1/browsers/manifest".to_string(),
+      auth_api_url: None,
+      stripe_publishable_key: None,
+      stripe_billing_url: None,
     }
   }
 }
@@ -65,7 +81,7 @@ pub fn get() -> &'static AppEndpoints {
       log::info!("app_config: loaded runtime endpoint overrides from buglogin-config.json");
       config
     } else {
-      log::info!("app_config: using default endpoints (api.kmediaz.com)");
+      log::info!("app_config: using default endpoints (api.buglogin.com)");
       AppEndpoints::default()
     }
   })

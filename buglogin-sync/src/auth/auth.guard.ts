@@ -44,6 +44,8 @@ export class AuthGuard implements CanActivate {
         teamPrefix: null,
         profileLimit: 0,
         teamProfileLimit: 0,
+        maxSharedProfiles: 0,
+        syncStorageCapMb: 0,
       } satisfies UserContext;
       return true;
     }
@@ -61,6 +63,8 @@ export class AuthGuard implements CanActivate {
           teamPrefix: decoded.teamPrefix || null,
           profileLimit: decoded.profileLimit || 0,
           teamProfileLimit: decoded.teamProfileLimit || 0,
+          maxSharedProfiles: decoded.maxSharedProfiles || 0,
+          syncStorageCapMb: decoded.syncStorageCapMb || 0,
         } satisfies UserContext;
         return true;
       } catch (err) {

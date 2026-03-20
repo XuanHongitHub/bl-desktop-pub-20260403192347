@@ -18,7 +18,7 @@ use crate::settings_manager::SettingsManager;
 use crate::sync;
 
 // CLOUD_API_URL and CLOUD_SYNC_URL are runtime-configurable via app_config.
-// They default to kmediaz.com but can be overridden via settings/buglogin-config.json.
+// They default to buglogin.com endpoints and can be overridden via settings/buglogin-config.json.
 lazy_static! {
   /// Public lazy_static for external consumers (e.g. team_lock.rs).
   pub static ref CLOUD_API_URL: String = crate::app_config::get().cloud_api_url.clone();
@@ -56,6 +56,8 @@ pub struct CloudUser {
   pub team_name: Option<String>,
   #[serde(rename = "teamRole", default)]
   pub team_role: Option<String>,
+  #[serde(rename = "platformRole", default)]
+  pub platform_role: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

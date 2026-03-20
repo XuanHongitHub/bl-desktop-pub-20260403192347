@@ -28,6 +28,7 @@ mod extraction;
 mod geoip_downloader;
 mod group_manager;
 mod ip_utils;
+mod entitlement;
 mod platform_browser;
 mod profile;
 mod profile_importer;
@@ -1500,6 +1501,10 @@ pub fn run() {
       cloud_auth::cloud_get_cities,
       cloud_auth::create_cloud_location_proxy,
       cloud_auth::restart_sync_service,
+      entitlement::get_entitlement_state,
+      entitlement::set_entitlement_state,
+      entitlement::is_entitlement_read_only,
+      entitlement::get_runtime_config_status,
       // Team lock commands
       team_lock::get_team_locks,
       team_lock::get_team_lock_status,
@@ -1546,6 +1551,8 @@ mod tests {
       "set_extension_sync_enabled",
       "set_extension_group_sync_enabled",
       "get_team_lock_status",
+      "set_entitlement_state",
+      "is_entitlement_read_only",
     ];
 
     // Extract command names from the generate_handler! macro in this file

@@ -1135,6 +1135,76 @@
       }
     }
   },
+  "entitlement": {
+    "readOnlyDenied": "Workspace đang ở chế độ chỉ đọc",
+    "readOnlyDescription": "Khôi phục thanh toán để tiếp tục chỉnh sửa, đồng bộ và chia sẻ."
+  },
+  "runtime": {
+    "pendingAuth": "Dịch vụ xác thực chưa được cấu hình đầy đủ.",
+    "pendingStripe": "Stripe billing chưa được cấu hình đầy đủ.",
+    "pendingSync": "Đang ở chế độ local-only cho tới khi cấu hình S3 sync."
+  },
+  "adminWorkspace": {
+    "subtitle": "Vùng quản trị nền tảng cho billing, entitlement và vận hành.",
+    "reasonRequired": "Bắt buộc nhập lý do cho thao tác này.",
+    "noAccessTitle": "Bạn không có quyền vào Admin Workspace",
+    "noAccessDescription": "Chỉ owner/admin hoặc platform admin mới truy cập được khu vực quản trị này.",
+    "entitlementUpdated": "Đã cập nhật trạng thái entitlement.",
+    "entitlementUpdateFailed": "Không thể cập nhật trạng thái entitlement.",
+    "overview": {
+      "title": "Tổng quan nền tảng",
+      "description": "Giữ các control quan trọng luôn rõ ràng để vận hành auth, billing và sync an toàn khi release.",
+      "configStatus": "Trạng thái cấu hình",
+      "entitlement": "Trạng thái entitlement hiện tại",
+      "auditRetention": "Thời gian lưu audit",
+      "auditRetentionValue": "365 ngày"
+    },
+    "entitlementControl": {
+      "title": "Điều khiển Entitlement",
+      "description": "Thao tác nhạy cảm bắt buộc có lý do và được ghi vào audit log.",
+      "reasonPlaceholder": "Lý do thay đổi (bắt buộc)",
+      "setActive": "Đặt Active",
+      "setGrace": "Đặt Grace",
+      "setReadOnly": "Đặt Chỉ đọc"
+    },
+    "status": {
+      "unknown": "Chưa đọc được trạng thái cấu hình",
+      "authPending": "Auth chưa cấu hình",
+      "stripePending": "Stripe chưa cấu hình",
+      "syncPending": "S3 sync chưa cấu hình",
+      "allReady": "Các dịch vụ lõi đã sẵn sàng",
+      "entitlementActive": "Đang hoạt động",
+      "entitlementGrace": "Đang grace period",
+      "entitlementReadOnly": "Chỉ đọc"
+    },
+    "modules": {
+      "statusReady": "Sẵn sàng",
+      "workspaceUsers": {
+        "title": "Workspace & Người dùng",
+        "description": "Quản lý workspace, số seat đang dùng và quyền thành viên."
+      },
+      "billingEntitlement": {
+        "title": "Billing & Entitlement",
+        "description": "Theo dõi vòng đời subscription, grace period và chuyển trạng thái read-only."
+      },
+      "coupon": {
+        "title": "Quản trị coupon",
+        "description": "Kiểm soát giảm giá nội bộ với allowlist, ngày hết hạn và giới hạn lượt dùng."
+      },
+      "audit": {
+        "title": "Nhật ký audit",
+        "description": "Tra cứu thao tác nhạy cảm với người thực hiện, lý do và kết quả."
+      },
+      "systemConfig": {
+        "title": "Cấu hình hệ thống",
+        "description": "Theo dõi độ sẵn sàng của auth, Stripe và S3 mà không chặn app khởi động."
+      },
+      "analytics": {
+        "title": "Analytics vận hành & doanh thu",
+        "description": "Theo dõi sức khỏe hệ thống và snapshot doanh thu trong một workspace."
+      }
+    }
+  },
   "shell": {
     "subtitle": "Làm việc theo workspace",
     "workspaceMode": "Chế độ workspace",
@@ -1146,7 +1216,8 @@
       "automation": "Automation",
       "proxies": "Proxy & VPN",
       "settings": "Cài đặt",
-      "integrations": "Tích hợp"
+      "integrations": "Tích hợp",
+      "admin": "Admin Workspace"
     },
     "shared": {
       "enabled": "Bật",

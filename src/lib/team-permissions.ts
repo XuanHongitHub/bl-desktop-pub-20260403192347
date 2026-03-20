@@ -13,7 +13,10 @@ export type TeamAction =
   | "toggle_profile_sync"
   | "update_profile_tags"
   | "update_profile_note"
-  | "update_profile_vpn";
+  | "update_profile_vpn"
+  | "share_profile"
+  | "share_group"
+  | "export_profile";
 
 const WRITE_ACTIONS: readonly TeamAction[] = [
   "create_profile",
@@ -29,12 +32,22 @@ const WRITE_ACTIONS: readonly TeamAction[] = [
   "update_profile_tags",
   "update_profile_note",
   "update_profile_vpn",
+  "share_profile",
+  "share_group",
+  "export_profile",
 ];
+
+const MEMBER_ACTIONS: readonly TeamAction[] = WRITE_ACTIONS.filter(
+  (action) =>
+    action !== "share_profile" &&
+    action !== "share_group" &&
+    action !== "export_profile",
+);
 
 const TEAM_PERMISSION_MATRIX: Record<TeamRole, Set<TeamAction>> = {
   owner: new Set(WRITE_ACTIONS),
   admin: new Set(WRITE_ACTIONS),
-  member: new Set(WRITE_ACTIONS),
+  member: new Set(MEMBER_ACTIONS),
   viewer: new Set(),
 };
 

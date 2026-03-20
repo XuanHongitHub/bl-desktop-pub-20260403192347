@@ -3,6 +3,7 @@
 import {
   ChevronRight,
   Globe,
+  LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
@@ -47,20 +48,29 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const ADMIN_NAV_ITEM: NavItem = {
+  id: "admin",
+  labelKey: "shell.sections.admin",
+  icon: LayoutDashboard,
+};
+
 type Props = {
   activeSection: AppSection;
   collapsed: boolean;
   onSectionChange: (section: AppSection) => void;
-  onToggleCollapsed?: () => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
+  showAdminSection?: boolean;
 };
 
 export function AppSidebar({
   activeSection,
   collapsed,
   onSectionChange,
-  onToggleCollapsed,
+  onCollapsedChange,
+  showAdminSection = false,
 }: Props) {
   const { t } = useTranslation();
+  const navItems = showAdminSection ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -142,12 +152,12 @@ export function AppSidebar({
             </Tooltip>
 
             {/* Expand toggle — same header zone as the collapse toggle */}
-            {onToggleCollapsed && (
+            {onCollapsedChange && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={onToggleCollapsed}
+                    onClick={() => onCollapsedChange(false)}
                     aria-label={t("shell.expandSidebar")}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
@@ -169,10 +179,10 @@ export function AppSidebar({
             >
               <Logo variant="full" className="h-7 max-w-[148px]" />
             </button>
-            {onToggleCollapsed && (
+            {onCollapsedChange && (
               <button
                 type="button"
-                onClick={onToggleCollapsed}
+                onClick={() => onCollapsedChange(true)}
                 aria-label={t("shell.collapseSidebar")}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
@@ -186,7 +196,7 @@ export function AppSidebar({
       {/* ── Navigation ── */}
       <ScrollArea className="flex-1 px-2 pb-3 pt-1">
         <div className="space-y-0.5 pb-2">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <div key={item.id}>{renderNavItem(item)}</div>
           ))}
         </div>

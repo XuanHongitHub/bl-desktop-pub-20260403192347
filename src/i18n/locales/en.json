@@ -1135,6 +1135,76 @@
       }
     }
   },
+  "entitlement": {
+    "readOnlyDenied": "Workspace is in read-only mode",
+    "readOnlyDescription": "Upgrade billing or restore payment to resume edits, sync, and sharing."
+  },
+  "runtime": {
+    "pendingAuth": "Authentication service is pending configuration.",
+    "pendingStripe": "Stripe billing is pending configuration.",
+    "pendingSync": "Sync service is in local-only mode until S3 sync is configured."
+  },
+  "adminWorkspace": {
+    "subtitle": "Platform governance for billing, entitlements, and operational controls.",
+    "reasonRequired": "Reason is required for this action.",
+    "noAccessTitle": "You do not have access to Admin Workspace",
+    "noAccessDescription": "Only owner/admin roles or platform admins can access this management area.",
+    "entitlementUpdated": "Entitlement state updated.",
+    "entitlementUpdateFailed": "Failed to update entitlement state.",
+    "overview": {
+      "title": "Platform Overview",
+      "description": "Keep core controls visible and enforce release-safe defaults for auth, billing, and sync.",
+      "configStatus": "Configuration status",
+      "entitlement": "Current entitlement state",
+      "auditRetention": "Audit retention",
+      "auditRetentionValue": "365 days"
+    },
+    "entitlementControl": {
+      "title": "Entitlement Control",
+      "description": "Sensitive updates require a reason and are written to audit logs.",
+      "reasonPlaceholder": "Reason for change (required)",
+      "setActive": "Set Active",
+      "setGrace": "Set Grace",
+      "setReadOnly": "Set Read-only"
+    },
+    "status": {
+      "unknown": "Configuration status unavailable",
+      "authPending": "Auth pending config",
+      "stripePending": "Stripe pending config",
+      "syncPending": "S3 sync pending config",
+      "allReady": "All core services are configured",
+      "entitlementActive": "Active",
+      "entitlementGrace": "Grace active",
+      "entitlementReadOnly": "Read-only"
+    },
+    "modules": {
+      "statusReady": "Ready",
+      "workspaceUsers": {
+        "title": "Workspace & Users",
+        "description": "Manage workspaces, seat usage, and membership roles."
+      },
+      "billingEntitlement": {
+        "title": "Billing & Entitlement",
+        "description": "Track subscription lifecycle, grace transitions, and read-only fallback."
+      },
+      "coupon": {
+        "title": "Coupon Governance",
+        "description": "Control internal discounts with allowlist, expiry, and redemption caps."
+      },
+      "audit": {
+        "title": "Audit Logs",
+        "description": "Review sensitive actions with actor, reason, and outcome details."
+      },
+      "systemConfig": {
+        "title": "System Config",
+        "description": "Monitor auth, Stripe, and S3 readiness without blocking app startup."
+      },
+      "analytics": {
+        "title": "Operational & Revenue Analytics",
+        "description": "Observe platform health and revenue snapshots in one workspace."
+      }
+    }
+  },
   "shell": {
     "subtitle": "Workspace shell",
     "workspaceMode": "Workspace Mode",
@@ -1146,7 +1216,8 @@
       "automation": "Automation",
       "proxies": "Proxy Center",
       "settings": "Settings",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "admin": "Admin Workspace"
     },
     "shared": {
       "enabled": "Enabled",

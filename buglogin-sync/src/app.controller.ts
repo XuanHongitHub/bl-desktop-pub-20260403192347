@@ -1,4 +1,5 @@
 import { Controller, Get, HttpException, HttpStatus } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AppService } from "./app.service.js";
 import { SyncService } from "./sync/sync.service.js";
 
@@ -7,6 +8,7 @@ export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly syncService: SyncService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get()
@@ -29,5 +31,40 @@ export class AppController {
       );
     }
     return { status: "ready", s3: true };
+  }
+
+  @Get("config-status")
+  getConfigStatus() {
+    const syncTokenConfigured = Boolean(
+      this.configService.get<string>("SYNC_TOKEN"),
+    );
+    const syncJwtConfigured = Boolean(
+      this.configService.get<string>("SYNC_JWT_PUBLIC_KEY"),
+    );
+    const s3EndpointConfigured = Boolean(
+      this.configService.get<string>("S3_ENDPOINT"),
+    );
+    const s3BucketConfigured = Boolean(this.configService.get<string>("S3_BUCKET"));
+    const stripeSecretConfigured = Boolean(
+      this.configService.get<string>("STRIPE_SECRET_KEY"),
+    );
+    const stripeWebhookConfigured = Boolean(
+      this.configService.get<string>("STRIPE_WEBHOOK_SECRET"),
+    );
+
+    return {
+      auth: {
+        syncTokenConfigured,
+        syncJwtConfigured,
+      },
+      stripe: {
+        stripeSecretConfigured,
+        stripeWebhookConfigured,
+      },
+      s3: {
+        s3EndpointConfigured,
+        s3BucketConfigured,
+      },
+    };
   }
 }

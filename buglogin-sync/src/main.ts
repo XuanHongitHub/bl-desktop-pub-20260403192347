@@ -3,8 +3,9 @@ import { AppModule } from "./app.module.js";
 
 function validateEnv() {
   if (!process.env.SYNC_TOKEN && !process.env.SYNC_JWT_PUBLIC_KEY) {
-    console.error("Either SYNC_TOKEN or SYNC_JWT_PUBLIC_KEY must be set");
-    process.exit(1);
+    console.warn(
+      "[config-status] Neither SYNC_TOKEN nor SYNC_JWT_PUBLIC_KEY is configured. Sync auth endpoints will stay in pending_config state.",
+    );
   }
 }
 
@@ -16,7 +17,13 @@ async function bootstrap() {
   app.enableCors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-user-id",
+      "x-user-email",
+      "x-platform-role",
+    ],
   });
 
   const port = process.env.PORT ?? 3929;

@@ -75,6 +75,21 @@ export interface SyncSettings {
   sync_token?: string;
 }
 
+export type EntitlementState = "active" | "grace_active" | "read_only";
+
+export interface EntitlementSnapshot {
+  state: EntitlementState;
+  updated_at: string;
+}
+
+export type FeatureConfigStatus = "ready" | "pending_config";
+
+export interface RuntimeConfigStatus {
+  stripe: FeatureConfigStatus;
+  s3_sync: FeatureConfigStatus;
+  auth: FeatureConfigStatus;
+}
+
 export interface CloudUser {
   id: string;
   email: string;
@@ -89,9 +104,11 @@ export interface CloudUser {
   teamId?: string;
   teamName?: string;
   teamRole?: TeamRole;
+  platformRole?: PlatformRole;
 }
 
 export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type PlatformRole = "platform_admin";
 
 export interface ProfileLockInfo {
   profileId: string;
@@ -703,4 +720,9 @@ export interface VpnStatus {
   last_handshake?: number;
 }
 
-export type AppSection = "profiles" | "proxies" | "settings" | "integrations";
+export type AppSection =
+  | "profiles"
+  | "proxies"
+  | "settings"
+  | "integrations"
+  | "admin";
