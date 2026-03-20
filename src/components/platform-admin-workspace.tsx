@@ -126,11 +126,13 @@ export function PlatformAdminWorkspace({
     coupons,
     auditLogs,
     adminOverview,
+    serverConfigStatus,
     setSelectedWorkspaceId,
     refreshRuntime,
     refreshWorkspaceList,
     refreshWorkspaceDetails,
     refreshAdminData,
+    refreshServerConfigStatus,
     createWorkspace,
     createInvite,
     revokeInvite,
@@ -184,6 +186,22 @@ export function PlatformAdminWorkspace({
   const controlPlaneStatus = runtime.baseUrl
     ? t("adminWorkspace.controlPlane.connected", { url: runtime.baseUrl })
     : t("adminWorkspace.controlPlane.pending");
+
+  const controlSecuritySummary = useMemo(() => {
+    if (!runtime.baseUrl) {
+      return t("adminWorkspace.controlPlane.pending");
+    }
+    if (!serverConfigStatus) {
+      return t("adminWorkspace.controlPlane.securityUnknown");
+    }
+    const tokenStatus = serverConfigStatus.control.controlApiTokenConfigured
+      ? t("adminWorkspace.controlPlane.controlTokenReady")
+      : t("adminWorkspace.controlPlane.controlTokenPending");
+    const stateFileStatus = serverConfigStatus.control.controlStateFileConfigured
+      ? t("adminWorkspace.controlPlane.stateFileReady")
+      : t("adminWorkspace.controlPlane.stateFilePending");
+    return `${tokenStatus} • ${stateFileStatus}`;
+  }, [runtime.baseUrl, serverConfigStatus, t]);
 
   const handleSetEntitlement = async (
     nextState: "active" | "grace_active" | "read_only",
@@ -426,6 +444,7 @@ export function PlatformAdminWorkspace({
               {t("adminWorkspace.overview.controlPlane")}
             </div>
             <p className="mt-2 text-sm font-medium text-foreground">{controlPlaneStatus}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
           </div>
           <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
             <div className="text-xs text-muted-foreground">
@@ -472,6 +491,7 @@ export function PlatformAdminWorkspace({
                 void refreshRuntime();
                 void refreshWorkspaceList();
                 void refreshAdminData();
+                void refreshServerConfigStatus();
               }}
               disabled={isBusy}
             >

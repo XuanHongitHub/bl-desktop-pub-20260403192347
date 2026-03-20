@@ -12,6 +12,7 @@ import type {
   ControlShareGrant,
   ControlWorkspace,
   ControlWorkspaceOverview,
+  SyncServerConfigStatus,
   TeamRole,
 } from "@/types";
 import { useCloudAuth } from "./use-cloud-auth";
@@ -53,11 +54,13 @@ interface UseControlPlaneResult {
   coupons: ControlCoupon[];
   auditLogs: ControlAuditLog[];
   adminOverview: ControlAdminOverview | null;
+  serverConfigStatus: SyncServerConfigStatus | null;
   setSelectedWorkspaceId: (workspaceId: string | null) => void;
   refreshRuntime: () => Promise<void>;
   refreshWorkspaceList: () => Promise<void>;
   refreshWorkspaceDetails: (workspaceId: string) => Promise<void>;
   refreshAdminData: () => Promise<void>;
+  refreshServerConfigStatus: () => Promise<void>;
   createWorkspace: (name: string, mode: "personal" | "team") => Promise<ControlWorkspace>;
   createInvite: (workspaceId: string, email: string, role: TeamRole) => Promise<ControlInvite>;
   revokeInvite: (workspaceId: string, inviteId: string, reason: string) => Promise<ControlInvite>;
@@ -115,6 +118,8 @@ export function useControlPlane(): UseControlPlaneResult {
   const [auditLogs, setAuditLogs] = useState<ControlAuditLog[]>([]);
   const [adminOverview, setAdminOverview] =
     useState<ControlAdminOverview | null>(null);
+  const [serverConfigStatus, setServerConfigStatus] =
+    useState<SyncServerConfigStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -284,6 +289,40 @@ export function useControlPlane(): UseControlPlaneResult {
       }
     });
   }, [request, runWithLoading, runtime.baseUrl]);
+
+  const refreshServerConfigStatus = useCallback(async () => {
+    if (!runtime.baseUrl) {
+      setServerConfigStatus(null);
+      return;
+    }
+
+    await runWithLoading(async () => {
+      setError(null);
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (runtime.token) {
+          headers.Authorization = `Bearer ${runtime.token}`;
+        }
+
+        const response = await fetch(`${runtime.baseUrl}/config-status`, {
+          method: "GET",
+          headers,
+        });
+        if (!response.ok) {
+          const body = await response.text().catch(() => "");
+          throw new Error(`config_status_${response.status}:${body}`);
+        }
+
+        const status = (await response.json()) as SyncServerConfigStatus;
+        setServerConfigStatus(status);
+      } catch (requestError) {
+        setServerConfigStatus(null);
+        setError(extractRootError(requestError));
+      }
+    });
+  }, [runWithLoading, runtime.baseUrl, runtime.token]);
 
   const createWorkspace = useCallback(
     async (name: string, mode: "personal" | "team") => {
@@ -483,7 +522,8 @@ export function useControlPlane(): UseControlPlaneResult {
   useEffect(() => {
     void refreshWorkspaceList();
     void refreshAdminData();
-  }, [refreshAdminData, refreshWorkspaceList]);
+    void refreshServerConfigStatus();
+  }, [refreshAdminData, refreshServerConfigStatus, refreshWorkspaceList]);
 
   useEffect(() => {
     if (!selectedWorkspaceId) {
@@ -519,11 +559,13 @@ export function useControlPlane(): UseControlPlaneResult {
     coupons,
     auditLogs,
     adminOverview,
+    serverConfigStatus,
     setSelectedWorkspaceId,
     refreshRuntime,
     refreshWorkspaceList,
     refreshWorkspaceDetails,
     refreshAdminData,
+    refreshServerConfigStatus,
     createWorkspace,
     createInvite,
     revokeInvite,

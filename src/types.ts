@@ -90,6 +90,25 @@ export interface RuntimeConfigStatus {
   auth: FeatureConfigStatus;
 }
 
+export interface SyncServerConfigStatus {
+  auth: {
+    syncTokenConfigured: boolean;
+    syncJwtConfigured: boolean;
+  };
+  control: {
+    controlApiTokenConfigured: boolean;
+    controlStateFileConfigured: boolean;
+  };
+  stripe: {
+    stripeSecretConfigured: boolean;
+    stripeWebhookConfigured: boolean;
+  };
+  s3: {
+    s3EndpointConfigured: boolean;
+    s3BucketConfigured: boolean;
+  };
+}
+
 export interface CloudUser {
   id: string;
   email: string;
