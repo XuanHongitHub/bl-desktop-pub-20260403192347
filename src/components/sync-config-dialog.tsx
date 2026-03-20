@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { extractRootError } from "@/lib/error-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { SyncSettings } from "@/types";
 
@@ -61,11 +62,13 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
         void testConnection(settings.sync_server_url);
       }
     } catch (error) {
-      console.error("Failed to load sync settings:", error);
+      showErrorToast(t("sync.loadSettingsFailed"), {
+        description: extractRootError(error),
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [testConnection]);
+  }, [t, testConnection]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -75,7 +78,7 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
 
   const handleTestConnection = useCallback(async () => {
     if (!serverUrl) {
-      showErrorToast("Please enter a server URL");
+      showErrorToast(t("sync.serverUrlRequired"));
       return;
     }
 
@@ -86,18 +89,18 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
       const response = await fetch(healthUrl);
       if (response.ok) {
         setConnectionStatus("connected");
-        showSuccessToast("Connection successful");
+        showSuccessToast(t("sync.connectionSuccess"));
       } else {
         setConnectionStatus("error");
-        showErrorToast("Server responded with an error");
+        showErrorToast(t("sync.connectionErrorStatus"));
       }
     } catch {
       setConnectionStatus("error");
-      showErrorToast("Failed to connect to server");
+      showErrorToast(t("sync.connectionFailed"));
     } finally {
       setIsTesting(false);
     }
-  }, [serverUrl]);
+  }, [serverUrl, t]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -109,17 +112,20 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
       try {
         await invoke("restart_sync_service");
       } catch (error) {
-        console.error("Failed to restart sync service:", error);
+        showErrorToast(t("sync.restartFailed"), {
+          description: extractRootError(error),
+        });
       }
-      showSuccessToast("Sync settings saved");
+      showSuccessToast(t("sync.settingsSaved"));
       onClose();
     } catch (error) {
-      console.error("Failed to save sync settings:", error);
-      showErrorToast("Failed to save settings");
+      showErrorToast(t("sync.settingsSaveFailed"), {
+        description: extractRootError(error),
+      });
     } finally {
       setIsSaving(false);
     }
-  }, [onClose, serverUrl, token]);
+  }, [onClose, serverUrl, t, token]);
 
   const handleDisconnect = useCallback(async () => {
     setIsSaving(true);
@@ -131,19 +137,22 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
       try {
         await invoke("restart_sync_service");
       } catch (error) {
-        console.error("Failed to restart sync service:", error);
+        showErrorToast(t("sync.restartFailed"), {
+          description: extractRootError(error),
+        });
       }
       setServerUrl("");
       setToken("");
       setConnectionStatus("unknown");
-      showSuccessToast("Sync disconnected");
+      showSuccessToast(t("sync.disconnectSuccess"));
     } catch (error) {
-      console.error("Failed to disconnect:", error);
-      showErrorToast("Failed to disconnect");
+      showErrorToast(t("sync.disconnectFailed"), {
+        description: extractRootError(error),
+      });
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [t]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -151,7 +160,7 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
         <DialogHeader>
           <DialogTitle>{t("sync.title")}</DialogTitle>
           <DialogDescription>
-            This BugLogin fork is configured for self-hosted sync.
+            {t("sync.selfHostedDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -189,7 +198,9 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                         type="button"
                         onClick={() => setShowToken(!showToken)}
                         className="absolute right-3 top-1/2 p-1 rounded-sm transition-colors transform -translate-y-1/2 hover:bg-accent"
-                        aria-label={showToken ? "Hide token" : "Show token"}
+                        aria-label={
+                          showToken ? t("sync.hideToken") : t("sync.showToken")
+                        }
                       >
                         {showToken ? (
                           <LuEyeOff className="w-4 h-4 text-muted-foreground hover:text-foreground" />
@@ -199,7 +210,7 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {showToken ? "Hide token" : "Show token"}
+                      {showToken ? t("sync.hideToken") : t("sync.showToken")}
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -213,13 +224,13 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
               )}
               {connectionStatus === "connected" && (
                 <div className="flex gap-2 items-center text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <div className="w-2 h-2 rounded-full border border-border bg-muted" />
                   {t("sync.status.connected")}
                 </div>
               )}
               {connectionStatus === "error" && (
                 <div className="flex gap-2 items-center text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <div className="w-2 h-2 rounded-full border border-border bg-muted" />
                   {t("sync.status.disconnected")}
                 </div>
               )}
@@ -246,7 +257,7 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                 )}
               </div>
               <LoadingButton onClick={handleSave} isLoading={isSaving}>
-                {t("common.save")}
+                {t("common.buttons.save")}
               </LoadingButton>
             </DialogFooter>
           </>
