@@ -7,8 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CamoufoxConfigDialog } from "@/components/camoufox-config-dialog";
-import { CloudAuthDialog } from "@/components/cloud-auth-dialog";
 import { CloneProfileDialog } from "@/components/clone-profile-dialog";
+import { CloudAuthDialog } from "@/components/cloud-auth-dialog";
 import { CookieCopyDialog } from "@/components/cookie-copy-dialog";
 import { CookieManagementDialog } from "@/components/cookie-management-dialog";
 import { CreateProfileDialog } from "@/components/create-profile-dialog";
@@ -231,9 +231,9 @@ export default function Home() {
   const [syncConfigDialogOpen, setSyncConfigDialogOpen] = useState(false);
   const [syncAllDialogOpen, setSyncAllDialogOpen] = useState(false);
   const [cloudAuthDialogOpen, setCloudAuthDialogOpen] = useState(false);
-  const [prefilledInviteToken, setPrefilledInviteToken] = useState<string | null>(
-    null,
-  );
+  const [prefilledInviteToken, setPrefilledInviteToken] = useState<
+    string | null
+  >(null);
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
   const [currentProfileForSync, setCurrentProfileForSync] =
     useState<BrowserProfile | null>(null);
@@ -1503,7 +1503,9 @@ export default function Home() {
               title={t("shell.sections.profiles")}
               description={t("adminWorkspace.noAccessDescription")}
               contentClassName="max-w-none space-y-4 pb-0"
-            />
+            >
+              <></>
+            </WorkspacePageShell>
           );
         }
         return (

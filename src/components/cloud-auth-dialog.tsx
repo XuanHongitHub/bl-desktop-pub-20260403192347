@@ -201,7 +201,9 @@ export function CloudAuthDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cloud-auth-email">{t("authDialog.emailLabel")}</Label>
+            <Label htmlFor="cloud-auth-email">
+              {t("authDialog.emailLabel")}
+            </Label>
             <Input
               id="cloud-auth-email"
               type="email"
@@ -215,7 +217,9 @@ export function CloudAuthDialog({
           {step === "verify" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="cloud-auth-otp">{t("authDialog.otpLabel")}</Label>
+                <Label htmlFor="cloud-auth-otp">
+                  {t("authDialog.otpLabel")}
+                </Label>
                 <Input
                   id="cloud-auth-otp"
                   value={otpCode}
@@ -248,6 +252,7 @@ export function CloudAuthDialog({
                 variant="outline"
                 onClick={() => setStep("request")}
                 disabled={isBusy}
+                isLoading={false}
               >
                 {t("authDialog.back")}
               </LoadingButton>
