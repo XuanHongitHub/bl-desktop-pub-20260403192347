@@ -461,11 +461,16 @@
     "config": "Cấu hình sync",
     "serverUrl": "Sync server URL",
     "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlHint": "Dùng base URL của sync service, ví dụ https://sync.yourdomain.com",
     "token": "Sync token",
     "tokenPlaceholder": "Nhập token đồng bộ",
+    "tokenHint": "Dùng đúng token đã cấu hình trên server self-hosted của bạn.",
     "selfHostedDescription": "Bản BugLogin này đang được cấu hình cho mô hình self-hosted sync.",
     "showToken": "Hiện token",
     "hideToken": "Ẩn token",
+    "statusTitle": "Trạng thái kết nối",
+    "statusHint": "Nên test trước khi lưu để tránh cấu hình runtime sai.",
+    "statusUnknown": "Chưa kiểm tra",
     "serverUrlRequired": "Vui lòng nhập server URL.",
     "connectionSuccess": "Kết nối thành công.",
     "connectionErrorStatus": "Server trả về lỗi.",
@@ -1166,6 +1171,9 @@
     "otpPlaceholder": "Nhập mã 6 số",
     "inviteTokenLabel": "Invite token (tuỳ chọn)",
     "inviteTokenPlaceholder": "Dán token từ link mời trong email",
+    "inviteTokenHint": "Nếu mở từ link mời, token có thể được điền tự động.",
+    "stepRequest": "Nhận OTP",
+    "stepVerify": "Xác minh & vào app",
     "sendOtp": "Gửi OTP",
     "verifyOtp": "Xác minh & Đăng nhập",
     "resendOtp": "Gửi lại OTP",
@@ -1267,6 +1275,12 @@
       "memberRemoveFailed": "Không thể xóa thành viên.",
       "revokeInvite": "Thu hồi invite"
     },
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
     "share": {
       "title": "Share grant",
       "fieldsRequired": "Cần nhập resource ID và email người nhận.",
@@ -1277,6 +1291,14 @@
       "revoked": "Đã thu hồi share grant.",
       "revokeFailed": "Không thể thu hồi share grant.",
       "none": "Chưa có share grant.",
+      "resourceType": {
+        "profile": "Profile",
+        "group": "Group"
+      },
+      "accessMode": {
+        "full": "Toàn quyền",
+        "run_sync_limited": "Giới hạn run/sync"
+      },
       "activeStatus": "đang hiệu lực",
       "revokedStatus": "đã thu hồi",
       "revoke": "Thu hồi"
@@ -1284,6 +1306,8 @@
     "billing": {
       "couponTitle": "Quản trị coupon",
       "couponDescription": "Tạo và kiểm soát giảm giá nội bộ hoặc Stripe với đầy đủ audit.",
+      "sourceInternal": "Nội bộ",
+      "sourceStripe": "Liên kết Stripe",
       "couponCode": "Mã coupon",
       "couponDiscount": "Giảm giá (%)",
       "couponMax": "Giới hạn lượt dùng (0 = không giới hạn)",

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LuEye, LuEyeOff } from "react-icons/lu";
 import { LoadingButton } from "@/components/loading-button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,24 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
   const [connectionStatus, setConnectionStatus] = useState<
     "unknown" | "testing" | "connected" | "error"
   >("unknown");
+
+  const connectionStatusLabel =
+    connectionStatus === "connected"
+      ? t("sync.status.connected")
+      : connectionStatus === "testing"
+        ? t("sync.status.syncing")
+        : connectionStatus === "error"
+          ? t("sync.status.disconnected")
+          : t("sync.statusUnknown");
+
+  const connectionStatusVariant =
+    connectionStatus === "connected"
+      ? "default"
+      : connectionStatus === "error"
+        ? "destructive"
+        : connectionStatus === "testing"
+          ? "secondary"
+          : "outline";
 
   const testConnection = useCallback(async (url: string) => {
     setConnectionStatus("testing");
@@ -171,6 +190,18 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
         ) : (
           <>
             <div className="grid gap-4 py-4">
+              <div className="flex items-center justify-between rounded-md border border-border bg-muted px-3 py-2">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {t("sync.statusTitle")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("sync.statusHint")}
+                  </p>
+                </div>
+                <Badge variant={connectionStatusVariant}>{connectionStatusLabel}</Badge>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="sync-server-url">{t("sync.serverUrl")}</Label>
                 <Input
@@ -179,6 +210,9 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {t("sync.serverUrlHint")}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -214,6 +248,9 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                     </TooltipContent>
                   </Tooltip>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("sync.tokenHint")}
+                </p>
               </div>
 
               {connectionStatus === "testing" && (

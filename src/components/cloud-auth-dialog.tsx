@@ -7,6 +7,7 @@ import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { extractRootError } from "@/lib/error-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { LoadingButton } from "./loading-button";
+import { Badge } from "./ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -191,6 +192,15 @@ export function CloudAuthDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={step === "request" ? "default" : "secondary"}>
+              1. {t("authDialog.stepRequest")}
+            </Badge>
+            <Badge variant={step === "verify" ? "default" : "secondary"}>
+              2. {t("authDialog.stepVerify")}
+            </Badge>
+          </div>
+
           <div className="rounded-md border border-border bg-muted px-3 py-2">
             <p className="text-xs font-medium text-foreground">
               {t("authDialog.googlePendingTitle")}
@@ -239,6 +249,9 @@ export function CloudAuthDialog({
                   placeholder={t("authDialog.inviteTokenPlaceholder")}
                   disabled={isBusy}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {t("authDialog.inviteTokenHint")}
+                </p>
               </div>
             </>
           )}

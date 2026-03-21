@@ -461,11 +461,16 @@
     "config": "Sync Configuration",
     "serverUrl": "Server URL",
     "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlHint": "Use your sync service base URL, for example https://sync.yourdomain.com",
     "token": "Sync Token",
     "tokenPlaceholder": "Enter your sync token",
+    "tokenHint": "Use the same token configured on your self-hosted sync server.",
     "selfHostedDescription": "This BugLogin build is configured for self-hosted sync.",
     "showToken": "Show token",
     "hideToken": "Hide token",
+    "statusTitle": "Connection status",
+    "statusHint": "Test before saving to avoid invalid runtime config.",
+    "statusUnknown": "Not checked",
     "serverUrlRequired": "Please enter a server URL.",
     "connectionSuccess": "Connection successful.",
     "connectionErrorStatus": "Server responded with an error.",
@@ -1166,6 +1171,9 @@
     "otpPlaceholder": "Enter the 6-digit code",
     "inviteTokenLabel": "Invite token (optional)",
     "inviteTokenPlaceholder": "Paste invite token from email link",
+    "inviteTokenHint": "If opened from an invite link, this value can be prefilled automatically.",
+    "stepRequest": "Request OTP",
+    "stepVerify": "Verify & access",
     "sendOtp": "Send OTP",
     "verifyOtp": "Verify & Login",
     "resendOtp": "Resend OTP",
@@ -1267,6 +1275,12 @@
       "memberRemoveFailed": "Failed to remove member.",
       "revokeInvite": "Revoke invite"
     },
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
     "share": {
       "title": "Share grants",
       "fieldsRequired": "Resource and recipient email are required.",
@@ -1277,6 +1291,14 @@
       "revoked": "Share grant revoked.",
       "revokeFailed": "Failed to revoke share grant.",
       "none": "No share grants yet.",
+      "resourceType": {
+        "profile": "Profile",
+        "group": "Group"
+      },
+      "accessMode": {
+        "full": "Full access",
+        "run_sync_limited": "Run/sync limited"
+      },
       "activeStatus": "active",
       "revokedStatus": "revoked",
       "revoke": "Revoke"
@@ -1284,6 +1306,8 @@
     "billing": {
       "couponTitle": "Coupon governance",
       "couponDescription": "Create and control internal/Stripe-linked discounts with full auditability.",
+      "sourceInternal": "Internal",
+      "sourceStripe": "Stripe-linked",
       "couponCode": "Coupon code",
       "couponDiscount": "Discount (%)",
       "couponMax": "Max redemptions (0 = unlimited)",

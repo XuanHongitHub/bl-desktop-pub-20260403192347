@@ -203,6 +203,14 @@ export function PlatformAdminWorkspace({
     return `${tokenStatus} • ${stateFileStatus}`;
   }, [runtime.baseUrl, serverConfigStatus, t]);
 
+  const getRoleLabel = (role: TeamRole) => t(`adminWorkspace.roles.${role}`);
+
+  const getShareResourceTypeLabel = (resourceType: "profile" | "group") =>
+    t(`adminWorkspace.share.resourceType.${resourceType}`);
+
+  const getShareAccessModeLabel = (accessMode: "full" | "run_sync_limited") =>
+    t(`adminWorkspace.share.accessMode.${accessMode}`);
+
   const handleSetEntitlement = async (
     nextState: "active" | "grace_active" | "read_only",
   ) => {
@@ -675,10 +683,10 @@ export function PlatformAdminWorkspace({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="owner">owner</SelectItem>
-                                    <SelectItem value="admin">admin</SelectItem>
-                                    <SelectItem value="member">member</SelectItem>
-                                    <SelectItem value="viewer">viewer</SelectItem>
+                                    <SelectItem value="owner">{getRoleLabel("owner")}</SelectItem>
+                                    <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
+                                    <SelectItem value="member">{getRoleLabel("member")}</SelectItem>
+                                    <SelectItem value="viewer">{getRoleLabel("viewer")}</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <Button
@@ -735,9 +743,9 @@ export function PlatformAdminWorkspace({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">admin</SelectItem>
-                          <SelectItem value="member">member</SelectItem>
-                          <SelectItem value="viewer">viewer</SelectItem>
+                          <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
+                          <SelectItem value="member">{getRoleLabel("member")}</SelectItem>
+                          <SelectItem value="viewer">{getRoleLabel("viewer")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Button
@@ -765,7 +773,7 @@ export function PlatformAdminWorkspace({
                               <div>
                                 <p className="text-xs text-foreground">{invite.email}</p>
                                 <p className="text-[11px] text-muted-foreground">
-                                  {invite.role} • {invite.consumedAt ? t("adminWorkspace.members.inviteUsed") : t("adminWorkspace.members.invitePending")}
+                                  {getRoleLabel(invite.role)} • {invite.consumedAt ? t("adminWorkspace.members.inviteUsed") : t("adminWorkspace.members.invitePending")}
                                 </p>
                               </div>
                               {!invite.consumedAt && (
@@ -805,8 +813,12 @@ export function PlatformAdminWorkspace({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="profile">profile</SelectItem>
-                        <SelectItem value="group">group</SelectItem>
+                        <SelectItem value="profile">
+                          {getShareResourceTypeLabel("profile")}
+                        </SelectItem>
+                        <SelectItem value="group">
+                          {getShareResourceTypeLabel("group")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <Input
@@ -849,10 +861,10 @@ export function PlatformAdminWorkspace({
                           >
                             <div>
                               <p className="text-xs text-foreground">
-                                {share.resourceType}:{share.resourceId} → {share.recipientEmail}
+                                {getShareResourceTypeLabel(share.resourceType)}:{share.resourceId} → {share.recipientEmail}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                {share.accessMode} • {share.revokedAt ? t("adminWorkspace.share.revokedStatus") : t("adminWorkspace.share.activeStatus")}
+                                {getShareAccessModeLabel(share.accessMode)} • {share.revokedAt ? t("adminWorkspace.share.revokedStatus") : t("adminWorkspace.share.activeStatus")}
                               </p>
                             </div>
                             {!share.revokedAt && (
@@ -952,8 +964,12 @@ export function PlatformAdminWorkspace({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="internal">internal</SelectItem>
-                          <SelectItem value="stripe">stripe</SelectItem>
+                          <SelectItem value="internal">
+                            {t("adminWorkspace.billing.sourceInternal")}
+                          </SelectItem>
+                          <SelectItem value="stripe">
+                            {t("adminWorkspace.billing.sourceStripe")}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
