@@ -1205,7 +1205,12 @@
     "inviteAcceptFailed": "Logged in, but failed to accept invite token.",
     "inviteRequired": "This email is not in any workspace yet. Use an invite token or sign in as platform admin.",
     "googlePendingTitle": "Google Login (Coming Later)",
-    "googlePendingDescription": "Google OAuth will be enabled after backend is configured. Email sign-in is currently the primary path."
+    "googlePendingDescription": "Google OAuth will be enabled after backend is configured. Email sign-in is currently the primary path.",
+    "quickPresetPlatformAdminDescription": "Platform operations account",
+    "quickPresetOwnerDescription": "Workspace owner for team-governance checks",
+    "quickPresetAdminDescription": "Workspace admin for permission checks",
+    "quickPresetMemberDescription": "Workspace member for daily operations",
+    "quickPresetViewerDescription": "Read-only viewer for permission-limit checks"
   },
   "authLanding": {
     "title": "Welcome to BugLogin",
@@ -1250,7 +1255,27 @@
         "name": "Scale",
         "description": "High-capacity operations with larger teams."
       }
-    }
+    },
+    "tabs": {
+      "login": "Login",
+      "register": "Register",
+      "forgot": "Forgot"
+    },
+    "authReady": "Auth service is ready.",
+    "authPending": "Auth service is pending configuration.",
+    "googleButton": "Continue with Google",
+    "googleSoon": "Google OAuth will be enabled once backend auth is configured.",
+    "registerHint": "Register with the invited email. After email verification, workspace permissions will be applied automatically.",
+    "registerAction": "Submit registration request",
+    "registerQueued": "Registration request queued.",
+    "registerQueuedDescription": "In self-hosted mode, full email verification will be enabled after auth backend setup.",
+    "registerFailed": "Failed to submit registration request.",
+    "forgotHint": "Enter your workspace email to receive account recovery instructions.",
+    "forgotAction": "Send recovery instructions",
+    "resetSent": "Recovery instructions sent to your email.",
+    "resetQueued": "Recovery request queued.",
+    "resetQueuedDescription": "Self-hosted mode does not expose full password reset yet. You can still use invited email login.",
+    "resetFailed": "Failed to send recovery instructions."
   },
   "adminWorkspace": {
     "subtitle": "Platform governance for billing, entitlements, and operational controls.",
@@ -1265,7 +1290,10 @@
     "tabs": {
       "workspace": "Workspace",
       "billing": "Billing",
-      "audit": "Audit"
+      "audit": "Audit",
+      "overview": "Overview",
+      "system": "System",
+      "analytics": "Analytics"
     },
     "metrics": {
       "workspaces": "Workspaces",
@@ -1459,7 +1487,8 @@
       "proxies": "Proxy Center",
       "settings": "Settings",
       "integrations": "Integrations",
-      "admin": "Admin Workspace"
+      "admin": "Admin Workspace",
+      "billing": "Pricing & Billing"
     },
     "shared": {
       "enabled": "Enabled",
@@ -1505,6 +1534,62 @@
       "nextStepDescription": "Use this area as the command surface for external tools and assistants that connect to BugLogin.",
       "openControlCenter": "Configure API and MCP",
       "openAutomation": "Open automation workspace"
+    },
+    "roles": {
+      "platform_admin": "Platform Admin",
+      "platform_admin_short": "Platform",
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer",
+      "guest": "Guest"
+    },
+    "workspaceSwitcher": {
+      "label": "Current workspace",
+      "placeholder": "Select workspace",
+      "teamWorkspace": "Team Workspace",
+      "personalWorkspace": "Personal Workspace"
+    }
+  },
+  "billingPage": {
+    "title": "Pricing & Billing",
+    "description": "Manage plans, usage, coupons, and payment posture with business-grade operational visibility.",
+    "planFallback": "Self-hosted",
+    "currentPlan": "Current plan",
+    "entitlement": "Entitlement",
+    "profileUsage": "Profile usage",
+    "profileUsageValue": "{{used}} / {{limit}} profiles",
+    "profileUsagePercent": "{{percent}}% of quota",
+    "unlimited": "Unlimited",
+    "runtimeStatus": "Runtime status",
+    "authReady": "Auth: Ready",
+    "authPending": "Auth: Pending",
+    "stripeReady": "Stripe: Ready",
+    "stripePending": "Stripe: Pending",
+    "syncReady": "Sync: Ready",
+    "syncPending": "Sync: Pending",
+    "pricingDescription": "Choose billing cycle and tier before enabling production checkout.",
+    "planSelected": "Billing plan selected",
+    "couponTitle": "Internal coupons",
+    "couponDescription": "Apply internal discount codes to control rollout and internal support operations.",
+    "couponPlaceholder": "Enter coupon code",
+    "applyCoupon": "Apply coupon",
+    "couponRequired": "Coupon code is required.",
+    "couponInvalid": "Coupon code is invalid.",
+    "couponQueued": "Coupon queued in pending-config mode.",
+    "couponQueuedDescription": "Stripe is not configured yet, so this coupon stays in the internal flow.",
+    "couponApplied": "Coupon applied.",
+    "couponAppliedDescription": "Discount has been attached to the current billing flow.",
+    "openAdminWorkspace": "Open Admin Workspace",
+    "invoice": {
+      "title": "Invoice history",
+      "description": "Track latest billing periods and collection statuses.",
+      "currentPeriod": "Current period",
+      "previousPeriod": "Previous period",
+      "twoMonthsAgo": "Two periods ago",
+      "statusOpen": "Open",
+      "statusPaid": "Paid",
+      "note": "Detailed invoice sync is enabled automatically once Stripe webhooks are configured."
     }
   }
 }

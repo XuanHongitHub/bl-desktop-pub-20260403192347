@@ -1,9 +1,14 @@
 "use client";
 
-import { Check, Crown } from "lucide-react";
-import { useState } from "react";
+import { Check, Crown, KeyRound, Mail, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
+import {
+  getBillingPlanPrice,
+  BILLING_PLAN_DEFINITIONS,
+  type BillingCycle,
+} from "@/lib/billing-plans";
 import {
   type AuthLoginScope,
   AUTH_QUICK_PRESETS,
@@ -25,50 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
-type BillingCycle = "monthly" | "yearly";
-
-type PlanDefinition = {
-  id: "starter" | "growth" | "scale";
-  monthlyPrice: number;
-  yearlyPrice: number;
-  profiles: number;
-  members: number;
-  storageGb: number;
-  support: "email" | "priority" | "dedicated";
-  recommended?: boolean;
-};
-
-const PLAN_DEFINITIONS: readonly PlanDefinition[] = [
-  {
-    id: "starter",
-    monthlyPrice: 9,
-    yearlyPrice: 7,
-    profiles: 30,
-    members: 1,
-    storageGb: 5,
-    support: "email",
-  },
-  {
-    id: "growth",
-    monthlyPrice: 19,
-    yearlyPrice: 15,
-    profiles: 120,
-    members: 5,
-    storageGb: 20,
-    support: "priority",
-    recommended: true,
-  },
-  {
-    id: "scale",
-    monthlyPrice: 39,
-    yearlyPrice: 31,
-    profiles: 500,
-    members: 25,
-    storageGb: 80,
-    support: "dedicated",
-  },
-];
+type AuthView = "login" | "register" | "forgot";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -80,42 +44,69 @@ function isValidEmail(email: string): boolean {
 
 interface AuthPricingWorkspaceProps {
   runtimeConfig: RuntimeConfigStatus | null;
+  prefilledInviteToken?: string | null;
+  onConsumeInviteToken?: () => void;
   onOpenSyncConfig: () => void;
 }
 
 export function AuthPricingWorkspace({
   runtimeConfig,
+  prefilledInviteToken = null,
+  onConsumeInviteToken,
   onOpenSyncConfig,
 }: AuthPricingWorkspaceProps) {
   const { t } = useTranslation();
-  const { loginWithEmail, refreshProfile } = useCloudAuth();
-  const [email, setEmail] = useState("");
-  const [inviteToken, setInviteToken] = useState("");
-  const [scope, setScope] = useState<AuthLoginScope>("workspace_user");
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const { loginWithEmail, refreshProfile, requestOtp } = useCloudAuth();
+
+  const [authView, setAuthView] = useState<AuthView>("login");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanDefinition["id"]>(
+  const [selectedPlanId, setSelectedPlanId] = useState<"starter" | "growth" | "scale">(
     "growth",
   );
 
-  const selectedPlan = PLAN_DEFINITIONS.find((plan) => plan.id === selectedPlanId);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [inviteToken, setInviteToken] = useState("");
+  const [scope, setScope] = useState<AuthLoginScope>("workspace_user");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSelectPlan = (plan: PlanDefinition) => {
-    setSelectedPlanId(plan.id);
+  const selectedPlan =
+    BILLING_PLAN_DEFINITIONS.find((plan) => plan.id === selectedPlanId) ??
+    BILLING_PLAN_DEFINITIONS[1];
+  const isGoogleReady = runtimeConfig?.auth === "ready";
+  const isStripeReady = runtimeConfig?.stripe === "ready";
+  const isSyncReady = runtimeConfig?.s3_sync === "ready";
+
+  useEffect(() => {
+    if (!prefilledInviteToken) {
+      return;
+    }
+    setInviteToken(prefilledInviteToken);
+    setAuthView("login");
+  }, [prefilledInviteToken]);
+
+  const handleSelectPlan = (planId: "starter" | "growth" | "scale") => {
+    setSelectedPlanId(planId);
+    const plan = BILLING_PLAN_DEFINITIONS.find((row) => row.id === planId);
+    if (!plan) {
+      return;
+    }
+    const price = getBillingPlanPrice(plan, billingCycle);
     showSuccessToast(t("authLanding.planSelected"), {
-      description: `${t(`authLanding.plans.${plan.id}.name`)} • $${billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyPrice}/${billingCycle === "monthly" ? t("authLanding.perMonth") : t("authLanding.perYear")}`,
+      description: `${t(`authLanding.plans.${plan.id}.name`)} • $${price}/${billingCycle === "monthly" ? t("authLanding.perMonth") : t("authLanding.perYear")}`,
     });
   };
 
   const handleSignIn = async () => {
-    const normalizedEmail = normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(loginEmail);
     if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       showErrorToast(t("authDialog.invalidEmail"));
       return;
     }
 
     try {
-      setIsSigningIn(true);
+      setIsSubmitting(true);
       const hasInvite = inviteToken.trim().length > 0;
       const state = await loginWithEmail(normalizedEmail, {
         scope,
@@ -145,6 +136,7 @@ export function AuthPricingWorkspace({
 
       await refreshProfile().catch(() => null);
       showSuccessToast(t("authDialog.loginSuccess"));
+      onConsumeInviteToken?.();
     } catch (error) {
       const message = extractRootError(error);
       if (message.includes("invite_required")) {
@@ -155,14 +147,72 @@ export function AuthPricingWorkspace({
         description: message,
       });
     } finally {
-      setIsSigningIn(false);
+      setIsSubmitting(false);
     }
   };
 
+  const handleRegister = async () => {
+    const normalizedEmail = normalizeEmail(registerEmail);
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      showErrorToast(t("authDialog.invalidEmail"));
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const otpResult = await requestOtp(normalizedEmail);
+      if (otpResult === "self_hosted_no_otp") {
+        showSuccessToast(t("authLanding.registerQueued"), {
+          description: t("authLanding.registerQueuedDescription"),
+        });
+      } else {
+        showSuccessToast(t("authDialog.otpRequested"));
+      }
+      setLoginEmail(normalizedEmail);
+      setAuthView("login");
+    } catch (error) {
+      showErrorToast(t("authLanding.registerFailed"), {
+        description: extractRootError(error),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const normalizedEmail = normalizeEmail(forgotEmail);
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      showErrorToast(t("authDialog.invalidEmail"));
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const otpResult = await requestOtp(normalizedEmail);
+      if (otpResult === "self_hosted_no_otp") {
+        showSuccessToast(t("authLanding.resetQueued"), {
+          description: t("authLanding.resetQueuedDescription"),
+        });
+      } else {
+        showSuccessToast(t("authLanding.resetSent"));
+      }
+      setAuthView("login");
+      setLoginEmail(normalizedEmail);
+    } catch (error) {
+      showErrorToast(t("authLanding.resetFailed"), {
+        description: extractRootError(error),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const rolePresetRows = useMemo(() => AUTH_QUICK_PRESETS, []);
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <Card>
           <CardHeader>
             <CardTitle>{t("authLanding.pricingTitle")}</CardTitle>
             <CardDescription>{t("authLanding.pricingDescription")}</CardDescription>
@@ -189,9 +239,8 @@ export function AuthPricingWorkspace({
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
-              {PLAN_DEFINITIONS.map((plan) => {
-                const price =
-                  billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyPrice;
+              {BILLING_PLAN_DEFINITIONS.map((plan) => {
+                const price = getBillingPlanPrice(plan, billingCycle);
                 const isSelected = selectedPlanId === plan.id;
                 return (
                   <Card key={plan.id} className={isSelected ? "border-primary" : undefined}>
@@ -218,29 +267,29 @@ export function AuthPricingWorkspace({
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-foreground">
+                      <p className="flex items-center gap-2 text-xs text-foreground">
                         <Check className="h-3.5 w-3.5 text-muted-foreground" />
                         {t("authLanding.featureProfiles", { count: plan.profiles })}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-foreground">
+                      </p>
+                      <p className="flex items-center gap-2 text-xs text-foreground">
                         <Check className="h-3.5 w-3.5 text-muted-foreground" />
                         {t("authLanding.featureMembers", { count: plan.members })}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-foreground">
+                      </p>
+                      <p className="flex items-center gap-2 text-xs text-foreground">
                         <Check className="h-3.5 w-3.5 text-muted-foreground" />
                         {t("authLanding.featureStorage", { count: plan.storageGb })}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-foreground">
+                      </p>
+                      <p className="flex items-center gap-2 text-xs text-foreground">
                         <Check className="h-3.5 w-3.5 text-muted-foreground" />
                         {t("authLanding.featureSupport", {
                           level: t(`authLanding.support.${plan.support}`),
                         })}
-                      </div>
+                      </p>
                       <Button
                         type="button"
                         variant={isSelected ? "default" : "outline"}
                         className="mt-2 w-full"
-                        onClick={() => handleSelectPlan(plan)}
+                        onClick={() => handleSelectPlan(plan.id)}
                       >
                         {isSelected
                           ? t("authLanding.selectedPlan")
@@ -252,10 +301,16 @@ export function AuthPricingWorkspace({
               })}
             </div>
 
-            <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {runtimeConfig?.stripe === "ready"
-                ? t("authLanding.stripeReady")
-                : t("authLanding.stripePending")}
+            <div className="grid gap-2 md:grid-cols-3">
+              <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {isStripeReady ? t("authLanding.stripeReady") : t("authLanding.stripePending")}
+              </div>
+              <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {isGoogleReady ? t("authLanding.authReady") : t("authLanding.authPending")}
+              </div>
+              <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {isSyncReady ? t("authLanding.syncReady") : t("authLanding.syncPending")}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -266,92 +321,178 @@ export function AuthPricingWorkspace({
             <CardDescription>{t("authLanding.signInDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="auth-pricing-email">{t("authDialog.emailLabel")}</Label>
-              <Input
-                id="auth-pricing-email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={t("authDialog.emailPlaceholder")}
-                disabled={isSigningIn}
-              />
-            </div>
+            <Tabs value={authView} onValueChange={(value) => setAuthView(value as AuthView)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="login">
+                  <Mail className="mr-1 h-3.5 w-3.5" />
+                  {t("authLanding.tabs.login")}
+                </TabsTrigger>
+                <TabsTrigger value="register">
+                  <UserPlus className="mr-1 h-3.5 w-3.5" />
+                  {t("authLanding.tabs.register")}
+                </TabsTrigger>
+                <TabsTrigger value="forgot">
+                  <KeyRound className="mr-1 h-3.5 w-3.5" />
+                  {t("authLanding.tabs.forgot")}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-            <div className="space-y-2">
-              <Label htmlFor="auth-pricing-scope">{t("authDialog.accessScopeLabel")}</Label>
-              <Select
-                value={scope}
-                onValueChange={(value) => setScope(value as AuthLoginScope)}
-                disabled={isSigningIn}
-              >
-                <SelectTrigger id="auth-pricing-scope">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="workspace_user">
-                    {t("authDialog.accessScopeUser")}
-                  </SelectItem>
-                  <SelectItem value="platform_admin">
-                    {t("authDialog.accessScopeAdmin")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {authView === "login" && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="auth-pricing-login-email">{t("authDialog.emailLabel")}</Label>
+                  <Input
+                    id="auth-pricing-login-email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(event) => setLoginEmail(event.target.value)}
+                    placeholder={t("authDialog.emailPlaceholder")}
+                    disabled={isSubmitting}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="auth-pricing-invite">{t("authDialog.inviteTokenLabel")}</Label>
-              <Input
-                id="auth-pricing-invite"
-                value={inviteToken}
-                onChange={(event) => setInviteToken(event.target.value)}
-                placeholder={t("authDialog.inviteTokenPlaceholder")}
-                disabled={isSigningIn}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auth-pricing-scope">{t("authDialog.accessScopeLabel")}</Label>
+                  <Select
+                    value={scope}
+                    onValueChange={(value) => setScope(value as AuthLoginScope)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="auth-pricing-scope">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="workspace_user">
+                        {t("authDialog.accessScopeUser")}
+                      </SelectItem>
+                      <SelectItem value="platform_admin">
+                        {t("authDialog.accessScopeAdmin")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
+                <div className="space-y-2">
+                  <Label htmlFor="auth-pricing-invite">{t("authDialog.inviteTokenLabel")}</Label>
+                  <Input
+                    id="auth-pricing-invite"
+                    value={inviteToken}
+                    onChange={(event) => setInviteToken(event.target.value)}
+                    placeholder={t("authDialog.inviteTokenPlaceholder")}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <LoadingButton
+                  type="button"
+                  className="w-full"
+                  onClick={handleSignIn}
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
+                >
+                  {selectedPlan
+                    ? `${t("authDialog.signInWithEmail")} • ${t(`authLanding.plans.${selectedPlan.id}.name`)}`
+                    : t("authDialog.signInWithEmail")}
+                </LoadingButton>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={!isGoogleReady || isSubmitting}
+                  onClick={() => showSuccessToast(t("authLanding.googleSoon"))}
+                >
+                  {t("authLanding.googleButton")}
+                </Button>
+              </div>
+            )}
+
+            {authView === "register" && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="auth-pricing-register-email">{t("authDialog.emailLabel")}</Label>
+                  <Input
+                    id="auth-pricing-register-email"
+                    type="email"
+                    value={registerEmail}
+                    onChange={(event) => setRegisterEmail(event.target.value)}
+                    placeholder={t("authDialog.emailPlaceholder")}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t("authLanding.registerHint")}
+                </p>
+                <LoadingButton
+                  type="button"
+                  className="w-full"
+                  onClick={() => {
+                    void handleRegister();
+                  }}
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
+                >
+                  {t("authLanding.registerAction")}
+                </LoadingButton>
+              </div>
+            )}
+
+            {authView === "forgot" && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="auth-pricing-forgot-email">{t("authDialog.emailLabel")}</Label>
+                  <Input
+                    id="auth-pricing-forgot-email"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(event) => setForgotEmail(event.target.value)}
+                    placeholder={t("authDialog.emailPlaceholder")}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t("authLanding.forgotHint")}
+                </p>
+                <LoadingButton
+                  type="button"
+                  className="w-full"
+                  onClick={() => {
+                    void handleForgotPassword();
+                  }}
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
+                >
+                  {t("authLanding.forgotAction")}
+                </LoadingButton>
+              </div>
+            )}
+
+            <div className="space-y-2 rounded-md border border-border bg-muted p-3">
               <p className="text-xs font-medium text-foreground">
                 {t("authDialog.quickPresetTitle")}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {AUTH_QUICK_PRESETS.map((preset) => (
-                  <Button
+              <div className="space-y-2">
+                {rolePresetRows.map((preset) => (
+                  <button
                     key={preset.id}
                     type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isSigningIn}
+                    className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
                     onClick={() => {
-                      setEmail(preset.email);
+                      setLoginEmail(preset.email);
                       setScope(preset.scope);
+                      setAuthView("login");
                     }}
+                    disabled={isSubmitting}
                   >
-                    {t(preset.labelKey)}
-                  </Button>
+                    <span className="font-medium text-foreground">{t(preset.labelKey)}</span>
+                    <span className="truncate text-muted-foreground">{preset.email}</span>
+                  </button>
                 ))}
               </div>
             </div>
 
-            <LoadingButton
-              type="button"
-              className="w-full"
-              onClick={handleSignIn}
-              isLoading={isSigningIn}
-              disabled={isSigningIn}
-            >
-              {selectedPlan
-                ? `${t("authDialog.signInWithEmail")} • ${t(`authLanding.plans.${selectedPlan.id}.name`)}`
-                : t("authDialog.signInWithEmail")}
-            </LoadingButton>
-
-            <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {runtimeConfig?.s3_sync === "ready"
-                ? t("authLanding.syncReady")
-                : t("authLanding.syncPending")}
-            </div>
-
-            {runtimeConfig?.s3_sync !== "ready" && (
+            {!isSyncReady && (
               <Button
                 type="button"
                 variant="outline"

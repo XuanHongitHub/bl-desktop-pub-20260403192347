@@ -9,7 +9,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AuthPricingWorkspace } from "@/components/auth-pricing-workspace";
 import { CamoufoxConfigDialog } from "@/components/camoufox-config-dialog";
 import { CloneProfileDialog } from "@/components/clone-profile-dialog";
-import { CloudAuthDialog } from "@/components/cloud-auth-dialog";
 import { CookieCopyDialog } from "@/components/cookie-copy-dialog";
 import { CookieManagementDialog } from "@/components/cookie-management-dialog";
 import { CreateProfileDialog } from "@/components/create-profile-dialog";
@@ -36,6 +35,7 @@ import { ProxyManagementDialog } from "@/components/proxy-management-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { SyncAllDialog } from "@/components/sync-all-dialog";
 import { SyncConfigDialog } from "@/components/sync-config-dialog";
+import { WorkspaceBillingPage } from "@/components/workspace-billing-page";
 import { WayfernTermsDialog } from "@/components/wayfern-terms-dialog";
 import { WindowResizeWarningDialog } from "@/components/window-resize-warning-dialog";
 import { WorkspacePageShell } from "@/components/workspace-page-shell";
@@ -163,9 +163,35 @@ export default function Home() {
     cloudUser?.platformRole === "platform_admin" ||
     teamRole === "owner" ||
     teamRole === "admin";
+  const workspaceOptions = useMemo(() => {
+    if (!cloudUser) {
+      return [];
+    }
+    const options: Array<{ id: string; label: string }> = [];
+    if (cloudUser.platformRole === "platform_admin") {
+      options.push(
+        { id: "team-bugmedia", label: "Bug Media" },
+        { id: "team-shadcn-admin", label: "Shadcn Admin" },
+        { id: "team-acme-inc", label: "Acme Inc." },
+        { id: "team-acme-corp", label: "Acme Corp." },
+      );
+    }
+    if (cloudUser.teamId || cloudUser.teamName) {
+      options.push({
+        id: cloudUser.teamId ?? "team",
+        label: cloudUser.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
+      });
+    }
+    options.push({
+      id: "personal",
+      label: t("shell.workspaceSwitcher.personalWorkspace"),
+    });
+    return options;
+  }, [cloudUser, t]);
 
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
+  const [sidebarWorkspaceId, setSidebarWorkspaceId] = useState<string>("personal");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [importProfileDialogOpen, setImportProfileDialogOpen] = useState(false);
   const [camoufoxConfigDialogOpen, setCamoufoxConfigDialogOpen] =
@@ -231,7 +257,6 @@ export default function Home() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [syncConfigDialogOpen, setSyncConfigDialogOpen] = useState(false);
   const [syncAllDialogOpen, setSyncAllDialogOpen] = useState(false);
-  const [cloudAuthDialogOpen, setCloudAuthDialogOpen] = useState(false);
   const [prefilledInviteToken, setPrefilledInviteToken] = useState<
     string | null
   >(null);
@@ -380,6 +405,16 @@ export default function Home() {
     }
   }, [activeSection, canAccessAdminWorkspace, t]);
 
+  useEffect(() => {
+    if (workspaceOptions.length === 0) {
+      setSidebarWorkspaceId("personal");
+      return;
+    }
+    if (!workspaceOptions.some((item) => item.id === sidebarWorkspaceId)) {
+      setSidebarWorkspaceId(workspaceOptions[0].id);
+    }
+  }, [sidebarWorkspaceId, workspaceOptions]);
+
   const handleSelectGroup = useCallback((groupId: string) => {
     setSelectedGroupId(groupId);
     setSelectedProfiles([]);
@@ -517,7 +552,7 @@ export default function Home() {
         const inviteToken = extractInviteTokenFromUrl(url);
         if (inviteToken) {
           setPrefilledInviteToken(inviteToken);
-          setCloudAuthDialogOpen(true);
+          setActiveSection("profiles");
           showSuccessToast(t("authDialog.inviteDetected"));
           return;
         }
@@ -1480,6 +1515,8 @@ export default function Home() {
         >
           <AuthPricingWorkspace
             runtimeConfig={runtimeConfig}
+            prefilledInviteToken={prefilledInviteToken}
+            onConsumeInviteToken={() => setPrefilledInviteToken(null)}
             onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
           />
         </WorkspacePageShell>
@@ -1512,6 +1549,23 @@ export default function Home() {
             mode="page"
           />
         );
+      case "billing":
+        return (
+          <WorkspacePageShell
+            title={t("shell.sections.billing")}
+            description={t("billingPage.description")}
+            contentClassName="max-w-none space-y-4 pb-0"
+          >
+            <WorkspaceBillingPage
+              runtimeConfig={runtimeConfig}
+              entitlement={entitlement}
+              user={cloudUser}
+              teamRole={teamRole}
+              onOpenAdminWorkspace={() => setActiveSection("admin")}
+              onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
+            />
+          </WorkspacePageShell>
+        );
       case "admin":
         if (!canAccessAdminWorkspace) {
           return (
@@ -1523,8 +1577,7 @@ export default function Home() {
                   <Button
                     type="button"
                     onClick={() => {
-                      setPrefilledInviteToken(null);
-                      setCloudAuthDialogOpen(true);
+                      setActiveSection("profiles");
                     }}
                   >
                     {t("shell.auth.signIn")}
@@ -1550,6 +1603,8 @@ export default function Home() {
             <PlatformAdminWorkspace
               runtimeConfig={runtimeConfig}
               entitlement={entitlement}
+              platformRole={cloudUser.platformRole}
+              teamRole={teamRole}
             />
           </WorkspacePageShell>
         );
@@ -1655,12 +1710,16 @@ export default function Home() {
         onSectionChange={setActiveSection}
         onCollapsedChange={setSidebarCollapsed}
         showAdminSection={canAccessAdminWorkspace}
+        teamRole={teamRole}
+        platformRole={cloudUser?.platformRole ?? null}
+        workspaceOptions={workspaceOptions}
+        currentWorkspaceId={sidebarWorkspaceId}
+        onWorkspaceChange={setSidebarWorkspaceId}
         authEmail={cloudUser?.email ?? null}
         isAuthenticated={Boolean(cloudUser)}
         isAuthBusy={isCloudAuthLoading}
         onSignIn={() => {
-          setPrefilledInviteToken(null);
-          setCloudAuthDialogOpen(true);
+          setActiveSection("profiles");
         }}
         onSignOut={() => {
           void handleCloudSignOut();
@@ -1827,15 +1886,6 @@ export default function Home() {
           if (loginOccurred) {
             setSyncAllDialogOpen(true);
           }
-        }}
-      />
-
-      <CloudAuthDialog
-        isOpen={cloudAuthDialogOpen}
-        prefilledInviteToken={prefilledInviteToken}
-        onClose={() => {
-          setCloudAuthDialogOpen(false);
-          setPrefilledInviteToken(null);
         }}
       />
 

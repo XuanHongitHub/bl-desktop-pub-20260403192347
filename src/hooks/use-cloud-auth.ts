@@ -10,6 +10,7 @@ import type {
   CloudUser,
   ControlMembership,
   ControlWorkspace,
+  TeamRole,
 } from "@/types";
 
 interface SyncSettings {

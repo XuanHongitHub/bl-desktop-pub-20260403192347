@@ -1,21 +1,34 @@
 "use client";
 
 import {
+  ChevronsUpDown,
   ChevronRight,
   Globe,
   LayoutDashboard,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Receipt,
   Settings2,
   Shield,
   SquareTerminal,
   UserRound,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import type { AppSection } from "@/types";
+import type { AppSection, TeamRole } from "@/types";
 import { Logo } from "./icons/logo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { ScrollArea } from "./ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
@@ -54,12 +67,26 @@ const ADMIN_NAV_ITEM: NavItem = {
   icon: LayoutDashboard,
 };
 
+const BILLING_NAV_ITEM: NavItem = {
+  id: "billing",
+  labelKey: "shell.sections.billing",
+  icon: Receipt,
+};
+
 type Props = {
   activeSection: AppSection;
   collapsed: boolean;
   onSectionChange: (section: AppSection) => void;
   onCollapsedChange?: (collapsed: boolean) => void;
   showAdminSection?: boolean;
+  teamRole?: TeamRole | null;
+  platformRole?: string | null;
+  workspaceOptions?: Array<{
+    id: string;
+    label: string;
+  }>;
+  currentWorkspaceId?: string | null;
+  onWorkspaceChange?: (workspaceId: string) => void;
   authEmail?: string | null;
   isAuthenticated?: boolean;
   isAuthBusy?: boolean;
@@ -73,6 +100,11 @@ export function AppSidebar({
   onSectionChange,
   onCollapsedChange,
   showAdminSection = false,
+  teamRole = null,
+  platformRole = null,
+  workspaceOptions = [],
+  currentWorkspaceId = null,
+  onWorkspaceChange,
   authEmail = null,
   isAuthenticated = false,
   isAuthBusy = false,
@@ -80,11 +112,38 @@ export function AppSidebar({
   onSignOut,
 }: Props) {
   const { t } = useTranslation();
-  const navItems = showAdminSection ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  const isPlatformAdmin = platformRole === "platform_admin";
+  const roleLabel = isPlatformAdmin
+    ? t("shell.roles.platform_admin")
+    : teamRole
+      ? t(`shell.roles.${teamRole}`)
+      : t("shell.roles.guest");
+
+  const navItems = useMemo(() => {
+    const base = [...NAV_ITEMS];
+    if (isAuthenticated) {
+      base.splice(2, 0, BILLING_NAV_ITEM);
+    }
+    const filtered = base.filter((item) =>
+      teamRole === "viewer" && item.id === "integrations" ? false : true,
+    );
+    if (showAdminSection) {
+      filtered.push(ADMIN_NAV_ITEM);
+    }
+    return filtered;
+  }, [isAuthenticated, showAdminSection, teamRole]);
+
+  const canSwitchWorkspace = workspaceOptions.length > 1 && Boolean(onWorkspaceChange);
+  const selectedWorkspaceId = currentWorkspaceId ?? workspaceOptions[0]?.id ?? "default";
+  const selectedWorkspace =
+    workspaceOptions.find((workspace) => workspace.id === selectedWorkspaceId) ??
+    workspaceOptions[0] ??
+    null;
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
     const isActive = activeSection === item.id;
+    const isPlatformAdminItem = item.id === "admin" && isPlatformAdmin;
 
     const button = (
       <button
@@ -95,6 +154,7 @@ export function AppSidebar({
           isActive
             ? "bg-muted text-foreground"
             : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+          isPlatformAdminItem && "border border-border bg-muted/60",
           collapsed && "justify-center px-0",
         )}
       >
@@ -141,70 +201,120 @@ export function AppSidebar({
         style={{ height: "var(--window-titlebar-height)" }}
       />
 
-      {/* ── Brand header — fixed height aligned with main content header ──
-          Toggle button always lives here (collapsed or expanded) so the
-          user always looks in the same spot. */}
       <div
-        className={cn(
-          "flex h-11 shrink-0 items-center border-b border-border",
-          collapsed ? "gap-1 px-2" : "gap-1 px-3",
-        )}
+        className="shrink-0 border-b border-border"
       >
-        {collapsed ? (
-          <>
-            {/* Logo home button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => onSectionChange("profiles")}
-                  className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted/60"
-                >
-                  <Logo variant="icon" className="h-8 w-8 rounded-md" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">BugLogin</TooltipContent>
-            </Tooltip>
-
-            {/* Expand toggle — same header zone as the collapse toggle */}
-            {onCollapsedChange && (
+        <div
+          className={cn(
+            "flex h-11 items-center",
+            collapsed ? "gap-1 px-2" : "gap-1 px-3",
+          )}
+        >
+          {collapsed ? (
+            <>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => onCollapsedChange(false)}
-                    aria-label={t("shell.expandSidebar")}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={() => onSectionChange("profiles")}
+                    className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted/60"
                   >
-                    <PanelLeftOpen className="h-4 w-4" />
+                    <Logo variant="icon" className="h-8 w-8 rounded-md" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right">
-                  {t("shell.expandSidebar")}
-                </TooltipContent>
+                <TooltipContent side="right">BugLogin</TooltipContent>
               </Tooltip>
-            )}
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => onSectionChange("profiles")}
-              className="flex min-w-0 flex-1 items-center rounded-md px-1 py-1.5 text-left transition-colors hover:bg-muted/50"
-            >
-              <Logo variant="full" className="h-7 max-w-[148px]" />
-            </button>
-            {onCollapsedChange && (
+
+              {onCollapsedChange && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onCollapsedChange(false)}
+                      aria-label={t("shell.expandSidebar")}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <PanelLeftOpen className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {t("shell.expandSidebar")}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </>
+          ) : (
+            <>
               <button
                 type="button"
-                onClick={() => onCollapsedChange(true)}
-                aria-label={t("shell.collapseSidebar")}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => onSectionChange("profiles")}
+                className="flex min-w-0 flex-1 items-center rounded-md px-1 py-1.5 text-left transition-colors hover:bg-muted/50"
               >
-                <PanelLeftClose className="h-4 w-4" />
+                <Logo variant="full" className="h-7 max-w-[148px]" />
               </button>
-            )}
-          </>
+              {onCollapsedChange && (
+                <button
+                  type="button"
+                  onClick={() => onCollapsedChange(true)}
+                  aria-label={t("shell.collapseSidebar")}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {!collapsed && isAuthenticated && workspaceOptions.length > 0 && (
+          <div className="px-3 pb-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!canSwitchWorkspace}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg border border-border bg-muted px-2 py-2 text-left transition-colors",
+                    canSwitchWorkspace ? "hover:bg-muted/70" : "cursor-default opacity-85",
+                  )}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background">
+                    <Logo variant="icon" className="h-6 w-6 rounded-sm" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-semibold text-foreground">
+                      {selectedWorkspace?.label ?? t("shell.workspaceSwitcher.placeholder")}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <p className="truncate text-[10px] font-medium text-muted-foreground">
+                        {roleLabel}
+                      </p>
+                      {isPlatformAdmin && (
+                        <span className="rounded-md border border-border bg-background px-1 py-0.5 text-[9px] font-semibold text-foreground">
+                          {t("shell.roles.platform_admin_short")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[260px]">
+                <DropdownMenuLabel>{t("shell.workspaceSwitcher.label")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {workspaceOptions.map((workspace, index) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    onClick={() => onWorkspaceChange?.(workspace.id)}
+                    disabled={!canSwitchWorkspace}
+                  >
+                    <span className="truncate">{workspace.label}</span>
+                    <DropdownMenuShortcut>{index + 1}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
 
@@ -219,48 +329,83 @@ export function AppSidebar({
 
       {/* ── Footer ── */}
       <div className="border-t border-border p-2">
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-md px-2 py-1.5",
-            collapsed && "justify-center px-0",
-          )}
-        >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-            <UserRound className="h-4 w-4" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-foreground">
-                {authEmail ?? t("shell.auth.loggedOut")}
-              </p>
-              <p className="text-[11px] font-medium leading-[1.35] text-muted-foreground">
-                {isAuthenticated
-                  ? t("shell.auth.connected")
-                  : t("shell.auth.disconnected")}
-              </p>
-            </div>
-          )}
-          {!collapsed &&
-            (isAuthenticated ? (
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
               <button
                 type="button"
+                onClick={isAuthenticated ? onSignOut : onSignIn}
+                disabled={isAuthBusy || (isAuthenticated ? !onSignOut : !onSignIn)}
+                className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-foreground transition-colors hover:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <UserRound className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {isAuthenticated ? t("shell.auth.signOut") : t("shell.auth.signIn")}
+            </TooltipContent>
+          </Tooltip>
+        ) : isAuthenticated ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted px-2 py-2 text-left transition-colors hover:bg-muted/70"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
+                  <UserRound className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-semibold text-foreground">
+                    {authEmail ?? t("shell.auth.loggedOut")}
+                  </p>
+                  <p className="truncate text-[11px] font-medium text-muted-foreground">
+                    {roleLabel}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="space-y-1">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {authEmail ?? t("shell.auth.loggedOut")}
+                </p>
+                <p className="truncate text-xs font-medium text-muted-foreground">{roleLabel}</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={onSignOut}
                 disabled={isAuthBusy || !onSignOut}
-                className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
+                <LogOut className="h-4 w-4" />
                 {t("shell.auth.signOut")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onSignIn}
-                disabled={isAuthBusy || !onSignIn}
-                className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {t("shell.auth.signIn")}
-              </button>
-            ))}
-        </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
+              <UserRound className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold text-foreground">
+                {t("shell.auth.loggedOut")}
+              </p>
+              <p className="truncate text-[11px] font-medium text-muted-foreground">
+                {t("shell.auth.disconnected")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onSignIn}
+              disabled={isAuthBusy || !onSignIn}
+              className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("shell.auth.signIn")}
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

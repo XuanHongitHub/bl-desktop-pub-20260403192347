@@ -1205,7 +1205,12 @@
     "inviteAcceptFailed": "Đăng nhập thành công nhưng không thể chấp nhận invite token.",
     "inviteRequired": "Email này chưa thuộc workspace nào. Hãy dùng invite token hoặc đăng nhập bằng quyền platform admin.",
     "googlePendingTitle": "Google Login (sẽ mở sau)",
-    "googlePendingDescription": "Google OAuth sẽ được bật sau khi backend sẵn sàng. Hiện tại đăng nhập bằng email là luồng chính."
+    "googlePendingDescription": "Google OAuth sẽ được bật sau khi backend sẵn sàng. Hiện tại đăng nhập bằng email là luồng chính.",
+    "quickPresetPlatformAdminDescription": "Tài khoản vận hành nền tảng",
+    "quickPresetOwnerDescription": "Owner workspace để kiểm thử quản trị team",
+    "quickPresetAdminDescription": "Admin workspace để kiểm thử phân quyền",
+    "quickPresetMemberDescription": "Member workspace cho thao tác vận hành thường",
+    "quickPresetViewerDescription": "Viewer chỉ đọc để kiểm thử giới hạn quyền"
   },
   "authLanding": {
     "title": "Chào mừng đến BugLogin",
@@ -1250,7 +1255,27 @@
         "name": "Scale",
         "description": "Cho vận hành lớn với nhu cầu dung lượng cao."
       }
-    }
+    },
+    "tabs": {
+      "login": "Đăng nhập",
+      "register": "Đăng ký",
+      "forgot": "Quên mật khẩu"
+    },
+    "authReady": "Auth service đã sẵn sàng.",
+    "authPending": "Auth service đang chờ cấu hình.",
+    "googleButton": "Đăng nhập Google",
+    "googleSoon": "Google OAuth sẽ được bật sau khi cấu hình backend auth.",
+    "registerHint": "Đăng ký bằng đúng email được mời. Sau khi xác minh email, tài khoản sẽ nhận quyền theo workspace.",
+    "registerAction": "Gửi yêu cầu đăng ký",
+    "registerQueued": "Đã ghi nhận yêu cầu đăng ký.",
+    "registerQueuedDescription": "Ở chế độ self-hosted, luồng verify email sẽ được bật sau khi backend auth hoàn tất.",
+    "registerFailed": "Không thể gửi yêu cầu đăng ký.",
+    "forgotHint": "Nhập email workspace để nhận hướng dẫn khôi phục quyền truy cập.",
+    "forgotAction": "Gửi hướng dẫn khôi phục",
+    "resetSent": "Đã gửi hướng dẫn khôi phục về email.",
+    "resetQueued": "Đã ghi nhận yêu cầu khôi phục.",
+    "resetQueuedDescription": "Chế độ self-hosted hiện chưa bật reset mật khẩu thật. Bạn vẫn có thể đăng nhập bằng email được mời.",
+    "resetFailed": "Không thể gửi hướng dẫn khôi phục."
   },
   "adminWorkspace": {
     "subtitle": "Vùng quản trị nền tảng cho billing, entitlement và vận hành.",
@@ -1265,7 +1290,10 @@
     "tabs": {
       "workspace": "Workspace",
       "billing": "Billing",
-      "audit": "Audit"
+      "audit": "Audit",
+      "overview": "Tổng quan",
+      "system": "Hệ thống",
+      "analytics": "Analytics"
     },
     "metrics": {
       "workspaces": "Workspace",
@@ -1459,7 +1487,8 @@
       "proxies": "Proxy & VPN",
       "settings": "Cài đặt",
       "integrations": "Tích hợp",
-      "admin": "Admin Workspace"
+      "admin": "Admin Workspace",
+      "billing": "Pricing & Billing"
     },
     "shared": {
       "enabled": "Bật",
@@ -1505,6 +1534,62 @@
       "nextStepDescription": "Khu vực này là điểm kết nối cho công cụ bên ngoài và trợ lý AI làm việc với BugLogin.",
       "openControlCenter": "Cấu hình API & MCP",
       "openAutomation": "Mở Automation Workspace"
+    },
+    "roles": {
+      "platform_admin": "Platform Admin",
+      "platform_admin_short": "Platform",
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer",
+      "guest": "Khách"
+    },
+    "workspaceSwitcher": {
+      "label": "Workspace hiện tại",
+      "placeholder": "Chọn workspace",
+      "teamWorkspace": "Team Workspace",
+      "personalWorkspace": "Personal Workspace"
+    }
+  },
+  "billingPage": {
+    "title": "Pricing & Billing",
+    "description": "Quản lý gói dịch vụ, usage, coupon và trạng thái thanh toán theo chuẩn vận hành doanh nghiệp.",
+    "planFallback": "Self-hosted",
+    "currentPlan": "Gói hiện tại",
+    "entitlement": "Entitlement",
+    "profileUsage": "Mức sử dụng profile",
+    "profileUsageValue": "{{used}} / {{limit}} profile",
+    "profileUsagePercent": "{{percent}}% quota",
+    "unlimited": "Không giới hạn",
+    "runtimeStatus": "Trạng thái runtime",
+    "authReady": "Auth: Ready",
+    "authPending": "Auth: Pending",
+    "stripeReady": "Stripe: Ready",
+    "stripePending": "Stripe: Pending",
+    "syncReady": "Sync: Ready",
+    "syncPending": "Sync: Pending",
+    "pricingDescription": "Chọn chu kỳ thanh toán và gói phù hợp trước khi bật checkout production.",
+    "planSelected": "Đã chọn gói billing",
+    "couponTitle": "Coupon nội bộ",
+    "couponDescription": "Áp dụng mã giảm giá nội bộ để kiểm soát rollout hoặc hỗ trợ team nội bộ.",
+    "couponPlaceholder": "Nhập mã coupon",
+    "applyCoupon": "Áp dụng coupon",
+    "couponRequired": "Cần nhập mã coupon.",
+    "couponInvalid": "Mã coupon không hợp lệ.",
+    "couponQueued": "Đã ghi nhận coupon ở chế độ pending config.",
+    "couponQueuedDescription": "Stripe chưa cấu hình nên coupon được lưu ở luồng nội bộ.",
+    "couponApplied": "Coupon đã được áp dụng.",
+    "couponAppliedDescription": "Mã giảm giá đã đi vào luồng billing hiện tại.",
+    "openAdminWorkspace": "Mở Admin Workspace",
+    "invoice": {
+      "title": "Lịch sử hóa đơn",
+      "description": "Theo dõi kỳ thanh toán gần nhất và trạng thái thu tiền.",
+      "currentPeriod": "Kỳ hiện tại",
+      "previousPeriod": "Kỳ trước",
+      "twoMonthsAgo": "Hai kỳ trước",
+      "statusOpen": "Đang mở",
+      "statusPaid": "Đã thanh toán",
+      "note": "Danh sách hóa đơn chi tiết sẽ tự đồng bộ khi Stripe webhook được cấu hình."
     }
   }
 }

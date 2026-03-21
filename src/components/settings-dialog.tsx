@@ -512,14 +512,7 @@ export function SettingsDialog({
         await changeLanguage(
           selectedLanguage === "system"
             ? null
-            : (selectedLanguage as
-                | "en"
-                | "es"
-                | "pt"
-                | "fr"
-                | "zh"
-                | "ja"
-                | "ru"),
+            : (selectedLanguage as "vi" | "en"),
         );
         setOriginalLanguage(selectedLanguage);
       }

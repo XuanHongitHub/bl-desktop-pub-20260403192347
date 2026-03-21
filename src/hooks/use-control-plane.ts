@@ -101,6 +101,7 @@ function normalizeBaseUrl(url?: string | null): string | null {
 
 export function useControlPlane(): UseControlPlaneResult {
   const { user } = useCloudAuth();
+  const isPlatformAdmin = user?.platformRole === "platform_admin";
   const [runtime, setRuntime] = useState<ControlPlaneRuntime>({
     baseUrl: null,
     token: null,
@@ -261,10 +262,11 @@ export function useControlPlane(): UseControlPlaneResult {
   );
 
   const refreshAdminData = useCallback(async () => {
-    if (!runtime.baseUrl) {
+    if (!runtime.baseUrl || !isPlatformAdmin) {
       setAdminOverview(null);
       setCoupons([]);
       setAuditLogs([]);
+      setError(null);
       return;
     }
 
@@ -286,7 +288,7 @@ export function useControlPlane(): UseControlPlaneResult {
         setError(extractRootError(requestError));
       }
     });
-  }, [request, runWithLoading, runtime.baseUrl]);
+  }, [isPlatformAdmin, request, runWithLoading, runtime.baseUrl]);
 
   const refreshServerConfigStatus = useCallback(async () => {
     if (!runtime.baseUrl) {

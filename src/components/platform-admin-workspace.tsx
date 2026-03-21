@@ -7,7 +7,6 @@ import {
   FileText,
   RefreshCcw,
   ShieldCheck,
-  Sliders,
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -32,53 +31,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 interface PlatformAdminWorkspaceProps {
   runtimeConfig: RuntimeConfigStatus | null;
   entitlement: EntitlementSnapshot | null;
+  platformRole?: string;
+  teamRole?: TeamRole | null;
 }
 
-type ModuleCard = {
-  id: string;
-  icon: typeof Users;
-  titleKey: string;
-  descriptionKey: string;
-};
-
-const MODULE_CARDS: ModuleCard[] = [
-  {
-    id: "workspaceUsers",
-    icon: Users,
-    titleKey: "adminWorkspace.modules.workspaceUsers.title",
-    descriptionKey: "adminWorkspace.modules.workspaceUsers.description",
-  },
-  {
-    id: "billingEntitlement",
-    icon: CreditCard,
-    titleKey: "adminWorkspace.modules.billingEntitlement.title",
-    descriptionKey: "adminWorkspace.modules.billingEntitlement.description",
-  },
-  {
-    id: "coupon",
-    icon: Sliders,
-    titleKey: "adminWorkspace.modules.coupon.title",
-    descriptionKey: "adminWorkspace.modules.coupon.description",
-  },
-  {
-    id: "audit",
-    icon: FileText,
-    titleKey: "adminWorkspace.modules.audit.title",
-    descriptionKey: "adminWorkspace.modules.audit.description",
-  },
-  {
-    id: "systemConfig",
-    icon: ShieldCheck,
-    titleKey: "adminWorkspace.modules.systemConfig.title",
-    descriptionKey: "adminWorkspace.modules.systemConfig.description",
-  },
-  {
-    id: "analytics",
-    icon: BarChart3,
-    titleKey: "adminWorkspace.modules.analytics.title",
-    descriptionKey: "adminWorkspace.modules.analytics.description",
-  },
-];
+type AdminTab =
+  | "overview"
+  | "workspace"
+  | "billing"
+  | "audit"
+  | "system"
+  | "analytics";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -87,6 +50,8 @@ function isValidEmail(email: string): boolean {
 export function PlatformAdminWorkspace({
   runtimeConfig,
   entitlement,
+  platformRole,
+  teamRole,
 }: PlatformAdminWorkspaceProps) {
   const { t } = useTranslation();
   const [reason, setReason] = useState("");
@@ -148,6 +113,24 @@ export function PlatformAdminWorkspace({
     revokeCoupon,
   } = useControlPlane();
   const isBusy = isLoading || isCreatingWorkspace || isUpdatingEntitlement;
+  const isPlatformAdmin = platformRole === "platform_admin";
+  const isTeamOperator = teamRole === "owner" || teamRole === "admin";
+  const availableTabs = useMemo<AdminTab[]>(() => {
+    if (isPlatformAdmin) {
+      return ["overview", "workspace", "billing", "audit", "system", "analytics"];
+    }
+    if (isTeamOperator) {
+      return ["overview", "workspace", "system", "analytics"];
+    }
+    return ["overview", "workspace"];
+  }, [isPlatformAdmin, isTeamOperator]);
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [activeTab, availableTabs]);
 
   useEffect(() => {
     const nextDrafts: Record<string, TeamRole> = {};
@@ -462,114 +445,192 @@ export function PlatformAdminWorkspace({
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        setActiveTab(value as AdminTab);
+      }}
+      className="grid gap-4 xl:grid-cols-[230px_minmax(0,1fr)]"
+    >
+      <Card className="h-fit">
         <CardHeader>
-          <CardTitle>{t("adminWorkspace.overview.title")}</CardTitle>
-          <CardDescription>{t("adminWorkspace.overview.description")}</CardDescription>
+          <CardTitle>{t("shell.sections.admin")}</CardTitle>
+          <CardDescription>{t("adminWorkspace.subtitle")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-          <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-            <div className="text-xs text-muted-foreground">
-              {t("adminWorkspace.overview.configStatus")}
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">{configSummary}</p>
-          </div>
-          <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-            <div className="text-xs text-muted-foreground">
-              {t("adminWorkspace.overview.entitlement")}
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">{entitlementLabel}</p>
-          </div>
-          <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-            <div className="text-xs text-muted-foreground">
-              {t("adminWorkspace.overview.controlPlane")}
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">{controlPlaneStatus}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
-          </div>
-          <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-            <div className="text-xs text-muted-foreground">
-              {t("adminWorkspace.overview.auditRetention")}
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">
-              {t("adminWorkspace.overview.auditRetentionValue")}
+        <CardContent className="space-y-3">
+          <TabsList className="grid h-auto w-full gap-1 bg-transparent p-0">
+            {availableTabs.includes("overview") && (
+              <TabsTrigger value="overview" className="justify-start gap-2">
+                <BarChart3 className="h-4 w-4" />
+                {t("adminWorkspace.tabs.overview")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("workspace") && (
+              <TabsTrigger value="workspace" className="justify-start gap-2">
+                <Users className="h-4 w-4" />
+                {t("adminWorkspace.tabs.workspace")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("billing") && (
+              <TabsTrigger value="billing" className="justify-start gap-2">
+                <CreditCard className="h-4 w-4" />
+                {t("adminWorkspace.tabs.billing")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("audit") && (
+              <TabsTrigger value="audit" className="justify-start gap-2">
+                <FileText className="h-4 w-4" />
+                {t("adminWorkspace.tabs.audit")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("system") && (
+              <TabsTrigger value="system" className="justify-start gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                {t("adminWorkspace.tabs.system")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("analytics") && (
+              <TabsTrigger value="analytics" className="justify-start gap-2">
+                <BarChart3 className="h-4 w-4" />
+                {t("adminWorkspace.tabs.analytics")}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <div className="rounded-md border border-border bg-muted px-3 py-2">
+            <p className="text-xs font-medium text-foreground">
+              {t("adminWorkspace.controlPlane.workspaceList")}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selectedWorkspace?.name ??
+                t("adminWorkspace.controlPlane.noWorkspaceSelected")}
             </p>
           </div>
-          {adminOverview && (
-            <>
-              <div className="rounded-md border border-border bg-card p-3">
-                <div className="text-xs text-muted-foreground">{t("adminWorkspace.metrics.workspaces")}</div>
-                <p className="mt-2 text-sm font-medium text-foreground">{adminOverview.workspaces}</p>
-              </div>
-              <div className="rounded-md border border-border bg-card p-3">
-                <div className="text-xs text-muted-foreground">{t("adminWorkspace.metrics.members")}</div>
-                <p className="mt-2 text-sm font-medium text-foreground">{adminOverview.members}</p>
-              </div>
-              <div className="rounded-md border border-border bg-card p-3">
-                <div className="text-xs text-muted-foreground">{t("adminWorkspace.metrics.invites")}</div>
-                <p className="mt-2 text-sm font-medium text-foreground">{adminOverview.activeInvites}</p>
-              </div>
-              <div className="rounded-md border border-border bg-card p-3">
-                <div className="text-xs text-muted-foreground">{t("adminWorkspace.metrics.audits24h")}</div>
-                <p className="mt-2 text-sm font-medium text-foreground">{adminOverview.auditsLast24h}</p>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("adminWorkspace.controlPlane.title")}</CardTitle>
-          <CardDescription>{t("adminWorkspace.controlPlane.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void refreshRuntime();
-                void refreshWorkspaceList();
-                void refreshAdminData();
-                void refreshServerConfigStatus();
-              }}
-              disabled={isBusy}
-            >
-              <RefreshCcw className={`mr-2 h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
-              {t("common.buttons.refresh")}
-            </Button>
-            {error && (
-              <Badge variant="secondary" className="max-w-full truncate">
-                {error}
-              </Badge>
-            )}
-            {error && (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("adminWorkspace.controlPlane.title")}</CardTitle>
+            <CardDescription>{t("adminWorkspace.controlPlane.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
-                variant="ghost"
-                size="sm"
-                onClick={clearError}
+                variant="outline"
+                onClick={() => {
+                  void refreshRuntime();
+                  void refreshWorkspaceList();
+                  if (isPlatformAdmin) {
+                    void refreshAdminData();
+                  }
+                  void refreshServerConfigStatus();
+                }}
+                disabled={isBusy}
               >
-                {t("common.buttons.clear")}
+                <RefreshCcw className={`mr-2 h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
+                {t("common.buttons.refresh")}
               </Button>
-            )}
-          </div>
-
-          {!runtime.baseUrl ? (
-            <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {t("adminWorkspace.controlPlane.pendingHelp")}
+              {error && (
+                <Badge variant="secondary" className="max-w-full truncate">
+                  {error}
+                </Badge>
+              )}
+              {error && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearError}
+                >
+                  {t("common.buttons.clear")}
+                </Button>
+              )}
             </div>
-          ) : (
-            <Tabs defaultValue="workspace">
-              <TabsList>
-                <TabsTrigger value="workspace">{t("adminWorkspace.tabs.workspace")}</TabsTrigger>
-                <TabsTrigger value="billing">{t("adminWorkspace.tabs.billing")}</TabsTrigger>
-                <TabsTrigger value="audit">{t("adminWorkspace.tabs.audit")}</TabsTrigger>
-              </TabsList>
 
-              <TabsContent value="workspace" className="space-y-4">
+            <TabsContent value="overview" className="mt-0 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("adminWorkspace.overview.title")}</CardTitle>
+                  <CardDescription>{t("adminWorkspace.overview.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.overview.configStatus")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">{configSummary}</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.overview.entitlement")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">{entitlementLabel}</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.overview.controlPlane")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">{controlPlaneStatus}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.overview.auditRetention")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {t("adminWorkspace.overview.auditRetentionValue")}
+                    </p>
+                  </div>
+                  {adminOverview && (
+                    <>
+                      <div className="rounded-md border border-border bg-card p-3">
+                        <div className="text-xs text-muted-foreground">
+                          {t("adminWorkspace.metrics.workspaces")}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          {adminOverview.workspaces}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border bg-card p-3">
+                        <div className="text-xs text-muted-foreground">
+                          {t("adminWorkspace.metrics.members")}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          {adminOverview.members}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border bg-card p-3">
+                        <div className="text-xs text-muted-foreground">
+                          {t("adminWorkspace.metrics.invites")}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          {adminOverview.activeInvites}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border bg-card p-3">
+                        <div className="text-xs text-muted-foreground">
+                          {t("adminWorkspace.metrics.audits24h")}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          {adminOverview.auditsLast24h}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="workspace" className="mt-0 space-y-4">
+              {!runtime.baseUrl ? (
+                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t("adminWorkspace.controlPlane.pendingHelp")}
+                </div>
+              ) : (
+                <>
                 <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
                   <Input
                     value={workspaceName}
@@ -920,9 +981,17 @@ export function PlatformAdminWorkspace({
                     </div>
                   </ScrollArea>
                 </div>
-              </TabsContent>
+                </>
+              )}
+            </TabsContent>
 
-              <TabsContent value="billing" className="space-y-4">
+            <TabsContent value="billing" className="mt-0 space-y-4">
+              {!isPlatformAdmin ? (
+                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t("adminWorkspace.noAccessDescription")}
+                </div>
+              ) : (
+                <>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("adminWorkspace.entitlementControl.title")}</CardTitle>
@@ -1108,9 +1177,17 @@ export function PlatformAdminWorkspace({
                     </ScrollArea>
                   </CardContent>
                 </Card>
-              </TabsContent>
+                </>
+              )}
+            </TabsContent>
 
-              <TabsContent value="audit" className="space-y-4">
+            <TabsContent value="audit" className="mt-0 space-y-4">
+              {!isPlatformAdmin ? (
+                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t("adminWorkspace.noAccessDescription")}
+                </div>
+              ) : (
+                <>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1149,31 +1226,109 @@ export function PlatformAdminWorkspace({
                     )}
                   </div>
                 </ScrollArea>
-              </TabsContent>
-            </Tabs>
-          )}
-        </CardContent>
-      </Card>
+                </>
+              )}
+            </TabsContent>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {MODULE_CARDS.map((module) => {
-          const Icon = module.icon;
-          return (
-            <Card key={module.id}>
-              <CardHeader className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-muted text-foreground">
-                    <Icon className="h-4 w-4" />
+            <TabsContent value="system" className="mt-0 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("adminWorkspace.modules.systemConfig.title")}</CardTitle>
+                  <CardDescription>
+                    {t("adminWorkspace.modules.systemConfig.description")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.status.authPending")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {runtimeConfig?.auth === "ready"
+                        ? t("adminWorkspace.status.allReady")
+                        : t("adminWorkspace.status.authPending")}
+                    </p>
                   </div>
-                  <Badge variant="secondary">{t("adminWorkspace.modules.statusReady")}</Badge>
-                </div>
-                <CardTitle className="text-base">{t(module.titleKey)}</CardTitle>
-                <CardDescription>{t(module.descriptionKey)}</CardDescription>
-              </CardHeader>
-            </Card>
-          );
-        })}
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.status.stripePending")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {runtimeConfig?.stripe === "ready"
+                        ? t("adminWorkspace.status.allReady")
+                        : t("adminWorkspace.status.stripePending")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.status.syncPending")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {runtimeConfig?.s3_sync === "ready"
+                        ? t("adminWorkspace.status.allReady")
+                        : t("adminWorkspace.status.syncPending")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.overview.controlPlane")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {controlPlaneStatus}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="mt-0 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("adminWorkspace.modules.analytics.title")}</CardTitle>
+                  <CardDescription>
+                    {t("adminWorkspace.modules.analytics.description")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.metrics.workspaces")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {adminOverview?.workspaces ?? workspaces.length}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.metrics.members")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {adminOverview?.members ?? memberships.length}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.metrics.invites")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {adminOverview?.activeInvites ?? invites.length}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {t("adminWorkspace.metrics.audits24h")}
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      {adminOverview?.auditsLast24h ?? auditLogs.length}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </Tabs>
   );
 }

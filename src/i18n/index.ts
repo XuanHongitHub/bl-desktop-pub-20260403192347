@@ -7,12 +7,6 @@ import vi from "./locales/vi.json";
 export const SUPPORTED_LANGUAGES = [
   { code: "vi", name: "Vietnamese", nativeName: "Tiếng Việt" },
   { code: "en", name: "English", nativeName: "English" },
-  { code: "fr", name: "French", nativeName: "Français" },
-  { code: "es", name: "Spanish", nativeName: "Español" },
-  { code: "pt", name: "Portuguese", nativeName: "Português" },
-  { code: "zh", name: "Chinese", nativeName: "中文" },
-  { code: "ja", name: "Japanese", nativeName: "日本語" },
-  { code: "ru", name: "Russian", nativeName: "Русский" },
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]["code"];

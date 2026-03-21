@@ -827,6 +827,7 @@ export interface VpnStatus {
 export type AppSection =
   | "profiles"
   | "proxies"
+  | "billing"
   | "settings"
   | "integrations"
   | "admin";
