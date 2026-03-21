@@ -1556,6 +1556,10 @@
     "panelSwitch": {
       "toAdmin": "Chuyển sang Admin Panel",
       "toWorkspace": "Quay về Workspace App"
+    },
+    "accountMenu": {
+      "workspaces": "Workspace",
+      "addWorkspace": "Thêm workspace"
     }
   },
   "billingPage": {

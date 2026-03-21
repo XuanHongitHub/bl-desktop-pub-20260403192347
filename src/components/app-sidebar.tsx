@@ -13,10 +13,10 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
   Receipt,
   Settings2,
   Shield,
-  ShieldCheck,
   SquareTerminal,
   UserRound,
   Users,
@@ -222,6 +222,73 @@ export function AppSidebar({
     ? t("shell.sections.adminPanel")
     : roleLabel;
 
+  const renderAccountMenuContent = () => (
+    <>
+      <DropdownMenuLabel className="space-y-1">
+        <p className="truncate text-sm font-semibold text-foreground">
+          {authEmail ?? t("shell.auth.loggedOut")}
+        </p>
+        <p className="truncate text-xs font-medium text-muted-foreground">
+          {workspaceContextLabel}
+        </p>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+        {t("shell.accountMenu.workspaces")}
+      </DropdownMenuLabel>
+      {workspaceOptions.map((workspace) => {
+        const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
+        return (
+          <DropdownMenuItem
+            key={workspace.id}
+            onClick={() => onWorkspaceChange?.(workspace.id)}
+            disabled={!canSwitchWorkspace}
+            className={cn("rounded-md px-2 py-2", isCurrentWorkspace && "bg-muted")}
+          >
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold text-foreground">
+                {workspace.label}
+              </p>
+              <p className="truncate text-[10px] font-medium text-muted-foreground">
+                {isCurrentWorkspace
+                  ? t("shell.workspaceSwitcher.current")
+                  : t("shell.workspaceSwitcher.switchTo")}
+              </p>
+            </div>
+            {isCurrentWorkspace && (
+              <Check className="h-4 w-4 shrink-0 text-foreground" />
+            )}
+          </DropdownMenuItem>
+        );
+      })}
+      <DropdownMenuItem disabled className="rounded-md px-2 py-2">
+        <Plus className="h-4 w-4" />
+        {t("shell.accountMenu.addWorkspace")}
+      </DropdownMenuItem>
+      {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
+      {showAdminSection && !inAdminPanel && (
+        <DropdownMenuItem onClick={() => onSectionChange("admin-overview")}>
+          <LayoutDashboard className="h-4 w-4" />
+          {t("shell.panelSwitch.toAdmin")}
+        </DropdownMenuItem>
+      )}
+      {inAdminPanel && (
+        <DropdownMenuItem onClick={() => onSectionChange("profiles")}>
+          <LifeBuoy className="h-4 w-4" />
+          {t("shell.panelSwitch.toWorkspace")}
+        </DropdownMenuItem>
+      )}
+      {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
+      <DropdownMenuItem onClick={onSignOut} disabled={isAuthBusy || !onSignOut}>
+        <LogOut className="h-4 w-4" />
+        {t("shell.auth.signOut")}
+      </DropdownMenuItem>
+    </>
+  );
+
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
     const isActive = activeSection === item.id;
@@ -340,88 +407,14 @@ export function AppSidebar({
                 <Logo variant="icon" className="h-8 w-8 rounded-md" />
               </button>
 
-              {isAuthenticated && workspaceOptions.length > 0 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={!canSwitchWorkspace}
-                      className={cn(
-                        "group flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-1.5 text-left transition-colors data-[state=open]:bg-muted/50",
-                        canSwitchWorkspace
-                          ? "hover:bg-muted/40"
-                          : "cursor-default opacity-85",
-                      )}
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-semibold text-foreground">
-                          {selectedWorkspace?.label ??
-                            t("shell.workspaceSwitcher.placeholder")}
-                        </p>
-                        <p className="truncate text-[10px] font-medium text-muted-foreground">
-                          {workspaceContextLabel}
-                        </p>
-                      </div>
-                      {isPlatformAdmin && (
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[292px]">
-                    <DropdownMenuLabel className="space-y-0.5 px-2 py-1">
-                      {t("shell.workspaceSwitcher.label")}
-                      <p className="text-[11px] font-medium text-muted-foreground">
-                        {workspaceContextLabel}
-                      </p>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {workspaceOptions.map((workspace) => {
-                      const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
-                      return (
-                      <DropdownMenuItem
-                        key={workspace.id}
-                        onClick={() => onWorkspaceChange?.(workspace.id)}
-                        disabled={!canSwitchWorkspace}
-                        className={cn(
-                          "rounded-md px-2 py-2",
-                          isCurrentWorkspace && "bg-muted",
-                        )}
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[12px] font-semibold text-foreground">
-                            {workspace.label}
-                          </p>
-                          <p className="truncate text-[10px] font-medium text-muted-foreground">
-                            {isCurrentWorkspace
-                              ? t("shell.workspaceSwitcher.current")
-                              : t("shell.workspaceSwitcher.switchTo")}
-                          </p>
-                        </div>
-                        {isCurrentWorkspace && (
-                          <Check className="h-4 w-4 shrink-0 text-foreground" />
-                        )}
-                      </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold text-foreground">
-                    BugLogin
-                  </p>
-                  <p className="truncate text-[10px] font-medium text-muted-foreground">
-                    {t("shell.auth.disconnected")}
-                  </p>
-                </div>
-              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold text-foreground">
+                  {selectedWorkspace?.label ?? "BugLogin"}
+                </p>
+                <p className="truncate text-[10px] font-medium text-muted-foreground">
+                  {workspaceContextLabel}
+                </p>
+              </div>
 
               {onCollapsedChange && (
                 <button
@@ -460,40 +453,8 @@ export function AppSidebar({
                   <UserRound className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="space-y-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {authEmail ?? t("shell.auth.loggedOut")}
-                  </p>
-                  <p className="truncate text-xs font-medium text-muted-foreground">
-                    {roleLabel}
-                  </p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {showAdminSection && !inAdminPanel && (
-                  <DropdownMenuItem
-                    onClick={() => onSectionChange("admin-overview")}
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    {t("shell.panelSwitch.toAdmin")}
-                  </DropdownMenuItem>
-                )}
-                {inAdminPanel && (
-                  <DropdownMenuItem
-                    onClick={() => onSectionChange("profiles")}
-                  >
-                    <LifeBuoy className="h-4 w-4" />
-                    {t("shell.panelSwitch.toWorkspace")}
-                  </DropdownMenuItem>
-                )}
-                {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  onClick={onSignOut}
-                  disabled={isAuthBusy || !onSignOut}
-                >
-                  <LogOut className="h-4 w-4" />
-                  {t("shell.auth.signOut")}
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-[292px]">
+                {renderAccountMenuContent()}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
@@ -518,54 +479,25 @@ export function AppSidebar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-lg bg-background px-2 py-2 text-left transition-colors hover:bg-muted/40"
+                className="group flex w-full items-center gap-2 rounded-lg bg-background px-2 py-2 text-left transition-colors hover:bg-muted/40 data-[state=open]:bg-muted/50"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
                   <UserRound className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-semibold text-foreground">
-                    {authEmail ?? t("shell.auth.loggedOut")}
+                    {selectedWorkspace?.label ??
+                      t("shell.workspaceSwitcher.placeholder")}
                   </p>
                   <p className="truncate text-[11px] font-medium text-muted-foreground">
-                    {roleLabel}
+                    {workspaceContextLabel}
                   </p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronsUpDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="space-y-1">
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {authEmail ?? t("shell.auth.loggedOut")}
-                </p>
-                <p className="truncate text-xs font-medium text-muted-foreground">{roleLabel}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {showAdminSection && !inAdminPanel && (
-                <DropdownMenuItem
-                  onClick={() => onSectionChange("admin-overview")}
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  {t("shell.panelSwitch.toAdmin")}
-                </DropdownMenuItem>
-              )}
-              {inAdminPanel && (
-                <DropdownMenuItem
-                  onClick={() => onSectionChange("profiles")}
-                >
-                  <LifeBuoy className="h-4 w-4" />
-                  {t("shell.panelSwitch.toWorkspace")}
-                </DropdownMenuItem>
-              )}
-              {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
-              <DropdownMenuItem
-                onClick={onSignOut}
-                disabled={isAuthBusy || !onSignOut}
-              >
-                <LogOut className="h-4 w-4" />
-                {t("shell.auth.signOut")}
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-[292px]">
+              {renderAccountMenuContent()}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (

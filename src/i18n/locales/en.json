@@ -1556,6 +1556,10 @@
     "panelSwitch": {
       "toAdmin": "Go to Admin Panel",
       "toWorkspace": "Back to Workspace App"
+    },
+    "accountMenu": {
+      "workspaces": "Workspaces",
+      "addWorkspace": "Add workspace"
     }
   },
   "billingPage": {
