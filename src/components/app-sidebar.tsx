@@ -2,6 +2,8 @@
 
 import {
   BarChart3,
+  Building2,
+  Check,
   ChevronsUpDown,
   ChevronRight,
   FileText,
@@ -31,7 +33,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { ScrollArea } from "./ui/scroll-area";
@@ -202,6 +203,9 @@ export function AppSidebar({
     workspaceOptions.find((workspace) => workspace.id === selectedWorkspaceId) ??
     workspaceOptions[0] ??
     null;
+  const workspaceContextLabel = inAdminPanel
+    ? t("shell.sections.adminPanel")
+    : roleLabel;
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -300,7 +304,7 @@ export function AppSidebar({
                       type="button"
                       onClick={() => onCollapsedChange(false)}
                       aria-label={t("shell.expandSidebar")}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                     >
                       <PanelLeftOpen className="h-4 w-4" />
                     </button>
@@ -328,44 +332,69 @@ export function AppSidebar({
                       type="button"
                       disabled={!canSwitchWorkspace}
                       className={cn(
-                        "flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-muted px-2 py-1.5 text-left transition-colors",
+                        "group flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-1.5 text-left transition-colors data-[state=open]:bg-muted/50",
                         canSwitchWorkspace
-                          ? "hover:bg-muted/70"
+                          ? "hover:bg-muted/40"
                           : "cursor-default opacity-85",
                       )}
                     >
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[12px] font-semibold text-foreground">
                           {selectedWorkspace?.label ??
                             t("shell.workspaceSwitcher.placeholder")}
                         </p>
                         <p className="truncate text-[10px] font-medium text-muted-foreground">
-                          {inAdminPanel
-                            ? t("shell.sections.adminPanel")
-                            : roleLabel}
+                          {workspaceContextLabel}
                         </p>
                       </div>
                       {isPlatformAdmin && (
                         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}
-                      <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[260px]">
-                    <DropdownMenuLabel>
+                  <DropdownMenuContent align="start" className="w-[292px]">
+                    <DropdownMenuLabel className="space-y-0.5 px-2 py-1">
                       {t("shell.workspaceSwitcher.label")}
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        {workspaceContextLabel}
+                      </p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {workspaceOptions.map((workspace, index) => (
+                    {workspaceOptions.map((workspace) => {
+                      const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
+                      return (
                       <DropdownMenuItem
                         key={workspace.id}
                         onClick={() => onWorkspaceChange?.(workspace.id)}
                         disabled={!canSwitchWorkspace}
+                        className={cn(
+                          "rounded-md px-2 py-2",
+                          isCurrentWorkspace && "bg-muted",
+                        )}
                       >
-                        <span className="truncate">{workspace.label}</span>
-                        <DropdownMenuShortcut>{index + 1}</DropdownMenuShortcut>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12px] font-semibold text-foreground">
+                            {workspace.label}
+                          </p>
+                          <p className="truncate text-[10px] font-medium text-muted-foreground">
+                            {isCurrentWorkspace
+                              ? t("shell.workspaceSwitcher.current")
+                              : t("shell.workspaceSwitcher.switchTo")}
+                          </p>
+                        </div>
+                        {isCurrentWorkspace && (
+                          <Check className="h-4 w-4 shrink-0 text-foreground" />
+                        )}
                       </DropdownMenuItem>
-                    ))}
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
@@ -384,7 +413,7 @@ export function AppSidebar({
                   type="button"
                   onClick={() => onCollapsedChange(true)}
                   aria-label={t("shell.collapseSidebar")}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 >
                   <PanelLeftClose className="h-4 w-4" />
                 </button>
@@ -412,7 +441,7 @@ export function AppSidebar({
                 type="button"
                 onClick={isAuthenticated ? onSignOut : onSignIn}
                 disabled={isAuthBusy || (isAuthenticated ? !onSignOut : !onSignIn)}
-                className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-foreground transition-colors hover:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <UserRound className="h-4 w-4" />
               </button>
@@ -426,7 +455,7 @@ export function AppSidebar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted px-2 py-2 text-left transition-colors hover:bg-muted/70"
+                className="flex w-full items-center gap-2 rounded-lg bg-background px-2 py-2 text-left transition-colors hover:bg-muted/40"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
                   <UserRound className="h-4 w-4" />
@@ -460,7 +489,7 @@ export function AppSidebar({
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-2">
+          <div className="flex items-center gap-2 rounded-lg bg-background px-2 py-2">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
               <UserRound className="h-4 w-4" />
             </div>

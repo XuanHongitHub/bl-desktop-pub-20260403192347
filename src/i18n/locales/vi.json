@@ -1549,7 +1549,9 @@
       "label": "Workspace hiện tại",
       "placeholder": "Chọn workspace",
       "teamWorkspace": "Team Workspace",
-      "personalWorkspace": "Personal Workspace"
+      "personalWorkspace": "Personal Workspace",
+      "current": "Đang dùng",
+      "switchTo": "Chuyển sang workspace này"
     }
   },
   "billingPage": {
