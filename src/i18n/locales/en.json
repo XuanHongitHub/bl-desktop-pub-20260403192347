@@ -1163,10 +1163,14 @@
     "pendingSync": "Sync service is in local-only mode until S3 sync is configured."
   },
   "authDialog": {
-    "title": "Cloud Login",
-    "description": "Sign in with email OTP. Optional invite token can be accepted right after login.",
+    "title": "Workspace Login",
+    "description": "Sign in with your invited email. You can accept invite token immediately after signing in.",
     "emailLabel": "Email",
     "emailPlaceholder": "name@company.com",
+    "accessScopeLabel": "Access scope",
+    "accessScopeUser": "Workspace user",
+    "accessScopeAdmin": "Platform admin",
+    "accessScopeHint": "Use platform admin only for trusted internal operators.",
     "otpLabel": "OTP Code",
     "otpPlaceholder": "Enter the 6-digit code",
     "inviteTokenLabel": "Invite token (optional)",
@@ -1183,6 +1187,8 @@
     "otpRequested": "OTP sent. Check your inbox.",
     "otpRequestFailed": "Failed to request OTP.",
     "otpVerifyFailed": "Failed to verify OTP.",
+    "loginFailed": "Failed to sign in.",
+    "signInWithEmail": "Sign in with email",
     "loginSuccess": "Logged in successfully.",
     "logoutSuccess": "Logged out successfully.",
     "logoutFailed": "Failed to log out.",
@@ -1190,8 +1196,9 @@
     "inviteDetected": "Invite link detected. Please complete login to accept access.",
     "inviteAccepted": "Invite accepted successfully.",
     "inviteAcceptFailed": "Logged in, but failed to accept invite token.",
-    "googlePendingTitle": "Google Login Pending",
-    "googlePendingDescription": "Google OAuth is intentionally disabled until backend configuration is ready. Email OTP login remains available."
+    "inviteRequired": "This email is not in any workspace yet. Use an invite token or sign in as platform admin.",
+    "googlePendingTitle": "Google Login (Coming Later)",
+    "googlePendingDescription": "Google OAuth will be enabled after backend is configured. Email sign-in is currently the primary path."
   },
   "adminWorkspace": {
     "subtitle": "Platform governance for billing, entitlements, and operational controls.",
@@ -1200,6 +1207,7 @@
     "reasonPlaceholder": "Explain why this operation is needed (required)",
     "noAccessTitle": "You do not have access to Admin Workspace",
     "noAccessDescription": "Only owner/admin roles or platform admins can access this management area.",
+    "signInRequired": "Please sign in first to access Admin Workspace and control-plane operations.",
     "entitlementUpdated": "Entitlement state updated.",
     "entitlementUpdateFailed": "Failed to update entitlement state.",
     "tabs": {
@@ -1260,6 +1268,7 @@
       "title": "Members",
       "invites": "Invite management",
       "inviteEmailRequired": "Invite email is required.",
+      "inviteEmailInvalid": "Invite email is invalid.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Invite created successfully.",
       "inviteCreateFailed": "Failed to create invite.",
@@ -1284,6 +1293,7 @@
     "share": {
       "title": "Share grants",
       "fieldsRequired": "Resource and recipient email are required.",
+      "recipientInvalid": "Recipient email is invalid.",
       "resourceIdPlaceholder": "Resource ID (profile/group)",
       "recipientPlaceholder": "Recipient email",
       "created": "Share grant created.",
@@ -1315,6 +1325,10 @@
       "couponDenylist": "Denylist workspace IDs (comma separated)",
       "couponFieldsRequired": "Coupon code and expiry are required.",
       "couponInvalidNumber": "Discount and max redemptions must be valid numbers.",
+      "couponCodeInvalid": "Coupon code must be 3-40 chars using letters, numbers, _ or -.",
+      "couponDiscountRange": "Discount must be greater than 0 and at most 95%.",
+      "couponMaxInvalid": "Max redemptions must be an integer greater than or equal to 0.",
+      "couponExpiryInvalid": "Coupon expiry must be a valid date in the future.",
       "couponCreated": "Coupon created.",
       "couponCreateFailed": "Failed to create coupon.",
       "couponRevoked": "Coupon revoked.",
@@ -1382,8 +1396,8 @@
     "expandSidebar": "Expand sidebar",
     "auth": {
       "loggedOut": "Not signed in",
-      "connected": "Cloud account connected",
-      "disconnected": "Cloud account disconnected",
+      "connected": "Workspace account connected",
+      "disconnected": "Workspace account disconnected",
       "signIn": "Sign in",
       "signOut": "Sign out"
     },

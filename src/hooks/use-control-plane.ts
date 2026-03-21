@@ -135,14 +135,12 @@ export function useControlPlane(): UseControlPlaneResult {
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "x-user-id": user?.id ?? "local-admin",
-        "x-user-email": user?.email ?? "local-admin@buglogin.local",
+        "x-user-id": user?.id ?? "anonymous",
+        "x-user-email": user?.email ?? "anonymous@local",
       };
 
       if (user?.platformRole) {
         headers["x-platform-role"] = user.platformRole;
-      } else if (!user) {
-        headers["x-platform-role"] = "platform_admin";
       }
 
       if (runtime.token) {

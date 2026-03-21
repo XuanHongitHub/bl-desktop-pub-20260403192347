@@ -69,6 +69,7 @@ import type {
   CamoufoxConfig,
   WayfernConfig,
 } from "@/types";
+import { Button } from "@/components/ui/button";
 
 type BrowserTypeString =
   | "firefox"
@@ -157,11 +158,7 @@ export default function Home() {
   const teamRole = normalizeTeamRole(cloudUser?.teamRole);
   const { entitlement, isReadOnly, runtimeConfig } = useRuntimeAccess();
   const syncUnlocked = runtimeConfig?.s3_sync === "ready";
-  const canAccessAdminWorkspace =
-    !cloudUser ||
-    cloudUser?.platformRole === "platform_admin" ||
-    teamRole === "owner" ||
-    teamRole === "admin";
+  const canAccessAdminWorkspace = Boolean(cloudUser);
 
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
@@ -1500,11 +1497,28 @@ export default function Home() {
         if (!canAccessAdminWorkspace) {
           return (
             <WorkspacePageShell
-              title={t("shell.sections.profiles")}
+              title={t("shell.sections.admin")}
               description={t("adminWorkspace.noAccessDescription")}
+              actions={
+                !cloudUser ? (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setPrefilledInviteToken(null);
+                      setCloudAuthDialogOpen(true);
+                    }}
+                  >
+                    {t("shell.auth.signIn")}
+                  </Button>
+                ) : undefined
+              }
               contentClassName="max-w-none space-y-4 pb-0"
             >
-              <></>
+              <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {!cloudUser
+                  ? t("adminWorkspace.signInRequired")
+                  : t("adminWorkspace.noAccessDescription")}
+              </div>
             </WorkspacePageShell>
           );
         }

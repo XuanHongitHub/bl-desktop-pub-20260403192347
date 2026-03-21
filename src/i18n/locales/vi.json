@@ -1163,10 +1163,14 @@
     "pendingSync": "Đang ở chế độ local-only cho tới khi cấu hình S3 sync."
   },
   "authDialog": {
-    "title": "Đăng nhập Cloud",
-    "description": "Đăng nhập bằng OTP email. Có thể dán invite token để nhận quyền ngay sau khi đăng nhập.",
+    "title": "Đăng nhập Workspace",
+    "description": "Đăng nhập bằng email được mời. Có thể dán invite token để nhận quyền ngay sau khi đăng nhập.",
     "emailLabel": "Email",
     "emailPlaceholder": "name@company.com",
+    "accessScopeLabel": "Phạm vi truy cập",
+    "accessScopeUser": "Người dùng workspace",
+    "accessScopeAdmin": "Platform admin",
+    "accessScopeHint": "Chỉ dùng chế độ platform admin cho vận hành nội bộ tin cậy.",
     "otpLabel": "Mã OTP",
     "otpPlaceholder": "Nhập mã 6 số",
     "inviteTokenLabel": "Invite token (tuỳ chọn)",
@@ -1183,6 +1187,8 @@
     "otpRequested": "Đã gửi OTP. Kiểm tra hộp thư của bạn.",
     "otpRequestFailed": "Không thể gửi OTP.",
     "otpVerifyFailed": "Không thể xác minh OTP.",
+    "loginFailed": "Không thể đăng nhập.",
+    "signInWithEmail": "Đăng nhập bằng email",
     "loginSuccess": "Đăng nhập thành công.",
     "logoutSuccess": "Đăng xuất thành công.",
     "logoutFailed": "Không thể đăng xuất.",
@@ -1190,8 +1196,9 @@
     "inviteDetected": "Đã phát hiện link mời. Vui lòng đăng nhập để nhận quyền.",
     "inviteAccepted": "Đã chấp nhận invite thành công.",
     "inviteAcceptFailed": "Đăng nhập thành công nhưng không thể chấp nhận invite token.",
-    "googlePendingTitle": "Google Login đang chờ cấu hình",
-    "googlePendingDescription": "Google OAuth đang tắt có chủ đích cho tới khi backend sẵn sàng. Bạn vẫn có thể dùng OTP email."
+    "inviteRequired": "Email này chưa thuộc workspace nào. Hãy dùng invite token hoặc đăng nhập bằng quyền platform admin.",
+    "googlePendingTitle": "Google Login (sẽ mở sau)",
+    "googlePendingDescription": "Google OAuth sẽ được bật sau khi backend sẵn sàng. Hiện tại đăng nhập bằng email là luồng chính."
   },
   "adminWorkspace": {
     "subtitle": "Vùng quản trị nền tảng cho billing, entitlement và vận hành.",
@@ -1200,6 +1207,7 @@
     "reasonPlaceholder": "Mô tả ngắn lý do thực hiện (bắt buộc)",
     "noAccessTitle": "Bạn không có quyền vào Admin Workspace",
     "noAccessDescription": "Chỉ owner/admin hoặc platform admin mới truy cập được khu vực quản trị này.",
+    "signInRequired": "Vui lòng đăng nhập trước để truy cập Admin Workspace và các thao tác control-plane.",
     "entitlementUpdated": "Đã cập nhật trạng thái entitlement.",
     "entitlementUpdateFailed": "Không thể cập nhật trạng thái entitlement.",
     "tabs": {
@@ -1260,6 +1268,7 @@
       "title": "Thành viên",
       "invites": "Quản lý invite",
       "inviteEmailRequired": "Cần nhập email mời.",
+      "inviteEmailInvalid": "Email mời không hợp lệ.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Đã tạo invite.",
       "inviteCreateFailed": "Không thể tạo invite.",
@@ -1284,6 +1293,7 @@
     "share": {
       "title": "Share grant",
       "fieldsRequired": "Cần nhập resource ID và email người nhận.",
+      "recipientInvalid": "Email người nhận không hợp lệ.",
       "resourceIdPlaceholder": "Resource ID (profile/group)",
       "recipientPlaceholder": "Email người nhận",
       "created": "Đã tạo share grant.",
@@ -1315,6 +1325,10 @@
       "couponDenylist": "Denylist workspace ID (phân tách dấu phẩy)",
       "couponFieldsRequired": "Bắt buộc nhập mã coupon và thời hạn.",
       "couponInvalidNumber": "Giảm giá và giới hạn lượt dùng phải là số hợp lệ.",
+      "couponCodeInvalid": "Mã coupon phải dài 3-40 ký tự, chỉ gồm chữ, số, _ hoặc -.",
+      "couponDiscountRange": "Giảm giá phải lớn hơn 0 và không vượt quá 95%.",
+      "couponMaxInvalid": "Giới hạn lượt dùng phải là số nguyên từ 0 trở lên.",
+      "couponExpiryInvalid": "Thời hạn coupon phải là thời điểm hợp lệ trong tương lai.",
       "couponCreated": "Đã tạo coupon.",
       "couponCreateFailed": "Không thể tạo coupon.",
       "couponRevoked": "Đã thu hồi coupon.",
@@ -1382,8 +1396,8 @@
     "expandSidebar": "Mở rộng sidebar",
     "auth": {
       "loggedOut": "Chưa đăng nhập",
-      "connected": "Đã kết nối tài khoản cloud",
-      "disconnected": "Chưa kết nối tài khoản cloud",
+      "connected": "Đã kết nối tài khoản workspace",
+      "disconnected": "Chưa kết nối tài khoản workspace",
       "signIn": "Đăng nhập",
       "signOut": "Đăng xuất"
     },

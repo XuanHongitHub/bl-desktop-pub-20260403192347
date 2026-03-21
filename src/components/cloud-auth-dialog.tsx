@@ -1,13 +1,12 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { extractRootError } from "@/lib/error-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { LoadingButton } from "./loading-button";
-import { Badge } from "./ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +17,13 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface CloudAuthDialogProps {
   isOpen: boolean;
@@ -29,8 +35,6 @@ interface SyncSettings {
   sync_server_url?: string;
   sync_token?: string;
 }
-
-type AuthStep = "request" | "verify";
 
 function normalizeBaseUrl(url?: string | null): string | null {
   if (!url) {
@@ -54,22 +58,20 @@ export function CloudAuthDialog({
   prefilledInviteToken = null,
 }: CloudAuthDialogProps) {
   const { t } = useTranslation();
-  const { requestOtp, verifyOtp } = useCloudAuth();
-  const [step, setStep] = useState<AuthStep>("request");
+  const { loginWithEmail, refreshProfile } = useCloudAuth();
   const [email, setEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
   const [inviteToken, setInviteToken] = useState("");
-  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [loginScope, setLoginScope] = useState<"workspace_user" | "platform_admin">(
+    "workspace_user",
+  );
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
-      setStep("request");
       setEmail("");
-      setOtpCode("");
       setInviteToken("");
-      setIsRequestingOtp(false);
-      setIsVerifyingOtp(false);
+      setLoginScope("workspace_user");
+      setIsSigningIn(false);
     }
   }, [isOpen]);
 
@@ -78,32 +80,7 @@ export function CloudAuthDialog({
       return;
     }
     setInviteToken(prefilledInviteToken);
-    setStep("verify");
   }, [isOpen, prefilledInviteToken]);
-
-  const isBusy = isRequestingOtp || isVerifyingOtp;
-
-  const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
-
-  const handleRequestOtp = async () => {
-    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
-      showErrorToast(t("authDialog.invalidEmail"));
-      return;
-    }
-
-    try {
-      setIsRequestingOtp(true);
-      await requestOtp(normalizedEmail);
-      setStep("verify");
-      showSuccessToast(t("authDialog.otpRequested"));
-    } catch (error) {
-      showErrorToast(t("authDialog.otpRequestFailed"), {
-        description: extractRootError(error),
-      });
-    } finally {
-      setIsRequestingOtp(false);
-    }
-  };
 
   const acceptInviteIfProvided = async (
     userId: string,
@@ -154,32 +131,39 @@ export function CloudAuthDialog({
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleSignIn = async () => {
+    const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       showErrorToast(t("authDialog.invalidEmail"));
       return;
     }
-    if (!otpCode.trim()) {
-      showErrorToast(t("authDialog.invalidOtp"));
-      return;
-    }
 
     try {
-      setIsVerifyingOtp(true);
-      const authState = await verifyOtp(normalizedEmail, otpCode.trim());
+      setIsSigningIn(true);
+      const hasInviteToken = inviteToken.trim().length > 0;
+      const authState = await loginWithEmail(normalizedEmail, {
+        scope: loginScope,
+        allowUnassigned: hasInviteToken,
+      });
       await acceptInviteIfProvided(
         authState.user.id,
         authState.user.email,
         authState.user.platformRole,
       );
+      await refreshProfile().catch(() => null);
       showSuccessToast(t("authDialog.loginSuccess"));
       onClose();
     } catch (error) {
-      showErrorToast(t("authDialog.otpVerifyFailed"), {
-        description: extractRootError(error),
+      const message = extractRootError(error);
+      if (message.includes("invite_required")) {
+        showErrorToast(t("authDialog.inviteRequired"));
+        return;
+      }
+      showErrorToast(t("authDialog.loginFailed"), {
+        description: message,
       });
     } finally {
-      setIsVerifyingOtp(false);
+      setIsSigningIn(false);
     }
   };
 
@@ -192,15 +176,6 @@ export function CloudAuthDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={step === "request" ? "default" : "secondary"}>
-              1. {t("authDialog.stepRequest")}
-            </Badge>
-            <Badge variant={step === "verify" ? "default" : "secondary"}>
-              2. {t("authDialog.stepVerify")}
-            </Badge>
-          </div>
-
           <div className="rounded-md border border-border bg-muted px-3 py-2">
             <p className="text-xs font-medium text-foreground">
               {t("authDialog.googlePendingTitle")}
@@ -220,87 +195,71 @@ export function CloudAuthDialog({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder={t("authDialog.emailPlaceholder")}
-              disabled={isBusy || step === "verify"}
+              disabled={isSigningIn}
             />
           </div>
 
-          {step === "verify" && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="cloud-auth-otp">
-                  {t("authDialog.otpLabel")}
-                </Label>
-                <Input
-                  id="cloud-auth-otp"
-                  value={otpCode}
-                  onChange={(event) => setOtpCode(event.target.value)}
-                  placeholder={t("authDialog.otpPlaceholder")}
-                  disabled={isBusy}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cloud-auth-invite-token">
-                  {t("authDialog.inviteTokenLabel")}
-                </Label>
-                <Input
-                  id="cloud-auth-invite-token"
-                  value={inviteToken}
-                  onChange={(event) => setInviteToken(event.target.value)}
-                  placeholder={t("authDialog.inviteTokenPlaceholder")}
-                  disabled={isBusy}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("authDialog.inviteTokenHint")}
-                </p>
-              </div>
-            </>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="cloud-auth-scope">{t("authDialog.accessScopeLabel")}</Label>
+            <Select
+              value={loginScope}
+              onValueChange={(value) =>
+                setLoginScope(value as "workspace_user" | "platform_admin")
+              }
+              disabled={isSigningIn}
+            >
+              <SelectTrigger id="cloud-auth-scope">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="workspace_user">
+                  {t("authDialog.accessScopeUser")}
+                </SelectItem>
+                <SelectItem value="platform_admin">
+                  {t("authDialog.accessScopeAdmin")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t("authDialog.accessScopeHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cloud-auth-invite-token">
+              {t("authDialog.inviteTokenLabel")}
+            </Label>
+            <Input
+              id="cloud-auth-invite-token"
+              value={inviteToken}
+              onChange={(event) => setInviteToken(event.target.value)}
+              placeholder={t("authDialog.inviteTokenPlaceholder")}
+              disabled={isSigningIn}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("authDialog.inviteTokenHint")}
+            </p>
+          </div>
         </div>
 
         <DialogFooter className="flex flex-wrap justify-between gap-2">
-          {step === "verify" ? (
-            <div className="flex gap-2">
-              <LoadingButton
-                type="button"
-                variant="outline"
-                onClick={() => setStep("request")}
-                disabled={isBusy}
-                isLoading={false}
-              >
-                {t("authDialog.back")}
-              </LoadingButton>
-              <LoadingButton
-                type="button"
-                variant="outline"
-                onClick={handleRequestOtp}
-                isLoading={isRequestingOtp}
-                disabled={isBusy}
-              >
-                {t("authDialog.resendOtp")}
-              </LoadingButton>
-            </div>
-          ) : (
-            <div />
-          )}
-          {step === "request" ? (
-            <LoadingButton
-              type="button"
-              onClick={handleRequestOtp}
-              isLoading={isRequestingOtp}
-              disabled={isBusy}
-            >
-              {t("authDialog.sendOtp")}
-            </LoadingButton>
-          ) : (
-            <LoadingButton
-              type="button"
-              onClick={handleVerifyOtp}
-              isLoading={isVerifyingOtp}
-              disabled={isBusy}
-            >
-              {t("authDialog.verifyOtp")}
-            </LoadingButton>
-          )}
+          <LoadingButton
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSigningIn}
+            isLoading={false}
+          >
+            {t("common.buttons.cancel")}
+          </LoadingButton>
+          <LoadingButton
+            type="button"
+            onClick={handleSignIn}
+            isLoading={isSigningIn}
+            disabled={isSigningIn}
+          >
+            {t("authDialog.signInWithEmail")}
+          </LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

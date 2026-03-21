@@ -80,6 +80,10 @@ const MODULE_CARDS: ModuleCard[] = [
   },
 ];
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export function PlatformAdminWorkspace({
   runtimeConfig,
   entitlement,
@@ -274,6 +278,10 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.members.inviteEmailRequired"));
       return;
     }
+    if (!isValidEmail(inviteEmail.trim().toLowerCase())) {
+      showErrorToast(t("adminWorkspace.members.inviteEmailInvalid"));
+      return;
+    }
 
     try {
       await createInvite(workspaceId, inviteEmail.trim(), inviteRole);
@@ -340,6 +348,10 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.share.fieldsRequired"));
       return;
     }
+    if (!isValidEmail(shareRecipientEmail.trim().toLowerCase())) {
+      showErrorToast(t("adminWorkspace.share.recipientInvalid"));
+      return;
+    }
 
     try {
       await createShareGrant(
@@ -376,6 +388,10 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.billing.couponFieldsRequired"));
       return;
     }
+    if (!/^[A-Za-z0-9_-]{3,40}$/.test(couponCode.trim())) {
+      showErrorToast(t("adminWorkspace.billing.couponCodeInvalid"));
+      return;
+    }
 
     const discount = Number(couponDiscount);
     const maxRedemptions = Number(couponMaxRedemptions);
@@ -384,16 +400,34 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.billing.couponInvalidNumber"));
       return;
     }
+    if (discount <= 0 || discount > 95) {
+      showErrorToast(t("adminWorkspace.billing.couponDiscountRange"));
+      return;
+    }
+    if (!Number.isInteger(maxRedemptions) || maxRedemptions < 0) {
+      showErrorToast(t("adminWorkspace.billing.couponMaxInvalid"));
+      return;
+    }
+
+    const expiresAtMs = new Date(couponExpiresAt).getTime();
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+      showErrorToast(t("adminWorkspace.billing.couponExpiryInvalid"));
+      return;
+    }
 
     try {
       const parseList = (value: string) =>
-        value
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
+        Array.from(
+          new Set(
+            value
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          ),
+        );
 
       await createCoupon({
-        code: couponCode.trim(),
+        code: couponCode.trim().toUpperCase(),
         source: couponSource,
         discountPercent: discount,
         maxRedemptions,
