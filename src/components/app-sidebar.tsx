@@ -278,9 +278,6 @@ export function AppSidebar({
                     canSwitchWorkspace ? "hover:bg-muted/70" : "cursor-default opacity-85",
                   )}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background">
-                    <Logo variant="icon" className="h-6 w-6 rounded-sm" />
-                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-semibold text-foreground">
                       {selectedWorkspace?.label ?? t("shell.workspaceSwitcher.placeholder")}

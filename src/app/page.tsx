@@ -70,7 +70,6 @@ import type {
   CamoufoxConfig,
   WayfernConfig,
 } from "@/types";
-import { Button } from "@/components/ui/button";
 
 type BrowserTypeString =
   | "firefox"
@@ -1506,23 +1505,6 @@ export default function Home() {
   const isLoading = profilesLoading || groupsLoading || proxiesLoading;
 
   const renderActiveSection = () => {
-    if (!cloudUser) {
-      return (
-        <WorkspacePageShell
-          title={t("authLanding.title")}
-          description={t("authLanding.subtitle")}
-          contentClassName="max-w-none space-y-4 pb-0"
-        >
-          <AuthPricingWorkspace
-            runtimeConfig={runtimeConfig}
-            prefilledInviteToken={prefilledInviteToken}
-            onConsumeInviteToken={() => setPrefilledInviteToken(null)}
-            onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
-          />
-        </WorkspacePageShell>
-      );
-    }
-
     switch (activeSection) {
       case "proxies":
         return (
@@ -1559,7 +1541,7 @@ export default function Home() {
             <WorkspaceBillingPage
               runtimeConfig={runtimeConfig}
               entitlement={entitlement}
-              user={cloudUser}
+              user={cloudUser!}
               teamRole={teamRole}
               onOpenAdminWorkspace={() => setActiveSection("admin")}
               onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
@@ -1572,24 +1554,10 @@ export default function Home() {
             <WorkspacePageShell
               title={t("shell.sections.admin")}
               description={t("adminWorkspace.noAccessDescription")}
-              actions={
-                !cloudUser ? (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setActiveSection("profiles");
-                    }}
-                  >
-                    {t("shell.auth.signIn")}
-                  </Button>
-                ) : undefined
-              }
               contentClassName="max-w-none space-y-4 pb-0"
             >
               <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                {!cloudUser
-                  ? t("adminWorkspace.signInRequired")
-                  : t("adminWorkspace.noAccessDescription")}
+                {t("adminWorkspace.noAccessDescription")}
               </div>
             </WorkspacePageShell>
           );
@@ -1603,7 +1571,7 @@ export default function Home() {
             <PlatformAdminWorkspace
               runtimeConfig={runtimeConfig}
               entitlement={entitlement}
-              platformRole={cloudUser.platformRole}
+              platformRole={cloudUser?.platformRole}
               teamRole={teamRole}
             />
           </WorkspacePageShell>
@@ -1701,6 +1669,44 @@ export default function Home() {
         );
     }
   };
+
+  if (!cloudUser) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-background text-[13px] leading-[1.35] tracking-[-0.005em] font-(family-name:--font-sans)">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-3 md:px-8 md:pb-6">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {pendingConfigMessages.length > 0 && (
+              <div className="mb-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {pendingConfigMessages.join(" • ")}
+              </div>
+            )}
+            <WorkspacePageShell
+              title={t("authLanding.title")}
+              description={t("authLanding.subtitle")}
+              contentClassName="max-w-none space-y-4 pb-0"
+            >
+              <AuthPricingWorkspace
+                runtimeConfig={runtimeConfig}
+                prefilledInviteToken={prefilledInviteToken}
+                onConsumeInviteToken={() => setPrefilledInviteToken(null)}
+                onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
+              />
+            </WorkspacePageShell>
+          </div>
+        </main>
+
+        <SyncConfigDialog
+          isOpen={syncConfigDialogOpen}
+          onClose={(loginOccurred) => {
+            setSyncConfigDialogOpen(false);
+            if (loginOccurred) {
+              setSyncAllDialogOpen(true);
+            }
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-[13px] leading-[1.35] tracking-[-0.005em] font-(family-name:--font-sans)">
