@@ -1552,6 +1552,10 @@
       "personalWorkspace": "Personal Workspace",
       "current": "Đang dùng",
       "switchTo": "Chuyển sang workspace này"
+    },
+    "panelSwitch": {
+      "toAdmin": "Chuyển sang Admin Panel",
+      "toWorkspace": "Quay về Workspace App"
     }
   },
   "billingPage": {

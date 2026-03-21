@@ -9,6 +9,7 @@ import {
   FileText,
   Globe,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -67,12 +68,6 @@ const APP_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const ADMIN_ENTRY_NAV_ITEM: NavItem = {
-  id: "admin-overview",
-  labelKey: "shell.sections.adminPanel",
-  icon: LayoutDashboard,
-};
-
 const BILLING_NAV_ITEM: NavItem = {
   id: "billing",
   labelKey: "shell.sections.billing",
@@ -114,6 +109,48 @@ const ADMIN_PANEL_NAV_ITEMS: NavItem[] = [
 
 function isAdminPanelSection(section: AppSection): boolean {
   return section.startsWith("admin-");
+}
+
+type PanelMode = "workspace" | "admin";
+
+type NavBuildInput = {
+  panelMode: PanelMode;
+  isAuthenticated: boolean;
+  isPlatformAdmin: boolean;
+  isTeamOperator: boolean;
+  teamRole: TeamRole | null;
+};
+
+function buildNavItems(input: NavBuildInput): NavItem[] {
+  if (input.panelMode === "admin") {
+    if (input.isPlatformAdmin) {
+      return [...ADMIN_PANEL_NAV_ITEMS];
+    }
+    if (input.isTeamOperator) {
+      return ADMIN_PANEL_NAV_ITEMS.filter(
+        (item) =>
+          item.id === "admin-overview" ||
+          item.id === "admin-workspace" ||
+          item.id === "admin-system" ||
+          item.id === "admin-analytics",
+      );
+    }
+    return ADMIN_PANEL_NAV_ITEMS.filter(
+      (item) => item.id === "admin-overview" || item.id === "admin-workspace",
+    );
+  }
+
+  const base = [...APP_NAV_ITEMS];
+  if (input.isAuthenticated) {
+    base.splice(2, 0, BILLING_NAV_ITEM);
+  }
+  return base.filter(
+    (item) =>
+      !(
+        input.teamRole === "viewer" &&
+        item.id === "integrations"
+      ),
+  );
 }
 
 type Props = {
@@ -158,6 +195,7 @@ export function AppSidebar({
   const isPlatformAdmin = platformRole === "platform_admin";
   const isTeamOperator = teamRole === "owner" || teamRole === "admin";
   const inAdminPanel = isAdminPanelSection(activeSection);
+  const panelMode: PanelMode = inAdminPanel ? "admin" : "workspace";
   const roleLabel = isPlatformAdmin
     ? t("shell.roles.platform_admin")
     : teamRole
@@ -165,37 +203,14 @@ export function AppSidebar({
       : t("shell.roles.guest");
 
   const navItems = useMemo(() => {
-    if (inAdminPanel) {
-      if (isPlatformAdmin) {
-        return ADMIN_PANEL_NAV_ITEMS;
-      }
-      if (isTeamOperator) {
-        return ADMIN_PANEL_NAV_ITEMS.filter(
-          (item) =>
-            item.id === "admin-overview" ||
-            item.id === "admin-workspace" ||
-            item.id === "admin-system" ||
-            item.id === "admin-analytics",
-        );
-      }
-      return ADMIN_PANEL_NAV_ITEMS.filter(
-        (item) => item.id === "admin-overview" || item.id === "admin-workspace",
-      );
-    }
-
-    const base = [...APP_NAV_ITEMS];
-    if (isAuthenticated) {
-      base.splice(2, 0, BILLING_NAV_ITEM);
-    }
-    const filtered = base.filter(
-      (item) =>
-      teamRole === "viewer" && item.id === "integrations" ? false : true,
-    );
-    if (showAdminSection) {
-      filtered.push(ADMIN_ENTRY_NAV_ITEM);
-    }
-    return filtered;
-  }, [inAdminPanel, isAuthenticated, isPlatformAdmin, isTeamOperator, showAdminSection, teamRole]);
+    return buildNavItems({
+      panelMode,
+      isAuthenticated,
+      isPlatformAdmin,
+      isTeamOperator,
+      teamRole,
+    });
+  }, [isAuthenticated, isPlatformAdmin, isTeamOperator, panelMode, teamRole]);
 
   const canSwitchWorkspace = workspaceOptions.length > 1 && Boolean(onWorkspaceChange);
   const selectedWorkspaceId = currentWorkspaceId ?? workspaceOptions[0]?.id ?? "default";
@@ -435,21 +450,69 @@ export function AppSidebar({
       {/* ── Footer ── */}
       <div className="border-t border-border p-2">
         {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={isAuthenticated ? onSignOut : onSignIn}
-                disabled={isAuthBusy || (isAuthenticated ? !onSignOut : !onSignIn)}
-                className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <UserRound className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {isAuthenticated ? t("shell.auth.signOut") : t("shell.auth.signIn")}
-            </TooltipContent>
-          </Tooltip>
+          isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground transition-colors hover:bg-muted/40"
+                >
+                  <UserRound className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="space-y-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {authEmail ?? t("shell.auth.loggedOut")}
+                  </p>
+                  <p className="truncate text-xs font-medium text-muted-foreground">
+                    {roleLabel}
+                  </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {showAdminSection && !inAdminPanel && (
+                  <DropdownMenuItem
+                    onClick={() => onSectionChange("admin-overview")}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    {t("shell.panelSwitch.toAdmin")}
+                  </DropdownMenuItem>
+                )}
+                {inAdminPanel && (
+                  <DropdownMenuItem
+                    onClick={() => onSectionChange("profiles")}
+                  >
+                    <LifeBuoy className="h-4 w-4" />
+                    {t("shell.panelSwitch.toWorkspace")}
+                  </DropdownMenuItem>
+                )}
+                {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  onClick={onSignOut}
+                  disabled={isAuthBusy || !onSignOut}
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t("shell.auth.signOut")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onSignIn}
+                  disabled={isAuthBusy || !onSignIn}
+                  className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <UserRound className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {t("shell.auth.signIn")}
+              </TooltipContent>
+            </Tooltip>
+          )
         ) : isAuthenticated ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -479,6 +542,23 @@ export function AppSidebar({
                 <p className="truncate text-xs font-medium text-muted-foreground">{roleLabel}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {showAdminSection && !inAdminPanel && (
+                <DropdownMenuItem
+                  onClick={() => onSectionChange("admin-overview")}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  {t("shell.panelSwitch.toAdmin")}
+                </DropdownMenuItem>
+              )}
+              {inAdminPanel && (
+                <DropdownMenuItem
+                  onClick={() => onSectionChange("profiles")}
+                >
+                  <LifeBuoy className="h-4 w-4" />
+                  {t("shell.panelSwitch.toWorkspace")}
+                </DropdownMenuItem>
+              )}
+              {(showAdminSection || inAdminPanel) && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 onClick={onSignOut}
                 disabled={isAuthBusy || !onSignOut}

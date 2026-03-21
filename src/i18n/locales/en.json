@@ -1552,6 +1552,10 @@
       "personalWorkspace": "Personal Workspace",
       "current": "Current workspace",
       "switchTo": "Switch to this workspace"
+    },
+    "panelSwitch": {
+      "toAdmin": "Go to Admin Panel",
+      "toWorkspace": "Back to Workspace App"
     }
   },
   "billingPage": {
