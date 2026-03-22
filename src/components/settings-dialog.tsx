@@ -33,14 +33,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
+import type { SupportedLanguage } from "@/i18n";
+import { mergeAppSettingsCache, readAppSettingsCache } from "@/lib/app-settings-cache";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
@@ -234,8 +229,8 @@ export function SettingsDialog({
     supportedLanguages,
     isLoading: isLanguageLoading,
   } = useLanguage();
-  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
-  const [originalLanguage, setOriginalLanguage] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage | "system" | null>(null);
+  const [originalLanguage, setOriginalLanguage] = useState<SupportedLanguage | "system" | null>(null);
   const shouldRestoreThemeRef = useRef(true);
   const effectMountCountRef = useRef(0);
 
@@ -297,9 +292,37 @@ export function SettingsDialog({
   }, []);
 
   const loadSettings = useCallback(async () => {
-    setIsLoading(true);
+    const cachedSettings = readAppSettingsCache();
+    if (cachedSettings?.theme) {
+      const tokyoNightTheme = getThemeById("tokyo-night");
+      const mergedFromCache: AppSettings = {
+        set_as_default_browser: Boolean(cachedSettings.set_as_default_browser),
+        theme: typeof cachedSettings.theme === "string" ? cachedSettings.theme : "system",
+        custom_theme:
+          cachedSettings.custom_theme &&
+          Object.keys(cachedSettings.custom_theme).length > 0
+            ? cachedSettings.custom_theme
+            : tokyoNightTheme?.colors,
+        api_enabled: Boolean(cachedSettings.api_enabled),
+        api_port:
+          typeof cachedSettings.api_port === "number"
+            ? cachedSettings.api_port
+            : 10108,
+        api_token:
+          typeof cachedSettings.api_token === "string"
+            ? cachedSettings.api_token
+            : undefined,
+      };
+      setSettings(mergedFromCache);
+      setOriginalSettings(mergedFromCache);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+
     try {
       const appSettings = await invoke<AppSettings>("get_app_settings");
+      mergeAppSettingsCache(appSettings);
       const tokyoNightTheme = getThemeById("tokyo-night");
       if (!tokyoNightTheme) {
         throw new Error("Tokyo Night theme not found");
@@ -341,8 +364,8 @@ export function SettingsDialog({
       } catch {
         setHasE2ePassword(false);
       }
-    } catch (error) {
-      console.error("Failed to load settings:", error);
+    } catch {
+      // Keep current UI state from cache when runtime load fails.
     } finally {
       setIsLoading(false);
     }
@@ -371,8 +394,8 @@ export function SettingsDialog({
       ];
 
       setPermissions(permissionList);
-    } catch (error) {
-      console.error("Failed to load permissions:", error);
+    } catch {
+      setPermissions([]);
     } finally {
       setIsLoadingPermissions(false);
     }
@@ -387,8 +410,8 @@ export function SettingsDialog({
     try {
       const isDefault = await invoke<boolean>("is_default_browser");
       setIsDefaultBrowser(isDefault);
-    } catch (error) {
-      console.error("Failed to check default browser status:", error);
+    } catch {
+      // Keep status unchanged if check fails.
     }
   }, []);
 
@@ -397,12 +420,12 @@ export function SettingsDialog({
     try {
       await invoke("set_as_default_browser");
       await checkDefaultBrowserStatus();
-    } catch (error) {
-      console.error("Failed to set as default browser:", error);
+    } catch {
+      showErrorToast(t("toasts.error.settingsSaveFailed"));
     } finally {
       setIsSettingDefault(false);
     }
-  }, [checkDefaultBrowserStatus]);
+  }, [checkDefaultBrowserStatus, t]);
 
   const handleClearCache = useCallback(async () => {
     setIsClearingCache(true);
@@ -412,7 +435,6 @@ export function SettingsDialog({
       await invoke("clear_all_traffic_stats");
       // Don't show immediate success toast - let the version update progress events handle it
     } catch (error) {
-      console.error("Failed to clear cache:", error);
       showErrorToast("Failed to clear cache", {
         description:
           error instanceof Error ? error.message : "Unknown error occurred",
@@ -432,12 +454,15 @@ export function SettingsDialog({
           `${getPermissionDisplayName(permissionType)} access requested`,
         );
       } catch (error) {
-        console.error("Failed to request permission:", error);
+        showErrorToast(t("toasts.error.settingsSaveFailed"), {
+          description:
+            error instanceof Error ? error.message : String(error),
+        });
       } finally {
         setRequestingPermission(null);
       }
     },
-    [getPermissionDisplayName, requestPermission],
+    [getPermissionDisplayName, requestPermission, t],
   );
 
   const handleSave = useCallback(async () => {
@@ -452,25 +477,10 @@ export function SettingsDialog({
             : settings.custom_theme,
       };
 
-      console.log("[settings-dialog] Saving settings:", {
-        theme: settingsToSave.theme,
-        hasCustomTheme: !!settingsToSave.custom_theme,
-        customThemeKeys: settingsToSave.custom_theme
-          ? Object.keys(settingsToSave.custom_theme).length
-          : 0,
-      });
-
       const savedSettings = await invoke<AppSettings>("save_app_settings", {
         settings: settingsToSave,
       });
-
-      console.log("[settings-dialog] Saved settings response:", {
-        theme: savedSettings.theme,
-        hasCustomTheme: !!savedSettings.custom_theme,
-        customThemeKeys: savedSettings.custom_theme
-          ? Object.keys(savedSettings.custom_theme).length
-          : 0,
-      });
+      mergeAppSettingsCache(savedSettings);
 
       // Update settings with any generated tokens
       setSettings(savedSettings);
@@ -512,7 +522,7 @@ export function SettingsDialog({
         await changeLanguage(
           selectedLanguage === "system"
             ? null
-            : (selectedLanguage as "vi" | "en"),
+            : selectedLanguage,
         );
         setOriginalLanguage(selectedLanguage);
       }
@@ -524,7 +534,6 @@ export function SettingsDialog({
         onClose();
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
       showErrorToast(t("toasts.error.settingsSaveFailed"), {
         description: error instanceof Error ? error.message : String(error),
       });
@@ -660,8 +669,8 @@ export function SettingsDialog({
 
   useEffect(() => {
     if (isOpen) {
-      loadSettings().catch(console.error);
-      checkDefaultBrowserStatus().catch(console.error);
+      loadSettings().catch(() => undefined);
+      checkDefaultBrowserStatus().catch(() => undefined);
 
       // Check if we're on macOS
       const userAgent = navigator.userAgent;
@@ -669,7 +678,7 @@ export function SettingsDialog({
       setIsMacOS(isMac);
 
       if (isMac) {
-        loadPermissions().catch(console.error);
+        loadPermissions().catch(() => undefined);
       }
     }
   }, [isOpen, loadPermissions, checkDefaultBrowserStatus, loadSettings]);
@@ -677,10 +686,15 @@ export function SettingsDialog({
   // Initialize language selection when dialog opens or language loads
   useEffect(() => {
     if (isOpen && !isLanguageLoading) {
-      setSelectedLanguage(currentLanguage);
-      setOriginalLanguage(currentLanguage);
+      const normalizedLanguage = supportedLanguages.some(
+        (item) => item.code === currentLanguage,
+      )
+        ? (currentLanguage as SupportedLanguage)
+        : "vi";
+      setSelectedLanguage(normalizedLanguage);
+      setOriginalLanguage(normalizedLanguage);
     }
-  }, [isOpen, currentLanguage, isLanguageLoading]);
+  }, [currentLanguage, isLanguageLoading, isOpen, supportedLanguages]);
 
   // Update permissions when the permission states change
   useEffect(() => {
@@ -990,30 +1004,37 @@ export function SettingsDialog({
         </Label>
 
         <div className="grid max-w-sm gap-2">
-          <Label htmlFor="language-select" className="text-sm">
+          <Label className="text-sm">
             {t("settings.language.selectLanguage")}
           </Label>
-          <Select
-            value={selectedLanguage || "system"}
-            onValueChange={(value) => setSelectedLanguage(value)}
-            disabled={isLanguageLoading || !isSettingsReady}
-          >
-            <SelectTrigger id="language-select">
-              <SelectValue
-                placeholder={t("settings.language.selectLanguage")}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="system">
-                {t("settings.language.systemDefault")}
-              </SelectItem>
-              {supportedLanguages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.nativeName} ({lang.name})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="inline-flex w-fit items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
+            {[
+              { value: "system" as const, label: t("settings.language.systemDefault") },
+              ...supportedLanguages.map((lang) => ({
+                value: lang.code,
+                label: `${lang.nativeName} (${lang.name})`,
+              })),
+            ].map((option) => {
+              const isSelected = (selectedLanguage || "system") === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={isLanguageLoading || !isSettingsReady}
+                  onClick={() =>
+                    setSelectedLanguage(option.value as SupportedLanguage | "system")
+                  }
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isSelected
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground">
@@ -1045,7 +1066,7 @@ export function SettingsDialog({
           <LoadingButton
             isLoading={isSettingDefault}
             onClick={() => {
-              handleSetDefaultBrowser().catch(console.error);
+              handleSetDefaultBrowser().catch(() => undefined);
             }}
             disabled={isDefaultBrowser}
             variant={isDefaultBrowser ? "outline" : "default"}
@@ -1103,7 +1124,7 @@ export function SettingsDialog({
                         onClick={() => {
                           handleRequestPermission(
                             permission.permission_type,
-                          ).catch(console.error);
+                          ).catch(() => undefined);
                         }}
                       >
                         {t("common.buttons.grant")}
@@ -1281,7 +1302,7 @@ export function SettingsDialog({
           <LoadingButton
             isLoading={isClearingCache}
             onClick={() => {
-              handleClearCache().catch(console.error);
+              handleClearCache().catch(() => undefined);
             }}
             variant="outline"
             className="min-w-52"
@@ -1312,7 +1333,7 @@ export function SettingsDialog({
         <LoadingButton
           isLoading={isSaving}
           onClick={() => {
-            handleSave().catch(console.error);
+            handleSave().catch(() => undefined);
           }}
           disabled={isLoading || !hasChanges}
         >
@@ -1330,7 +1351,7 @@ export function SettingsDialog({
           <LoadingButton
             isLoading={isSaving}
             onClick={() => {
-              handleSave().catch(console.error);
+              handleSave().catch(() => undefined);
             }}
             disabled={isLoading || !hasChanges}
             size="sm"

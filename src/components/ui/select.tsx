@@ -7,9 +7,24 @@ import { LuCheck, LuChevronDown, LuChevronUp } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
 function Select({
+  value,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+  const normalizedValue = typeof value === "string" ? value : undefined;
+  return (
+    <SelectPrimitive.Root
+      data-slot="select"
+      value={normalizedValue}
+      onValueChange={(nextValue) => {
+        if (normalizedValue && nextValue === normalizedValue) {
+          return;
+        }
+        onValueChange?.(nextValue);
+      }}
+      {...props}
+    />
+  );
 }
 
 function SelectGroup({
