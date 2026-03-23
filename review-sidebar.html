@@ -3,274 +3,568 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BugLogin Sidebar Review</title>
+  <title>BugLogin UI State System - Premium Preview</title>
   <style>
     :root {
-      --bg: oklch(0.98 0.004 260);
+      --bg: oklch(0.978 0.002 247.84);
+      --fg: oklch(0.174 0.008 264.53);
+      --muted: oklch(0.951 0.004 247.86);
+      --muted-fg: oklch(0.474 0.01 258.34);
       --card: oklch(1 0 0);
-      --line: oklch(0.9 0.01 260);
-      --text: oklch(0.27 0.02 260);
-      --muted: oklch(0.53 0.02 260);
-      --accent: oklch(0.58 0.16 250);
-      --accent-soft: oklch(0.95 0.03 250);
-      --success: oklch(0.63 0.15 150);
-      --warning: oklch(0.74 0.15 85);
-      --danger: oklch(0.62 0.2 25);
+      --border: oklch(0.922 0.004 247.88);
+      --ring: oklch(0.709 0.015 255.17);
+      --primary: oklch(0.205 0.01 264.52);
+      --primary-fg: oklch(0.985 0 0);
+      --success: oklch(0.62 0.13 147);
+      --warning: oklch(0.71 0.16 74);
+      --danger: oklch(0.6 0.21 26);
+      --radius: 12px;
+      --shadow-soft: 0 6px 24px rgba(15, 23, 42, 0.05);
+      --shadow-pop: 0 14px 38px rgba(15, 23, 42, 0.08);
+      --font-sans: "Plus Jakarta Sans", "Segoe UI", "SF Pro Text", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: "Inter", "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at 18% 10%, oklch(0.96 0.03 245), transparent 40%),
-        radial-gradient(circle at 85% 100%, oklch(0.96 0.02 180), transparent 42%),
-        var(--bg);
       min-height: 100vh;
+      color: var(--fg);
+      font-family: var(--font-sans);
+      background:
+        radial-gradient(1050px 420px at 100% -5%, rgba(59,130,246,0.08), transparent 60%),
+        radial-gradient(800px 320px at -10% 110%, rgba(16,185,129,0.07), transparent 60%),
+        var(--bg);
     }
 
     .app {
-      display: grid;
-      grid-template-columns: 260px 1fr;
       min-height: 100vh;
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
+      gap: 16px;
     }
 
     .sidebar {
-      border-right: 1px solid var(--line);
-      background: color-mix(in oklch, var(--card) 84%, var(--bg));
-      padding: 14px;
+      background: color-mix(in oklab, var(--card) 94%, var(--muted) 6%);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 2px);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+    }
+
+    .sb-head {
+      height: 58px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--card);
+      gap: 8px;
+      min-width: 0;
     }
 
-    .brand-badge {
-      width: 30px;
-      height: 30px;
+    .logo {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: linear-gradient(150deg, #ef4444 0%, #7f1d1d 60%, #111827 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
+      flex-shrink: 0;
+    }
+
+    .brand-name { font-size: 13px; font-weight: 700; }
+    .brand-role { font-size: 11px; color: var(--muted-fg); margin-top: 1px; }
+
+    .icon-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      width: 28px;
+      height: 28px;
       border-radius: 8px;
-      background: linear-gradient(140deg, oklch(0.58 0.15 250), oklch(0.62 0.13 190));
-      color: white;
       display: grid;
       place-items: center;
-      font-weight: 700;
       font-size: 12px;
     }
 
-    .brand strong { font-size: 14px; line-height: 1; display: block; }
-    .brand span { font-size: 12px; color: var(--muted); }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .section-title {
-      margin: 10px 10px 2px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .08em;
+    .sb-nav {
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
     }
 
     .item {
+      height: 36px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted-fg);
+      background: transparent;
+      transition: .18s ease;
+    }
+
+    .item:hover {
+      border-color: var(--border);
+      color: var(--fg);
+      background: color-mix(in oklab, var(--muted) 65%, white 35%);
+    }
+
+    .item.active {
+      color: var(--fg);
+      border-color: var(--border);
+      background: var(--muted);
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: white;
+      flex-shrink: 0;
+    }
+
+    .ws-box {
+      margin: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .ws-head {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted-fg);
+      font-weight: 600;
+    }
+
+    .ws-row {
+      padding: 9px 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    }
+    .ws-row:last-child { border-bottom: 0; }
+    .ws-name { font-size: 12px; font-weight: 700; }
+    .ws-meta { font-size: 11px; color: var(--muted-fg); margin-top: 1px; }
+
+    .badge {
+      height: 20px;
+      border-radius: 999px;
+      padding: 0 8px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .b-enterprise { background: rgba(245,158,11,.12); color: #92400e; border-color: rgba(245,158,11,.28); }
+    .b-growth { background: rgba(16,185,129,.12); color: #065f46; border-color: rgba(16,185,129,.28); }
+    .b-starter { background: rgba(59,130,246,.12); color: #1e3a8a; border-color: rgba(59,130,246,.28); }
+
+    .main {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 2px);
+      background: var(--card);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      min-height: 660px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 56px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding: 10px;
+      padding: 0 16px;
+    }
+
+    .head-title { font-size: 14px; font-weight: 700; }
+    .head-sub { font-size: 11px; color: var(--muted-fg); margin-top: 2px; }
+
+    .tb-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .seg {
+      border: 1px solid var(--border);
       border-radius: 10px;
-      font-size: 13px;
-      color: var(--text);
-      border: 1px solid transparent;
+      background: var(--card);
+      padding: 2px;
+      display: inline-flex;
+      gap: 2px;
+    }
+
+    .seg button {
+      border: 0;
+      height: 28px;
+      min-width: 34px;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted-fg);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 0 10px;
       cursor: default;
     }
 
-    .item .left { display: flex; align-items: center; gap: 8px; }
-
-    .item.active {
-      background: var(--accent-soft);
-      border-color: color-mix(in oklch, var(--accent) 35%, white);
-      color: oklch(0.35 0.08 250);
-      font-weight: 600;
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 99px;
-      background: oklch(0.78 0.02 260);
-    }
-
-    .dot.success { background: var(--success); }
-    .dot.warning { background: var(--warning); }
-
-    .pill {
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      background: white;
-    }
-
-    .footer {
-      margin-top: auto;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px;
-      background: var(--card);
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .main {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px 16px;
-    }
-
-    .head h1 {
-      margin: 0;
-      font-size: 18px;
+    .seg button.active {
+      color: var(--fg);
+      background: var(--muted);
+      box-shadow: inset 0 0 0 1px var(--border);
     }
 
     .btn {
-      border: 1px solid var(--line);
-      background: white;
-      color: var(--text);
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 13px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--fg);
+      height: 30px;
+      border-radius: 9px;
+      padding: 0 10px;
+      font-size: 12px;
       font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .btn.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
+      border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+      background: var(--primary);
+      color: var(--primary-fg);
     }
 
-    .grid {
+    .content {
+      flex: 1;
+      overflow: auto;
+      padding: 18px;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
+    .panel {
+      border: 1px solid var(--border);
       border-radius: 12px;
+      background: var(--card);
       padding: 14px;
     }
 
-    .kpi {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
+    .panel h3 { margin: 0; font-size: 13px; }
+    .panel p { margin: 5px 0 0; font-size: 12px; color: var(--muted-fg); line-height: 1.42; }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(190px, 1fr));
+      gap: 12px;
     }
 
-    .value {
-      font-size: 24px;
-      font-weight: 700;
+    .state {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--card) 96%, var(--muted) 4%);
+      padding: 14px;
+      min-height: 126px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .value.success { color: var(--success); }
-    .value.danger { color: var(--danger); }
+    .state-head { display: flex; align-items: center; gap: 8px; }
 
-    @media (max-width: 960px) {
+    .state-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--muted);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted-fg);
+    }
+
+    .state-title { font-size: 13px; font-weight: 700; }
+    .state-desc { font-size: 12px; color: var(--muted-fg); line-height: 1.4; }
+
+    .spin {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid color-mix(in oklab, var(--muted-fg) 35%, transparent);
+      border-top-color: var(--primary);
+      animation: spin .85s linear infinite;
+    }
+
+    .icon-success { color: var(--success); }
+    .icon-warning { color: var(--warning); }
+    .icon-danger { color: var(--danger); }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 60010;
+      display: grid;
+      place-items: center;
+      background: color-mix(in oklab, var(--bg) 92%, white 8%);
+      backdrop-filter: blur(2px);
+      transition: .22s ease;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .overlay-state {
+      min-width: 300px;
+      max-width: 360px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      box-shadow: var(--shadow-pop);
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+      animation: pop .22s ease;
+    }
+
+    .overlay-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .overlay-title { font-size: 14px; font-weight: 700; }
+    .overlay-desc { font-size: 12px; color: var(--muted-fg); line-height: 1.42; }
+
+    .progress {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--muted);
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    }
+
+    .progress > span {
+      display: block;
+      width: 36%;
+      height: 100%;
+      background: linear-gradient(90deg, #1d4ed8, #0f172a);
+      border-radius: inherit;
+      animation: move 1.15s ease-in-out infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes move {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+    @keyframes pop {
+      from { transform: translateY(6px) scale(.98); opacity: .45; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .floating {
+      position: absolute;
+      right: 18px;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    @media (max-width: 1080px) {
       .app { grid-template-columns: 1fr; }
-      .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
-      .grid { grid-template-columns: 1fr; }
+      .state-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-badge">BL</div>
-        <div>
-          <strong>BugLogin</strong>
-          <span>Profiles Workspace</span>
+      <div class="sb-head">
+        <div class="brand">
+          <div class="logo"></div>
+          <div>
+            <div class="brand-name">Bug Media</div>
+            <div class="brand-role">Platform Admin</div>
+          </div>
         </div>
+        <button class="icon-btn">⟨⟩</button>
       </div>
 
-      <nav class="nav">
-        <div class="section-title">Tổng quan</div>
-        <div class="item active">
-          <div class="left"><span class="dot success"></span><span>Profiles</span></div>
-          <span class="pill">124</span>
-        </div>
-        <div class="item">
-          <div class="left"><span class="dot"></span><span>Proxy Pools</span></div>
-          <span class="pill">18</span>
-        </div>
-        <div class="item">
-          <div class="left"><span class="dot warning"></span><span>Running Sessions</span></div>
-          <span class="pill">9</span>
-        </div>
+      <div class="sb-nav">
+        <button class="item active"><span class="dot"></span>Profiles</button>
+        <button class="item"><span class="dot"></span>Proxy & VPN</button>
+        <button class="item"><span class="dot"></span>Pricing & Billing</button>
+        <button class="item"><span class="dot"></span>Integrations</button>
+        <button class="item"><span class="dot"></span>Quản trị Workspace</button>
+      </div>
 
-        <div class="section-title">Quản trị</div>
-        <div class="item"><div class="left"><span class="dot"></span><span>Team</span></div></div>
-        <div class="item"><div class="left"><span class="dot"></span><span>Logs</span></div></div>
-        <div class="item"><div class="left"><span class="dot"></span><span>Settings</span></div></div>
-      </nav>
-
-      <div class="footer">
-        Trạng thái hệ thống: Ổn định<br />
-        Last sync: 2 phút trước
+      <div class="ws-box">
+        <div class="ws-head">Workspaces</div>
+        <div class="ws-row">
+          <div>
+            <div class="ws-name">Bug Media</div>
+            <div class="ws-meta">2 / 1000 profiles</div>
+          </div>
+          <span class="badge b-enterprise">Enterprise</span>
+        </div>
+        <div class="ws-row">
+          <div>
+            <div class="ws-name">Bug Media Growth</div>
+            <div class="ws-meta">2 / 300 profiles</div>
+          </div>
+          <span class="badge b-growth">Growth</span>
+        </div>
+        <div class="ws-row">
+          <div>
+            <div class="ws-name">Acme Inc.</div>
+            <div class="ws-meta">0 / 120 profiles</div>
+          </div>
+          <span class="badge b-starter">Starter</span>
+        </div>
       </div>
     </aside>
 
-    <main class="main">
-      <div class="head">
-        <h1>Sidebar Review Mockup</h1>
+    <section class="main">
+      <header class="topbar">
         <div>
-          <button class="btn">Import</button>
-          <button class="btn primary">Create Profile</button>
+          <div class="head-title">Bug Media Growth</div>
+          <div class="head-sub">Platform Admin • 3 cảnh báo cấu hình</div>
+        </div>
+        <div class="tb-actions">
+          <div class="seg">
+            <button class="active">VI</button>
+            <button>EN</button>
+          </div>
+          <button class="btn">☀ Theme</button>
+          <button class="btn">🔔 2</button>
+          <button class="btn primary">+ Tạo profile mới</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="panel">
+          <h3>App State System (Global)</h3>
+          <p>
+            Một bộ state duy nhất cho toàn app: loading / empty / warning / error.
+            Khi chuyển workspace, overlay khóa toàn bộ UI để tránh click lệch context.
+          </p>
+        </div>
+
+        <div class="state-grid">
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon"><div class="spin"></div></div>
+              <div class="state-title">Boot Loading</div>
+            </div>
+            <div class="state-desc">Đang khởi tạo BugLogin và chuẩn bị ngữ cảnh tài khoản.</div>
+          </article>
+
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon icon-success">✓</div>
+              <div class="state-title">Ready</div>
+            </div>
+            <div class="state-desc">Auth, Stripe và Sync đã sẵn sàng. Có thể thao tác bình thường.</div>
+          </article>
+
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon icon-warning">!</div>
+              <div class="state-title">Config Warning</div>
+            </div>
+            <div class="state-desc">Dịch vụ đang pending config, app vẫn chạy và hiển thị cảnh báo rõ ràng.</div>
+          </article>
+
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon icon-danger">!</div>
+              <div class="state-title">Error State</div>
+            </div>
+            <div class="state-desc">Không tải được dữ liệu workspace. Hiển thị action retry ở cùng vùng state.</div>
+          </article>
+
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon">◌</div>
+              <div class="state-title">Empty State</div>
+            </div>
+            <div class="state-desc">Không có profile phù hợp bộ lọc hiện tại. Cho phép reset filter ngay tại chỗ.</div>
+          </article>
+
+          <article class="state">
+            <div class="state-head">
+              <div class="state-icon">i</div>
+              <div class="state-title">Info State</div>
+            </div>
+            <div class="state-desc">Thông báo trạng thái không chặn thao tác, dùng cho guidance và hint.</div>
+          </article>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="card">
-          <div class="kpi">Total Profiles</div>
-          <div class="value">124</div>
-        </div>
-        <div class="card">
-          <div class="kpi">Proxy Healthy</div>
-          <div class="value success">96%</div>
-        </div>
-        <div class="card">
-          <div class="kpi">Detection Risk</div>
-          <div class="value danger">Low</div>
+      <div id="switch-overlay" class="overlay">
+        <div class="overlay-state">
+          <div class="overlay-head">
+            <div class="state-icon"><div class="spin"></div></div>
+            <div>
+              <div class="overlay-title">Đang chuyển workspace</div>
+              <div class="overlay-desc">Đang tải lại dữ liệu workspace và khóa toàn bộ tương tác nền.</div>
+            </div>
+          </div>
+          <div class="progress"><span></span></div>
         </div>
       </div>
-    </main>
+
+      <div class="floating">
+        <button id="toggle" class="btn">Toggle Overlay</button>
+      </div>
+    </section>
   </div>
+
+  <script>
+    const overlay = document.getElementById('switch-overlay');
+    const toggle = document.getElementById('toggle');
+    toggle.addEventListener('click', () => {
+      overlay.classList.toggle('hidden');
+      toggle.textContent = overlay.classList.contains('hidden') ? 'Show Overlay' : 'Hide Overlay';
+    });
+  </script>
 </body>
 </html>

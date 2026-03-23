@@ -4,6 +4,7 @@
       "save": "Lưu",
       "cancel": "Hủy",
       "close": "Đóng",
+      "done": "Xong",
       "delete": "Xóa",
       "create": "Tạo",
       "back": "Quay lại",
@@ -49,13 +50,17 @@
       "name": "Tên",
       "type": "Loại",
       "status": "Trạng thái",
+      "usage": "Sử dụng",
+      "sync": "Đồng bộ",
       "actions": "Thao tác",
       "description": "Mô tả",
       "none": "Không có",
       "default": "Mặc định",
       "custom": "Tùy chỉnh",
       "optional": "Tùy chọn",
-      "required": "Bắt buộc"
+      "required": "Bắt buộc",
+      "never": "Không bao giờ",
+      "unknown": "Không xác định"
     },
     "time": {
       "days": "ngày",
@@ -70,15 +75,114 @@
     "appearance": {
       "title": "Giao diện",
       "theme": "Chủ đề",
-      "themeDescription": "Chọn giao diện bạn muốn dùng hoặc để ứng dụng tự theo cài đặt hệ thống. Các thay đổi màu tùy biến chỉ được áp dụng sau khi bấm Lưu.",
+      "themeDescription": "Chọn giao diện bạn muốn dùng hoặc để ứng dụng tự theo cài đặt hệ thống. Các thay đổi giao diện sẽ được áp dụng và lưu tự động.",
       "themePreset": "Preset giao diện",
       "customColors": "Màu tùy biến",
+      "colorEditHint": "Chạm vào màu để chỉnh",
       "selectTheme": "Chọn chủ đề",
       "selectThemePreset": "Chọn preset giao diện",
       "yourOwn": "Tự tùy biến",
       "light": "Sáng",
       "dark": "Tối",
       "system": "Hệ thống"
+    },
+    "autoSaveStatus": {
+      "idle": "Tự động lưu đã bật",
+      "saving": "Đang lưu thay đổi...",
+      "saved": "Đã lưu mọi thay đổi",
+      "error": "Lưu thất bại"
+    },
+    "groups": {
+      "workspace": "Thiết lập workspace",
+      "system": "Thiết lập hệ thống"
+    },
+    "navigation": {
+      "groups": {
+        "workspace": "Thiết lập Workspace",
+        "network": "Mạng & Định danh",
+        "security": "Bảo mật & Truy cập",
+        "billing": "Thanh toán & Gói",
+        "sync": "Sync & Dữ liệu",
+        "system": "Hệ thống"
+      },
+      "items": {
+        "appearance": "Giao diện",
+        "languageRegion": "Ngôn ngữ & Region",
+        "notifications": "Thông báo",
+        "profileDefaults": "Mặc định Profile",
+        "templatesStartup": "Template & Khởi động",
+        "proxyVpn": "Proxy & VPN",
+        "fingerprintPrivacy": "Fingerprint & Riêng tư",
+        "dnsTraffic": "DNS / Luật lưu lượng",
+        "teamRoles": "Thành viên & Vai trò",
+        "sessionPolicies": "Chính sách phiên",
+        "accountSecurity": "Bảo mật tài khoản",
+        "auditLogs": "Audit Logs",
+        "subscription": "Subscription",
+        "paymentMethods": "Phương thức thanh toán",
+        "invoices": "Hóa đơn",
+        "couponLicense": "Coupon / License",
+        "usageAddons": "Usage & Add-ons",
+        "syncProvider": "Sync Provider",
+        "backupRestore": "Backup / Restore",
+        "importExport": "Import / Export",
+        "dataRetention": "Data retention",
+        "integrations": "Tích hợp",
+        "runtimeUpdates": "Runtime & Cập nhật",
+        "diagnostics": "Diagnostics / Logs",
+        "permissions": "Quyền hệ thống",
+        "advanced": "Nâng cao"
+      },
+      "status": {
+        "managed": "Quản lý theo module"
+      },
+      "placeholderPanels": {
+        "subtitle": "{{section}} được cấu hình trong module chuyên biệt để đảm bảo logic production nhất quán.",
+        "overviewTitle": "Tổng quan vận hành",
+        "sourceLabel": "Nguồn quản lý",
+        "statusLabel": "Trạng thái",
+        "syncLabel": "Đồng bộ chính sách",
+        "ownerLabel": "Chủ quản",
+        "statusManagedValue": "Đang quản trị",
+        "syncManagedValue": "Đồng bộ tự động",
+        "ownerManagedValue": "Platform/Workspace Admin",
+        "checklistTitle": "Checklist áp dụng",
+        "checklistPolicy": "Chính sách lõi",
+        "checklistValidation": "Luồng xác thực",
+        "checklistRollout": "Rollout theo gói",
+        "checklistAudit": "Theo dõi & Audit",
+        "checklistState": "Đã áp dụng",
+        "openManagedModule": "Mở module quản lý",
+        "controlsTitle": "Bộ điều khiển",
+        "controlsDescription": "{{section}} đang dùng bộ điều khiển tập trung để đồng bộ theo checklist production.",
+        "controlPrimaryLabel": "Điểm điều khiển",
+        "controlScopeLabel": "Phạm vi áp dụng",
+        "controlAutomationLabel": "Tự động hóa",
+        "controlRollbackLabel": "Rollback policy",
+        "controlPrimaryValue": "Thiết lập chuẩn cho {{section}}",
+        "controlScopeValue": "Áp dụng cho nhóm {{group}}",
+        "controlAutomationValue": "Đang bật theo policy",
+        "controlRollbackValue": "Safe rollback sẵn sàng",
+        "timelineTitle": "Nhật ký thay đổi",
+        "timelineEventPolicy": "Đồng bộ chính sách cho {{section}}",
+        "timelineEventValidation": "Rà soát phân quyền nhóm {{group}}",
+        "timelineEventSync": "Đồng bộ trạng thái với điều hướng chính",
+        "timelineNow": "Vừa xong",
+        "timelineToday": "Hôm nay",
+        "timelineThisWeek": "Tuần này",
+        "requestPolicyReview": "Yêu cầu review policy",
+        "reviewRequested": "Đã gửi yêu cầu review cho {{section}}"
+      },
+      "placeholderDescription": "{{section}} nằm trong checklist production và được vận hành ở module chuyên biệt.",
+      "managedAt": "Quản lý tại: {{location}}",
+      "locations": {
+        "settingsPage": "Trang Cài đặt",
+        "proxyCenter": "Proxy & VPN",
+        "workspaceGovernance": "Quản trị Workspace",
+        "pricingBilling": "Pricing & Billing",
+        "syncIntegrations": "Tích hợp + Sync",
+        "systemControls": "Tích hợp / Runtime"
+      }
     },
     "language": {
       "title": "Ngôn ngữ",
@@ -133,7 +237,396 @@
     "advanced": {
       "title": "Nâng cao",
       "clearCache": "Xóa cache version",
-      "clearCacheDescription": "Xóa toàn bộ dữ liệu cache version của trình duyệt và tải lại thông tin version mới từ nguồn."
+      "clearCacheDescription": "Xóa toàn bộ dữ liệu cache version của trình duyệt và tải lại thông tin version mới từ nguồn.",
+      "clearCacheFailed": "Không thể xóa cache",
+      "unknownError": "Đã xảy ra lỗi không xác định"
+    }
+  },
+  "vpnForm": {
+    "title": {
+      "edit": "Chỉnh sửa VPN",
+      "createWireGuard": "Tạo VPN WireGuard",
+      "createOpenVpn": "Tạo cấu hình OpenVPN"
+    },
+    "description": {
+      "edit": "Cập nhật tên cấu hình VPN.",
+      "createWireGuard": "Nhập thông tin Interface và Peer của WireGuard.",
+      "createOpenVpn": "Dán nội dung file cấu hình .ovpn."
+    },
+    "actions": {
+      "update": "Cập nhật VPN",
+      "create": "Tạo VPN"
+    },
+    "types": {
+      "wireGuard": "WireGuard",
+      "openVpn": "OpenVPN"
+    },
+    "fields": {
+      "vpnType": "Loại VPN",
+      "privateKey": "Private Key",
+      "address": "Address",
+      "dnsOptional": "DNS (tùy chọn)",
+      "mtuOptional": "MTU (tùy chọn)",
+      "peerPublicKey": "Peer Public Key",
+      "peerEndpoint": "Peer Endpoint",
+      "allowedIps": "Allowed IPs",
+      "persistentKeepaliveOptional": "Persistent Keepalive (tùy chọn)",
+      "presharedKeyOptional": "Preshared Key (tùy chọn)",
+      "rawConfig": "Raw Config"
+    },
+    "placeholders": {
+      "selectVpnType": "Chọn loại VPN",
+      "wireGuardName": "ví dụ: Home WireGuard",
+      "openVpnName": "ví dụ: Work OpenVPN",
+      "privateKey": "Private key mã hóa Base64",
+      "address": "ví dụ: 10.0.0.2/24",
+      "dns": "ví dụ: 1.1.1.1",
+      "mtu": "ví dụ: 1420",
+      "peerPublicKey": "Peer public key mã hóa Base64",
+      "peerEndpoint": "ví dụ: vpn.example.com:51820",
+      "allowedIps": "ví dụ: 0.0.0.0/0, ::/0",
+      "keepalive": "ví dụ: 25",
+      "presharedKey": "Preshared key mã hóa Base64",
+      "rawConfig": "Dán nội dung file .ovpn vào đây..."
+    },
+    "errors": {
+      "nameRequired": "Tên VPN là bắt buộc",
+      "privateKeyRequired": "Private key là bắt buộc",
+      "addressRequired": "Address là bắt buộc",
+      "peerPublicKeyRequired": "Peer public key là bắt buộc",
+      "peerEndpointRequired": "Peer endpoint là bắt buộc",
+      "openVpnConfigRequired": "Nội dung cấu hình OpenVPN là bắt buộc",
+      "updateFailed": "Không thể cập nhật VPN: {{message}}",
+      "createFailed": "Không thể tạo VPN: {{message}}"
+    },
+    "toasts": {
+      "updated": "Đã cập nhật VPN",
+      "wireguardCreated": "Đã tạo VPN WireGuard",
+      "openVpnCreated": "Đã tạo cấu hình OpenVPN"
+    }
+  },
+  "trafficDetails": {
+    "title": "Chi tiết lưu lượng",
+    "chart": {
+      "bandwidthOverTime": "Băng thông theo thời gian",
+      "timePeriod": "Khoảng thời gian",
+      "sentTooltip": "↑ Gửi: ",
+      "receivedTooltip": "↓ Nhận: "
+    },
+    "periods": {
+      "last1Min": "1 phút gần nhất",
+      "last5Min": "5 phút gần nhất",
+      "last30Min": "30 phút gần nhất",
+      "last1Hour": "1 giờ gần nhất",
+      "last2Hours": "2 giờ gần nhất",
+      "last4Hours": "4 giờ gần nhất",
+      "last1Day": "1 ngày gần nhất",
+      "last7Days": "7 ngày gần nhất",
+      "last30Days": "30 ngày gần nhất",
+      "allTime": "Toàn thời gian",
+      "total": "tổng"
+    },
+    "labels": {
+      "sent": "Đã gửi",
+      "received": "Đã nhận",
+      "sentWithPeriod": "Đã gửi ({{period}})",
+      "receivedWithPeriod": "Đã nhận ({{period}})",
+      "requestsWithPeriod": "Yêu cầu ({{period}})",
+      "allTimeTraffic": "Lưu lượng toàn thời gian:",
+      "allTimeRequests": "Yêu cầu toàn thời gian:"
+    },
+    "disclaimer": "Lưu ý: Nếu bạn dùng proxy, VPN hoặc dịch vụ tương tự, nhà cung cấp có thể tính lưu lượng khác do phần overhead mã hóa và khác biệt giao thức.",
+    "topDomainsByTraffic": "Top domain theo lưu lượng ({{period}})",
+    "topDomainsByRequests": "Top domain theo số request ({{period}})",
+    "table": {
+      "domain": "Domain",
+      "requests": "Requests",
+      "sent": "Đã gửi",
+      "received": "Đã nhận",
+      "totalTraffic": "Tổng lưu lượng"
+    },
+    "uniqueIps": "IP duy nhất ({{count}})",
+    "empty": {
+      "title": "Chưa có dữ liệu lưu lượng cho profile này.",
+      "description": "Dữ liệu lưu lượng sẽ xuất hiện sau khi bạn chạy profile."
+    }
+  },
+  "integrationsDialog": {
+    "title": "Tích hợp",
+    "description": "Giữ Local API và truy cập trợ lý AI trong cùng workspace rộng thay vì tách thành nhiều modal.",
+    "tabs": {
+      "localApi": "Local API",
+      "mcpAssistants": "MCP (Trợ lý AI)",
+      "mcp": "MCP"
+    },
+    "labels": {
+      "port": "Cổng",
+      "authToken": "Token xác thực"
+    },
+    "api": {
+      "enableTitle": "Bật Local API Server",
+      "enableDescription": "Cho phép quản lý profile, group và proxy qua REST API.",
+      "serverRunning": "Server đang chạy",
+      "authHeader": "Thêm vào header Authorization: Bearer <token>"
+    },
+    "mcp": {
+      "enableTitle": "Bật MCP Server (Model Context Protocol)",
+      "enableDescription": "Cho phép trợ lý AI như Claude Desktop điều khiển trình duyệt.",
+      "acceptTermsHint": "(Hãy chấp nhận điều khoản Wayfern trong Settings trước)",
+      "claudeConfigTitle": "Cấu hình Claude Desktop",
+      "claudeConfigDescription": "Sao chép cấu hình này vào file config Claude Desktop tại",
+      "availableTools": "Công cụ khả dụng",
+      "tools": {
+        "listProfiles": "list_profiles - Liệt kê profile trình duyệt",
+        "runProfile": "run_profile - Mở trình duyệt",
+        "killProfile": "kill_profile - Dừng trình duyệt đang chạy",
+        "getProfileStatus": "get_profile_status - Kiểm tra trạng thái trình duyệt",
+        "manageGroups": "list_groups, create_group, ... - Quản lý nhóm",
+        "manageProxies": "list_proxies, create_proxy, ... - Quản lý proxy"
+      }
+    },
+    "toasts": {
+      "apiStarted": "API server đã chạy ở cổng {{port}}",
+      "apiStopped": "API server đã dừng",
+      "apiToggleFailed": "Không thể bật/tắt API server",
+      "mcpStarted": "MCP server đã chạy ở cổng {{port}}",
+      "mcpStopped": "MCP server đã dừng",
+      "mcpToggleFailed": "Không thể bật/tắt MCP server",
+      "tokenCopied": "Đã sao chép token",
+      "configCopied": "Đã sao chép cấu hình",
+      "unknownError": "Lỗi không xác định"
+    }
+  },
+  "proxyManagementDialog": {
+    "title": "Proxy & VPN",
+    "description": "Quản lý cấu hình proxy và VPN để tái sử dụng trên nhiều profile.",
+    "tabs": {
+      "proxies": "Proxy",
+      "vpns": "VPN"
+    },
+    "actions": {
+      "quickPaste": "Dán nhanh",
+      "location": "Vị trí"
+    },
+    "loadingProxies": "Đang tải proxy...",
+    "loadingVpns": "Đang tải VPN...",
+    "emptyProxies": "Chưa có proxy nào. Tạo proxy đầu tiên bằng nút phía trên.",
+    "emptyVpns": "Chưa có cấu hình VPN nào. Hãy import hoặc tạo mới bằng các nút phía trên.",
+    "cloud": "Cloud",
+    "toasts": {
+      "syncDisabled": "Đã tắt đồng bộ",
+      "syncEnabled": "Đã bật đồng bộ",
+      "syncUpdateFailed": "Không thể cập nhật trạng thái đồng bộ"
+    },
+    "tooltips": {
+      "syncDisableBlockedProxy": "Không thể tắt đồng bộ khi proxy này đang được profile đã sync sử dụng",
+      "syncDisableBlockedVpn": "Không thể tắt đồng bộ khi VPN này đang được profile đã sync sử dụng",
+      "disableSync": "Tắt đồng bộ",
+      "enableSync": "Bật đồng bộ",
+      "editProxy": "Chỉnh sửa proxy",
+      "deleteBlocked": "Không thể xóa: đang được {{count}} profile sử dụng",
+      "deleteProxy": "Xóa proxy",
+      "editVpn": "Chỉnh sửa VPN",
+      "deleteVpn": "Xóa VPN"
+    },
+    "deleteProxy": {
+      "title": "Xóa Proxy",
+      "description": "Hành động này không thể hoàn tác. Proxy \"{{name}}\" sẽ bị xóa vĩnh viễn."
+    },
+    "deleteVpn": {
+      "title": "Xóa VPN",
+      "description": "Hành động này không thể hoàn tác. VPN \"{{name}}\" sẽ bị xóa vĩnh viễn."
+    }
+  },
+  "importProfileDialog": {
+    "title": "Import Browser Profile",
+    "manualTitle": "Import profile thủ công",
+    "labels": {
+      "path": "Đường dẫn:",
+      "browser": "Trình duyệt:"
+    },
+    "toasts": {
+      "detectFailed": "Không thể phát hiện profile trình duyệt hiện có",
+      "openFolderFailed": "Không thể mở hộp thoại chọn thư mục",
+      "selectProfileAndName": "Vui lòng chọn profile và nhập tên",
+      "selectedProfileNotFound": "Không tìm thấy profile đã chọn",
+      "importFailed": "Không thể import profile: {{message}}",
+      "fillAllFields": "Vui lòng điền đầy đủ các trường"
+    }
+  },
+  "proxyImportDialog": {
+    "title": "Import Proxy",
+    "labels": {
+      "namePrefix": "Tiền tố tên"
+    },
+    "result": {
+      "imported": "Đã import:",
+      "skippedDuplicates": "Bỏ qua (trùng lặp):",
+      "errors": "Lỗi:",
+      "errorsLabel": "Danh sách lỗi"
+    },
+    "actions": {
+      "done": "Xong"
+    },
+    "toasts": {
+      "readFailed": "Không thể đọc tệp",
+      "noValidProxies": "Không tìm thấy proxy hợp lệ trong tệp",
+      "dropFileHint": "Vui lòng thả tệp .json hoặc .txt"
+    }
+  },
+  "vpnCheck": {
+    "toasts": {
+      "valid": "Cấu hình VPN \"{{name}}\" hợp lệ",
+      "invalid": "Cấu hình VPN \"{{name}}\" không hợp lệ",
+      "failed": "Kiểm tra VPN thất bại: {{message}}"
+    },
+    "tooltip": {
+      "checking": "Đang kiểm tra cấu hình VPN...",
+      "valid": "Cấu hình hợp lệ",
+      "invalid": "Cấu hình không hợp lệ",
+      "checkedAt": "Đã kiểm tra {{time}}",
+      "idle": "Kiểm tra tính hợp lệ cấu hình VPN"
+    }
+  },
+  "vpnImportDialog": {
+    "title": "Import cấu hình VPN",
+    "labels": {
+      "vpnName": "Tên VPN",
+      "configPreview": "Xem trước cấu hình"
+    },
+    "actions": {
+      "done": "Xong"
+    },
+    "toasts": {
+      "invalidContent": "Nội dung không phải cấu hình VPN hợp lệ",
+      "readFailed": "Không thể đọc tệp",
+      "dropFileHint": "Vui lòng thả tệp .conf hoặc .ovpn"
+    }
+  },
+  "proxyExportDialog": {
+    "title": "Xuất Proxy",
+    "description": "Xuất cấu hình proxy ra tệp",
+    "labels": {
+      "exportFormat": "Định dạng xuất",
+      "preview": "Xem trước"
+    },
+    "actions": {
+      "copied": "Đã sao chép"
+    },
+    "toasts": {
+      "copied": "Đã sao chép vào clipboard",
+      "copyFailed": "Không thể sao chép vào clipboard",
+      "exportFailed": "Không thể xuất proxy",
+      "downloaded": "Đã tải xuống {{filename}}"
+    }
+  },
+  "locationProxyDialog": {
+    "title": "Tạo Proxy theo vị trí",
+    "description": "Tạo proxy theo khu vực từ cloud credentials của bạn",
+    "labels": {
+      "countryRequired": "Quốc gia (bắt buộc)",
+      "stateOptional": "Bang/Tỉnh (tùy chọn)",
+      "cityOptional": "Thành phố (tùy chọn)"
+    },
+    "actions": {
+      "creating": "Đang tạo..."
+    },
+    "toasts": {
+      "loadCountriesFailed": "Không thể tải danh sách quốc gia",
+      "created": "Đã tạo location proxy"
+    }
+  },
+  "launchOnLogin": {
+    "title": "Bật chạy cùng hệ thống?",
+    "toasts": {
+      "enabled": "Đã bật chạy cùng hệ thống",
+      "enableFailed": "Không thể bật chạy cùng hệ thống",
+      "savePreferenceFailed": "Không thể lưu tùy chọn",
+      "tryAgain": "Vui lòng thử lại"
+    }
+  },
+  "groupDialogs": {
+    "labels": {
+      "groupName": "Tên nhóm"
+    },
+    "create": {
+      "title": "Tạo nhóm mới"
+    },
+    "edit": {
+      "title": "Chỉnh sửa nhóm"
+    },
+    "delete": {
+      "title": "Xóa nhóm",
+      "profilesPrompt": "Bạn muốn xử lý các profile này như thế nào?"
+    },
+    "toasts": {
+      "created": "Đã tạo nhóm thành công",
+      "updated": "Đã cập nhật nhóm thành công",
+      "deleted": "Đã xóa nhóm thành công"
+    }
+  },
+  "releaseTypeSelector": {
+    "empty": "Không có bản phát hành khả dụng."
+  },
+  "dataTableActionBar": {
+    "clearSelection": "Bỏ chọn"
+  },
+  "permissionDialog": {
+    "toasts": {
+      "requestFailed": "Không thể yêu cầu quyền truy cập"
+    }
+  },
+  "camoufoxConfigDialog": {
+    "toasts": {
+      "invalidFingerprint": "Cấu hình fingerprint không hợp lệ",
+      "invalidFingerprintDescription": "Cấu hình fingerprint chứa JSON không hợp lệ. Vui lòng kiểm tra phần cài đặt nâng cao.",
+      "saveFailed": "Không thể lưu cấu hình"
+    }
+  },
+  "cookieCopyDialog": {
+    "labels": {
+      "sourceProfile": "Profile nguồn"
+    },
+    "toasts": {
+      "someErrors": "Có một số lỗi: {{errors}}"
+    }
+  },
+  "profileSelectorDialog": {
+    "title": "Chọn Profile",
+    "labels": {
+      "openingUrl": "URL sẽ mở:",
+      "selectProfile": "Chọn Profile:"
+    }
+  },
+  "wayfernTerms": {
+    "title": "Điều khoản và điều kiện Wayfern",
+    "toasts": {
+      "accepted": "Đã chấp nhận điều khoản thành công",
+      "acceptFailed": "Không thể chấp nhận điều khoản"
+    }
+  },
+  "groupAssignmentDialog": {
+    "title": "Gán vào nhóm",
+    "labels": {
+      "selectedProfiles": "Profile đã chọn:",
+      "assignToGroup": "Gán vào nhóm:",
+      "defaultNoGroup": "Mặc định (không nhóm)"
+    }
+  },
+  "proxyAssignmentDialog": {
+    "title": "Gán Proxy / VPN",
+    "labels": {
+      "selectedProfiles": "Profile đã chọn:",
+      "assignProxyVpn": "Gán Proxy / VPN:",
+      "proxies": "Proxy",
+      "vpns": "VPN"
+    }
+  },
+  "groupManagementDialog": {
+    "title": "Quản lý nhóm profile",
+    "groupsLabel": "Nhóm",
+    "columns": {
+      "profiles": "Profiles"
     }
   },
   "header": {
@@ -174,6 +667,9 @@
     "createFirst": "Tạo profile",
     "noResults": "Không tìm thấy profile",
     "noResultsDescription": "Không có profile nào khớp với bộ lọc hiện tại.",
+    "filteredStateHint": "Đang hiển thị {{visible}}/{{total}} profile. Có {{hidden}} profile bị ẩn bởi bộ lọc hiện tại.",
+    "resetFilters": "Đặt lại bộ lọc",
+    "filterResetSuccess": "Đã đặt lại bộ lọc profile",
     "table": {
       "name": "Tên",
       "browser": "Trình duyệt",
@@ -190,6 +686,9 @@
       "notePlaceholder": "Thêm ghi chú...",
       "proxySearch": "Tìm proxy hoặc VPN...",
       "proxySearchWithCountries": "Tìm proxy, VPN hoặc quốc gia...",
+      "proxyQuickActions": "Tác vụ nhanh",
+      "openProxyCenter": "Mở Proxy Center",
+      "quickAddProxy": "Thêm nhanh proxy",
       "proxyEmpty": "Không tìm thấy proxy hoặc VPN.",
       "none": "Không",
       "vpns": "VPN",
@@ -233,9 +732,23 @@
       "archiveSuccess": "Profile archived",
       "restoreSuccess": "Profile restored",
       "pin": "Ghim",
+      "pinned": "Đã ghim",
       "unpin": "Bỏ ghim",
       "pinSuccess": "Đã ghim profile",
       "unpinSuccess": "Đã bỏ ghim profile"
+    },
+    "syncToggle": {
+      "enabledTitle": "Đã bật đồng bộ",
+      "disabledTitle": "Đã tắt đồng bộ",
+      "enabledDescription": "Đồng bộ profile đã được bật",
+      "disabledDescription": "Đồng bộ profile đã được tắt",
+      "updateFailed": "Không thể cập nhật cài đặt đồng bộ",
+      "syncingProfile": "Đang đồng bộ profile '{{name}}'..."
+    },
+    "bulkDelete": {
+      "title": "Xóa các profile đã chọn",
+      "description": "Hành động này không thể hoàn tác. Bạn sẽ xóa vĩnh viễn {{count}} profile và toàn bộ dữ liệu liên quan.",
+      "confirmButton": "Xóa {{count}} Profile"
     },
     "ephemeral": "Ephemeral",
     "ephemeralDescription": "Trình duyệt sẽ lưu dữ liệu profile trên bộ nhớ thay vì ổ đĩa. Dữ liệu sẽ bị xóa khi đóng trình duyệt.",
@@ -419,6 +932,7 @@
   },
   "groups": {
     "title": "Nhóm",
+    "all": "Tất cả",
     "management": "Nhóm",
     "add": "Thêm nhóm",
     "edit": "Sửa nhóm",
@@ -481,6 +995,9 @@
     "settingsSaveFailed": "Không thể lưu cấu hình sync.",
     "disconnectSuccess": "Đã ngắt kết nối sync.",
     "disconnectFailed": "Không thể ngắt kết nối sync.",
+    "test": "Kiểm tra",
+    "testing": "Đang kiểm tra...",
+    "disconnect": "Ngắt kết nối",
     "status": {
       "connected": "Đã kết nối",
       "disconnected": "Đã ngắt kết nối",
@@ -631,9 +1148,13 @@
       "title": "Nhập cookie",
       "description": "Import cookie từ file Netscape hoặc JSON.",
       "selectFile": "Chọn file",
+      "dropzoneTitle": "Bấm để chọn file cookie",
+      "dropzoneFormats": "(.txt, .cookies, hoặc .json)",
       "preview": "Tìm thấy {{count}} cookie",
       "success": "Import thành công {{imported}} cookie (đã ghi đè {{replaced}} cookie)",
+      "linesSkipped": "Đã bỏ qua {{count}} dòng",
       "error": "Không thể nhập cookie",
+      "fileReadError": "Không thể đọc file",
       "proFeature": "Import cookie là tính năng Pro"
     },
     "export": {
@@ -642,7 +1163,14 @@
       "formatLabel": "Định dạng",
       "netscape": "Netscape TXT",
       "json": "JSON",
+      "text": "Văn bản",
+      "cookiesLabel": "Cookie",
+      "selectedSummary": "({{selected}} / {{total}} đã chọn)",
+      "selectAll": "Chọn tất cả",
+      "deselectAll": "Bỏ chọn tất cả",
+      "empty": "Không tìm thấy cookie trong profile này",
       "success": "Export cookie thành công",
+      "loadError": "Không thể tải cookie",
       "error": "Không thể xuất cookie"
     }
   },
@@ -736,6 +1264,7 @@
     "basicWarning": "Cảnh báo: Chỉ chỉnh các tham số này khi bạn hiểu rõ tác động của chúng.",
     "automatic": "Tự động",
     "manual": "Thủ công",
+    "browserBehavior": "Hành vi trình duyệt",
     "blockingOptions": "Tùy chọn chặn",
     "blockImages": "Chặn hình ảnh",
     "blockWebRTC": "Chặn WebRTC",
@@ -897,7 +1426,8 @@
       "title": "Nhân bản profile",
       "description": "Nhập tên cho profile clone",
       "namePlaceholder": "Tên profile",
-      "button": "Clone"
+      "button": "Clone",
+      "failed": "Không thể clone profile: {{message}}"
     }
   },
   "extensions": {
@@ -1164,11 +1694,15 @@
   },
   "authDialog": {
     "title": "Đăng nhập Workspace",
-    "description": "Đăng nhập bằng email được mời. Có thể dán invite token để nhận quyền ngay sau khi đăng nhập.",
+    "description": "Đăng nhập bằng email và mật khẩu để truy cập workspace.",
     "emailLabel": "Email",
     "emailPlaceholder": "name@company.com",
+    "passwordPlaceholder": "Nhập mật khẩu (tối thiểu 8 ký tự)",
+    "rememberMe": "Ghi nhớ đăng nhập",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu",
     "quickPresetTitle": "Tài khoản xem nhanh theo role",
-    "quickPresetHint": "Tài khoản preview dùng để xem UI/quyền cục bộ. Quyền workspace thực tế vẫn nên đi theo luồng invite.",
+    "quickPresetHint": "Tài khoản seed sẽ nạp dữ liệu tách theo workspace để kiểm tra vai trò cục bộ. Khi chạy production vẫn nên đi theo luồng invite.",
     "quickPresetPlatformAdmin": "Platform Admin",
     "quickPresetOwner": "Owner Preview",
     "quickPresetAdmin": "Admin Preview",
@@ -1179,6 +1713,8 @@
     "accessScopeAdmin": "Platform admin",
     "accessScopeHint": "Chỉ dùng chế độ platform admin cho vận hành nội bộ tin cậy.",
     "otpLabel": "Mã OTP",
+    "nameLabel": "Họ và tên",
+    "phoneLabel": "Số điện thoại",
     "otpPlaceholder": "Nhập mã 6 số",
     "inviteTokenLabel": "Invite token (tuỳ chọn)",
     "inviteTokenPlaceholder": "Dán token từ link mời trong email",
@@ -1190,6 +1726,8 @@
     "resendOtp": "Gửi lại OTP",
     "back": "Quay lại",
     "invalidEmail": "Vui lòng nhập email hợp lệ.",
+    "passwordTooShort": "Mật khẩu cần tối thiểu 8 ký tự.",
+    "passwordMismatch": "Mật khẩu xác nhận không khớp.",
     "invalidOtp": "Vui lòng nhập mã OTP.",
     "otpRequested": "Đã gửi OTP. Kiểm tra hộp thư của bạn.",
     "otpRequestFailed": "Không thể gửi OTP.",
@@ -1224,11 +1762,14 @@
     "perMonth": "tháng",
     "perYear": "năm",
     "planSelected": "Đã chọn gói",
+    "checkoutPending": "sẵn sàng ở trang Checkout",
     "selectedPlan": "Đang chọn",
     "selectPlan": "Chọn gói",
+    "upgradeTo": "Nâng cấp lên {{plan}}",
     "featureProfiles": "{{count}} profile quản lý",
     "featureMembers": "{{count}} thành viên",
     "featureStorage": "{{count}} GB dung lượng sync",
+    "featureProxy": "{{count}} GB resident proxy",
     "featureSupport": "Hỗ trợ {{level}}",
     "support": {
       "email": "Email",
@@ -1237,23 +1778,31 @@
     },
     "stripeReady": "Stripe billing đã kết nối. Có thể bật checkout trực tiếp cho luồng production.",
     "stripePending": "Stripe billing chưa cấu hình. Bạn vẫn có thể chọn gói, checkout sẽ bật ngay sau khi cấu hình xong.",
+    "selfHostedCheckoutReady": "Self-host checkout đang hoạt động. Luồng billing, coupon và hóa đơn chạy cục bộ.",
+    "runtimeStripeLabel": "Stripe Billing",
+    "runtimeAuthLabel": "Authentication",
+    "runtimeSyncLabel": "Cloud Sync",
     "signInTitle": "Đăng nhập để tiếp tục",
-    "signInDescription": "Dùng email được mời để vào workspace. Phạm vi platform admin dành cho vận hành nội bộ.",
+    "signInDescription": "Dùng email và mật khẩu để đăng nhập workspace.",
     "syncReady": "Dịch vụ sync đã cấu hình.",
     "syncPending": "Dịch vụ sync chưa hoàn tất cấu hình. Hãy cấu hình để mở khóa backup/restore đầy đủ.",
     "openSyncConfig": "Mở Sync Config",
     "plans": {
       "starter": {
         "name": "Starter",
-        "description": "Phù hợp cá nhân và nhóm thử nghiệm nhỏ."
+        "description": "Phù hợp cá nhân và thao tác hằng ngày."
       },
       "growth": {
         "name": "Growth",
-        "description": "Phù hợp nhất cho team vận hành hằng ngày."
+        "description": "Phù hợp team đang mở rộng và vận hành chung workspace."
       },
       "scale": {
         "name": "Scale",
-        "description": "Cho vận hành lớn với nhu cầu dung lượng cao."
+        "description": "Cho vận hành lớn với dung lượng và sản lượng cao."
+      },
+      "custom": {
+        "name": "Custom",
+        "description": "Giới hạn profile tuỳ chỉnh và hỗ trợ nội bộ chuyên trách."
       }
     },
     "tabs": {
@@ -1265,30 +1814,55 @@
     "authPending": "Auth service đang chờ cấu hình.",
     "googleButton": "Đăng nhập Google",
     "googleSoon": "Google OAuth sẽ được bật sau khi cấu hình backend auth.",
+    "googleOpenBrowserTitle": "Đang mở xác thực Google trên trình duyệt...",
+    "googleOpenBrowserDescription": "Vui lòng hoàn tất đăng nhập và cho phép ứng dụng mở lại.",
+    "googleOpenBrowserFailed": "Không thể mở trình duyệt để đăng nhập Google",
+    "googleLoginErrorTitle": "Lỗi đăng nhập Google",
+    "controlAuthUnavailableTitle": "Không kết nối được dịch vụ đăng nhập",
+    "controlAuthUnavailableDescription": "Control auth server chưa sẵn sàng. Với tài khoản local dev (@buglogin.local) app vẫn cho đăng nhập fallback. Với tài khoản thật, hãy cấu hình Sync server URL và bật control API.",
+    "localDevQuickTitle": "Quick credentials cho local dev",
+    "localDevQuickDescription": "Bấm để điền nhanh email test. Mật khẩu mặc định: {{password}}.",
+    "registerFlowTitle": "Tạo tài khoản workspace",
+    "optionalLabel": "tuỳ chọn",
+    "registerNamePlaceholder": "Tên hiển thị trong workspace",
+    "confirmPasswordLabel": "Xác nhận mật khẩu",
+    "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
+    "useLocalDevPreset": "Dùng nhanh preset local dev",
     "registerHint": "Đăng ký bằng đúng email được mời. Sau khi xác minh email, tài khoản sẽ nhận quyền theo workspace.",
     "registerAction": "Gửi yêu cầu đăng ký",
-    "registerQueued": "Đã ghi nhận yêu cầu đăng ký.",
-    "registerQueuedDescription": "Ở chế độ self-hosted, luồng verify email sẽ được bật sau khi backend auth hoàn tất.",
+    "registerQueued": "Đăng ký đã hoàn tất ở chế độ self-host.",
+    "registerQueuedDescription": "Có thể bật verify email sau. Hiện tại bạn có thể đăng nhập ngay bằng email được mời.",
     "registerFailed": "Không thể gửi yêu cầu đăng ký.",
     "forgotHint": "Nhập email workspace để nhận hướng dẫn khôi phục quyền truy cập.",
     "forgotAction": "Gửi hướng dẫn khôi phục",
     "resetSent": "Đã gửi hướng dẫn khôi phục về email.",
-    "resetQueued": "Đã ghi nhận yêu cầu khôi phục.",
-    "resetQueuedDescription": "Chế độ self-hosted hiện chưa bật reset mật khẩu thật. Bạn vẫn có thể đăng nhập bằng email được mời.",
-    "resetFailed": "Không thể gửi hướng dẫn khôi phục."
+    "resetQueued": "Luồng khôi phục đã sẵn sàng ở chế độ self-host.",
+    "resetQueuedDescription": "Bạn vẫn có thể dùng đăng nhập bằng email được mời trong lúc backend reset đầy đủ đang được kết nối.",
+    "resetFailed": "Không thể gửi hướng dẫn khôi phục.",
+    "preferenceSaveFailed": "Không thể cập nhật giao diện hoặc ngôn ngữ."
   },
   "adminWorkspace": {
     "subtitle": "Vùng quản trị nền tảng cho billing, entitlement và vận hành.",
+    "workspaceSubtitle": "Vùng quản trị workspace cho thành viên, chia sẻ và vận hành hằng ngày.",
+    "panel": {
+      "platformTitle": "Platform Admin Panel",
+      "workspaceTitle": "Workspace Admin Panel",
+      "platformBadge": "Platform Admin",
+      "workspaceBadge": "Workspace Admin",
+      "workspaceOverviewTitle": "Tổng quan vận hành Workspace",
+      "workspaceOverviewDescription": "Theo dõi vòng đời thành viên, lưu lượng invite và trạng thái chia sẻ của workspace đang chọn."
+    },
     "reasonRequired": "Bắt buộc nhập lý do cho thao tác này.",
     "reasonLabel": "Lý do thao tác",
     "reasonPlaceholder": "Mô tả ngắn lý do thực hiện (bắt buộc)",
     "noAccessTitle": "Bạn không có quyền vào Admin Workspace",
     "noAccessDescription": "Chỉ owner/admin hoặc platform admin mới truy cập được khu vực quản trị này.",
+    "ownerOnlyGovernance": "Chỉ owner/admin của workspace hoặc platform admin mới được vào Quản trị Workspace.",
     "signInRequired": "Vui lòng đăng nhập trước để truy cập Admin Workspace và các thao tác control-plane.",
     "entitlementUpdated": "Đã cập nhật trạng thái entitlement.",
     "entitlementUpdateFailed": "Không thể cập nhật trạng thái entitlement.",
     "tabs": {
-      "workspace": "Workspace",
+      "workspace": "Danh mục Workspace",
       "billing": "Billing",
       "audit": "Audit",
       "overview": "Tổng quan",
@@ -1300,6 +1874,20 @@
       "members": "Thành viên",
       "invites": "Invite mở",
       "audits24h": "Audit 24h"
+    },
+    "columns": {
+      "email": "Email",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "resource": "Tài nguyên",
+      "recipient": "Người nhận",
+      "access": "Quyền truy cập",
+      "source": "Nguồn",
+      "usage": "Sử dụng",
+      "action": "Hành động",
+      "actor": "Người thao tác",
+      "time": "Thời gian",
+      "reason": "Lý do"
     },
     "overview": {
       "title": "Tổng quan nền tảng",
@@ -1313,6 +1901,7 @@
     "controlPlane": {
       "title": "Quản trị Workspace",
       "description": "Quản lý workspace, thành viên và invite trên control-plane.",
+      "workspaceDescription": "Vận hành thành viên, invite và chia sẻ theo workspace đang chọn.",
       "pending": "Chưa cấu hình sync server URL",
       "connected": "Đã kết nối: {{url}}",
       "securityUnknown": "Chưa đọc được trạng thái bảo mật control-plane.",
@@ -1349,6 +1938,8 @@
       "invites": "Quản lý invite",
       "inviteEmailRequired": "Cần nhập email mời.",
       "inviteEmailInvalid": "Email mời không hợp lệ.",
+      "inviteRoleRestricted": "Invite chỉ được phép ở vai trò Member hoặc Viewer.",
+      "inviteRoleRestrictedHint": "Để an toàn, hãy mời ở mức Member/Viewer trước, sau đó nâng quyền sau khi người dùng đã vào workspace.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Đã tạo invite.",
       "inviteCreateFailed": "Không thể tạo invite.",
@@ -1369,6 +1960,44 @@
       "admin": "Admin",
       "member": "Member",
       "viewer": "Viewer"
+    },
+    "permissions": {
+      "ownerLockedHint": "Role Owner luôn toàn quyền và không thể tắt.",
+      "editorHint": "Bật/tắt từng quyền cho role đang chọn theo mô hình vận hành workspace.",
+      "items": {
+        "profiles_manage": {
+          "title": "Quản lý profile",
+          "description": "Tạo, chỉnh sửa, nhân bản và tổ chức profile."
+        },
+        "profiles_delete": {
+          "title": "Xóa profile",
+          "description": "Xóa profile và thực thi các thao tác hủy dữ liệu profile."
+        },
+        "network_manage": {
+          "title": "Quản lý proxy và VPN",
+          "description": "Cấu hình và gán tài nguyên proxy/VPN."
+        },
+        "integrations_manage": {
+          "title": "Quản lý tích hợp",
+          "description": "Cấu hình tích hợp và các connector automation."
+        },
+        "members_invite": {
+          "title": "Mời thành viên",
+          "description": "Gửi, thu hồi và theo dõi lời mời vào workspace."
+        },
+        "members_role": {
+          "title": "Quản lý vai trò thành viên",
+          "description": "Nâng/hạ role hoặc xóa thành viên khỏi workspace."
+        },
+        "share_manage": {
+          "title": "Quản lý chia sẻ",
+          "description": "Tạo và thu hồi share grant cho profile/group."
+        },
+        "billing_manage": {
+          "title": "Quản lý billing",
+          "description": "Điều khiển pricing, thao tác plan và vận hành billing."
+        }
+      }
     },
     "share": {
       "title": "Share grant",
@@ -1396,6 +2025,28 @@
     "billing": {
       "couponTitle": "Quản trị coupon",
       "couponDescription": "Tạo và kiểm soát giảm giá nội bộ hoặc Stripe với đầy đủ audit.",
+      "planMenuPricing": "Giá & trạng thái",
+      "planMenuUsage": "Giới hạn sử dụng",
+      "planMenuExperience": "Trải nghiệm gói",
+      "customPlanTitle": "Điều khiển custom plan",
+      "customPlanDescription": "Cấu hình giá và giới hạn cho custom plan phục vụ vận hành nội bộ.",
+      "customPlanEnabled": "Hiển thị custom plan",
+      "customPlanEnabledYes": "Bật",
+      "customPlanEnabledNo": "Tắt",
+      "customPlanMonthly": "Giá theo tháng ($)",
+      "customPlanYearly": "Giá theo năm ($)",
+      "customPlanSupport": "Mức hỗ trợ",
+      "customPlanProfiles": "Profile quản lý",
+      "customPlanMembers": "Thành viên",
+      "customPlanStorage": "Dung lượng sync (GB)",
+      "customPlanProxy": "Resident proxy (GB)",
+      "customPlanRecommended": "Gắn nhãn khuyến nghị",
+      "customPlanRecommendedYes": "Có",
+      "customPlanRecommendedNo": "Không",
+      "customPlanSaveAction": "Lưu custom plan",
+      "customPlanResetAction": "Khôi phục mặc định",
+      "customPlanSaved": "Đã cập nhật custom plan.",
+      "customPlanReset": "Đã reset custom plan về mặc định.",
       "sourceInternal": "Nội bộ",
       "sourceStripe": "Liên kết Stripe",
       "couponCode": "Mã coupon",
@@ -1406,7 +2057,7 @@
       "couponFieldsRequired": "Bắt buộc nhập mã coupon và thời hạn.",
       "couponInvalidNumber": "Giảm giá và giới hạn lượt dùng phải là số hợp lệ.",
       "couponCodeInvalid": "Mã coupon phải dài 3-40 ký tự, chỉ gồm chữ, số, _ hoặc -.",
-      "couponDiscountRange": "Giảm giá phải lớn hơn 0 và không vượt quá 95%.",
+      "couponDiscountRange": "Giảm giá phải lớn hơn 0 và không vượt quá 100%.",
       "couponMaxInvalid": "Giới hạn lượt dùng phải là số nguyên từ 0 trở lên.",
       "couponExpiryInvalid": "Thời hạn coupon phải là thời điểm hợp lệ trong tương lai.",
       "couponCreated": "Đã tạo coupon.",
@@ -1415,6 +2066,7 @@
       "couponRevokeFailed": "Không thể thu hồi coupon.",
       "createCoupon": "Tạo coupon",
       "revokeCoupon": "Thu hồi",
+      "generatedCoupons": "Danh sách coupon",
       "noCoupons": "Chưa có coupon.",
       "activeStatus": "đang hiệu lực",
       "revokedStatus": "đã thu hồi"
@@ -1439,6 +2091,73 @@
       "entitlementActive": "Đang hoạt động",
       "entitlementGrace": "Đang grace period",
       "entitlementReadOnly": "Chỉ đọc"
+    },
+    "ui": {
+      "workspaceOpsTitle": "Workspace Operations Center",
+      "workspaceOpsDescription": "Quản trị workspace, thành viên và chia sẻ theo ngữ cảnh đang chọn, có phân tầng quyền rõ ràng.",
+      "workspaceDirectoryTitle": "Danh mục & Provisioning Workspace",
+      "workspaceDirectoryOpsDescription": "Quản lý toàn bộ workspace ở phạm vi admin. Các thao tác thành viên và chính sách truy cập được xử lý trong panel Quản trị Workspace của workspace đang mở.",
+      "scopePlatform": "Phạm vi: Platform Admin",
+      "scopeTeam": "Phạm vi: Owner/Admin Workspace",
+      "scopeReadOnly": "Phạm vi: Chỉ xem",
+      "workspaceDirectoryDescription": "Chọn workspace để đổi ngữ cảnh quản trị và dữ liệu vận hành.",
+      "workspaceScopedModeHint": "Panel này chỉ quản trị workspace đang mở. Muốn quản trị workspace khác, hãy chuyển workspace ở shell switcher.",
+      "quickCreateWorkspace": "Tạo workspace nhanh",
+      "selectedWorkspaceTitle": "Snapshot workspace đang chọn",
+      "selectedWorkspaceDescription": "Xác nhận định danh workspace, metadata tạo lập và plan hiện hành trước khi thao tác quản trị.",
+      "notSelected": "Chưa chọn",
+      "workspaceId": "Workspace ID",
+      "createdAt": "Thời gian tạo",
+      "createdBy": "Người tạo",
+      "planLabel": "Gói hiện tại",
+      "noPlanLabel": "Chưa có gói",
+      "localModeEnabled": "Đang ở chế độ local/self-host. Các thao tác quản trị workspace chạy nội bộ; tính năng Stripe/S3 vẫn cần cấu hình dịch vụ.",
+      "readOnlyHint": "Tài khoản hiện tại chỉ có quyền xem. Hãy dùng Owner/Admin để thao tác thay đổi.",
+      "userPermissionTitle": "User Permissions",
+      "userPermissionDescription": "Quản lý invite, vai trò thành viên, chính sách chia sẻ và toggle quyền theo role cho workspace đang mở.",
+      "userPermissionOverviewTitle": "Trạng thái vai trò và quyền truy cập",
+      "userPermissionOverviewDescription": "Rà soát phân bổ role và posture quyền trước khi thay đổi thành viên hoặc chính sách chia sẻ.",
+      "userPermissionGuidanceTitle": "Nguyên tắc quản trị quyền",
+      "userPermissionGuidanceDescription": "Mời ở mức Member/Viewer trước, sau đó mới nâng quyền khi đã xác thực ownership và trách nhiệm.",
+      "memberAccessTitle": "Quản trị thành viên & invite",
+      "memberAccessDescription": "Quản lý vai trò, thu hồi quyền và theo dõi vòng đời lời mời trong workspace hiện tại.",
+      "memberList": "Danh sách thành viên",
+      "inviteList": "Danh sách invite",
+      "shareControlTitle": "Chính sách chia sẻ tài nguyên",
+      "policyChecklistTitle": "Checklist chính sách truy cập",
+      "policyChecklistDescription": "Áp dụng các kiểm soát này trước khi chia sẻ tài nguyên cho operator hoặc workspace đối tác.",
+      "policyChecklistItem1": "Chỉ cấp quyền tối thiểu cần thiết cho từng vai trò và người nhận.",
+      "policyChecklistItem2": "Thu hồi quyền ngay khi bối cảnh sở hữu hoặc trách nhiệm thay đổi.",
+      "policyChecklistItem3": "Rà soát share grant và invite đang mở trước các đợt billing hoặc seat audit.",
+      "policySnapshotTitle": "Snapshot trạng thái chính sách",
+      "snapshotEntitlement": "Entitlement hiện tại",
+      "snapshotMembers": "Thành viên hiện có",
+      "snapshotInvites": "Invite đang mở",
+      "snapshotShares": "Share grant đang mở",
+      "serviceAuth": "Xác thực",
+      "serviceStripe": "Stripe Billing",
+      "serviceSync": "S3 Sync",
+      "serviceAuthDescription": "Quản lý đăng nhập, chấp nhận invite và xác minh phiên làm việc.",
+      "serviceStripeDescription": "Quản lý vòng đời subscription, hóa đơn và webhook thanh toán.",
+      "serviceSyncDescription": "Bảo vệ luồng backup/restore dữ liệu đa thiết bị.",
+      "healthTitle": "Sức khỏe vận hành",
+      "healthDescription": "Giữ các dịch vụ quan trọng luôn hiển thị rõ trước khi release.",
+      "entitlementTitle": "Trạng thái entitlement",
+      "entitlementDescription": "Theo dõi giới hạn runtime thực tế và chính sách lưu trữ.",
+      "latestAuditTitle": "Hoạt động audit gần nhất",
+      "latestAuditDescription": "Các thao tác nhạy cảm mới nhất được control-plane ghi nhận.",
+      "currentWorkspace": "Workspace hiện tại",
+      "createWorkspaceDescription": "Tạo workspace tách biệt mới và bắt đầu quản trị ngay.",
+      "shareDescription": "Cấp quyền truy cập tài nguyên workspace kèm khả năng thu hồi rõ ràng.",
+      "sendInvite": "Gửi invite",
+      "memberActive": "đang hoạt động",
+      "createShare": "Cấp quyền share",
+      "expiry": "Hết hạn",
+      "systemGuidanceTitle": "Lưu ý vận hành hệ thống",
+      "systemGuidanceDescription": "Checklist khuyến nghị trước khi rollout production.",
+      "systemGuidanceItem1": "Xác nhận auth và Stripe ở trạng thái sẵn sàng trước khi bật thay đổi seat trả phí.",
+      "systemGuidanceItem2": "Giữ S3 sync ổn định trước khi chạy backup/restore số lượng lớn.",
+      "systemGuidanceItem3": "Khi dịch vụ còn pending config, app vẫn phải khởi động bình thường và hiển thị cảnh báo rõ ràng."
     },
     "modules": {
       "statusReady": "Sẵn sàng",
@@ -1485,11 +2204,26 @@
       "profiles": "Profiles",
       "automation": "Automation",
       "proxies": "Proxy & VPN",
+      "pricing": "Bảng giá",
       "settings": "Cài đặt",
       "integrations": "Tích hợp",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
-      "billing": "Pricing & Billing"
+      "billing": "Pricing & Billing",
+      "billingCheckout": "Thanh toán",
+      "billingCoupon": "Mã giảm giá",
+      "billingLicense": "License",
+      "billingManagement": "Quản lý thanh toán",
+      "workspaceGovernance": "Quản trị Workspace",
+      "workspaceAdminOverview": "Tổng quan",
+      "workspaceAdminDirectory": "Workspace hiện tại",
+      "workspaceAdminPermissions": "Quyền người dùng",
+      "workspaceAdminMembers": "Thành viên & invite",
+      "workspaceAdminAccess": "Chính sách truy cập",
+      "workspaceAdminWorkspace": "Workspace hiện tại",
+      "workspaceAdminSystem": "Hệ thống",
+      "workspaceAdminAudit": "Audit",
+      "workspaceAdminAnalytics": "Analytics"
     },
     "shared": {
       "enabled": "Bật",
@@ -1551,21 +2285,169 @@
       "teamWorkspace": "Team Workspace",
       "personalWorkspace": "Personal Workspace",
       "current": "Đang dùng",
-      "switchTo": "Chuyển sang workspace này"
+      "switchTo": "Chuyển sang workspace này",
+      "switchingTitle": "Đang chuyển workspace",
+      "switchingDescription": "Đang tải lại dữ liệu workspace...",
+      "membersInvites": "{{members}} thành viên • {{invites}} invite",
+      "usageProfiles": "{{used}} / {{limit}} profile",
+      "usageProfilesUsedOnly": "{{used}} profile",
+      "planSummary": "{{plan}} • {{status}}",
+      "planExpiry": "{{plan}} • Hết hạn {{date}}",
+      "expiresOn": "Hết hạn {{date}}",
+      "syncUnavailable": "Không kết nối được sync server",
+      "entitlement": {
+        "active": "Entitlement hoạt động",
+        "grace_active": "Đang grace period",
+        "read_only": "Chỉ đọc"
+      }
     },
     "panelSwitch": {
       "toAdmin": "Chuyển sang Admin Panel",
-      "toWorkspace": "Quay về Workspace App"
+      "toWorkspace": "Quay về Workspace App",
+      "toWorkspaceGovernance": "Mở Panel Quản trị Workspace"
     },
     "accountMenu": {
       "workspaces": "Workspace",
-      "addWorkspace": "Thêm workspace"
+      "addWorkspace": "Thêm workspace",
+      "panels": "Panel quản trị"
+    },
+    "topbar": {
+      "languageSystem": "Theo ngôn ngữ hệ thống",
+      "systemWarnings": "{{count}} cảnh báo cấu hình",
+      "systemReady": "Hệ thống sẵn sàng",
+      "systemStatus": "Trạng thái hệ thống",
+      "systemReadyDescription": "Auth, Stripe và Sync đang ở trạng thái sẵn sàng.",
+      "notifications": "Thông báo",
+      "checkingUpdates": "Đang kiểm tra...",
+      "checkUpdates": "Kiểm tra cập nhật",
+      "notificationsEmpty": "Chưa có thông báo mới.",
+      "autoUpdateInProgress": "Đang tự động cập nhật",
+      "userMenu": "Menu tài khoản",
+      "openSettings": "Mở cài đặt",
+      "goAdminPanel": "Vào Admin Panel",
+      "goWorkspaceGovernance": "Mở Quản trị Workspace",
+      "backWorkspace": "Quay lại Workspace App",
+      "preferenceSaveFailed": "Không thể lưu tuỳ chọn hiển thị",
+      "notificationTitle": "{{browser}} có bản cập nhật mới",
+      "notificationDescription": "Từ {{current}} lên {{next}} • ảnh hưởng {{profiles}} profile"
+    },
+    "states": {
+      "bootTitle": "Đang khởi tạo BugLogin",
+      "bootDescription": "Đang chuẩn bị workspace và ngữ cảnh tài khoản...",
+      "postLoginTitle": "Đăng nhập thành công",
+      "postLoginDescription": "Đang tải dữ liệu workspace và quyền truy cập..."
     }
+  },
+  "pricingPage": {
+    "description": "So sánh gói, đánh giá lợi ích và chọn hướng subscription phù hợp trước khi vào quản lý hóa đơn.",
+    "badge": "Bảng giá",
+    "heroTitle": "Chọn gói phù hợp cho workspace hiện tại",
+    "heroTitleSubscribed": "Tối ưu gói hiện tại để mở rộng nhanh hơn",
+    "heroDescription": "So sánh giới hạn theo từng gói, chọn mức phù hợp cho workspace đang mở và chuyển sang Billing để kích hoạt.",
+    "heroMetricTeams": "team đang dùng gói trả phí",
+    "heroMetricUptime": "độ ổn định hệ thống billing",
+    "heroMetricSetup": "thời gian thiết lập gói trung bình",
+    "pillNoLock": "Không khóa dài hạn",
+    "pillScaleFast": "Thiết kế cho team tăng trưởng nhanh",
+    "pillSupport": "Có tùy chọn hỗ trợ ưu tiên",
+    "heroStatProfiles": "mức profile quản lý tối đa",
+    "heroStatUptime": "độ ổn định vận hành",
+    "heroStatTeams": "hỗ trợ team liên tục",
+    "planSelected": "Đã chọn gói",
+    "addonTitle": "Phần cộng thêm",
+    "addonMembers": "Thêm thành viên",
+    "addonProfiles": "Thêm profile (+100 mỗi lần)",
+    "addonApplied": "từ phần cộng thêm",
+    "planFootnote": "Giá có thể thay đổi theo thuế và quy định khu vực.",
+    "planTierOnly": "Chỉ gói năm",
+    "priceLine": "$ / {{period}}",
+    "compareTitle": "So sánh gói",
+    "compareDescription": "So sánh nhanh giới hạn và mức hỗ trợ trước khi ra quyết định.",
+    "compareColumnFeature": "Tính năng",
+    "compareProfiles": "Profile quản lý",
+    "compareMembers": "Thành viên",
+    "compareStorage": "Dung lượng sync",
+    "compareProxy": "Resident proxy",
+    "compareAutomation": "Năng lực automation",
+    "compareAutomationStarter": "Cơ bản",
+    "compareAutomationGrowth": "Tiêu chuẩn",
+    "compareAutomationScale": "Nâng cao",
+    "compareAutomationCustom": "Workflow tuỳ chỉnh",
+    "compareSecurity": "Mức kiểm soát bảo mật",
+    "compareSecurityStarter": "Tiêu chuẩn",
+    "compareSecurityGrowth": "Phân quyền theo vai trò",
+    "compareSecurityScale": "Chính sách tuỳ chỉnh",
+    "compareSecurityCustom": "Chính sách tuỳ chỉnh + kiểm duyệt nội bộ",
+    "compareSupport": "Mức hỗ trợ",
+    "comparisonNote": "Nếu cần bảo mật/compliance tuỳ chỉnh, hãy liên hệ để được onboarding enterprise.",
+    "enterpriseLabel": "Enterprise",
+    "enterpriseLine": "Cho team cần giới hạn tùy chỉnh, bảo mật doanh nghiệp và hỗ trợ chuyên trách.",
+    "enterpriseCta": "Yêu cầu dùng thử",
+    "faqTitle": "Câu hỏi thường gặp",
+    "faq1Q": "Có thể nâng/hạ gói sau này không?",
+    "faq1A": "Có. Bạn có thể đổi gói bất kỳ lúc nào trong Quản lý thanh toán và thay đổi sẽ áp dụng ở kỳ kế tiếp.",
+    "faq2Q": "Thanh toán theo năm hoạt động thế nào?",
+    "faq2A": "Gói năm áp dụng mức giá ưu đãi cho cả năm nhưng vẫn giữ nguyên giới hạn tính năng và mức hỗ trợ.",
+    "faq3Q": "Stripe chưa sẵn sàng thì có chọn gói trước được không?",
+    "faq3A": "Được. Bạn có thể chọn trước gói ngay bây giờ và bật checkout đầy đủ khi Stripe cấu hình xong.",
+    "currentPlanBadge": "Quản lý",
+    "freePlanLabel": "Free",
+    "customPlanBadge": "Custom nội bộ",
+    "ctaBadge": "Luồng đề xuất",
+    "ctaTitle": "Cần hỗ trợ chọn gói phù hợp?",
+    "ctaDescription": "Chọn gói đề xuất trước, sau đó vào các trang Checkout/Coupon/License để hoàn tất thanh toán.",
+    "paymentFlowLabel": "Luồng thanh toán",
+    "paymentFlowStripe": "Stripe checkout + coupon/license ở trang thanh toán riêng",
+    "paymentFlowSelfHost": "Self-host checkout + coupon/license ở trang thanh toán riêng",
+    "currentPlanHint": "Gói đang hoạt động: {{plan}}",
+    "ctaPrimary": "Chọn gói này",
+    "ctaSecondary": "Mở Trung tâm thanh toán",
+    "trialBadge": "Đang dùng thử",
+    "managePlanCta": "Quản lý gói",
+    "currentWorkspacePlanHint": "Workspace {{workspace}} đang dùng gói {{plan}}",
+    "workspaceContext": "Đang xem workspace {{workspace}} · tài khoản {{email}}",
+    "workspaceRoleContext": "Vai trò tại workspace này: {{role}}",
+    "memberUpgradeBlocked": "Chỉ owner/admin mới được đổi gói cho workspace này.",
+    "memberReadonlyDescription": "Bạn chỉ có quyền xem gói của workspace hiện tại.",
+    "memberReadonlyWorkspacePlan": "Workspace {{workspace}} đang dùng gói {{plan}}.",
+    "memberReadonlyHint": "Liên hệ owner/admin để nâng cấp hoặc thay đổi billing.",
+    "viewPlanCta": "Xem gói",
+    "ownerOnlyUpgradeCta": "Chỉ owner/admin được nâng cấp",
+    "planQueued": "Đã chuẩn bị gói trong Trung tâm thanh toán",
+    "redirectingToStripeCheckout": "Đang mở thanh toán Stripe",
+    "planQueuedForWorkspace": "{{plan}} • ${{amount}}/{{period}} • workspace {{workspace}}",
+    "downgradeQueued": "Đã chuẩn bị hạ gói trong Trung tâm thanh toán",
+    "downgradeDisabled": "Tài khoản đang có nhiều workspace, hiện chỉ hỗ trợ nâng gói. Hạ gói cần xử lý thủ công.",
+    "downgradeDisabledHint": "Tài khoản đang có nhiều workspace nên chỉ cho phép tự nâng gói. Nếu cần hạ gói, vui lòng xử lý thủ công ở Billing.",
+    "downgradeTo": "Hạ xuống {{plan}}",
+    "pendingPlanCta": "Sẵn sàng ở trang thanh toán",
+    "planActionTitle": "Chọn luồng thanh toán",
+    "planActionDescription": "Bạn đang chọn gói {{plan}}. Hãy chọn nơi áp dụng gói.",
+    "planActionDescriptionFallback": "Chọn nơi áp dụng gói trước khi thanh toán.",
+    "planActionContinueCurrent": "Tiếp tục với workspace hiện tại",
+    "planActionContinueNew": "Tạo workspace và tiếp tục thanh toán",
+    "actionUpgradeCurrentTitle": "Nâng cấp workspace hiện tại",
+    "actionUpgradeCurrentDescription": "Áp dụng cho workspace {{workspace}} và đi thẳng sang trang Checkout.",
+    "actionCreateWorkspaceTitle": "Tạo workspace mới với gói này",
+    "actionCreateWorkspaceDescription": "Tạo workspace team mới rồi đưa vào luồng thanh toán/coupon/license.",
+    "actionCreateWorkspacePlaceholder": "Nhập tên workspace mới",
+    "actionCreateWorkspaceCta": "Tạo workspace và tiếp tục thanh toán",
+    "workspaceCreateNameRequired": "Tên workspace mới không được để trống.",
+    "workspaceCreateRequiresSync": "Cần cấu hình Sync server trước khi tạo workspace từ luồng pricing.",
+    "workspaceCreateFailed": "Không thể tạo workspace mới.",
+    "workspaceCreateSuccess": "Đã tạo workspace mới."
   },
   "billingPage": {
     "title": "Pricing & Billing",
     "description": "Quản lý gói dịch vụ, usage, coupon và trạng thái thanh toán theo chuẩn vận hành doanh nghiệp.",
+    "managementPageDescription": "Theo dõi trạng thái billing, usage, lịch sử hóa đơn và điều phối thao tác thanh toán sang các trang riêng.",
+    "checkoutPageDescription": "Trang thanh toán Stripe cho workspace hiện tại. Chỉ dùng cho thao tác checkout/confirm.",
+    "couponPageDescription": "Trang áp dụng coupon cho workspace hiện tại sau khi đã chọn gói ở Bảng giá.",
+    "licensePageDescription": "Trang claim license cho workspace hiện tại sau khi đã chọn gói ở Bảng giá.",
     "planFallback": "Self-hosted",
+    "freePlanLabel": "Free",
+    "freePlanPriceLine": "Workspace đang dùng gói Free",
+    "notAvailable": "Không áp dụng",
     "currentPlan": "Gói hiện tại",
     "entitlement": "Entitlement",
     "profileUsage": "Mức sử dụng profile",
@@ -1579,7 +2461,15 @@
     "stripePending": "Stripe: Pending",
     "syncReady": "Sync: Ready",
     "syncPending": "Sync: Pending",
+    "pricingBadge": "Gói dịch vụ",
     "pricingDescription": "Chọn chu kỳ thanh toán và gói phù hợp trước khi bật checkout production.",
+    "pricingTrustNoCommitment": "Không ràng buộc dài hạn",
+    "pricingTrustCancel": "Hủy bất kỳ lúc nào",
+    "pricingTrustSupport": "Gói cao có hỗ trợ ưu tiên",
+    "pricingBilledMonthly": "Thanh toán theo tháng",
+    "pricingBilledYearly": "Thanh toán năm ở mức ${{amount}}",
+    "pricingYearlySavings": "Tiết kiệm ${{amount}} mỗi năm",
+    "pricingCurrentPlanHint": "Bạn đang sử dụng gói này.",
     "planSelected": "Đã chọn gói billing",
     "couponTitle": "Coupon nội bộ",
     "couponDescription": "Áp dụng mã giảm giá nội bộ để kiểm soát rollout hoặc hỗ trợ team nội bộ.",
@@ -1587,20 +2477,123 @@
     "applyCoupon": "Áp dụng coupon",
     "couponRequired": "Cần nhập mã coupon.",
     "couponInvalid": "Mã coupon không hợp lệ.",
-    "couponQueued": "Đã ghi nhận coupon ở chế độ pending config.",
-    "couponQueuedDescription": "Stripe chưa cấu hình nên coupon được lưu ở luồng nội bộ.",
+    "couponQueued": "Coupon đã sẵn sàng trong luồng self-host.",
+    "couponQueuedDescription": "Stripe chưa cấu hình nên coupon được áp dụng qua billing nội bộ self-host.",
     "couponApplied": "Coupon đã được áp dụng.",
     "couponAppliedDescription": "Mã giảm giá đã đi vào luồng billing hiện tại.",
+    "couponValidationUnavailable": "Không thể xác thực coupon từ billing server.",
+    "couponNotEligible": "Coupon không hợp lệ hoặc không áp dụng cho workspace hiện tại.",
+    "couponLocalOnly": "Ở local mode chỉ hỗ trợ mã FREE100/LOCAL100/BUG100 để mô phỏng checkout.",
+    "workspaceRequiredForBilling": "Hãy chọn workspace trước khi đổi gói.",
+    "pendingPlanBadge": "Đang chờ kích hoạt",
+    "pendingPlanTitle": "Đã chọn gói {{plan}}",
+    "pendingPlanStripeReady": "Stripe sẵn sàng. Xác nhận thanh toán để kích hoạt gói.",
+    "pendingPlanCouponApplied": "Coupon đã áp dụng. Bạn có thể xác nhận để kích hoạt gói.",
+    "pendingPlanSelfHostedReady": "Self-host checkout đã sẵn sàng. Bấm thanh toán ngay hoặc áp dụng coupon/license để kích hoạt.",
+    "pendingProrationCredit": "Đã trừ ${{amount}} từ {{days}} ngày còn lại của gói hiện tại.",
+    "pendingAmountDue": "Số tiền cần thanh toán: ${{amount}}.",
+    "pendingPlanNeedsPayment": "Cần thanh toán Stripe hoặc nhập coupon hợp lệ trước khi kích hoạt.",
+    "confirmPlanActivation": "Xác nhận kích hoạt gói",
+    "startStripeCheckout": "Mở Stripe checkout",
+    "selfHostedPayNow": "Thanh toán ngay (Self-host)",
+    "checkoutOpened": "Đã mở Stripe checkout trên trình duyệt.",
+    "checkoutUrlMissing": "Thiếu Stripe billing URL trong app settings.",
+    "checkoutStartRequired": "Hãy mở Stripe checkout trước, sau đó xác nhận sau khi thanh toán.",
+    "stripeConfigRequired": "Cần cấu hình Stripe",
+    "stripeRequiredForCheckout": "Stripe chưa sẵn sàng. Không thể thanh toán trực tiếp nếu chưa cấu hình Stripe.",
+    "stripeRequiredForPaidCoupon": "Coupon đã hợp lệ nhưng chưa thể kích hoạt.",
+    "stripeRequiredForPaidCouponDescription": "Coupon chưa đủ 100%. Hãy cấu hình Stripe để thanh toán phần còn lại.",
+    "paymentOrCouponRequired": "Cần thanh toán Stripe hoặc coupon hợp lệ để đổi gói.",
+    "pendingPlanMissing": "Không tìm thấy gói đang chờ kích hoạt.",
+    "planActivated": "Đã kích hoạt gói thành công.",
+    "planActivatedDescription": "Gói {{plan}} đã được áp dụng cho workspace hiện tại.",
+    "paymentPendingVerification": "Chưa xác nhận thanh toán thành công cho gói đang chọn.",
+    "planActivateFailed": "Không thể kích hoạt gói.",
     "openAdminWorkspace": "Mở Admin Workspace",
+    "managementBadge": "Quản lý thanh toán",
+    "managementTitle": "Quản lý subscription, usage và hóa đơn",
+    "managementDescription": "Dùng trang Bảng giá để chọn gói, hoàn tất thanh toán ở trang chuyên biệt, sau đó theo dõi vận hành billing tại đây.",
+    "openPricingPage": "Mở trang Bảng giá",
+    "openCheckoutPage": "Mở trang Checkout",
+    "openCouponPage": "Mở trang Coupon",
+    "openLicensePage": "Mở trang License",
+    "openBillingManagementPage": "Về trang Quản lý thanh toán",
+    "nextInvoiceHint": "Hóa đơn tiếp theo sau 30 ngày",
+    "paymentRoute": "Luồng thanh toán",
+    "paymentRouteStripe": "Stripe checkout",
+    "paymentRouteSelfHosted": "Self-host checkout",
+    "paymentRouteClaim": "Claim qua coupon / license",
+    "selfHostedModeReady": "Self-host: Sẵn sàng",
+    "addonTitle": "Phần cộng thêm đang dùng",
+    "addonApplied": "từ phần cộng thêm",
+    "addonUnavailableOnFree": "Phần cộng thêm chỉ áp dụng sau khi chọn gói trả phí.",
+    "addonMembersValue": "{{count}} thành viên cộng thêm",
+    "addonProfilesValue": "{{count}} profile cộng thêm",
+    "metricRetention": "Thời gian lưu hóa đơn",
+    "metricMonths": "tháng",
+    "metricFailedCharges": "Số lần charge lỗi trong quý",
+    "metricExportTime": "Thời gian export trung bình",
+    "paymentMethodTitle": "Phương thức thanh toán",
+    "paymentActionCenterTitle": "Trung tâm thao tác thanh toán",
+    "paymentActionCenterBodyTitle": "Thanh toán tập trung theo tác vụ",
+    "paymentActionCenterBodyDescription": "Dùng các tab Checkout, Mã giảm giá và License ngay trong cùng một trang để xử lý thanh toán.",
+    "paymentActionCenterSelfHostTitle": "Self-host checkout hiện đang hoạt động",
+    "tabs": {
+      "checkout": "Checkout",
+      "coupon": "Coupon",
+      "license": "License"
+    },
+    "paymentConnectedTitle": "Stripe checkout đã được cấu hình",
+    "paymentConnectedDescription": "Đổi gói sẽ được xác thực qua thanh toán Stripe và đối soát webhook.",
+    "paymentClaimDescription": "Stripe chưa cấu hình. Hãy chọn gói ở Bảng giá trước, sau đó claim gói cho workspace bằng coupon hoặc license.",
+    "paymentSelfHostedDescription": "Self-host checkout đang hoạt động. Chọn gói đang chờ và thanh toán ngay, hoặc áp dụng coupon/license cho workspace này.",
+    "noPaymentMethod": "Chưa có phương thức thanh toán.",
+    "selectPlanBeforeClaim": "Hãy chọn gói ở Bảng giá trước khi áp dụng coupon hoặc license.",
+    "licenseTitle": "Claim bằng license",
+    "licensePlaceholder": "Nhập license key của workspace",
+    "claimLicense": "Claim gói",
+    "licenseHint": "Dùng license key do admin cấp cho gói {{code}}.",
+    "licenseRequired": "Cần nhập license key.",
+    "licenseInvalid": "License key không hợp lệ.",
+    "licenseInvalidDescription": "Hãy dùng key đúng cho gói đã chọn, ví dụ: {{sample}}",
+    "licenseClaimed": "Claim license thành công.",
+    "licenseClaimFailed": "Không thể claim license.",
+    "licenseValidationUnavailable": "Không thể xác thực license từ control-plane server.",
+    "licenseStripeEnabled": "Stripe đã cấu hình. Hãy hoàn tất checkout qua Stripe thay vì claim license.",
+    "storageUsage": "Dung lượng cloud sync",
+    "bandwidthUsage": "Băng thông proxy",
+    "viewFullHistory": "Xem toàn bộ lịch sử hóa đơn",
     "invoice": {
       "title": "Lịch sử hóa đơn",
       "description": "Theo dõi kỳ thanh toán gần nhất và trạng thái thu tiền.",
+      "historyTitle": "Toàn bộ lịch sử hóa đơn",
+      "exportCsv": "Xuất CSV",
+      "empty": "Chưa có dữ liệu hóa đơn. Hóa đơn sẽ xuất hiện sau lần kích hoạt gói thành công đầu tiên.",
+      "pendingSyncDescription": "Nguồn dữ liệu hóa đơn đang chờ đồng bộ webhook Stripe. Mục này sẽ có dữ liệu sau giao dịch thành công đầu tiên.",
+      "filter3": "3 kỳ",
+      "filter6": "6 kỳ",
+      "filterAll": "Toàn bộ",
+      "colDate": "Thời gian",
+      "colPlan": "Gói",
+      "colMethod": "Phương thức",
+      "colAmount": "Số tiền",
+      "colStatus": "Trạng thái",
       "currentPeriod": "Kỳ hiện tại",
+      "currentPeriodWithDate": "Kỳ hiện tại · {{date}}",
+      "periodWithDate": "Đã xuất hóa đơn ngày {{date}}",
       "previousPeriod": "Kỳ trước",
       "twoMonthsAgo": "Hai kỳ trước",
       "statusOpen": "Đang mở",
       "statusPaid": "Đã thanh toán",
+      "methodCoupon": "Coupon",
+      "methodLicense": "License",
+      "methodStripe": "Stripe",
+      "methodSelfHosted": "Self-host checkout",
       "note": "Danh sách hóa đơn chi tiết sẽ tự đồng bộ khi Stripe webhook được cấu hình."
-    }
+    },
+    "ownerOnlyTitle": "Khu vực quản lý thanh toán bị giới hạn",
+    "ownerOnlyDescription": "Chỉ owner/admin của workspace hoặc platform admin mới quản lý phương thức thanh toán và hóa đơn.",
+    "workspaceContext": "Đang quản lý workspace {{workspace}} · tài khoản {{email}}",
+    "workspaceRoleContext": "Vai trò tại workspace này: {{role}}"
   }
 }

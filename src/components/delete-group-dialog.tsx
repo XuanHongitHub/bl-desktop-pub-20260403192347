@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -15,6 +16,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type { BrowserProfile, ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -31,6 +37,7 @@ export function DeleteGroupDialog({
   group,
   onGroupDeleted,
 }: DeleteGroupDialogProps) {
+  const { t } = useTranslation();
   const [associatedProfiles, setAssociatedProfiles] = useState<
     BrowserProfile[]
   >([]);
@@ -48,7 +55,14 @@ export function DeleteGroupDialog({
       const allProfiles = await invoke<BrowserProfile[]>(
         "list_browser_profiles",
       );
-      const groupProfiles = allProfiles.filter(
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        allProfiles,
+        (profile) => profile.id,
+        scope,
+      );
+      const groupProfiles = scopedProfiles.filter(
         (profile) => profile.group_id === group.id,
       );
       setAssociatedProfiles(groupProfiles);
@@ -65,6 +79,19 @@ export function DeleteGroupDialog({
       void loadAssociatedProfiles();
     }
   }, [isOpen, group, loadAssociatedProfiles]);
+
+  useEffect(() => {
+    if (!isOpen || !group) {
+      return;
+    }
+    const handleScopeChanged = () => {
+      void loadAssociatedProfiles();
+    };
+    window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    return () => {
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    };
+  }, [group, isOpen, loadAssociatedProfiles]);
 
   const handleDelete = useCallback(async () => {
     if (!group) return;
@@ -88,7 +115,7 @@ export function DeleteGroupDialog({
       // Delete the group
       await invoke("delete_profile_group", { groupId: group.id });
 
-      toast.success("Group deleted successfully");
+      toast.success(t("groupDialogs.toasts.deleted"));
       onGroupDeleted();
       onClose();
     } catch (err) {
@@ -100,7 +127,7 @@ export function DeleteGroupDialog({
     } finally {
       setIsDeleting(false);
     }
-  }, [group, deleteAction, associatedProfiles, onGroupDeleted, onClose]);
+  }, [group, deleteAction, associatedProfiles, onGroupDeleted, onClose, t]);
 
   const handleClose = useCallback(() => {
     setError(null);
@@ -113,7 +140,7 @@ export function DeleteGroupDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Delete Group</DialogTitle>
+          <DialogTitle>{t("groupDialogs.delete.title")}</DialogTitle>
           <DialogDescription>
             This action cannot be undone. This will permanently delete the group
             "{group?.name}".
@@ -145,7 +172,7 @@ export function DeleteGroupDialog({
                   </div>
 
                   <div className="space-y-3">
-                    <Label>What should happen to these profiles?</Label>
+                    <Label>{t("groupDialogs.delete.profilesPrompt")}</Label>
                     <RadioGroup
                       value={deleteAction}
                       onValueChange={(value) =>

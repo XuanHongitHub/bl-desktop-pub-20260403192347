@@ -74,6 +74,69 @@ export class ControlController {
     );
   }
 
+  @Get("workspaces/:workspaceId/billing/state")
+  getWorkspaceBillingState(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+  ) {
+    return this.controlService.getWorkspaceBillingState(
+      workspaceId,
+      this.actorFromHeaders(headers),
+    );
+  }
+
+  @Post("workspaces/:workspaceId/billing/internal-activate")
+  activateWorkspacePlanInternal(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Body()
+    body: {
+      planId: "starter" | "growth" | "scale" | "custom";
+      billingCycle: "monthly" | "yearly";
+      method: "self_host_checkout" | "coupon";
+      couponCode?: string | null;
+    },
+  ) {
+    return this.controlService.activateWorkspacePlanInternal(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      body,
+    );
+  }
+
+  @Post("workspaces/:workspaceId/billing/stripe-checkout")
+  createStripeCheckout(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Body()
+    body: {
+      planId: "starter" | "growth" | "scale" | "custom";
+      billingCycle: "monthly" | "yearly";
+      couponCode?: string | null;
+      successUrl: string;
+      cancelUrl: string;
+    },
+  ) {
+    return this.controlService.createStripeCheckout(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      body,
+    );
+  }
+
+  @Post("workspaces/:workspaceId/billing/stripe-checkout/:checkoutSessionId/confirm")
+  confirmStripeCheckout(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Param("checkoutSessionId") checkoutSessionId: string,
+  ) {
+    return this.controlService.confirmStripeCheckout(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      checkoutSessionId,
+    );
+  }
+
   @Get("workspaces/:workspaceId/members")
   listMemberships(
     @Headers() headers: ActorHeaders,
@@ -261,6 +324,19 @@ export class ControlController {
       this.actorFromHeaders(headers),
       workspaceId,
       body.codes || [],
+    );
+  }
+
+  @Post("workspaces/:workspaceId/licenses/claim")
+  claimWorkspaceLicense(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Body() body: { code: string },
+  ) {
+    return this.controlService.claimWorkspaceLicense(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      body.code,
     );
   }
 

@@ -74,7 +74,7 @@ export function canPerformTeamAction(
   action: TeamAction,
 ): boolean {
   if (!role) {
-    return true;
+    return false;
   }
 
   return TEAM_PERMISSION_MATRIX[role].has(action);

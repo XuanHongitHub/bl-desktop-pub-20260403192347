@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SharedCamoufoxConfigForm } from "@/components/shared-camoufox-config-form";
 import {
   Dialog,
@@ -51,6 +52,7 @@ export function CamoufoxConfigDialog({
   isRunning = false,
   crossOsUnlocked = false,
 }: CamoufoxConfigDialogProps) {
+  const { t } = useTranslation();
   // Use union type to support both Camoufox and Wayfern configs
   const [config, setConfig] = useState<CamoufoxConfig | WayfernConfig>(() => ({
     geoip: true,
@@ -93,9 +95,10 @@ export function CamoufoxConfigDialog({
         JSON.parse(config.fingerprint);
       } catch (_error) {
         const { toast } = await import("sonner");
-        toast.error("Invalid fingerprint configuration", {
-          description:
-            "The fingerprint configuration contains invalid JSON. Please check your advanced settings.",
+        toast.error(t("camoufoxConfigDialog.toasts.invalidFingerprint"), {
+          description: t(
+            "camoufoxConfigDialog.toasts.invalidFingerprintDescription",
+          ),
         });
         return;
       }
@@ -112,9 +115,11 @@ export function CamoufoxConfigDialog({
     } catch (error) {
       console.error("Failed to save config:", error);
       const { toast } = await import("sonner");
-      toast.error("Failed to save configuration", {
+      toast.error(t("camoufoxConfigDialog.toasts.saveFailed"), {
         description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          error instanceof Error
+            ? error.message
+            : t("settings.advanced.unknownError"),
       });
     } finally {
       setIsSaving(false);

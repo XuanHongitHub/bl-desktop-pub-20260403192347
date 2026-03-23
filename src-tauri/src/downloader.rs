@@ -40,6 +40,102 @@ pub struct Downloader {
 }
 
 impl Downloader {
+  #[cfg(target_os = "windows")]
+  async fn ensure_windows_icon_patcher(&self) -> Result<std::path::PathBuf, String> {
+    if let Ok(path_from_env) = std::env::var("BUGLOGIN_RCEDIT_PATH") {
+      let candidate = std::path::PathBuf::from(path_from_env);
+      if candidate.exists() {
+        return Ok(candidate);
+      }
+      return Err("BUGLOGIN_RCEDIT_PATH is set but file does not exist".to_string());
+    }
+
+    let tools_dir = crate::app_dirs::data_dir().join("tools");
+    std::fs::create_dir_all(&tools_dir)
+      .map_err(|e| format!("Failed to create tools directory: {e}"))?;
+    let rcedit_path = tools_dir.join("rcedit-x64.exe");
+    if rcedit_path.exists() {
+      return Ok(rcedit_path);
+    }
+
+    let download_url =
+      "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe";
+    let response = self
+      .client
+      .get(download_url)
+      .send()
+      .await
+      .map_err(|e| format!("Failed to download rcedit: {e}"))?;
+    if !response.status().is_success() {
+      return Err(format!(
+        "Failed to download rcedit, status: {}",
+        response.status()
+      ));
+    }
+    let bytes = response
+      .bytes()
+      .await
+      .map_err(|e| format!("Failed to read rcedit binary: {e}"))?;
+    std::fs::write(&rcedit_path, &bytes)
+      .map_err(|e| format!("Failed to save rcedit binary: {e}"))?;
+    Ok(rcedit_path)
+  }
+
+  #[cfg(target_os = "windows")]
+  async fn patch_downloaded_browser_icon_windows(
+    &self,
+    browser: &dyn crate::browser::Browser,
+    browser_dir: &Path,
+    browser_str: &str,
+    version: &str,
+  ) -> Result<(), String> {
+    let executable_path = browser
+      .get_executable_path(browser_dir)
+      .map_err(|e| format!("Could not resolve browser executable for icon patching: {e}"))?;
+    if !executable_path.exists() {
+      return Err(format!(
+        "Executable path does not exist for icon patching: {}",
+        executable_path.display()
+      ));
+    }
+
+    let icon_file_path = browser_dir.join("_buglogin-browser-icon.ico");
+    if !icon_file_path.exists() {
+      let icon_bytes = include_bytes!("../icons/icon.ico");
+      std::fs::write(&icon_file_path, icon_bytes)
+        .map_err(|e| format!("Failed to write icon file for patching: {e}"))?;
+    }
+
+    let rcedit_path = self.ensure_windows_icon_patcher().await?;
+    let output = std::process::Command::new(&rcedit_path)
+      .arg(&executable_path)
+      .arg("--set-icon")
+      .arg(&icon_file_path)
+      .output()
+      .map_err(|e| format!("Failed to execute rcedit: {e}"))?;
+
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      let stdout = String::from_utf8_lossy(&output.stdout);
+      return Err(format!(
+        "rcedit failed for {} {} at {} | stdout: {} | stderr: {}",
+        browser_str,
+        version,
+        executable_path.display(),
+        stdout.trim(),
+        stderr.trim()
+      ));
+    }
+
+    log::info!(
+      "Patched browser executable icon for {} {}: {}",
+      browser_str,
+      version,
+      executable_path.display()
+    );
+    Ok(())
+  }
+
   fn new() -> Self {
     Self {
       client: Client::new(),
@@ -984,6 +1080,21 @@ impl Downloader {
       return Err(error_details.into());
     }
 
+    #[cfg(target_os = "windows")]
+    {
+      if let Err(error) = self
+        .patch_downloaded_browser_icon_windows(&*browser, &browser_dir, &browser_str, &version)
+        .await
+      {
+        log::warn!(
+          "Failed to patch Windows browser icon for {} {}: {}",
+          browser_str,
+          version,
+          error
+        );
+      }
+    }
+
     // Mark completion in registry - only now add to registry after verification
     if let Err(e) =
       self
@@ -1144,6 +1255,60 @@ pub async fn cancel_download(browser_str: String, version: String) -> Result<(),
       "No active download found for {browser_str} {version}"
     ))
   }
+}
+
+#[cfg(target_os = "windows")]
+pub async fn patch_installed_browser_icon_windows(
+  browser_str: &str,
+  version: &str,
+  browser_dir: &Path,
+) -> Result<(), String> {
+  let browser_type = BrowserType::from_str(browser_str)
+    .map_err(|e| format!("Invalid browser type for icon patching: {e}"))?;
+  let browser = create_browser(browser_type);
+  Downloader::instance()
+    .patch_downloaded_browser_icon_windows(&*browser, browser_dir, browser_str, version)
+    .await
+}
+
+#[cfg(target_os = "windows")]
+pub async fn patch_all_installed_browser_icons_windows_once() -> Result<(usize, usize), String> {
+  let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
+  let binaries_dir = crate::app_dirs::binaries_dir();
+
+  if let Err(e) = registry.sync_with_binaries_directory(&binaries_dir) {
+    log::warn!("Failed to sync browser registry before icon patching: {e}");
+  }
+
+  let targets = registry.list_registered_browser_versions();
+  if targets.is_empty() {
+    return Ok((0, 0));
+  }
+
+  let mut patched = 0usize;
+  let mut failed = 0usize;
+
+  for (browser, version) in targets {
+    if !registry.is_browser_downloaded(&browser, &version) {
+      continue;
+    }
+
+    let browser_dir = binaries_dir.join(&browser).join(&version);
+    match patch_installed_browser_icon_windows(&browser, &version, &browser_dir).await {
+      Ok(_) => patched += 1,
+      Err(e) => {
+        failed += 1;
+        log::warn!(
+          "Failed to patch installed browser icon for {} {}: {}",
+          browser,
+          version,
+          e
+        );
+      }
+    }
+  }
+
+  Ok((patched, failed))
 }
 
 /// Find all candidate `distribution/` directories inside the Camoufox browser dir.

@@ -28,8 +28,11 @@ import {
   LuLock,
   LuPause,
   LuPin,
+  LuPinOff,
   LuPlay,
+  LuPlus,
   LuPuzzle,
+  LuSettings2,
   LuShieldAlert,
   LuShieldCheck,
   LuSquare,
@@ -87,6 +90,7 @@ import {
 } from "@/lib/browser-utils";
 import { extractRootError } from "@/lib/error-utils";
 import { formatRelativeTime } from "@/lib/flag-utils";
+import { formatLocaleDateTime } from "@/lib/locale-format";
 import { trimName } from "@/lib/name-utils";
 import {
   canPerformTeamAction,
@@ -94,11 +98,16 @@ import {
 } from "@/lib/team-permissions";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
+import {
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type {
   BrowserProfile,
   LocationItem,
   ProxyCheckResult,
   StoredProxy,
+  TeamRole,
   TrafficSnapshot,
   VpnConfig,
 } from "@/types";
@@ -152,6 +161,7 @@ type TableMeta = {
   setOpenProxySelectorFor: React.Dispatch<React.SetStateAction<string | null>>;
   proxyOverrides: Record<string, string | null>;
   storedProxies: StoredProxy[];
+  onOpenProxyCenter?: () => void;
   handleProxySelection: (
     profileId: string,
     proxyId: string | null,
@@ -211,6 +221,8 @@ type TableMeta = {
   onOpenProfileSyncDialog?: (profile: BrowserProfile) => void;
   onToggleProfileSync?: (profile: BrowserProfile) => void;
   crossOsUnlocked?: boolean;
+  extensionManagementUnlocked?: boolean;
+  cookieManagementUnlocked?: boolean;
   syncUnlocked?: boolean;
 
   // Country proxy creation (inline in proxy dropdown)
@@ -274,7 +286,7 @@ function getProfileSyncStatusDot(
         color: "bg-green-500",
         tooltip: profile.last_sync
           ? t("profiles.table.syncedAt", {
-              time: new Date(profile.last_sync * 1000).toLocaleString(),
+              time: formatLocaleDateTime(profile.last_sync * 1000),
             })
           : t("common.status.synced"),
         animate: false,
@@ -304,6 +316,61 @@ function getProfileSyncStatusDot(
     default:
       return null;
   }
+}
+
+function extractOsVersionFromProfile(profile: BrowserProfile): string | null {
+  try {
+    if (profile.wayfern_config?.fingerprint) {
+      const wayfernFingerprint = JSON.parse(
+        profile.wayfern_config.fingerprint,
+      ) as { platformVersion?: unknown };
+      if (typeof wayfernFingerprint.platformVersion === "string") {
+        const value = wayfernFingerprint.platformVersion.trim();
+        if (value) {
+          return value;
+        }
+      }
+    }
+  } catch {
+    // Ignore malformed fingerprint payloads.
+  }
+
+  const camoufoxFingerprintRaw = profile.camoufox_config?.fingerprint;
+  if (!camoufoxFingerprintRaw) {
+    return null;
+  }
+
+  try {
+    const camoufoxFingerprint = JSON.parse(camoufoxFingerprintRaw) as {
+      "navigator.userAgent"?: unknown;
+    };
+    const userAgent =
+      typeof camoufoxFingerprint["navigator.userAgent"] === "string"
+        ? camoufoxFingerprint["navigator.userAgent"]
+        : "";
+    if (!userAgent) {
+      return null;
+    }
+
+    const windowsMatch = userAgent.match(/Windows NT ([0-9.]+)/i);
+    if (windowsMatch?.[1]) {
+      return windowsMatch[1];
+    }
+
+    const macMatch = userAgent.match(/Mac OS X ([0-9_]+)/i);
+    if (macMatch?.[1]) {
+      return macMatch[1].replaceAll("_", ".");
+    }
+
+    const linuxMatch = userAgent.match(/Linux ([a-zA-Z0-9._-]+)/i);
+    if (linuxMatch?.[1]) {
+      return linuxMatch[1];
+    }
+  } catch {
+    // Ignore malformed fingerprint payloads.
+  }
+
+  return null;
 }
 
 const TagsCell = React.memo<{
@@ -835,6 +902,7 @@ interface ProfilesDataTableProps {
   onBulkArchive?: () => void;
   onBulkExtensionGroupAssignment?: () => void;
   onAssignExtensionGroup?: (profileIds: string[]) => void;
+  onOpenProxyCenter?: () => void;
   onOpenProfileSyncDialog?: (profile: BrowserProfile) => void;
   onToggleProfileSync?: (profile: BrowserProfile) => void;
   onArchiveProfile?: (profile: BrowserProfile) => void;
@@ -843,7 +911,10 @@ interface ProfilesDataTableProps {
   onPinProfile?: (profile: BrowserProfile) => void;
   onUnpinProfile?: (profile: BrowserProfile) => void;
   isProfilePinned?: (profileId: string) => boolean;
+  workspaceRole?: TeamRole | null;
   crossOsUnlocked?: boolean;
+  extensionManagementUnlocked?: boolean;
+  cookieManagementUnlocked?: boolean;
   syncUnlocked?: boolean;
 }
 
@@ -869,6 +940,7 @@ export function ProfilesDataTable({
   onBulkArchive,
   onBulkExtensionGroupAssignment,
   onAssignExtensionGroup,
+  onOpenProxyCenter,
   onOpenProfileSyncDialog,
   onToggleProfileSync,
   onArchiveProfile,
@@ -877,7 +949,10 @@ export function ProfilesDataTable({
   onPinProfile,
   onUnpinProfile,
   isProfilePinned,
+  workspaceRole = null,
   crossOsUnlocked = false,
+  extensionManagementUnlocked = false,
+  cookieManagementUnlocked = false,
   syncUnlocked = false,
 }: ProfilesDataTableProps) {
   const { t } = useTranslation();
@@ -961,10 +1036,10 @@ export function ProfilesDataTable({
   const { vpnConfigs } = useVpnEvents();
   const { user } = useCloudAuth();
   const { isReadOnly: isEntitlementReadOnly } = useRuntimeAccess();
-  const teamRole = normalizeTeamRole(user?.teamRole);
+  const effectiveTeamRole = workspaceRole ?? normalizeTeamRole(user?.teamRole);
   const isReadOnlyRole =
     isEntitlementReadOnly ||
-    !canPerformTeamAction(teamRole, "update_profile_note");
+    !canPerformTeamAction(effectiveTeamRole, "update_profile_note");
   const { isProfileLocked, getLockInfo } = useTeamLocks(user?.id);
 
   const [proxyOverrides, setProxyOverrides] = React.useState<
@@ -1072,7 +1147,7 @@ export function ProfilesDataTable({
         return;
       }
 
-      if (!canPerformTeamAction(teamRole, "assign_proxy")) {
+      if (!canPerformTeamAction(effectiveTeamRole, "assign_proxy")) {
         showErrorToast(t("sync.team.permissionDenied"), {
           description: "permission_denied",
         });
@@ -1096,7 +1171,7 @@ export function ProfilesDataTable({
         setOpenProxySelectorFor(null);
       }
     },
-    [isEntitlementReadOnly, t, teamRole],
+    [effectiveTeamRole, isEntitlementReadOnly, t],
   );
 
   const handleVpnSelection = React.useCallback(
@@ -1108,7 +1183,7 @@ export function ProfilesDataTable({
         return;
       }
 
-      if (!canPerformTeamAction(teamRole, "update_profile_vpn")) {
+      if (!canPerformTeamAction(effectiveTeamRole, "update_profile_vpn")) {
         showErrorToast(t("sync.team.permissionDenied"), {
           description: "permission_denied",
         });
@@ -1132,7 +1207,7 @@ export function ProfilesDataTable({
         setOpenProxySelectorFor(null);
       }
     },
-    [isEntitlementReadOnly, t, teamRole],
+    [effectiveTeamRole, isEntitlementReadOnly, t],
   );
 
   const handleCreateCountryProxy = React.useCallback(
@@ -1144,7 +1219,7 @@ export function ProfilesDataTable({
         return;
       }
 
-      if (!canPerformTeamAction(teamRole, "assign_proxy")) {
+      if (!canPerformTeamAction(effectiveTeamRole, "assign_proxy")) {
         showErrorToast(t("sync.team.permissionDenied"), {
           description: "permission_denied",
         });
@@ -1163,7 +1238,14 @@ export function ProfilesDataTable({
         await new Promise((r) => setTimeout(r, 200));
         const updatedProxies =
           await invoke<StoredProxy[]>("get_stored_proxies");
-        const newProxy = updatedProxies.find(
+        const scope = getCurrentDataScope();
+        const scopedProxies = scopeEntitiesForContext(
+          "proxies",
+          updatedProxies,
+          (proxy) => proxy.id,
+          scope,
+        );
+        const newProxy = scopedProxies.find(
           (p: StoredProxy) =>
             p.is_cloud_derived && p.geo_country === country.code,
         );
@@ -1177,7 +1259,7 @@ export function ProfilesDataTable({
         });
       }
     },
-    [handleProxySelection, isEntitlementReadOnly, t, teamRole],
+    [effectiveTeamRole, handleProxySelection, isEntitlementReadOnly, t],
   );
 
   // Use shared browser state hook
@@ -1215,17 +1297,25 @@ export function ProfilesDataTable({
     };
   }, [browserState.isClient]);
 
-  // Fetch traffic snapshots for running profiles (lightweight, real-time data)
-  // Convert Set to sorted array to avoid Set reference comparison issues in dependencies
-  const runningProfileIds = React.useMemo(
-    () => Array.from(runningProfiles).sort(),
-    [runningProfiles],
-  );
-  const runningCount = runningProfileIds.length;
+  // Fetch traffic snapshots for active profiles (running state from set or runtime state)
+  // Convert to sorted array to avoid unstable dependencies.
+  const activeTrafficProfileIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const id of runningProfiles) {
+      ids.add(id);
+    }
+    for (const profile of profiles) {
+      if (profile.runtime_state === "Running") {
+        ids.add(profile.id);
+      }
+    }
+    return Array.from(ids).sort();
+  }, [profiles, runningProfiles]);
+  const activeTrafficCount = activeTrafficProfileIds.length;
   React.useEffect(() => {
     if (!browserState.isClient) return;
 
-    if (runningCount === 0) {
+    if (activeTrafficCount === 0) {
       setTrafficSnapshots({});
       return;
     }
@@ -1239,7 +1329,7 @@ export function ProfilesDataTable({
         for (const snapshot of allSnapshots) {
           if (snapshot.profile_id) {
             // Only keep snapshots for profiles that are currently running
-            if (runningProfileIds.includes(snapshot.profile_id)) {
+            if (activeTrafficProfileIds.includes(snapshot.profile_id)) {
               const existing = newSnapshots[snapshot.profile_id];
               if (!existing || snapshot.last_update > existing.last_update) {
                 newSnapshots[snapshot.profile_id] = snapshot;
@@ -1256,7 +1346,7 @@ export function ProfilesDataTable({
     void fetchTrafficSnapshots();
     const interval = setInterval(fetchTrafficSnapshots, 1000);
     return () => clearInterval(interval);
-  }, [browserState.isClient, runningCount, runningProfileIds]);
+  }, [activeTrafficCount, activeTrafficProfileIds, browserState.isClient]);
 
   // Clean up snapshots for profiles that are no longer running
   React.useEffect(() => {
@@ -1266,7 +1356,7 @@ export function ProfilesDataTable({
       const cleaned: Record<string, TrafficSnapshot> = {};
       for (const [profileId, snapshot] of Object.entries(prev)) {
         // Only keep snapshots for profiles that are currently running
-        if (runningProfileIds.includes(profileId)) {
+        if (activeTrafficProfileIds.includes(profileId)) {
           cleaned[profileId] = snapshot;
         }
       }
@@ -1276,7 +1366,7 @@ export function ProfilesDataTable({
       }
       return prev;
     });
-  }, [browserState.isClient, runningProfileIds]);
+  }, [activeTrafficProfileIds, browserState.isClient]);
 
   // Clear launching/stopping spinners when backend reports running status changes
   React.useEffect(() => {
@@ -1595,6 +1685,7 @@ export function ProfilesDataTable({
       setOpenProxySelectorFor,
       proxyOverrides,
       storedProxies,
+      onOpenProxyCenter,
       handleProxySelection,
       checkingProfileId,
       proxyCheckResults,
@@ -1650,6 +1741,8 @@ export function ProfilesDataTable({
       onOpenProfileSyncDialog,
       onToggleProfileSync,
       crossOsUnlocked,
+      extensionManagementUnlocked,
+      cookieManagementUnlocked,
       syncUnlocked,
 
       // Country proxy creation
@@ -1684,6 +1777,7 @@ export function ProfilesDataTable({
       openProxySelectorFor,
       proxyOverrides,
       storedProxies,
+      onOpenProxyCenter,
       handleProxySelection,
       checkingProfileId,
       proxyCheckResults,
@@ -1714,6 +1808,8 @@ export function ProfilesDataTable({
       onOpenProfileSyncDialog,
       onToggleProfileSync,
       crossOsUnlocked,
+      extensionManagementUnlocked,
+      cookieManagementUnlocked,
       syncUnlocked,
       countries,
       canCreateLocationProxy,
@@ -2242,6 +2338,18 @@ export function ProfilesDataTable({
           const lockedEmail = meta.getProfileLockEmail(profile.id);
           const isLocked = meta.isProfileLockedByAnother(profile.id);
           const isPinned = meta.isProfilePinned(profile.id);
+          const osName = profile.host_os
+            ? getOSDisplayName(profile.host_os)
+            : null;
+          const osVersion = extractOsVersionFromProfile(profile);
+          const OsIcon =
+            profile.host_os === "macos"
+              ? FaApple
+              : profile.host_os === "windows"
+                ? FaWindows
+                : profile.host_os === "linux"
+                  ? FaLinux
+                  : null;
 
           return (
             <div className="flex items-center gap-1">
@@ -2271,6 +2379,32 @@ export function ProfilesDataTable({
               >
                 {display}
               </button>
+              {isPinned && (
+                <Badge
+                  variant="outline"
+                  className="h-5 gap-1 border-primary/40 bg-primary/10 px-1.5 text-[10px] font-semibold text-primary"
+                >
+                  <LuPin className="h-3 w-3 rotate-45" />
+                  {meta.t("profiles.actions.pinned")}
+                </Badge>
+              )}
+              {osName && OsIcon && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded border border-border/60 bg-muted/20 text-muted-foreground">
+                      <OsIcon className="w-3 h-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs">
+                      <p>{`${meta.t("profileInfo.fields.hostOs")}: ${osName}`}</p>
+                      {osVersion && (
+                        <p>{`${meta.t("fingerprint.platformVersion")}: ${osVersion}`}</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {isLocked && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -2288,9 +2422,14 @@ export function ProfilesDataTable({
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant={isPinned ? "secondary" : "ghost"}
                       size="icon"
-                      className={cn("w-6 h-6", isPinned && "text-primary")}
+                      className={cn(
+                        "h-6 w-6",
+                        isPinned
+                          ? "bg-primary/15 text-primary hover:bg-primary/25"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
                       onClick={() => {
                         if (isPinned) {
                           meta.onUnpinProfile?.(profile);
@@ -2299,7 +2438,11 @@ export function ProfilesDataTable({
                         meta.onPinProfile?.(profile);
                       }}
                     >
-                      <LuPin className="w-3.5 h-3.5" />
+                      {isPinned ? (
+                        <LuPinOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <LuPin className="h-3.5 w-3.5 rotate-45" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -2543,6 +2686,32 @@ export function ProfilesDataTable({
                         }}
                       />
                       <CommandList>
+                        {meta.onOpenProxyCenter && (
+                          <CommandGroup
+                            heading={meta.t("profiles.table.proxyQuickActions")}
+                          >
+                            <CommandItem
+                              value="__open_proxy_center__"
+                              onSelect={() => {
+                                meta.setOpenProxySelectorFor(null);
+                                meta.onOpenProxyCenter?.();
+                              }}
+                            >
+                              <LuSettings2 className="mr-2 h-4 w-4" />
+                              {meta.t("profiles.table.openProxyCenter")}
+                            </CommandItem>
+                            <CommandItem
+                              value="__quick_add_proxy__"
+                              onSelect={() => {
+                                meta.setOpenProxySelectorFor(null);
+                                meta.onOpenProxyCenter?.();
+                              }}
+                            >
+                              <LuPlus className="mr-2 h-4 w-4" />
+                              {meta.t("profiles.table.quickAddProxy")}
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
                         <CommandEmpty>
                           {meta.t("profiles.table.proxyEmpty")}
                         </CommandEmpty>
@@ -2819,6 +2988,7 @@ export function ProfilesDataTable({
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const rowIsCrossOs = isCrossOsProfile(row.original);
+                const rowIsPinned = isProfilePinned?.(row.original.id) ?? false;
                 const crossOsTitle = rowIsCrossOs
                   ? t("crossOs.viewOnly", {
                       os: getOSDisplayName(row.original.host_os ?? ""),
@@ -2831,6 +3001,7 @@ export function ProfilesDataTable({
                     title={crossOsTitle}
                     className={cn(
                       "overflow-visible hover:bg-accent/50",
+                      rowIsPinned && "bg-primary/5 hover:bg-primary/10",
                       rowIsCrossOs && "opacity-60",
                     )}
                   >
@@ -2922,7 +3093,8 @@ export function ProfilesDataTable({
               onPinProfile={onPinProfile}
               onUnpinProfile={onUnpinProfile}
               isPinned={isProfilePinned?.(infoProfile.id) ?? false}
-              crossOsUnlocked={crossOsUnlocked}
+              extensionManagementUnlocked={extensionManagementUnlocked}
+              cookieManagementUnlocked={cookieManagementUnlocked}
               isRunning={infoIsRunning || infoIsParked}
               isDisabled={infoIsDisabled}
               isCrossOs={infoIsCrossOs}
@@ -2955,17 +3127,17 @@ export function ProfilesDataTable({
         {onBulkExtensionGroupAssignment && (
           <DataTableActionBarAction
             tooltip={
-              crossOsUnlocked
+              extensionManagementUnlocked
                 ? t("profiles.table.assignExtensionGroup")
                 : t("profiles.table.assignExtensionGroupPro")
             }
             onClick={onBulkExtensionGroupAssignment}
             size="icon"
-            disabled={!crossOsUnlocked || isReadOnlyRole}
+            disabled={!extensionManagementUnlocked || isReadOnlyRole}
           >
             <span className="relative">
               <LuPuzzle />
-              {!crossOsUnlocked && (
+              {!extensionManagementUnlocked && (
                 <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-none bg-primary text-primary-foreground px-0.5 rounded-sm">
                   PRO
                 </span>
@@ -2976,17 +3148,17 @@ export function ProfilesDataTable({
         {onBulkCopyCookies && (
           <DataTableActionBarAction
             tooltip={
-              crossOsUnlocked
+              cookieManagementUnlocked
                 ? t("profiles.actions.copyCookies")
                 : `${t("profiles.actions.copyCookies")} (Pro)`
             }
             onClick={onBulkCopyCookies}
             size="icon"
-            disabled={!crossOsUnlocked || isReadOnlyRole}
+            disabled={!cookieManagementUnlocked || isReadOnlyRole}
           >
             <span className="relative">
               <LuCookie />
-              {!crossOsUnlocked && (
+              {!cookieManagementUnlocked && (
                 <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-none bg-primary text-primary-foreground px-0.5 rounded-sm">
                   PRO
                 </span>

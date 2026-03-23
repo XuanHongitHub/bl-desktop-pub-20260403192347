@@ -1,4 +1,20 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: buglogin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d buglogin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   minio:
     image: minio/minio:latest
     ports:
@@ -17,5 +33,6 @@ services:
       - minio_data:/data
 
 volumes:
+  postgres_data:
   minio_data:
 

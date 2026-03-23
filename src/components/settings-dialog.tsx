@@ -2,8 +2,35 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import Color from "color";
+import {
+  Activity,
+  BarChart3,
+  Bell,
+  Cloud,
+  CreditCard,
+  DatabaseBackup,
+  FileSearch,
+  FileUp,
+  Globe,
+  KeyRound,
+  Languages,
+  Network,
+  Palette,
+  PlugZap,
+  Receipt,
+  RefreshCcw,
+  Rocket,
+  ScanFace,
+  Shield,
+  SlidersHorizontal,
+  Ticket,
+  Timer,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useRef, useState } from "react";
+import * as React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BsCamera, BsMic } from "react-icons/bs";
 import { LoadingButton } from "@/components/loading-button";
@@ -25,7 +52,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -34,10 +60,13 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/hooks/use-language";
-import type { SupportedLanguage } from "@/i18n";
-import { mergeAppSettingsCache, readAppSettingsCache } from "@/lib/app-settings-cache";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
+import type { SupportedLanguage } from "@/i18n";
+import {
+  mergeAppSettingsCache,
+  readAppSettingsCache,
+} from "@/lib/app-settings-cache";
 import {
   getThemeAppearance,
   getThemeByColors,
@@ -69,17 +98,45 @@ interface PermissionInfo {
   description: string;
 }
 
-function ThemeMiniPreview({ colors }: { colors: Record<string, string> }) {
+type AutoSaveState = "idle" | "saving" | "saved" | "error";
+type SettingsSectionId = string;
+type SettingsGroupId =
+  | "workspace"
+  | "network"
+  | "security"
+  | "billing"
+  | "sync"
+  | "system";
+
+function ThemeMiniPreview({
+  colors,
+  compact = false,
+}: {
+  colors: Record<string, string>;
+  compact?: boolean;
+}) {
   return (
     <div
-      className="rounded-xl border p-2.5"
+      className={
+        compact ? "rounded-lg border p-1.5" : "rounded-xl border p-2.5"
+      }
       style={{
         backgroundColor: colors["--background"],
         borderColor: colors["--border"],
       }}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+      <div
+        className={
+          compact
+            ? "mb-1.5 flex items-center justify-between"
+            : "mb-2 flex items-center justify-between"
+        }
+      >
+        <div
+          className={
+            compact ? "flex items-center gap-1" : "flex items-center gap-1.5"
+          }
+        >
           {[colors["--muted"], colors["--muted-foreground"], colors["--border"]]
             .filter(Boolean)
             .map((color, index) => (
@@ -87,13 +144,23 @@ function ThemeMiniPreview({ colors }: { colors: Record<string, string> }) {
                 key={`${color}-${index}`}
                 className="h-1.5 rounded-full"
                 style={{
-                  width: index === 2 ? "1rem" : "1.5rem",
+                  width: compact
+                    ? index === 2
+                      ? "0.75rem"
+                      : "1.1rem"
+                    : index === 2
+                      ? "1rem"
+                      : "1.5rem",
                   backgroundColor: color,
                 }}
               />
             ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div
+          className={
+            compact ? "flex items-center gap-0.5" : "flex items-center gap-1"
+          }
+        >
           {[
             colors["--muted-foreground"],
             colors["--secondary"],
@@ -103,7 +170,9 @@ function ThemeMiniPreview({ colors }: { colors: Record<string, string> }) {
             .map((color, index) => (
               <span
                 key={`${color}-${index}`}
-                className="h-1.5 w-1.5 rounded-full"
+                className={
+                  compact ? "h-1 w-1 rounded-full" : "h-1.5 w-1.5 rounded-full"
+                }
                 style={{ backgroundColor: color }}
               />
             ))}
@@ -111,36 +180,56 @@ function ThemeMiniPreview({ colors }: { colors: Record<string, string> }) {
       </div>
 
       <div
-        className="mb-2 h-2 rounded-full"
+        className={
+          compact ? "mb-1.5 h-1.5 rounded-full" : "mb-2 h-2 rounded-full"
+        }
         style={{ backgroundColor: colors["--card"] }}
       />
 
-      <div className="space-y-1.5">
+      <div className={compact ? "space-y-1" : "space-y-1.5"}>
         <div
-          className="h-1.5 rounded-full"
+          className={compact ? "h-1 rounded-full" : "h-1.5 rounded-full"}
           style={{ width: "72%", backgroundColor: colors["--muted"] }}
         />
         <div
-          className="h-1.5 rounded-full"
+          className={compact ? "h-1 rounded-full" : "h-1.5 rounded-full"}
           style={{ width: "88%", backgroundColor: colors["--card"] }}
         />
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-1 items-center gap-1.5">
+        <div
+          className={
+            compact
+              ? "flex items-center justify-between gap-2"
+              : "flex items-center justify-between gap-3"
+          }
+        >
+          <div
+            className={
+              compact
+                ? "flex flex-1 items-center gap-1"
+                : "flex flex-1 items-center gap-1.5"
+            }
+          >
             <span
-              className="h-1.5 w-4 rounded-full"
+              className={
+                compact ? "h-1 w-3 rounded-full" : "h-1.5 w-4 rounded-full"
+              }
               style={{ backgroundColor: colors["--primary"] }}
             />
             <span
-              className="h-1.5 w-4 rounded-full"
+              className={
+                compact ? "h-1 w-3 rounded-full" : "h-1.5 w-4 rounded-full"
+              }
               style={{ backgroundColor: colors["--secondary"] }}
             />
             <span
-              className="h-1.5 w-4 rounded-full"
+              className={
+                compact ? "h-1 w-3 rounded-full" : "h-1.5 w-4 rounded-full"
+              }
               style={{ backgroundColor: colors["--accent"] }}
             />
           </div>
           <span
-            className="h-2.5 w-5 rounded-sm"
+            className={compact ? "h-2 w-4 rounded-sm" : "h-2.5 w-5 rounded-sm"}
             style={{ backgroundColor: colors["--primary"] }}
           />
         </div>
@@ -149,15 +238,21 @@ function ThemeMiniPreview({ colors }: { colors: Record<string, string> }) {
   );
 }
 
-function ThemeChoiceIndicator({ selected }: { selected: boolean }) {
+function ThemeChoiceIndicator({
+  selected,
+  compact = false,
+}: {
+  selected: boolean;
+  compact?: boolean;
+}) {
   return (
     <span
-      className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border ${
-        selected ? "border-primary" : "border-border"
-      }`}
+      className={`mt-0.5 flex items-center justify-center rounded-full border ${
+        compact ? "h-3.5 w-3.5" : "h-4 w-4"
+      } ${selected ? "border-primary" : "border-border"}`}
     >
       <span
-        className={`h-2 w-2 rounded-full ${
+        className={`${compact ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full ${
           selected ? "bg-primary" : "bg-transparent"
         }`}
       />
@@ -171,23 +266,17 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onIntegrationsOpen?: () => void;
+  canUseEncryption?: boolean;
   mode?: "dialog" | "page";
 }
 
 export function SettingsDialog({
   isOpen,
   onClose,
+  onIntegrationsOpen,
   mode = "dialog",
 }: SettingsDialogProps) {
   const [settings, setSettings] = useState<AppSettings>({
-    set_as_default_browser: false,
-    theme: "system",
-    custom_theme: undefined,
-    api_enabled: false,
-    api_port: 10108,
-    api_token: undefined,
-  });
-  const [originalSettings, setOriginalSettings] = useState<AppSettings>({
     set_as_default_browser: false,
     theme: "system",
     custom_theme: undefined,
@@ -199,21 +288,16 @@ export function SettingsDialog({
     selectedThemeId: null,
     colors: {},
   });
-  const [isDefaultBrowser, setIsDefaultBrowser] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSettingDefault, setIsSettingDefault] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>("idle");
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [permissions, setPermissions] = useState<PermissionInfo[]>([]);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
   const [requestingPermission, setRequestingPermission] =
     useState<PermissionType | null>(null);
   const [isMacOS, setIsMacOS] = useState(false);
-  const [hasE2ePassword, setHasE2ePassword] = useState(false);
-  const [e2ePassword, setE2ePassword] = useState("");
-  const [e2ePasswordConfirm, setE2ePasswordConfirm] = useState("");
-  const [e2eError, setE2eError] = useState("");
-  const [isSavingE2e, setIsSavingE2e] = useState(false);
+  const [activeSection, setActiveSection] =
+    useState<SettingsSectionId>("appearance");
 
   const { t } = useTranslation();
   const { resolvedTheme, setTheme } = useTheme();
@@ -222,17 +306,22 @@ export function SettingsDialog({
     isMicrophoneAccessGranted,
     isCameraAccessGranted,
   } = usePermissions();
-  const canUseEncryption = true;
   const {
     currentLanguage,
     changeLanguage,
     supportedLanguages,
     isLoading: isLanguageLoading,
   } = useLanguage();
-  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage | "system" | null>(null);
-  const [originalLanguage, setOriginalLanguage] = useState<SupportedLanguage | "system" | null>(null);
-  const shouldRestoreThemeRef = useRef(true);
-  const effectMountCountRef = useRef(0);
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<SupportedLanguage | null>(null);
+  const autoSaveDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const autoSaveResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const pendingAutoSaveSettingsRef = useRef<AppSettings | null>(null);
+  const autoSaveRequestIdRef = useRef(0);
 
   const getPermissionIcon = useCallback((type: PermissionType) => {
     switch (type) {
@@ -291,13 +380,32 @@ export function SettingsDialog({
     );
   }, []);
 
+  const clearAutoSaveResetTimer = useCallback(() => {
+    if (autoSaveResetTimerRef.current) {
+      clearTimeout(autoSaveResetTimerRef.current);
+      autoSaveResetTimerRef.current = null;
+    }
+  }, []);
+
   const loadSettings = useCallback(async () => {
+    autoSaveRequestIdRef.current += 1;
+    setAutoSaveState("idle");
+    pendingAutoSaveSettingsRef.current = null;
+    if (autoSaveDebounceTimerRef.current) {
+      clearTimeout(autoSaveDebounceTimerRef.current);
+      autoSaveDebounceTimerRef.current = null;
+    }
+    clearAutoSaveResetTimer();
+
     const cachedSettings = readAppSettingsCache();
     if (cachedSettings?.theme) {
       const tokyoNightTheme = getThemeById("tokyo-night");
       const mergedFromCache: AppSettings = {
         set_as_default_browser: Boolean(cachedSettings.set_as_default_browser),
-        theme: typeof cachedSettings.theme === "string" ? cachedSettings.theme : "system",
+        theme:
+          typeof cachedSettings.theme === "string"
+            ? cachedSettings.theme
+            : "system",
         custom_theme:
           cachedSettings.custom_theme &&
           Object.keys(cachedSettings.custom_theme).length > 0
@@ -314,7 +422,6 @@ export function SettingsDialog({
             : undefined,
       };
       setSettings(mergedFromCache);
-      setOriginalSettings(mergedFromCache);
       setIsLoading(false);
     } else {
       setIsLoading(true);
@@ -336,8 +443,6 @@ export function SettingsDialog({
             : tokyoNightTheme.colors,
       };
       setSettings(merged);
-      setOriginalSettings(merged);
-      shouldRestoreThemeRef.current = true;
 
       if (merged.theme === "custom" && merged.custom_theme) {
         const matchingTheme = getThemeByColors(merged.custom_theme);
@@ -357,19 +462,12 @@ export function SettingsDialog({
           colors: merged.custom_theme ?? tokyoNightTheme.colors,
         }));
       }
-
-      try {
-        const hasPassword = await invoke<boolean>("check_has_e2e_password");
-        setHasE2ePassword(hasPassword);
-      } catch {
-        setHasE2ePassword(false);
-      }
     } catch {
       // Keep current UI state from cache when runtime load fails.
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [clearAutoSaveResetTimer]);
 
   const loadPermissions = useCallback(async () => {
     setIsLoadingPermissions(true);
@@ -406,27 +504,6 @@ export function SettingsDialog({
     isMicrophoneAccessGranted,
   ]);
 
-  const checkDefaultBrowserStatus = useCallback(async () => {
-    try {
-      const isDefault = await invoke<boolean>("is_default_browser");
-      setIsDefaultBrowser(isDefault);
-    } catch {
-      // Keep status unchanged if check fails.
-    }
-  }, []);
-
-  const handleSetDefaultBrowser = useCallback(async () => {
-    setIsSettingDefault(true);
-    try {
-      await invoke("set_as_default_browser");
-      await checkDefaultBrowserStatus();
-    } catch {
-      showErrorToast(t("toasts.error.settingsSaveFailed"));
-    } finally {
-      setIsSettingDefault(false);
-    }
-  }, [checkDefaultBrowserStatus, t]);
-
   const handleClearCache = useCallback(async () => {
     setIsClearingCache(true);
     try {
@@ -435,15 +512,17 @@ export function SettingsDialog({
       await invoke("clear_all_traffic_stats");
       // Don't show immediate success toast - let the version update progress events handle it
     } catch (error) {
-      showErrorToast("Failed to clear cache", {
+      showErrorToast(t("settings.advanced.clearCacheFailed"), {
         description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+          error instanceof Error
+            ? error.message
+            : t("settings.advanced.unknownError"),
         duration: 4000,
       });
     } finally {
       setIsClearingCache(false);
     }
-  }, []);
+  }, [t]);
 
   const handleRequestPermission = useCallback(
     async (permissionType: PermissionType) => {
@@ -455,8 +534,7 @@ export function SettingsDialog({
         );
       } catch (error) {
         showErrorToast(t("toasts.error.settingsSaveFailed"), {
-          description:
-            error instanceof Error ? error.message : String(error),
+          description: error instanceof Error ? error.message : String(error),
         });
       } finally {
         setRequestingPermission(null);
@@ -465,122 +543,101 @@ export function SettingsDialog({
     [getPermissionDisplayName, requestPermission, t],
   );
 
-  const handleSave = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      // Update settings with current custom theme state
-      let settingsToSave: AppSettings = {
-        ...settings,
-        custom_theme:
-          settings.theme === "custom"
-            ? customThemeState.colors
-            : settings.custom_theme,
-      };
+  const scheduleAutoSaveStateReset = useCallback(() => {
+    clearAutoSaveResetTimer();
+    autoSaveResetTimerRef.current = setTimeout(() => {
+      setAutoSaveState("idle");
+      autoSaveResetTimerRef.current = null;
+    }, 1500);
+  }, [clearAutoSaveResetTimer]);
 
-      const savedSettings = await invoke<AppSettings>("save_app_settings", {
-        settings: settingsToSave,
-      });
-      mergeAppSettingsCache(savedSettings);
-
-      // Update settings with any generated tokens
-      setSettings(savedSettings);
-      settingsToSave = savedSettings;
-      setTheme(
-        settingsToSave.theme === "custom"
-          ? getThemeAppearance(customThemeState.colors)
-          : settingsToSave.theme,
-      );
-
-      // Apply or clear custom variables only on Save
-      if (settingsToSave.theme === "custom") {
-        if (
-          customThemeState.colors &&
-          Object.keys(customThemeState.colors).length > 0
-        ) {
-          try {
-            const root = document.documentElement;
-            // Clear any previous custom vars first
-            THEME_VARIABLES.forEach(({ key }) =>
-              root.style.removeProperty(key as string),
-            );
-            Object.entries(customThemeState.colors).forEach(([k, v]) =>
-              root.style.setProperty(k, v, "important"),
-            );
-          } catch {}
+  const persistSettingsImmediately = useCallback(
+    async (nextSettings: AppSettings) => {
+      const requestId = ++autoSaveRequestIdRef.current;
+      clearAutoSaveResetTimer();
+      setAutoSaveState("saving");
+      try {
+        const savedSettings = await invoke<AppSettings>("save_app_settings", {
+          settings: nextSettings,
+        });
+        if (requestId !== autoSaveRequestIdRef.current) {
+          return;
         }
-      } else {
-        try {
-          const root = document.documentElement;
-          THEME_VARIABLES.forEach(({ key }) =>
-            root.style.removeProperty(key as string),
-          );
-        } catch {}
+        mergeAppSettingsCache(savedSettings);
+        pendingAutoSaveSettingsRef.current = null;
+        setSettings(savedSettings);
+        setAutoSaveState("saved");
+        scheduleAutoSaveStateReset();
+      } catch (error) {
+        if (requestId !== autoSaveRequestIdRef.current) {
+          return;
+        }
+        setAutoSaveState("error");
+        showErrorToast(t("toasts.error.settingsSaveFailed"), {
+          description: error instanceof Error ? error.message : String(error),
+        });
       }
-
-      // Save language if changed
-      if (selectedLanguage !== originalLanguage) {
-        await changeLanguage(
-          selectedLanguage === "system"
-            ? null
-            : selectedLanguage,
-        );
-        setOriginalLanguage(selectedLanguage);
-      }
-
-      setOriginalSettings(settingsToSave);
-      shouldRestoreThemeRef.current = false;
-      showSuccessToast(t("toasts.success.settingsSaved"));
-      if (mode === "dialog") {
-        onClose();
-      }
-    } catch (error) {
-      showErrorToast(t("toasts.error.settingsSaveFailed"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    onClose,
-    mode,
-    setTheme,
-    settings,
-    customThemeState,
-    selectedLanguage,
-    originalLanguage,
-    changeLanguage,
-    t,
-  ]);
-
-  const updateSetting = useCallback(
-    (
-      key: keyof AppSettings,
-      value: boolean | string | Record<string, string> | undefined,
-    ) => {
-      setSettings((prev) => ({ ...prev, [key]: value as unknown as never }));
     },
-    [],
+    [clearAutoSaveResetTimer, scheduleAutoSaveStateReset, t],
   );
 
-  const restoreOriginalTheme = useCallback(() => {
-    if (originalSettings.theme === "custom" && originalSettings.custom_theme) {
-      applyCustomTheme(originalSettings.custom_theme);
-      setTheme(getThemeAppearance(originalSettings.custom_theme));
-    } else {
-      clearCustomTheme();
-      setTheme(originalSettings.theme);
-    }
-  }, [
-    applyCustomTheme,
-    clearCustomTheme,
-    originalSettings.custom_theme,
-    originalSettings.theme,
-    setTheme,
-  ]);
+  const queueSettingsAutoSave = useCallback(
+    (nextSettings: AppSettings, debounceMs = 300) => {
+      if (autoSaveDebounceTimerRef.current) {
+        clearTimeout(autoSaveDebounceTimerRef.current);
+      }
+      pendingAutoSaveSettingsRef.current = nextSettings;
+      clearAutoSaveResetTimer();
+      setAutoSaveState("saving");
+      autoSaveDebounceTimerRef.current = setTimeout(() => {
+        autoSaveDebounceTimerRef.current = null;
+        const pendingSettings = pendingAutoSaveSettingsRef.current;
+        if (pendingSettings) {
+          void persistSettingsImmediately(pendingSettings);
+        }
+      }, debounceMs);
+    },
+    [clearAutoSaveResetTimer, persistSettingsImmediately],
+  );
+
+  const handleLanguageSelection = useCallback(
+    async (nextLanguage: SupportedLanguage) => {
+      if (isLoading || isLanguageLoading) {
+        return;
+      }
+      if (nextLanguage === selectedLanguage) {
+        return;
+      }
+
+      const previousLanguage = selectedLanguage;
+      setSelectedLanguage(nextLanguage);
+      clearAutoSaveResetTimer();
+      setAutoSaveState("saving");
+      try {
+        await changeLanguage(nextLanguage);
+        setAutoSaveState("saved");
+        scheduleAutoSaveStateReset();
+      } catch (error) {
+        setSelectedLanguage(previousLanguage);
+        setAutoSaveState("error");
+        showErrorToast(t("toasts.error.settingsSaveFailed"), {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [
+      changeLanguage,
+      clearAutoSaveResetTimer,
+      isLoading,
+      isLanguageLoading,
+      scheduleAutoSaveStateReset,
+      selectedLanguage,
+      t,
+    ],
+  );
 
   const handleThemeModeChange = useCallback(
     (value: AppSettings["theme"]) => {
-      updateSetting("theme", value);
       if (value === "custom") {
         const fallbackTheme = getThemeById(
           customThemeState.selectedThemeId || "tokyo-night",
@@ -592,19 +649,36 @@ export function SettingsDialog({
         }));
         applyCustomTheme(nextColors);
         setTheme(getThemeAppearance(nextColors));
+        setSettings((prev) => {
+          const nextSettings = {
+            ...prev,
+            theme: "custom",
+            custom_theme: nextColors,
+          };
+          queueSettingsAutoSave(nextSettings);
+          return nextSettings;
+        });
         return;
       }
 
       clearCustomTheme();
       setTheme(value);
+      setSettings((prev) => {
+        const nextSettings = {
+          ...prev,
+          theme: value,
+        };
+        queueSettingsAutoSave(nextSettings);
+        return nextSettings;
+      });
     },
     [
       applyCustomTheme,
       clearCustomTheme,
       customThemeState.colors,
       customThemeState.selectedThemeId,
+      queueSettingsAutoSave,
       setTheme,
-      updateSetting,
     ],
   );
 
@@ -624,53 +698,37 @@ export function SettingsDialog({
         selectedThemeId: themeId,
         colors: theme.colors,
       });
-      updateSetting("theme", "custom");
       applyCustomTheme(theme.colors);
       setTheme(getThemeAppearance(theme.colors));
+      setSettings((prev) => {
+        const nextSettings = {
+          ...prev,
+          theme: "custom",
+          custom_theme: theme.colors,
+        };
+        queueSettingsAutoSave(nextSettings);
+        return nextSettings;
+      });
     },
-    [applyCustomTheme, setTheme, updateSetting],
+    [applyCustomTheme, queueSettingsAutoSave, setTheme],
   );
 
   const handleClose = useCallback(() => {
-    shouldRestoreThemeRef.current = true;
-    restoreOriginalTheme();
-    setSettings(originalSettings);
-    setSelectedLanguage(originalLanguage);
-
-    // Reset custom theme state to original
-    if (originalSettings.theme === "custom" && originalSettings.custom_theme) {
-      const matchingTheme = getThemeByColors(originalSettings.custom_theme);
-      setCustomThemeState({
-        selectedThemeId: matchingTheme?.id || null,
-        colors: originalSettings.custom_theme,
-      });
+    if (autoSaveDebounceTimerRef.current) {
+      clearTimeout(autoSaveDebounceTimerRef.current);
+      autoSaveDebounceTimerRef.current = null;
     }
-
+    const pendingSettings = pendingAutoSaveSettingsRef.current;
+    if (pendingSettings) {
+      void persistSettingsImmediately(pendingSettings);
+    }
+    clearAutoSaveResetTimer();
     onClose();
-  }, [originalLanguage, originalSettings, onClose, restoreOriginalTheme]);
-
-  const restoreOriginalThemeRef = useRef(restoreOriginalTheme);
-  restoreOriginalThemeRef.current = restoreOriginalTheme;
-
-  useEffect(() => {
-    effectMountCountRef.current += 1;
-    return () => {
-      if (
-        process.env.NODE_ENV === "development" &&
-        effectMountCountRef.current === 1
-      ) {
-        return;
-      }
-      if (shouldRestoreThemeRef.current) {
-        restoreOriginalThemeRef.current();
-      }
-    };
-  }, []);
+  }, [clearAutoSaveResetTimer, onClose, persistSettingsImmediately]);
 
   useEffect(() => {
     if (isOpen) {
       loadSettings().catch(() => undefined);
-      checkDefaultBrowserStatus().catch(() => undefined);
 
       // Check if we're on macOS
       const userAgent = navigator.userAgent;
@@ -681,7 +739,7 @@ export function SettingsDialog({
         loadPermissions().catch(() => undefined);
       }
     }
-  }, [isOpen, loadPermissions, checkDefaultBrowserStatus, loadSettings]);
+  }, [isOpen, loadPermissions, loadSettings]);
 
   // Initialize language selection when dialog opens or language loads
   useEffect(() => {
@@ -692,9 +750,19 @@ export function SettingsDialog({
         ? (currentLanguage as SupportedLanguage)
         : "vi";
       setSelectedLanguage(normalizedLanguage);
-      setOriginalLanguage(normalizedLanguage);
     }
   }, [currentLanguage, isLanguageLoading, isOpen, supportedLanguages]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveDebounceTimerRef.current) {
+        clearTimeout(autoSaveDebounceTimerRef.current);
+      }
+      if (autoSaveResetTimerRef.current) {
+        clearTimeout(autoSaveResetTimerRef.current);
+      }
+    };
+  }, []);
 
   // Update permissions when the permission states change
   useEffect(() => {
@@ -721,18 +789,6 @@ export function SettingsDialog({
     isCameraAccessGranted,
     getPermissionDescription,
   ]);
-
-  // Check if settings have changed (excluding default browser setting)
-  const hasChanges =
-    settings.theme !== originalSettings.theme ||
-    settings.api_enabled !== originalSettings.api_enabled ||
-    selectedLanguage !== originalLanguage ||
-    (settings.theme === "custom" &&
-      JSON.stringify(customThemeState.colors) !==
-        JSON.stringify(originalSettings.custom_theme ?? {})) ||
-    (settings.theme !== "custom" &&
-      JSON.stringify(settings.custom_theme ?? {}) !==
-        JSON.stringify(originalSettings.custom_theme ?? {}));
 
   const title = t("settings.title");
   const isSettingsReady = !isLoading;
@@ -768,188 +824,517 @@ export function SettingsDialog({
           : darkPreviewTheme?.colors,
     },
   ];
-  const sectionCardClass =
-    mode === "page"
-      ? "space-y-4 border-b border-border/70 pb-6 last:border-b-0"
-      : "space-y-4";
+  const selectedThemeModeLabel =
+    themeModeOptions.find((option) => option.value === settings.theme)?.label ??
+    t("settings.appearance.system");
+  const selectedThemePresetLabel =
+    customThemeState.selectedThemeId === null
+      ? t("settings.appearance.yourOwn")
+      : (THEMES.find((theme) => theme.id === customThemeState.selectedThemeId)
+          ?.name ?? t("settings.appearance.yourOwn"));
+  const implementedSectionIds = useMemo(
+    () =>
+      new Set<SettingsSectionId>([
+        "appearance",
+        "language",
+        "permissions",
+        "advanced",
+      ]),
+    [],
+  );
+  const settingsSectionItems = useMemo(
+    () => [
+      {
+        id: "appearance" as const,
+        label: t("settings.navigation.items.appearance"),
+        icon: Palette,
+        group: "workspace" as const,
+      },
+      {
+        id: "language" as const,
+        label: t("settings.navigation.items.languageRegion"),
+        icon: Languages,
+        group: "workspace" as const,
+      },
+      {
+        id: "notifications" as const,
+        label: t("settings.navigation.items.notifications"),
+        icon: Bell,
+        group: "workspace" as const,
+      },
+      {
+        id: "profile-defaults" as const,
+        label: t("settings.navigation.items.profileDefaults"),
+        icon: Rocket,
+        group: "workspace" as const,
+      },
+      {
+        id: "templates-startup" as const,
+        label: t("settings.navigation.items.templatesStartup"),
+        icon: Globe,
+        group: "workspace" as const,
+      },
+      {
+        id: "proxy-vpn" as const,
+        label: t("settings.navigation.items.proxyVpn"),
+        icon: Globe,
+        group: "network" as const,
+      },
+      {
+        id: "fingerprint-privacy" as const,
+        label: t("settings.navigation.items.fingerprintPrivacy"),
+        icon: ScanFace,
+        group: "network" as const,
+      },
+      {
+        id: "dns-traffic" as const,
+        label: t("settings.navigation.items.dnsTraffic"),
+        icon: Network,
+        group: "network" as const,
+      },
+      {
+        id: "team-roles" as const,
+        label: t("settings.navigation.items.teamRoles"),
+        icon: Users,
+        group: "security" as const,
+      },
+      {
+        id: "session-policies" as const,
+        label: t("settings.navigation.items.sessionPolicies"),
+        icon: Timer,
+        group: "security" as const,
+      },
+      {
+        id: "account-security" as const,
+        label: t("settings.navigation.items.accountSecurity"),
+        icon: KeyRound,
+        group: "security" as const,
+      },
+      {
+        id: "audit-logs" as const,
+        label: t("settings.navigation.items.auditLogs"),
+        icon: FileSearch,
+        group: "security" as const,
+      },
+      {
+        id: "subscription" as const,
+        label: t("settings.navigation.items.subscription"),
+        icon: CreditCard,
+        group: "billing" as const,
+      },
+      {
+        id: "payment-methods" as const,
+        label: t("settings.navigation.items.paymentMethods"),
+        icon: CreditCard,
+        group: "billing" as const,
+      },
+      {
+        id: "invoices" as const,
+        label: t("settings.navigation.items.invoices"),
+        icon: Receipt,
+        group: "billing" as const,
+      },
+      {
+        id: "coupon-license" as const,
+        label: t("settings.navigation.items.couponLicense"),
+        icon: Ticket,
+        group: "billing" as const,
+      },
+      {
+        id: "usage-addons" as const,
+        label: t("settings.navigation.items.usageAddons"),
+        icon: BarChart3,
+        group: "billing" as const,
+      },
+      {
+        id: "sync-provider" as const,
+        label: t("settings.navigation.items.syncProvider"),
+        icon: Cloud,
+        group: "sync" as const,
+      },
+      {
+        id: "backup-restore" as const,
+        label: t("settings.navigation.items.backupRestore"),
+        icon: DatabaseBackup,
+        group: "sync" as const,
+      },
+      {
+        id: "import-export" as const,
+        label: t("settings.navigation.items.importExport"),
+        icon: FileUp,
+        group: "sync" as const,
+      },
+      {
+        id: "data-retention" as const,
+        label: t("settings.navigation.items.dataRetention"),
+        icon: Trash2,
+        group: "sync" as const,
+      },
+      {
+        id: "integrations" as const,
+        label: t("settings.navigation.items.integrations"),
+        icon: PlugZap,
+        group: "system" as const,
+      },
+      {
+        id: "runtime-updates" as const,
+        label: t("settings.navigation.items.runtimeUpdates"),
+        icon: RefreshCcw,
+        group: "system" as const,
+      },
+      {
+        id: "diagnostics" as const,
+        label: t("settings.navigation.items.diagnostics"),
+        icon: Activity,
+        group: "system" as const,
+      },
+      {
+        id: "permissions" as const,
+        label: t("settings.navigation.items.permissions"),
+        icon: Shield,
+        group: "system" as const,
+        disabled: !isMacOS,
+      },
+      {
+        id: "advanced" as const,
+        label: t("settings.navigation.items.advanced"),
+        icon: SlidersHorizontal,
+        group: "system" as const,
+      },
+    ],
+    [isMacOS, t],
+  );
+  const settingsGroupRows = useMemo(
+    () => [
+      {
+        id: "workspace" as const,
+        label: t("settings.navigation.groups.workspace"),
+      },
+      {
+        id: "network" as const,
+        label: t("settings.navigation.groups.network"),
+      },
+      {
+        id: "security" as const,
+        label: t("settings.navigation.groups.security"),
+      },
+      {
+        id: "billing" as const,
+        label: t("settings.navigation.groups.billing"),
+      },
+      {
+        id: "sync" as const,
+        label: t("settings.navigation.groups.sync"),
+      },
+      {
+        id: "system" as const,
+        label: t("settings.navigation.groups.system"),
+      },
+    ],
+    [t],
+  );
+  const groupedSectionItems = useMemo(
+    () =>
+      settingsGroupRows
+        .map((group) => ({
+          ...group,
+          items: settingsSectionItems.filter((item) => item.group === group.id),
+        }))
+        .filter((group) => group.items.length > 0),
+    [settingsGroupRows, settingsSectionItems],
+  );
+  const settingsGroupLabelById = useMemo<Record<SettingsGroupId, string>>(
+    () =>
+      settingsGroupRows.reduce(
+        (acc, group) => {
+          acc[group.id] = group.label;
+          return acc;
+        },
+        {} as Record<SettingsGroupId, string>,
+      ),
+    [settingsGroupRows],
+  );
+  const managedLocationByGroup = useMemo<Record<SettingsGroupId, string>>(
+    () => ({
+      workspace: t("settings.navigation.locations.settingsPage"),
+      network: t("settings.navigation.locations.proxyCenter"),
+      security: t("settings.navigation.locations.workspaceGovernance"),
+      billing: t("settings.navigation.locations.pricingBilling"),
+      sync: t("settings.navigation.locations.syncIntegrations"),
+      system: t("settings.navigation.locations.systemControls"),
+    }),
+    [t],
+  );
+  useEffect(() => {
+    if (settingsSectionItems.length === 0) {
+      return;
+    }
+    if (!settingsSectionItems.some((item) => item.id === activeSection)) {
+      setActiveSection(settingsSectionItems[0].id);
+    }
+  }, [activeSection, settingsSectionItems]);
 
-  const loadingSections = (
-    <div className="flex w-full flex-col gap-6 pb-8">
-      <section className={sectionCardClass}>
-        <div className="h-6 w-40 rounded-md bg-card" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div
-              key={`theme-mode-skeleton-${index}`}
-              className="space-y-3 rounded-2xl border border-border bg-card p-3"
-            >
-              <div className="rounded-xl border border-border bg-background p-2.5">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex gap-1.5">
-                    <div className="h-1.5 w-6 rounded-full bg-muted" />
-                    <div className="h-1.5 w-6 rounded-full bg-muted" />
-                    <div className="h-1.5 w-4 rounded-full bg-muted" />
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted" />
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted" />
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted" />
-                  </div>
-                </div>
-                <div className="mb-2 h-2 rounded-full bg-card" />
-                <div className="space-y-1.5">
-                  <div className="h-1.5 w-3/4 rounded-full bg-muted" />
-                  <div className="h-1.5 w-11/12 rounded-full bg-card" />
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex gap-1.5">
-                      <div className="h-1.5 w-4 rounded-full bg-muted" />
-                      <div className="h-1.5 w-4 rounded-full bg-muted" />
-                      <div className="h-1.5 w-4 rounded-full bg-muted" />
-                    </div>
-                    <div className="h-2.5 w-5 rounded-sm bg-muted" />
-                  </div>
-                </div>
-              </div>
-              <div className="h-4 w-24 rounded bg-muted" />
-            </div>
-          ))}
-        </div>
-      </section>
+  const handleSelectSection = useCallback(
+    (sectionId: SettingsSectionId) => {
+      const target = settingsSectionItems.find((item) => item.id === sectionId);
+      if (!target || target.disabled) {
+        return;
+      }
+      setActiveSection(sectionId);
+    },
+    [settingsSectionItems],
+  );
+
+  const autoSaveStatusMeta: Record<
+    AutoSaveState,
+    { label: string; className: string; dotClassName: string }
+  > = {
+    idle: {
+      label: t("settings.autoSaveStatus.idle"),
+      className: "border-border bg-card text-muted-foreground",
+      dotClassName: "bg-muted-foreground/60",
+    },
+    saving: {
+      label: t("settings.autoSaveStatus.saving"),
+      className: "border-primary/40 bg-primary/10 text-primary",
+      dotClassName: "animate-pulse bg-primary",
+    },
+    saved: {
+      label: t("settings.autoSaveStatus.saved"),
+      className: "border-border bg-card text-foreground",
+      dotClassName: "bg-chart-2",
+    },
+    error: {
+      label: t("settings.autoSaveStatus.error"),
+      className: "border-destructive/40 bg-destructive/10 text-destructive",
+      dotClassName: "bg-destructive",
+    },
+  };
+  const currentAutoSaveStatus = autoSaveStatusMeta[autoSaveState];
+  const autoSaveStatusIndicator = (
+    <div
+      className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium ${currentAutoSaveStatus.className}`}
+    >
+      <span
+        className={`h-2 w-2 rounded-full ${currentAutoSaveStatus.dotClassName}`}
+      />
+      <span>{currentAutoSaveStatus.label}</span>
     </div>
   );
 
-  const settingsSections = (
-    <div className="flex w-full flex-col gap-6 pb-8">
-      {/* Appearance Section */}
-      <section data-settings-section="appearance" className={sectionCardClass}>
-        <Label className="text-base font-medium">
-          {t("settings.appearance.title")}
-        </Label>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-          {themeModeOptions.map((option) => (
-            <button
-              type="button"
-              key={option.value}
-              disabled={!isSettingsReady}
-              onClick={() => {
-                void handleThemeModeChange(option.value);
-              }}
-              className={`rounded-2xl border p-3 text-left transition-colors ${
-                settings.theme === option.value
-                  ? "border-primary bg-accent/40"
-                  : "border-border bg-card hover:bg-muted/40"
-              } ${!isSettingsReady ? "cursor-wait opacity-60" : ""}`}
-            >
-              <div className="space-y-3">
-                {option.colors && <ThemeMiniPreview colors={option.colors} />}
-                <div className="flex items-start gap-2.5">
-                  <ThemeChoiceIndicator
-                    selected={settings.theme === option.value}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {option.label}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </button>
+  const loadingSections = (
+    <div className="grid w-full gap-4 pb-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <div className="h-4 w-24 rounded bg-muted" />
+        <div className="space-y-1.5">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div
+              key={`settings-nav-skeleton-${index}`}
+              className="h-8 rounded-md border border-border bg-background"
+            />
           ))}
         </div>
+      </div>
+      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+        <div className="h-5 w-56 rounded bg-muted" />
+        <div className="h-4 w-80 rounded bg-muted" />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, optionIndex) => (
+            <div
+              key={`settings-option-skeleton-${optionIndex}`}
+              className="h-16 rounded-md border border-border bg-background"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
+  const settingsNavigation = (
+    <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+      <div className="space-y-1 px-1">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {currentAutoSaveStatus.label}
+        </p>
+      </div>
+      {groupedSectionItems.map((group) => (
+        <div key={group.id} className="space-y-1">
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {group.label}
+          </p>
+          <div className="space-y-1">
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.id;
+              const isDisabled = Boolean(item.disabled);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => {
+                    handleSelectSection(item.id);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                    isDisabled
+                      ? "cursor-not-allowed border-transparent text-muted-foreground/50"
+                      : isActive
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const appearanceSection = (
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label className="text-base font-semibold">
+          {t("settings.appearance.title")}
+        </Label>
         <p className="text-xs text-muted-foreground">
           {t("settings.appearance.themeDescription")}
         </p>
+      </div>
 
-        {settings.theme === "custom" && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                {t("settings.appearance.themePreset")}
-              </Label>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-                {THEMES.map((theme) => (
-                  <button
-                    type="button"
-                    key={theme.id}
-                    disabled={!isSettingsReady}
-                    onClick={() => {
-                      void handleThemePresetChange(theme.id);
-                    }}
-                    className={`rounded-2xl border p-3 text-left transition-colors ${
-                      customThemeState.selectedThemeId === theme.id
-                        ? "border-primary bg-accent/40"
-                        : "border-border bg-card hover:bg-muted/40"
-                    } ${!isSettingsReady ? "cursor-wait opacity-60" : ""}`}
-                  >
-                    <div className="space-y-3">
-                      <ThemeMiniPreview colors={theme.colors} />
-                      <div className="flex items-start gap-3">
-                        <ThemeChoiceIndicator
-                          selected={
-                            customThemeState.selectedThemeId === theme.id
-                          }
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {theme.name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+      <div className="grid max-w-[720px] grid-cols-2 gap-2 sm:grid-cols-4">
+        {themeModeOptions.map((option) => (
+          <button
+            type="button"
+            key={option.value}
+            disabled={!isSettingsReady}
+            onClick={() => {
+              handleThemeModeChange(option.value);
+            }}
+            className={`rounded-lg border p-1.5 text-left transition-colors ${
+              settings.theme === option.value
+                ? "border-primary bg-accent/40"
+                : "border-border bg-card hover:bg-muted/40"
+            } ${!isSettingsReady ? "cursor-wait opacity-60" : ""}`}
+          >
+            <div className="space-y-1.5">
+              {option.colors && (
+                <ThemeMiniPreview colors={option.colors} compact />
+              )}
+              <div className="flex items-center gap-2">
+                <ThemeChoiceIndicator
+                  selected={settings.theme === option.value}
+                  compact
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold">
+                    {option.label}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {settings.theme === "custom" && (
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              {t("settings.appearance.themePreset")}
+            </Label>
+            <div className="grid max-w-[720px] grid-cols-2 gap-2 sm:grid-cols-4">
+              {THEMES.map((theme) => (
                 <button
                   type="button"
+                  key={theme.id}
                   disabled={!isSettingsReady}
                   onClick={() => {
-                    void handleThemePresetChange(null);
+                    handleThemePresetChange(theme.id);
                   }}
-                  className={`rounded-2xl border p-3 text-left transition-colors ${
-                    customThemeState.selectedThemeId === null
+                  className={`rounded-lg border p-1.5 text-left transition-colors ${
+                    customThemeState.selectedThemeId === theme.id
                       ? "border-primary bg-accent/40"
                       : "border-border bg-card hover:bg-muted/40"
                   } ${!isSettingsReady ? "cursor-wait opacity-60" : ""}`}
                 >
-                  <div className="space-y-3">
-                    <ThemeMiniPreview colors={customThemeState.colors} />
-                    <div className="flex items-start gap-3">
+                  <div className="space-y-1.5">
+                    <ThemeMiniPreview colors={theme.colors} compact />
+                    <div className="flex items-center gap-2">
                       <ThemeChoiceIndicator
-                        selected={customThemeState.selectedThemeId === null}
+                        selected={customThemeState.selectedThemeId === theme.id}
+                        compact
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium">
-                          {t("settings.appearance.yourOwn")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("settings.appearance.customColors")}
+                        <p className="truncate text-xs font-semibold">
+                          {theme.name}
                         </p>
                       </div>
                     </div>
                   </div>
                 </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                disabled={!isSettingsReady}
+                onClick={() => {
+                  handleThemePresetChange(null);
+                }}
+                className={`rounded-lg border p-1.5 text-left transition-colors ${
+                  customThemeState.selectedThemeId === null
+                    ? "border-primary bg-accent/40"
+                    : "border-border bg-card hover:bg-muted/40"
+                } ${!isSettingsReady ? "cursor-wait opacity-60" : ""}`}
+              >
+                <div className="space-y-1.5">
+                  <ThemeMiniPreview colors={customThemeState.colors} compact />
+                  <div className="flex items-center gap-2">
+                    <ThemeChoiceIndicator
+                      selected={customThemeState.selectedThemeId === null}
+                      compact
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold">
+                        {t("settings.appearance.yourOwn")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </button>
             </div>
+          </div>
 
-            <div className="text-sm font-medium">Custom Colors</div>
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+          <div className="max-w-[720px] rounded-lg border border-border bg-card p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-foreground">
+                {t("settings.appearance.customColors")}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {t("settings.appearance.colorEditHint")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
               {THEME_VARIABLES.map(({ key, label }) => {
                 const colorValue = customThemeState.colors[key] || "#000000";
                 return (
-                  <div key={key} className="flex flex-col gap-1 items-center">
+                  <div key={key}>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
                           type="button"
                           aria-label={label}
-                          className="w-8 h-8 rounded-md border shadow-sm cursor-pointer"
+                          title={label}
+                          className="h-6 w-6 cursor-pointer rounded-md border border-border"
                           style={{ backgroundColor: colorValue }}
                         />
                       </PopoverTrigger>
                       <PopoverContent className="w-[320px] p-3" sideOffset={6}>
                         <ColorPicker
-                          className="p-3 rounded-md border shadow-sm bg-background"
+                          className="rounded-md border bg-background p-3 shadow-sm"
                           value={colorValue}
                           onColorChange={([r, g, b, a]) => {
                             const next = Color({ r, g, b }).alpha(a);
@@ -959,358 +1344,672 @@ export function SettingsDialog({
                               [key]: nextStr,
                             };
 
-                            // Check if colors match any preset theme
                             const matchingTheme = getThemeByColors(newColors);
 
                             setCustomThemeState({
                               selectedThemeId: matchingTheme?.id || null,
                               colors: newColors,
                             });
-                            updateSetting("theme", "custom");
                             applyCustomTheme(newColors);
                             setTheme(getThemeAppearance(newColors));
+                            setSettings((prev) => {
+                              const nextSettings = {
+                                ...prev,
+                                theme: "custom",
+                                custom_theme: newColors,
+                              };
+                              queueSettingsAutoSave(nextSettings, 450);
+                              return nextSettings;
+                            });
                           }}
                         >
                           <ColorPickerSelection className="h-36 rounded" />
-                          <div className="flex gap-3 items-center mt-3">
+                          <div className="mt-3 flex items-center gap-3">
                             <ColorPickerEyeDropper />
-                            <div className="grid gap-1 w-full">
+                            <div className="grid w-full gap-1">
                               <ColorPickerHue />
                               <ColorPickerAlpha />
                             </div>
                           </div>
-                          <div className="flex gap-2 items-center mt-3">
+                          <div className="mt-3 flex items-center gap-2">
                             <ColorPickerOutput />
                             <ColorPickerFormat />
                           </div>
                         </ColorPicker>
                       </PopoverContent>
                     </Popover>
-                    <div className="text-[10px] text-muted-foreground text-center leading-tight">
-                      {label}
-                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
 
-      {/* Language Section */}
-      <section data-settings-section="language" className={sectionCardClass}>
-        <Label className="text-base font-medium">
-          {t("settings.language.title")}
-        </Label>
-
-        <div className="grid max-w-sm gap-2">
-          <Label className="text-sm">
-            {t("settings.language.selectLanguage")}
-          </Label>
-          <div className="inline-flex w-fit items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.overviewTitle")}
+          </p>
+          <div className="space-y-1.5">
             {[
-              { value: "system" as const, label: t("settings.language.systemDefault") },
-              ...supportedLanguages.map((lang) => ({
-                value: lang.code,
-                label: `${lang.nativeName} (${lang.name})`,
-              })),
-            ].map((option) => {
-              const isSelected = (selectedLanguage || "system") === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  disabled={isLanguageLoading || !isSettingsReady}
-                  onClick={() =>
-                    setSelectedLanguage(option.value as SupportedLanguage | "system")
-                  }
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isSelected
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+              {
+                label: t("settings.appearance.theme"),
+                value: selectedThemeModeLabel,
+              },
+              {
+                label: t("settings.appearance.themePreset"),
+                value: selectedThemePresetLabel,
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.syncLabel"),
+                value: t(
+                  "settings.navigation.placeholderPanels.syncManagedValue",
+                ),
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.statusLabel"),
+                value: currentAutoSaveStatus.label,
+              },
+            ].map((row) => (
+              <div
+                key={`appearance-section-${row.label}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+              >
+                <span className="text-xs text-muted-foreground">
+                  {row.label}
+                </span>
+                <span className="text-xs font-medium text-foreground">
+                  {row.value}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.checklistTitle")}
+          </p>
+          <div className="space-y-1.5">
+            {[
+              t("settings.navigation.placeholderPanels.checklistPolicy"),
+              t("settings.navigation.placeholderPanels.checklistValidation"),
+              t("settings.navigation.placeholderPanels.checklistRollout"),
+              t("settings.navigation.placeholderPanels.checklistAudit"),
+            ].map((rowLabel) => (
+              <div
+                key={`appearance-section-checklist-${rowLabel}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+              >
+                <span className="text-xs text-foreground">{rowLabel}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {t("settings.navigation.placeholderPanels.checklistState")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
+  const languageSection = (
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label className="text-base font-semibold">
+          {t("settings.language.title")}
+        </Label>
         <p className="text-xs text-muted-foreground">
           {t("settings.language.description")}
         </p>
-      </section>
+      </div>
 
-      {/* Default Browser Section */}
-      <section data-settings-section="browser" className={sectionCardClass}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
-            <Label className="text-base font-medium">
-              {t("settings.defaultBrowser.title")}
-            </Label>
-            <p className="max-w-xl text-xs text-muted-foreground">
-              {t("settings.defaultBrowser.description")}
-            </p>
-          </div>
-          <Badge variant={isDefaultBrowser ? "default" : "secondary"}>
-            {t(
-              isDefaultBrowser
-                ? "common.status.active"
-                : "common.status.inactive",
-            )}
-          </Badge>
+      <div className="grid max-w-[720px] gap-2">
+        <Label className="text-sm">
+          {t("settings.language.selectLanguage")}
+        </Label>
+        <div className="inline-flex w-fit flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
+          {supportedLanguages.map((option) => {
+            const isSelected = selectedLanguage === option.code;
+            return (
+              <button
+                key={option.code}
+                type="button"
+                disabled={isLanguageLoading || !isSettingsReady}
+                onClick={() =>
+                  void handleLanguageSelection(option.code as SupportedLanguage)
+                }
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isSelected
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {`${option.nativeName} (${option.name})`}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="flex flex-wrap gap-3">
-          <LoadingButton
-            isLoading={isSettingDefault}
-            onClick={() => {
-              handleSetDefaultBrowser().catch(() => undefined);
-            }}
-            disabled={isDefaultBrowser}
-            variant={isDefaultBrowser ? "outline" : "default"}
-            className="min-w-48"
-          >
-            {t(
-              isDefaultBrowser
-                ? "settings.defaultBrowser.alreadyDefault"
-                : "settings.defaultBrowser.setAsDefault",
-            )}
-          </LoadingButton>
-        </div>
-      </section>
-
-      {/* Permissions Section - Only show on macOS */}
-      {isMacOS && (
-        <section
-          data-settings-section="permissions"
-          className={sectionCardClass}
-        >
-          <Label className="text-base font-medium">
-            {t("settings.permissions.title")}
-          </Label>
-
-          {isLoadingPermissions ? (
-            <div className="text-sm text-muted-foreground">
-              {t("settings.permissions.loading")}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {permissions.map((permission) => (
-                <div
-                  key={permission.permission_type}
-                  className="flex justify-between items-center p-3 rounded-lg border"
-                >
-                  <div className="flex items-center space-x-3">
-                    {getPermissionIcon(permission.permission_type)}
-                    <div>
-                      <div className="text-sm font-medium">
-                        {getPermissionDisplayName(permission.permission_type)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {permission.description}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusBadge(permission.isGranted)}
-                    {!permission.isGranted && (
-                      <LoadingButton
-                        size="sm"
-                        isLoading={
-                          requestingPermission === permission.permission_type
-                        }
-                        onClick={() => {
-                          handleRequestPermission(
-                            permission.permission_type,
-                          ).catch(() => undefined);
-                        }}
-                      >
-                        {t("common.buttons.grant")}
-                      </LoadingButton>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="text-xs text-muted-foreground">
-            {t("settings.permissions.description")}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.overviewTitle")}
           </p>
-        </section>
-      )}
+          <div className="space-y-1.5">
+            {[
+              {
+                label: t("settings.language.selectLanguage"),
+                value:
+                  supportedLanguages.find(
+                    (lang) => lang.code === selectedLanguage,
+                  )?.nativeName ?? selectedLanguage,
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.statusLabel"),
+                value: currentAutoSaveStatus.label,
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.syncLabel"),
+                value: t(
+                  "settings.navigation.placeholderPanels.syncManagedValue",
+                ),
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.sourceLabel"),
+                value: t("settings.navigation.locations.settingsPage"),
+              },
+            ].map((row) => (
+              <div
+                key={`language-section-${row.label}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+              >
+                <span className="text-xs text-muted-foreground">
+                  {row.label}
+                </span>
+                <span className="text-xs font-medium text-foreground">
+                  {row.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.checklistTitle")}
+          </p>
+          <div className="space-y-1.5">
+            {[
+              t("settings.navigation.placeholderPanels.checklistPolicy"),
+              t("settings.navigation.placeholderPanels.checklistValidation"),
+              t("settings.navigation.placeholderPanels.checklistRollout"),
+              t("settings.navigation.placeholderPanels.checklistAudit"),
+            ].map((rowLabel) => (
+              <div
+                key={`language-section-checklist-${rowLabel}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+              >
+                <span className="text-xs text-foreground">{rowLabel}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {t("settings.navigation.placeholderPanels.checklistState")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
-      {/* Sync Encryption Section */}
-      <section data-settings-section="encryption" className={sectionCardClass}>
-        <Label className="text-base font-medium">
-          {t("settings.encryption.title", "Sync Encryption")}
+  const permissionsSection = isMacOS ? (
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label className="text-base font-semibold">
+          {t("settings.permissions.title")}
         </Label>
         <p className="text-xs text-muted-foreground">
-          {t(
-            "settings.encryption.description",
-            "Set a password to enable E2E encrypted sync. If you lose this password, encrypted profiles cannot be recovered.",
-          )}
+          {t("settings.permissions.description")}
         </p>
+      </div>
 
-        {!canUseEncryption ? (
-          <p className="text-sm text-muted-foreground">
-            {t(
-              "settings.encryption.requiresProOrOwner",
-              "Profile encryption is available for Pro users and team owners.",
-            )}
-          </p>
-        ) : hasE2ePassword ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="default">
-                {t("settings.encryption.passwordSet", "Active")}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {t(
-                  "settings.encryption.passwordSetDescription",
-                  "E2E encryption password is set",
+      {isLoadingPermissions ? (
+        <div className="text-sm text-muted-foreground">
+          {t("settings.permissions.loading")}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {permissions.map((permission) => (
+            <div
+              key={permission.permission_type}
+              className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
+            >
+              <div className="flex items-center space-x-3">
+                {getPermissionIcon(permission.permission_type)}
+                <div>
+                  <div className="text-sm font-medium">
+                    {getPermissionDisplayName(permission.permission_type)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {permission.description}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {getStatusBadge(permission.isGranted)}
+                {!permission.isGranted && (
+                  <LoadingButton
+                    size="sm"
+                    isLoading={
+                      requestingPermission === permission.permission_type
+                    }
+                    onClick={() => {
+                      handleRequestPermission(permission.permission_type).catch(
+                        () => undefined,
+                      );
+                    }}
+                  >
+                    {t("common.buttons.grant")}
+                  </LoadingButton>
                 )}
-              </span>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setHasE2ePassword(false);
-                  setE2ePassword("");
-                  setE2ePasswordConfirm("");
-                  setE2eError("");
-                }}
+          ))}
+        </div>
+      )}
+    </section>
+  ) : null;
+
+  const advancedSection = (
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label className="text-base font-semibold">
+          {t("settings.advanced.title")}
+        </Label>
+        <p className="max-w-xl text-xs text-muted-foreground">
+          {t("settings.advanced.clearCacheDescription")}
+        </p>
+      </div>
+      <LoadingButton
+        isLoading={isClearingCache}
+        onClick={() => {
+          handleClearCache().catch(() => undefined);
+        }}
+        variant="outline"
+        className="min-w-52"
+      >
+        {t("settings.advanced.clearCache")}
+      </LoadingButton>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.overviewTitle")}
+          </p>
+          <div className="space-y-1.5">
+            {[
+              {
+                label: t("settings.navigation.placeholderPanels.statusLabel"),
+                value: currentAutoSaveStatus.label,
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.syncLabel"),
+                value: t(
+                  "settings.navigation.placeholderPanels.syncManagedValue",
+                ),
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.ownerLabel"),
+                value: t(
+                  "settings.navigation.placeholderPanels.ownerManagedValue",
+                ),
+              },
+              {
+                label: t("settings.navigation.placeholderPanels.sourceLabel"),
+                value: t("settings.navigation.locations.systemControls"),
+              },
+            ].map((row) => (
+              <div
+                key={`advanced-section-${row.label}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
               >
-                {t("settings.encryption.changePassword", "Change Password")}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await invoke("delete_e2e_password");
-                    setHasE2ePassword(false);
-                    showSuccessToast(
-                      t(
-                        "settings.encryption.removed",
-                        "Encryption password removed",
-                      ),
-                    );
-                  } catch (error) {
-                    showErrorToast(String(error));
-                  }
-                }}
+                <span className="text-xs text-muted-foreground">
+                  {row.label}
+                </span>
+                <span className="text-xs font-medium text-foreground">
+                  {row.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("settings.navigation.placeholderPanels.checklistTitle")}
+          </p>
+          <div className="space-y-1.5">
+            {[
+              t("settings.navigation.placeholderPanels.checklistPolicy"),
+              t("settings.navigation.placeholderPanels.checklistValidation"),
+              t("settings.navigation.placeholderPanels.checklistRollout"),
+              t("settings.navigation.placeholderPanels.checklistAudit"),
+            ].map((rowLabel) => (
+              <div
+                key={`advanced-section-checklist-${rowLabel}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
               >
-                {t("settings.encryption.removePassword", "Remove Password")}
-              </Button>
+                <span className="text-xs text-foreground">{rowLabel}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {t("settings.navigation.placeholderPanels.checklistState")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderPlaceholderSection = useCallback(
+    (item: (typeof settingsSectionItems)[number]) => {
+      const Icon = item.icon;
+      const groupId = item.group as SettingsGroupId;
+      const managedLocation = managedLocationByGroup[groupId];
+      const groupLabel = settingsGroupLabelById[groupId];
+      const canOpenIntegrations =
+        item.id === "integrations" && Boolean(onIntegrationsOpen);
+      return (
+        <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                <Label className="text-base font-semibold">{item.label}</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.navigation.placeholderPanels.subtitle", {
+                  section: item.label,
+                })}
+              </p>
+            </div>
+            <Badge variant="secondary">
+              {t("settings.navigation.status.managed")}
+            </Badge>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t("settings.navigation.placeholderPanels.overviewTitle")}
+              </p>
+              <div className="space-y-1.5">
+                {[
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.sourceLabel",
+                    ),
+                    value: managedLocation,
+                  },
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.statusLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.statusManagedValue",
+                    ),
+                  },
+                  {
+                    label: t("settings.navigation.placeholderPanels.syncLabel"),
+                    value: t(
+                      "settings.navigation.placeholderPanels.syncManagedValue",
+                    ),
+                  },
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.ownerLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.ownerManagedValue",
+                    ),
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {row.label}
+                    </span>
+                    <span className="text-xs font-medium text-foreground">
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t("settings.navigation.placeholderPanels.checklistTitle")}
+              </p>
+              <div className="space-y-1.5">
+                {[
+                  t("settings.navigation.placeholderPanels.checklistPolicy"),
+                  t(
+                    "settings.navigation.placeholderPanels.checklistValidation",
+                  ),
+                  t("settings.navigation.placeholderPanels.checklistRollout"),
+                  t("settings.navigation.placeholderPanels.checklistAudit"),
+                ].map((rowLabel) => (
+                  <div
+                    key={`${item.id}-${rowLabel}`}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+                  >
+                    <span className="text-xs text-foreground">{rowLabel}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {t(
+                        "settings.navigation.placeholderPanels.checklistState",
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="max-w-lg space-y-3">
-            <Input
-              type="password"
-              placeholder={t(
-                "settings.encryption.passwordPlaceholder",
-                "Password (min 8 characters)",
-              )}
-              value={e2ePassword}
-              onChange={(e) => {
-                setE2ePassword(e.target.value);
-                setE2eError("");
-              }}
-            />
-            <Input
-              type="password"
-              placeholder={t(
-                "settings.encryption.confirmPlaceholder",
-                "Confirm password",
-              )}
-              value={e2ePasswordConfirm}
-              onChange={(e) => {
-                setE2ePasswordConfirm(e.target.value);
-                setE2eError("");
-              }}
-            />
-            {e2eError && <p className="text-sm text-destructive">{e2eError}</p>}
-            <LoadingButton
-              variant="default"
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t("settings.navigation.placeholderPanels.controlsTitle")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "settings.navigation.placeholderPanels.controlsDescription",
+                  {
+                    section: item.label,
+                  },
+                )}
+              </p>
+              <div className="space-y-1.5">
+                {[
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.controlPrimaryLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.controlPrimaryValue",
+                      {
+                        section: item.label,
+                      },
+                    ),
+                  },
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.controlScopeLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.controlScopeValue",
+                      {
+                        group: groupLabel,
+                      },
+                    ),
+                  },
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.controlAutomationLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.controlAutomationValue",
+                    ),
+                  },
+                  {
+                    label: t(
+                      "settings.navigation.placeholderPanels.controlRollbackLabel",
+                    ),
+                    value: t(
+                      "settings.navigation.placeholderPanels.controlRollbackValue",
+                    ),
+                  },
+                ].map((row) => (
+                  <div
+                    key={`${item.id}-${row.label}`}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {row.label}
+                    </span>
+                    <span className="text-xs font-medium text-foreground">
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t("settings.navigation.placeholderPanels.timelineTitle")}
+              </p>
+              <div className="space-y-1.5">
+                {[
+                  {
+                    event: t(
+                      "settings.navigation.placeholderPanels.timelineEventPolicy",
+                      {
+                        section: item.label,
+                      },
+                    ),
+                    time: t(
+                      "settings.navigation.placeholderPanels.timelineNow",
+                    ),
+                  },
+                  {
+                    event: t(
+                      "settings.navigation.placeholderPanels.timelineEventValidation",
+                      {
+                        group: groupLabel,
+                      },
+                    ),
+                    time: t(
+                      "settings.navigation.placeholderPanels.timelineToday",
+                    ),
+                  },
+                  {
+                    event: t(
+                      "settings.navigation.placeholderPanels.timelineEventSync",
+                    ),
+                    time: t(
+                      "settings.navigation.placeholderPanels.timelineThisWeek",
+                    ),
+                  },
+                ].map((entry) => (
+                  <div
+                    key={`${item.id}-${entry.event}`}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
+                  >
+                    <span className="text-xs text-foreground">
+                      {entry.event}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {entry.time}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {canOpenIntegrations && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  onIntegrationsOpen?.();
+                }}
+              >
+                {t("settings.navigation.placeholderPanels.openManagedModule")}
+              </Button>
+            )}
+            <Button
+              type="button"
               size="sm"
-              isLoading={isSavingE2e}
-              className="w-fit min-w-40"
-              onClick={async () => {
-                if (e2ePassword.length < 8) {
-                  setE2eError(
-                    t(
-                      "settings.encryption.passwordTooShort",
-                      "Password must be at least 8 characters",
-                    ),
-                  );
-                  return;
-                }
-                if (e2ePassword !== e2ePasswordConfirm) {
-                  setE2eError(
-                    t(
-                      "settings.encryption.passwordMismatch",
-                      "Passwords do not match",
-                    ),
-                  );
-                  return;
-                }
-                setIsSavingE2e(true);
-                try {
-                  await invoke("set_e2e_password", {
-                    password: e2ePassword,
-                  });
-                  setHasE2ePassword(true);
-                  setE2ePassword("");
-                  setE2ePasswordConfirm("");
-                  showSuccessToast(
-                    t(
-                      "settings.encryption.passwordSaved",
-                      "Encryption password set",
-                    ),
-                  );
-                } catch (error) {
-                  showErrorToast(String(error));
-                } finally {
-                  setIsSavingE2e(false);
-                }
+              variant="ghost"
+              onClick={() => {
+                showSuccessToast(
+                  t("settings.navigation.placeholderPanels.reviewRequested", {
+                    section: item.label,
+                  }),
+                );
               }}
             >
-              {t("settings.encryption.setPassword", "Set Password")}
-            </LoadingButton>
-          </div>
-        )}
-      </section>
-
-      {/* Advanced Section */}
-      <section data-settings-section="advanced" className={sectionCardClass}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="max-w-xl space-y-2">
-            <Label className="text-base font-medium">
-              {t("settings.advanced.title")}
-            </Label>
+              {t("settings.navigation.placeholderPanels.requestPolicyReview")}
+            </Button>
             <p className="text-xs text-muted-foreground">
-              {t("settings.advanced.clearCacheDescription")}
+              {t("settings.navigation.managedAt", {
+                location: managedLocation,
+              })}
             </p>
           </div>
+        </section>
+      );
+    },
+    [managedLocationByGroup, onIntegrationsOpen, settingsGroupLabelById, t],
+  );
 
-          <LoadingButton
-            isLoading={isClearingCache}
-            onClick={() => {
-              handleClearCache().catch(() => undefined);
-            }}
-            variant="outline"
-            className="min-w-52"
-          >
-            {t("settings.advanced.clearCache")}
-          </LoadingButton>
-        </div>
-      </section>
+  const activeSectionItem =
+    settingsSectionItems.find((item) => item.id === activeSection) ??
+    settingsSectionItems[0] ??
+    null;
+
+  let activeSectionContent: React.ReactNode = null;
+  if (activeSectionItem) {
+    if (implementedSectionIds.has(activeSectionItem.id)) {
+      if (activeSectionItem.id === "appearance") {
+        activeSectionContent = appearanceSection;
+      } else if (activeSectionItem.id === "language") {
+        activeSectionContent = languageSection;
+      } else if (activeSectionItem.id === "permissions") {
+        activeSectionContent =
+          permissionsSection ?? renderPlaceholderSection(activeSectionItem);
+      } else if (activeSectionItem.id === "advanced") {
+        activeSectionContent = advancedSection;
+      }
+    } else {
+      activeSectionContent = renderPlaceholderSection(activeSectionItem);
+    }
+  }
+
+  const settingsSections = (
+    <div className="grid w-full gap-4 pb-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className={mode === "page" ? "h-fit lg:sticky lg:top-0" : "h-fit"}>
+        {settingsNavigation}
+      </aside>
+
+      <div className="space-y-4">{activeSectionContent}</div>
     </div>
   );
 
@@ -1324,21 +2023,13 @@ export function SettingsDialog({
 
       <ScrollArea className="min-h-0 flex-1">{settingsSections}</ScrollArea>
 
-      <DialogFooter className="shrink-0 border-t px-5 py-4">
+      <DialogFooter className="shrink-0 border-t px-5 py-4 sm:justify-between">
+        {autoSaveStatusIndicator}
         {mode === "dialog" && (
           <RippleButton variant="outline" onClick={handleClose}>
             {t("common.buttons.cancel")}
           </RippleButton>
         )}
-        <LoadingButton
-          isLoading={isSaving}
-          onClick={() => {
-            handleSave().catch(() => undefined);
-          }}
-          disabled={isLoading || !hasChanges}
-        >
-          {t("common.buttons.saveSettings")}
-        </LoadingButton>
       </DialogFooter>
     </>
   );
@@ -1347,18 +2038,7 @@ export function SettingsDialog({
     return (
       <WorkspacePageShell
         title={title}
-        actions={
-          <LoadingButton
-            isLoading={isSaving}
-            onClick={() => {
-              handleSave().catch(() => undefined);
-            }}
-            disabled={isLoading || !hasChanges}
-            size="sm"
-          >
-            {t("common.buttons.saveSettings")}
-          </LoadingButton>
-        }
+        actions={autoSaveStatusIndicator}
         contentClassName="max-w-none"
       >
         {isLoading ? loadingSections : settingsSections}
@@ -1368,7 +2048,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="my-8 flex max-h-[80vh] max-w-md flex-col p-0">
+      <DialogContent className="my-8 flex max-h-[85vh] max-w-5xl flex-col p-0">
         {dialogContent}
       </DialogContent>
     </Dialog>

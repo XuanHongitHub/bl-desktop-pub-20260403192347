@@ -21,34 +21,39 @@ export function WindowDragArea() {
     setPlatform(detectedPlatform);
 
     document.body.dataset.windowPlatform = detectedPlatform;
-    if (detectedPlatform === "windows") {
+    try {
+      if (detectedPlatform === "windows") {
+        void getCurrentWindow()
+          .isMaximized()
+          .then(setIsMaximized)
+          .catch(() => {
+            setIsMaximized(false);
+          });
+      }
+
+      let unlisten: (() => void) | undefined;
       void getCurrentWindow()
-        .isMaximized()
-        .then(setIsMaximized)
+        .onResized(async () => {
+          try {
+            setIsMaximized(await getCurrentWindow().isMaximized());
+          } catch {
+            setIsMaximized(false);
+          }
+        })
+        .then((cleanup) => {
+          unlisten = cleanup;
+        })
         .catch(() => {
-          setIsMaximized(false);
+          unlisten = undefined;
         });
+
+      return () => {
+        unlisten?.();
+      };
+    } catch (_error) {
+      // Not running in Tauri, gracefully ignore
+      return;
     }
-
-    let unlisten: (() => void) | undefined;
-    void getCurrentWindow()
-      .onResized(async () => {
-        try {
-          setIsMaximized(await getCurrentWindow().isMaximized());
-        } catch {
-          setIsMaximized(false);
-        }
-      })
-      .then((cleanup) => {
-        unlisten = cleanup;
-      })
-      .catch(() => {
-        unlisten = undefined;
-      });
-
-    return () => {
-      unlisten?.();
-    };
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {

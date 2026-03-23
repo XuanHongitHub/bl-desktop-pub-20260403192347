@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { GroupWithCount } from "@/types";
 
@@ -18,6 +19,8 @@ export function GroupBadges({
   groups,
   isLoading,
 }: GroupBadgesProps) {
+  const { t } = useTranslation();
+  const ALL_GROUP_ID = "all";
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
@@ -143,6 +146,14 @@ export function GroupBadges({
     );
   }
 
+  const visibleGroups = groups.filter(
+    (group) => group.id !== "default" && group.id !== ALL_GROUP_ID,
+  );
+  const totalProfiles = groups.reduce(
+    (sum, group) => sum + (group.count ?? 0),
+    0,
+  );
+
   return (
     <div className="relative mb-4">
       {showLeftFade && (
@@ -159,7 +170,37 @@ export function GroupBadges({
         onScroll={checkScrollPosition}
         onMouseDown={handleMouseDown}
       >
-        {groups.map((group) => (
+        <Badge
+          key={ALL_GROUP_ID}
+          variant={
+            !selectedGroupId ||
+            selectedGroupId === ALL_GROUP_ID ||
+            selectedGroupId === "default"
+              ? "default"
+              : "secondary"
+          }
+          className="flex gap-2 items-center px-3 py-1 transition-colors cursor-pointer dark:hover:bg-primary/60 hover:bg-primary/80 flex-shrink-0"
+          onClick={(e) => {
+            if (hasMovedRef.current || clickBlockedRef.current) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            onGroupSelect(ALL_GROUP_ID);
+          }}
+          onMouseDown={(e) => {
+            if (isDragging) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+        >
+          <span>{t("groups.all")}</span>
+          <span className="bg-background/20 text-xs px-1.5 py-0.5 rounded-sm">
+            {totalProfiles}
+          </span>
+        </Badge>
+        {visibleGroups.map((group) => (
           <Badge
             key={group.id}
             variant={selectedGroupId === group.id ? "default" : "secondary"}
@@ -171,7 +212,7 @@ export function GroupBadges({
                 return;
               }
               onGroupSelect(
-                selectedGroupId === group.id ? "default" : group.id,
+                selectedGroupId === group.id ? ALL_GROUP_ID : group.id,
               );
             }}
             onMouseDown={(e) => {

@@ -35,7 +35,7 @@ export default function RootLayout({
   }, []);
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${interSans.variable} ${geistMono.variable} antialiased overflow-hidden bg-background`}
       >

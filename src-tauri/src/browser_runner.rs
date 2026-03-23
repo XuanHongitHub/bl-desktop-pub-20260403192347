@@ -639,6 +639,28 @@ impl BrowserRunner {
       // Continue anyway, the error might not be critical
     }
 
+    #[cfg(target_os = "windows")]
+    {
+      let mut browser_dir = self.get_binaries_dir();
+      browser_dir.push(&profile.browser);
+      browser_dir.push(&profile.version);
+
+      if let Err(e) = crate::downloader::patch_installed_browser_icon_windows(
+        &profile.browser,
+        &profile.version,
+        &browser_dir,
+      )
+      .await
+      {
+        log::warn!(
+          "Failed to patch Windows browser icon before launch for {} {}: {}",
+          profile.browser,
+          profile.version,
+          e
+        );
+      }
+    }
+
     // Refresh cloud proxy credentials if needed before resolving
     let _stored_proxy_settings = self
       .resolve_proxy_with_refresh(profile.proxy_id.as_ref())

@@ -199,7 +199,9 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
                     {t("sync.statusHint")}
                   </p>
                 </div>
-                <Badge variant={connectionStatusVariant}>{connectionStatusLabel}</Badge>
+                <Badge variant={connectionStatusVariant}>
+                  {connectionStatusLabel}
+                </Badge>
               </div>
 
               <div className="space-y-2">

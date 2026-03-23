@@ -11,6 +11,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { appendFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
   ForbiddenException,
   Injectable,
@@ -46,6 +48,8 @@ export class SyncService implements OnModuleInit {
   private readonly logger = new Logger(SyncService.name);
   private s3Client: S3Client;
   private bucket: string;
+  private rootPrefix: string;
+  private auditLogFile: string | undefined;
   private changeSubject = new Subject<SubscribeEventDto>();
   private s3Ready = false;
   private backendInternalUrl: string | undefined;
@@ -64,6 +68,13 @@ export class SyncService implements OnModuleInit {
 
     this.bucket =
       this.configService.get<string>("S3_BUCKET") || "buglogin-sync";
+    const rawRootPrefix = (
+      this.configService.get<string>("SYNC_ROOT_PREFIX") || ""
+    ).trim();
+    this.rootPrefix = this.normalizeRootPrefix(rawRootPrefix);
+    this.auditLogFile = this.configService
+      .get<string>("SYNC_AUDIT_LOG_FILE")
+      ?.trim();
 
     this.s3Client = new S3Client({
       endpoint,
@@ -142,12 +153,18 @@ export class SyncService implements OnModuleInit {
 
   /**
    * Scope a key to the user's prefix for cloud mode.
-   * Self-hosted mode passes through unchanged.
+   * Self-hosted mode can be rooted under SYNC_ROOT_PREFIX.
    */
   private scopeKey(ctx: UserContext, key: string): string {
-    if (ctx.mode === "self-hosted") return key;
-    if (ctx.teamPrefix && key.startsWith(ctx.teamPrefix)) return key;
-    return `${ctx.prefix}${key}`;
+    const normalizedKey = this.normalizeObjectKey(key);
+    if (ctx.mode === "self-hosted") {
+      return this.prefixForSelfHosted(normalizedKey);
+    }
+    if (normalizedKey.startsWith(ctx.prefix)) return normalizedKey;
+    if (ctx.teamPrefix && normalizedKey.startsWith(ctx.teamPrefix)) {
+      return normalizedKey;
+    }
+    return `${ctx.prefix}${normalizedKey}`;
   }
 
   /**
@@ -161,6 +178,54 @@ export class SyncService implements OnModuleInit {
     if (ctx.teamPrefix && key.startsWith(ctx.teamPrefix)) return;
 
     throw new ForbiddenException("Access denied to this key");
+  }
+
+  private normalizeRootPrefix(prefix: string): string {
+    const trimmed = prefix.replace(/^\/+|\/+$/g, "");
+    return trimmed ? `${trimmed}/` : "";
+  }
+
+  private normalizeObjectKey(key: string): string {
+    return key.replace(/^\/+/, "");
+  }
+
+  private prefixForSelfHosted(key: string): string {
+    if (!this.rootPrefix) return key;
+    if (key.startsWith(this.rootPrefix)) return key;
+    return `${this.rootPrefix}${key}`;
+  }
+
+  private stripSelfHostedRootPrefix(key: string): string {
+    if (!this.rootPrefix) return key;
+    return key.startsWith(this.rootPrefix)
+      ? key.substring(this.rootPrefix.length)
+      : key;
+  }
+
+  private emitAudit(event: Record<string, unknown>): void {
+    if (!this.auditLogFile) return;
+    void this.appendAudit(event);
+  }
+
+  private async appendAudit(event: Record<string, unknown>): Promise<void> {
+    if (!this.auditLogFile) return;
+    try {
+      await mkdir(dirname(this.auditLogFile), { recursive: true });
+      await appendFile(
+        this.auditLogFile,
+        `${JSON.stringify({
+          ...event,
+          timestamp: new Date().toISOString(),
+        })}\n`,
+        "utf8",
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to append sync audit log: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async stat(dto: StatRequestDto, ctx: UserContext): Promise<StatResponseDto> {
@@ -218,6 +283,12 @@ export class SyncService implements OnModuleInit {
     });
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+    this.emitAudit({
+      action: "presign_upload",
+      mode: ctx.mode,
+      key,
+      contentType: dto.contentType || "application/octet-stream",
+    });
 
     // Report profile usage after upload presign if key is under profiles/
     if (ctx.mode === "cloud" && dto.key.startsWith("profiles/")) {
@@ -246,6 +317,11 @@ export class SyncService implements OnModuleInit {
     });
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+    this.emitAudit({
+      action: "presign_download",
+      mode: ctx.mode,
+      key,
+    });
 
     return {
       url,
@@ -293,6 +369,15 @@ export class SyncService implements OnModuleInit {
       tombstoneCreated = true;
     }
 
+    this.emitAudit({
+      action: "delete",
+      mode: ctx.mode,
+      key,
+      deleted,
+      tombstoneCreated,
+      tombstoneKey: dto.tombstoneKey ? this.scopeKey(ctx, dto.tombstoneKey) : null,
+    });
+
     // Report profile usage after delete if key is under profiles/
     if (ctx.mode === "cloud" && dto.key.startsWith("profiles/")) {
       this.reportProfileUsageAsync(ctx);
@@ -302,7 +387,9 @@ export class SyncService implements OnModuleInit {
   }
 
   async list(dto: ListRequestDto, ctx?: UserContext): Promise<ListResponseDto> {
-    const prefix = ctx ? this.scopeKey(ctx, dto.prefix) : dto.prefix;
+    const prefix = ctx
+      ? this.scopeKey(ctx, dto.prefix)
+      : this.normalizeObjectKey(dto.prefix);
 
     const response = await this.s3Client.send(
       new ListObjectsV2Command({
@@ -313,7 +400,8 @@ export class SyncService implements OnModuleInit {
       }),
     );
 
-    const userPrefix = ctx?.prefix || "";
+    const userPrefix =
+      ctx?.mode === "self-hosted" ? this.rootPrefix : (ctx?.prefix ?? "");
     const teamPrefix = ctx?.teamPrefix || "";
     const objects = (response.Contents || []).map((obj) => {
       let key = obj.Key || "";
@@ -321,6 +409,8 @@ export class SyncService implements OnModuleInit {
         key = key.substring(teamPrefix.length);
       } else if (userPrefix && key.startsWith(userPrefix)) {
         key = key.substring(userPrefix.length);
+      } else if (ctx?.mode === "self-hosted") {
+        key = this.stripSelfHostedRootPrefix(key);
       }
       return {
         key,
@@ -379,6 +469,13 @@ export class SyncService implements OnModuleInit {
       }),
     );
 
+    this.emitAudit({
+      action: "presign_upload_batch",
+      mode: ctx.mode,
+      itemCount: items.length,
+      keys: items.map((item) => this.scopeKey(ctx, item.key)),
+    });
+
     // Report profile usage if any key is under profiles/
     if (
       ctx.mode === "cloud" &&
@@ -416,6 +513,13 @@ export class SyncService implements OnModuleInit {
         };
       }),
     );
+
+    this.emitAudit({
+      action: "presign_download_batch",
+      mode: ctx.mode,
+      keyCount: items.length,
+      keys: items.map((item) => this.scopeKey(ctx, item.key)),
+    });
 
     return { items };
   }
@@ -489,6 +593,15 @@ export class SyncService implements OnModuleInit {
       this.reportProfileUsageAsync(ctx);
     }
 
+    this.emitAudit({
+      action: "delete_prefix",
+      mode: ctx.mode,
+      prefix,
+      deletedCount,
+      tombstoneCreated,
+      tombstoneKey: dto.tombstoneKey ? this.scopeKey(ctx, dto.tombstoneKey) : null,
+    });
+
     return { deletedCount, tombstoneCreated };
   }
 
@@ -519,7 +632,7 @@ export class SyncService implements OnModuleInit {
 
         for (const prefix of prefixes) {
           try {
-            const result = await this.list({ prefix, maxKeys: 1000 });
+            const result = await this.list({ prefix, maxKeys: 1000 }, ctx);
             for (const obj of result.objects) {
               const stateKey = `${obj.key}:${obj.lastModified}`;
               currentState.set(obj.key, stateKey);

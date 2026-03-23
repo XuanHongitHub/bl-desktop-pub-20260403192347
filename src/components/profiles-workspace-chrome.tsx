@@ -6,6 +6,7 @@ import {
   LuArchive,
   LuCloud,
   LuPin,
+  LuPinOff,
   LuPlug,
   LuPuzzle,
   LuSearch,
@@ -38,7 +39,7 @@ type HeaderActionsProps = {
   onSyncConfigDialogOpen: (open: boolean) => void;
   onIntegrationsPageOpen: () => void;
   onExtensionManagementDialogOpen: (open: boolean) => void;
-  crossOsUnlocked?: boolean;
+  extensionManagementUnlocked?: boolean;
 };
 
 type ToolbarProps = {
@@ -98,7 +99,10 @@ function SavedViewsMenu({
       <DropdownMenuContent align="start" className="w-60">
         <DropdownMenuItem
           onClick={onCreateSavedView}
-          disabled={!searchQuery.trim() && selectedGroupId === "default"}
+          disabled={
+            !searchQuery.trim() &&
+            (selectedGroupId === "all" || selectedGroupId === "default")
+          }
         >
           <GoPlus className="mr-2 h-4 w-4" />
           {t("header.savedViews.saveCurrent")}
@@ -144,7 +148,7 @@ export function ProfilesWorkspaceHeaderActions({
   onSyncConfigDialogOpen,
   onIntegrationsPageOpen,
   onExtensionManagementDialogOpen,
-  crossOsUnlocked = false,
+  extensionManagementUnlocked = false,
 }: HeaderActionsProps) {
   const { t } = useTranslation();
 
@@ -195,15 +199,15 @@ export function ProfilesWorkspaceHeaderActions({
             {t("header.menu.groups")}
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!crossOsUnlocked}
-            className={cn(!crossOsUnlocked && "opacity-50")}
+            disabled={!extensionManagementUnlocked}
+            className={cn(!extensionManagementUnlocked && "opacity-50")}
             onClick={() => {
               onExtensionManagementDialogOpen(true);
             }}
           >
             <LuPuzzle className="mr-2 h-4 w-4" />
             {t("header.menu.extensions")}
-            {!crossOsUnlocked && <ProBadge className="ml-auto" />}
+            {!extensionManagementUnlocked && <ProBadge className="ml-auto" />}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
@@ -301,10 +305,17 @@ export function ProfilesWorkspaceToolbar({
             <Button
               size="sm"
               variant={showPinnedOnly ? "default" : "outline"}
-              className="relative flex h-[36px] items-center gap-2"
+              className="relative flex h-[36px] items-center gap-2 px-2.5"
               onClick={onTogglePinnedOnly}
             >
-              <LuPin className="h-4 w-4" />
+              {showPinnedOnly ? (
+                <LuPinOff className="h-4 w-4" />
+              ) : (
+                <LuPin className="h-4 w-4" />
+              )}
+              <span className="text-xs font-medium">
+                {t("profiles.actions.pinned")}
+              </span>
               {pinnedCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-4 text-primary-foreground">
                   {pinnedCount}

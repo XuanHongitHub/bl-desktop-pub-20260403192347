@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
@@ -23,6 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type { BrowserProfile, ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -41,6 +47,7 @@ export function GroupAssignmentDialog({
   onAssignmentComplete,
   profiles = [],
 }: GroupAssignmentDialogProps) {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState<ProfileGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,7 +60,14 @@ export function GroupAssignmentDialog({
     setError(null);
     try {
       const groupList = await invoke<ProfileGroup[]>("get_profile_groups");
-      setGroups(groupList);
+      const scope = getCurrentDataScope();
+      const scopedGroups = scopeEntitiesForContext(
+        "groups",
+        groupList,
+        (group) => group.id,
+        scope,
+      );
+      setGroups(scopedGroups);
     } catch (err) {
       console.error("Failed to load groups:", err);
       setError(err instanceof Error ? err.message : "Failed to load groups");
@@ -107,11 +121,24 @@ export function GroupAssignmentDialog({
     }
   }, [isOpen, loadGroups]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const handleScopeChanged = () => {
+      void loadGroups();
+    };
+    window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    return () => {
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    };
+  }, [isOpen, loadGroups]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign to Group</DialogTitle>
+          <DialogTitle>{t("groupAssignmentDialog.title")}</DialogTitle>
           <DialogDescription>
             Assign {selectedProfiles.length} selected profile(s) to a group.
           </DialogDescription>
@@ -119,7 +146,7 @@ export function GroupAssignmentDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Selected Profiles:</Label>
+            <Label>{t("groupAssignmentDialog.labels.selectedProfiles")}</Label>
             <ScrollArea className="p-3 bg-muted rounded-md max-h-32">
               <ul className="text-sm space-y-1">
                 {selectedProfiles.map((profileId) => {
@@ -140,7 +167,9 @@ export function GroupAssignmentDialog({
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <Label htmlFor="group-select">Assign to Group:</Label>
+              <Label htmlFor="group-select">
+                {t("groupAssignmentDialog.labels.assignToGroup")}
+              </Label>
               <RippleButton
                 size="sm"
                 variant="outline"
@@ -165,7 +194,9 @@ export function GroupAssignmentDialog({
                   <SelectValue placeholder="Select a group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Default (No Group)</SelectItem>
+                  <SelectItem value="default">
+                    {t("groupAssignmentDialog.labels.defaultNoGroup")}
+                  </SelectItem>
                   {groups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}

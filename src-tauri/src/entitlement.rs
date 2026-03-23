@@ -39,6 +39,17 @@ pub struct RuntimeConfigStatus {
   pub auth: FeatureConfigStatus,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeatureAccessSnapshot {
+  pub pro_features: bool,
+  pub extension_management: bool,
+  pub cookie_management: bool,
+  pub fingerprint_editing: bool,
+  pub cross_os_spoofing: bool,
+  pub sync_encryption: bool,
+  pub read_only: bool,
+}
+
 fn now_iso() -> String {
   Utc::now().to_rfc3339()
 }
@@ -125,6 +136,25 @@ pub async fn set_entitlement_state(
 pub async fn is_entitlement_read_only() -> Result<bool, String> {
   let snapshot = load_snapshot_from_path(&entitlement_file_path())?;
   Ok(snapshot.state == EntitlementState::ReadOnly)
+}
+
+#[tauri::command]
+pub async fn get_feature_access_snapshot() -> Result<FeatureAccessSnapshot, String> {
+  let entitlement_snapshot = load_snapshot_from_path(&entitlement_file_path())?;
+  let pro_features = crate::cloud_auth::CLOUD_AUTH
+    .has_active_paid_subscription()
+    .await;
+  let sync_encryption = crate::cloud_auth::CLOUD_AUTH.has_pro_or_owner_access().await;
+
+  Ok(FeatureAccessSnapshot {
+    pro_features,
+    extension_management: pro_features,
+    cookie_management: pro_features,
+    fingerprint_editing: pro_features,
+    cross_os_spoofing: pro_features,
+    sync_encryption,
+    read_only: entitlement_snapshot.state == EntitlementState::ReadOnly,
+  })
 }
 
 #[tauri::command]

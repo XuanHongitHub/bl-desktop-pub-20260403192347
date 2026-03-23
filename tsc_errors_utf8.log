@@ -1,0 +1,3 @@
+﻿src/components/cloud-auth-dialog.tsx(246,16): error TS2741: Property 'isLoading' is missing in type '{ children: string; type: "button"; variant: "outline"; onClick: () => void; disabled: boolean; }' but required in type '{ isLoading: boolean; "aria-label"?: string | undefined; }'.
+src/components/settings-dialog.tsx(513,11): error TS2345: Argument of type '"fr" | "en" | "es" | "pt" | "zh" | "ja" | "ru" | null' is not assignable to parameter of type '"vi" | "en" | null'.
+  Type '"fr"' is not assignable to type '"vi" | "en" | null'.

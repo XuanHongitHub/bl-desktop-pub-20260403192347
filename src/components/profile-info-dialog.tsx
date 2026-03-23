@@ -15,6 +15,7 @@ import {
   LuGlobe,
   LuGroup,
   LuPin,
+  LuPinOff,
   LuPlus,
   LuPuzzle,
   LuRefreshCw,
@@ -74,7 +75,8 @@ interface ProfileInfoDialogProps {
   onUnpinProfile?: (profile: BrowserProfile) => void;
   isArchived?: boolean;
   isPinned?: boolean;
-  crossOsUnlocked?: boolean;
+  extensionManagementUnlocked?: boolean;
+  cookieManagementUnlocked?: boolean;
   isRunning?: boolean;
   isDisabled?: boolean;
   isCrossOs?: boolean;
@@ -125,7 +127,8 @@ export function ProfileInfoDialog({
   onUnpinProfile,
   isArchived = false,
   isPinned = false,
-  crossOsUnlocked = false,
+  extensionManagementUnlocked = false,
+  cookieManagementUnlocked = false,
   isRunning = false,
   isDisabled = false,
   isCrossOs = false,
@@ -267,8 +270,8 @@ export function ProfileInfoDialog({
       icon: <LuCopy className="w-4 h-4" />,
       label: t("profiles.actions.copyCookiesToProfile"),
       onClick: () => handleAction(() => onCopyCookiesToProfile?.(profile)),
-      disabled: isDisabled || !crossOsUnlocked,
-      proBadge: !crossOsUnlocked,
+      disabled: isDisabled || !cookieManagementUnlocked,
+      proBadge: !cookieManagementUnlocked,
       hidden:
         !isCamoufoxOrWayfern ||
         profile.ephemeral === true ||
@@ -278,8 +281,8 @@ export function ProfileInfoDialog({
       icon: <LuCookie className="w-4 h-4" />,
       label: t("profileInfo.actions.manageCookies"),
       onClick: () => handleAction(() => onOpenCookieManagement?.(profile)),
-      disabled: isDisabled || !crossOsUnlocked,
-      proBadge: !crossOsUnlocked,
+      disabled: isDisabled || !cookieManagementUnlocked,
+      proBadge: !cookieManagementUnlocked,
       hidden:
         !isCamoufoxOrWayfern ||
         profile.ephemeral === true ||
@@ -296,8 +299,8 @@ export function ProfileInfoDialog({
       icon: <LuPuzzle className="w-4 h-4" />,
       label: t("profileInfo.actions.assignExtensionGroup"),
       onClick: () => handleAction(() => onAssignExtensionGroup?.([profile.id])),
-      disabled: isDisabled || !crossOsUnlocked,
-      proBadge: !crossOsUnlocked,
+      disabled: isDisabled || !extensionManagementUnlocked,
+      proBadge: !extensionManagementUnlocked,
       hidden: profile.ephemeral === true,
     },
     {
@@ -313,7 +316,11 @@ export function ProfileInfoDialog({
       destructive: true,
     },
     {
-      icon: <LuPin className="w-4 h-4" />,
+      icon: isPinned ? (
+        <LuPinOff className="w-4 h-4" />
+      ) : (
+        <LuPin className="w-4 h-4" />
+      ),
       label: isPinned ? t("profiles.actions.unpin") : t("profiles.actions.pin"),
       onClick: () =>
         handleAction(() =>

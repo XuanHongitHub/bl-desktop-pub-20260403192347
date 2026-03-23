@@ -21,6 +21,7 @@ import { GroupManagementDialog } from "@/components/group-management-dialog";
 import { ImportProfileDialog } from "@/components/import-profile-dialog";
 import { IntegrationsDialog } from "@/components/integrations-dialog";
 import { LaunchOnLoginDialog } from "@/components/launch-on-login-dialog";
+import { MainWorkspaceTopBar } from "@/components/main-workspace-topbar";
 import { PermissionDialog } from "@/components/permission-dialog";
 import { PlatformAdminWorkspace } from "@/components/platform-admin-workspace";
 import { ProfilesDataTable } from "@/components/profile-data-table";
@@ -35,14 +36,15 @@ import { ProxyManagementDialog } from "@/components/proxy-management-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { SyncAllDialog } from "@/components/sync-all-dialog";
 import { SyncConfigDialog } from "@/components/sync-config-dialog";
-import { WorkspaceBillingPage } from "@/components/workspace-billing-page";
-import { WorkspacePricingPage } from "@/components/workspace-pricing-page";
+import { AppState, AppStateOverlay } from "@/components/ui/app-state";
+import { Button } from "@/components/ui/button";
 import { WayfernTermsDialog } from "@/components/wayfern-terms-dialog";
 import { WindowResizeWarningDialog } from "@/components/window-resize-warning-dialog";
+import { WorkspaceBillingPage } from "@/components/workspace-billing-page";
 import { WorkspacePageShell } from "@/components/workspace-page-shell";
+import { WorkspacePricingPage } from "@/components/workspace-pricing-page";
 import { useAppUpdateNotifications } from "@/hooks/use-app-update-notifications";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
-import { useGroupEvents } from "@/hooks/use-group-events";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useProfileEvents } from "@/hooks/use-profile-events";
@@ -52,7 +54,9 @@ import { useUpdateNotifications } from "@/hooks/use-update-notifications";
 import { useVersionUpdater } from "@/hooks/use-version-updater";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { useWayfernTerms } from "@/hooks/use-wayfern-terms";
+import { getBrowserDisplayName } from "@/lib/browser-utils";
 import { extractRootError } from "@/lib/error-utils";
+import { formatLocaleDate } from "@/lib/locale-format";
 import {
   canPerformTeamAction,
   normalizeTeamRole,
@@ -65,6 +69,7 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
+import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import {
   alignEntityScopesFromProfileReferences,
   DATA_SCOPE_CHANGED_EVENT,
@@ -148,6 +153,35 @@ interface WorkspaceBillingContext {
 
 type ProfileViewMode = "active" | "archived";
 const ALL_GROUP_ID = "all";
+const FREE_WORKSPACE_PROFILE_LIMIT = 3;
+const PLAN_PROFILE_LIMIT_FALLBACK: Record<
+  "starter" | "growth" | "scale" | "custom",
+  number
+> = {
+  starter: 100,
+  growth: 300,
+  scale: 1000,
+  custom: 2000,
+};
+const WORKSPACE_SWITCH_MIN_DURATION_MS = 1100;
+const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 700;
+const URL_DEDUP_WINDOW_MS = 8_000;
+const WORKSPACE_GOVERNANCE_SECTIONS: AppSection[] = [
+  "workspace-governance",
+  "workspace-admin-overview",
+  "workspace-admin-directory",
+  "workspace-admin-permissions",
+  "workspace-admin-members",
+  "workspace-admin-access",
+  "workspace-admin-workspace",
+  "workspace-admin-audit",
+  "workspace-admin-system",
+  "workspace-admin-analytics",
+];
+
+function isWorkspaceGovernanceSection(section: AppSection): boolean {
+  return WORKSPACE_GOVERNANCE_SECTIONS.includes(section);
+}
 
 function normalizeBaseUrl(url?: string | null): string | null {
   if (!url) {
@@ -168,8 +202,56 @@ function formatPlanLabel(plan?: string | null): string | null {
   return normalized
     .split(/[\s_-]+/)
     .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
+    .map(
+      (token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase(),
+    )
     .join(" ");
+}
+
+function resolveWorkspaceProfileLimit(input: {
+  workspaceId: string;
+  workspaceMode: "personal" | "team";
+  planLabel: string | null;
+  profileLimit: number | null | undefined;
+}): number | null {
+  const explicitLimit =
+    typeof input.profileLimit === "number" && input.profileLimit > 0
+      ? Math.round(input.profileLimit)
+      : null;
+
+  if (explicitLimit !== null) {
+    return explicitLimit;
+  }
+
+  const normalizedPlanId = normalizePlanIdFromLabel(input.planLabel);
+  if (!normalizedPlanId) {
+    const normalizedLabel = input.planLabel?.trim().toLowerCase() ?? "";
+    const looksLikeFreePlan =
+      !normalizedLabel ||
+      normalizedLabel.includes("free") ||
+      normalizedLabel.includes("miễn") ||
+      normalizedLabel.includes("không trả");
+    return looksLikeFreePlan
+      ? FREE_WORKSPACE_PROFILE_LIMIT
+      : PLAN_PROFILE_LIMIT_FALLBACK.starter;
+  }
+
+  return PLAN_PROFILE_LIMIT_FALLBACK[normalizedPlanId];
+}
+
+function resolveWorkspaceDisplayName(input: {
+  name: string | null | undefined;
+  mode: "personal" | "team";
+  userEmail: string | null | undefined;
+}): string {
+  const normalizedName = input.name?.trim() ?? "";
+  if (input.mode === "personal") {
+    const lower = normalizedName.toLowerCase();
+    if (!normalizedName || lower === "personal workspace") {
+      return input.userEmail?.trim() || normalizedName || "Workspace";
+    }
+  }
+  return normalizedName || input.userEmail?.trim() || "Workspace";
 }
 
 function resolveWorkspaceRole(input: {
@@ -195,29 +277,118 @@ function resolveWorkspaceRole(input: {
   return "member";
 }
 
-function extractInviteTokenFromUrl(rawUrl: string): string | null {
+type OAuthCallbackPayload = {
+  email?: string;
+  name?: string;
+  avatar?: string;
+  error?: string;
+};
+
+function decodeJwtPayload(idToken: string): Record<string, unknown> | null {
   try {
-    const parsed = new URL(rawUrl);
-    const token =
-      parsed.searchParams.get("token") ||
-      parsed.searchParams.get("invite_token") ||
-      parsed.searchParams.get("inviteToken");
-    if (!token) {
+    const payloadBase64 = idToken.split(".")[1];
+    if (!payloadBase64) {
       return null;
     }
-    const normalizedToken = token.trim();
-    if (!normalizedToken) {
-      return null;
-    }
-    return normalizedToken;
+    const base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((char) => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .join(""),
+    );
+    return JSON.parse(jsonPayload) as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
+function extractOAuthCallbackPayload(
+  rawUrl: string,
+): OAuthCallbackPayload | null {
+  try {
+    const parsed = new URL(rawUrl);
+    const isBugloginCallback =
+      parsed.protocol === "buglogin:" && parsed.hostname === "oauth-callback";
+    const isLocalhostCallback =
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      parsed.hostname === "localhost" &&
+      parsed.pathname === "/oauth-callback";
+    if (!isBugloginCallback && !isLocalhostCallback) {
+      return null;
+    }
+
+    const hashParams = new URLSearchParams(
+      parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash,
+    );
+    const getParam = (key: string) =>
+      parsed.searchParams.get(key) ?? hashParams.get(key);
+
+    const error = getParam("error");
+    if (error) {
+      return { error };
+    }
+
+    const email = getParam("email");
+    if (email) {
+      return {
+        email,
+        name: getParam("name") ?? undefined,
+        avatar: getParam("avatar") ?? undefined,
+      };
+    }
+
+    const idToken = getParam("id_token");
+    if (!idToken) {
+      return { error: "invalid_callback_payload" };
+    }
+
+    const payload = decodeJwtPayload(idToken);
+    const payloadEmail =
+      payload && typeof payload.email === "string" ? payload.email : null;
+    if (!payloadEmail) {
+      return { error: "invalid_callback_payload" };
+    }
+
+    return {
+      email: payloadEmail,
+      name:
+        payload && typeof payload.name === "string" ? payload.name : undefined,
+      avatar:
+        payload && typeof payload.picture === "string"
+          ? payload.picture
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildUrlProcessingKey(rawUrl: string): string {
+  const normalizedUrl = rawUrl.trim();
+  if (!normalizedUrl) {
+    return "";
+  }
+
+  const oauthPayload = extractOAuthCallbackPayload(normalizedUrl);
+  if (oauthPayload) {
+    if (oauthPayload.error) {
+      return `oauth:error:${oauthPayload.error}`;
+    }
+    const normalizedEmail = oauthPayload.email?.trim().toLowerCase() ?? "";
+    if (normalizedEmail) {
+      return `oauth:email:${normalizedEmail}`;
+    }
+    return `oauth:raw:${normalizedUrl}`;
+  }
+
+  return `url:${normalizedUrl}`;
+}
+
 export default function Home() {
   const { t } = useTranslation();
-  const showRuntimeConfigHints = process.env.NODE_ENV !== "production";
+  const showRuntimeConfigHints =
+    process.env.NEXT_PUBLIC_SHOW_RUNTIME_CONFIG_HINTS === "1";
 
   // Mount global version update listener/toasts
   useVersionUpdater();
@@ -225,24 +396,22 @@ export default function Home() {
   // Use the new profile events hook for centralized profile management
   const {
     profiles,
+    groups: groupsData,
     runningProfiles,
     isLoading: profilesLoading,
     error: profilesError,
+    loadProfiles: reloadProfiles,
+    loadGroups: reloadGroups,
   } = useProfileEvents();
-
-  const {
-    groups: groupsData,
-    isLoading: groupsLoading,
-    error: groupsError,
-  } = useGroupEvents();
 
   const {
     storedProxies,
     isLoading: proxiesLoading,
     error: proxiesError,
+    loadProxies: reloadProxies,
   } = useProxyEvents();
 
-  const { vpnConfigs } = useVpnEvents();
+  const { vpnConfigs, loadVpnConfigs: reloadVpnConfigs } = useVpnEvents();
 
   // Wayfern terms hooks
   const {
@@ -254,11 +423,22 @@ export default function Home() {
     user: cloudUser,
     logout: cloudLogout,
     isLoading: isCloudAuthLoading,
+    loginWithEmail,
+    refreshProfile,
   } = useCloudAuth();
-  const crossOsUnlocked = true;
+  const [isPostLoginTransitioning, setIsPostLoginTransitioning] =
+    useState(false);
+  const hasShownAuthScreenRef = useRef(false);
+  const postLoginTransitionTimerRef = useRef<number | null>(null);
+  const { entitlement, featureAccess, isReadOnly, runtimeConfig } =
+    useRuntimeAccess();
+  const crossOsUnlocked = featureAccess?.cross_os_spoofing ?? false;
+  const extensionManagementUnlocked =
+    featureAccess?.extension_management ?? false;
+  const cookieManagementUnlocked = featureAccess?.cookie_management ?? false;
+  const syncEncryptionUnlocked = featureAccess?.sync_encryption ?? false;
   const teamRole = normalizeTeamRole(cloudUser?.teamRole);
   const isPlatformAdmin = cloudUser?.platformRole === "platform_admin";
-  const { entitlement, isReadOnly, runtimeConfig } = useRuntimeAccess();
   const syncUnlocked = runtimeConfig?.s3_sync === "ready";
   const [workspaceSwitcherSummaries, setWorkspaceSwitcherSummaries] = useState<
     WorkspaceSwitcherSummary[]
@@ -269,7 +449,7 @@ export default function Home() {
   const [workspaceProfilesUsed, setWorkspaceProfilesUsed] = useState<
     Record<string, number>
   >({});
-  const [dataScopeVersion, setDataScopeVersion] = useState(0);
+  const [_dataScopeVersion, setDataScopeVersion] = useState(0);
 
   useEffect(() => {
     const handleDataScopeChanged = () => {
@@ -278,7 +458,53 @@ export default function Home() {
 
     window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleDataScopeChanged);
     return () => {
-      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleDataScopeChanged);
+      window.removeEventListener(
+        DATA_SCOPE_CHANGED_EVENT,
+        handleDataScopeChanged,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cloudUser && !isCloudAuthLoading) {
+      hasShownAuthScreenRef.current = true;
+      setIsPostLoginTransitioning(false);
+      if (
+        typeof window !== "undefined" &&
+        postLoginTransitionTimerRef.current !== null
+      ) {
+        window.clearTimeout(postLoginTransitionTimerRef.current);
+        postLoginTransitionTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (!cloudUser || isCloudAuthLoading || !hasShownAuthScreenRef.current) {
+      return;
+    }
+
+    hasShownAuthScreenRef.current = false;
+    setIsPostLoginTransitioning(true);
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (postLoginTransitionTimerRef.current !== null) {
+      window.clearTimeout(postLoginTransitionTimerRef.current);
+    }
+    postLoginTransitionTimerRef.current = window.setTimeout(() => {
+      setIsPostLoginTransitioning(false);
+      postLoginTransitionTimerRef.current = null;
+    }, POST_LOGIN_TRANSITION_MIN_DURATION_MS);
+  }, [cloudUser, isCloudAuthLoading]);
+
+  useEffect(() => {
+    return () => {
+      if (
+        typeof window !== "undefined" &&
+        postLoginTransitionTimerRef.current !== null
+      ) {
+        window.clearTimeout(postLoginTransitionTimerRef.current);
+      }
     };
   }, []);
 
@@ -297,27 +523,48 @@ export default function Home() {
     if (!cloudUser) {
       return [];
     }
+    const freePlanLabel = t("billingPage.freePlanLabel");
 
     if (cloudUser.workspaceSeeds && cloudUser.workspaceSeeds.length > 0) {
-      return cloudUser.workspaceSeeds.map((workspace) => ({
-        id: workspace.id,
-        name: workspace.name,
-        mode: workspace.mode,
-        role: resolveWorkspaceRole({
-          workspaceId: workspace.id,
-          workspaceMode: workspace.mode,
-          platformRole: cloudUser.platformRole,
-          workspaceSeedRole: workspace.role ?? null,
-          teamWorkspaceId: cloudUser.teamId ?? null,
-          userTeamRole: teamRole,
-        }),
-        planLabel: workspace.planLabel ?? null,
-        entitlementState: workspace.entitlementState ?? "active",
-        profileLimit:
-          typeof workspace.profileLimit === "number" ? workspace.profileLimit : null,
-        expiresAt: workspace.expiresAt ?? null,
-      }));
+      return cloudUser.workspaceSeeds.map((workspace) => {
+        const planLabel = workspace.planLabel ?? null;
+        const workspaceName = resolveWorkspaceDisplayName({
+          name: workspace.name,
+          mode: workspace.mode,
+          userEmail: cloudUser.email,
+        });
+        return {
+          id: workspace.id,
+          name: workspaceName,
+          mode: workspace.mode,
+          role: resolveWorkspaceRole({
+            workspaceId: workspace.id,
+            workspaceMode: workspace.mode,
+            platformRole: cloudUser.platformRole,
+            workspaceSeedRole: workspace.role ?? null,
+            teamWorkspaceId: cloudUser.teamId ?? null,
+            userTeamRole: teamRole,
+          }),
+          planLabel,
+          entitlementState: workspace.entitlementState ?? "active",
+          profileLimit: resolveWorkspaceProfileLimit({
+            workspaceId: workspace.id,
+            workspaceMode: workspace.mode,
+            planLabel,
+            profileLimit: workspace.profileLimit,
+          }),
+          expiresAt: workspace.expiresAt ?? null,
+        };
+      });
     }
+
+    const defaultPersonalPlanLabel =
+      formatPlanLabel(cloudUser.plan) ?? freePlanLabel;
+    const defaultPersonalName = resolveWorkspaceDisplayName({
+      name: cloudUser.email,
+      mode: "personal",
+      userEmail: cloudUser.email,
+    });
 
     const rows: Array<{
       id: string;
@@ -330,31 +577,40 @@ export default function Home() {
       expiresAt: string | null;
     }> = [];
     if (cloudUser.teamId || cloudUser.teamName) {
+      const teamPlanLabel = formatPlanLabel(cloudUser.plan);
       rows.push({
         id: cloudUser.teamId ?? "team",
         name: cloudUser.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
         mode: "team",
         role: teamRole ?? "member",
-        planLabel: formatPlanLabel(cloudUser.plan),
+        planLabel: teamPlanLabel,
         entitlementState: "active",
-        profileLimit:
-          typeof cloudUser.profileLimit === "number" ? cloudUser.profileLimit : null,
+        profileLimit: resolveWorkspaceProfileLimit({
+          workspaceId: cloudUser.teamId ?? "team",
+          workspaceMode: "team",
+          planLabel: teamPlanLabel,
+          profileLimit: cloudUser.profileLimit,
+        }),
         expiresAt: null,
       });
     }
     rows.push({
       id: "personal",
-      name: t("shell.workspaceSwitcher.personalWorkspace"),
+      name: defaultPersonalName,
       mode: "personal",
       role: "owner",
-      planLabel: formatPlanLabel(cloudUser.plan),
+      planLabel: defaultPersonalPlanLabel,
       entitlementState: "active",
-      profileLimit:
-        typeof cloudUser.profileLimit === "number" ? cloudUser.profileLimit : null,
+      profileLimit: resolveWorkspaceProfileLimit({
+        workspaceId: "personal",
+        workspaceMode: "personal",
+        planLabel: defaultPersonalPlanLabel,
+        profileLimit: cloudUser.profileLimit,
+      }),
       expiresAt: null,
     });
     return rows;
-  }, [cloudUser, t]);
+  }, [cloudUser, t, teamRole]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -393,9 +649,9 @@ export default function Home() {
     };
   }, [
     cloudUser?.id,
-    dataScopeVersion,
-    JSON.stringify(fallbackWorkspaceDescriptors),
-    profiles.length,
+    fallbackWorkspaceDescriptors.length,
+    fallbackWorkspaceDescriptors.map,
+    cloudUser,
   ]);
 
   useEffect(() => {
@@ -430,10 +686,13 @@ export default function Home() {
           headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
         }
 
-        const workspaceResponse = await fetch(`${baseUrl}/v1/control/workspaces`, {
-          method: "GET",
-          headers,
-        });
+        const workspaceResponse = await fetch(
+          `${baseUrl}/v1/control/workspaces`,
+          {
+            method: "GET",
+            headers,
+          },
+        );
         if (!workspaceResponse.ok) {
           if (!isCancelled) {
             setWorkspaceSwitcherSummaries([]);
@@ -444,7 +703,8 @@ export default function Home() {
           return;
         }
 
-        const workspaces = (await workspaceResponse.json()) as ControlWorkspace[];
+        const workspaces =
+          (await workspaceResponse.json()) as ControlWorkspace[];
         if (!Array.isArray(workspaces) || workspaces.length === 0) {
           if (!isCancelled) {
             setWorkspaceSwitcherSummaries([]);
@@ -499,9 +759,17 @@ export default function Home() {
               (item) => item.id === workspace.id,
             );
             const fallbackPlanLabel =
-              workspace.id === cloudUser.teamId || workspace.id === "personal"
+              workspace.planLabel ??
+              (workspace.id === cloudUser.teamId
                 ? formatPlanLabel(cloudUser.plan)
-                : null;
+                : null);
+            const planLabel =
+              workspace.planLabel ?? seed?.planLabel ?? fallbackPlanLabel;
+            const workspaceName = resolveWorkspaceDisplayName({
+              name: workspace.name,
+              mode: workspace.mode,
+              userEmail: cloudUser.email,
+            });
             const workspaceRole = resolveWorkspaceRole({
               workspaceId: workspace.id,
               workspaceMode: workspace.mode,
@@ -512,18 +780,25 @@ export default function Home() {
             });
             return {
               id: workspace.id,
-              name: workspace.name,
+              name: workspaceName,
               mode: workspace.mode,
               role: workspaceRole,
               members: overview?.members ?? 0,
               activeInvites: overview?.activeInvites ?? 0,
               activeShareGrants: overview?.activeShareGrants ?? 0,
               entitlementState: overview?.entitlementState ?? "active",
-              profileLimit:
-                typeof seed?.profileLimit === "number" ? seed.profileLimit : null,
+              profileLimit: resolveWorkspaceProfileLimit({
+                workspaceId: workspace.id,
+                workspaceMode: workspace.mode,
+                planLabel,
+                profileLimit:
+                  typeof workspace.profileLimit === "number"
+                    ? workspace.profileLimit
+                    : seed?.profileLimit,
+              }),
               profilesUsed: profilesUsedByWorkspace[workspace.id] ?? 0,
-              planLabel: seed?.planLabel ?? fallbackPlanLabel,
-              expiresAt: seed?.expiresAt ?? null,
+              planLabel,
+              expiresAt: workspace.expiresAt ?? seed?.expiresAt ?? null,
             };
           },
         );
@@ -548,9 +823,10 @@ export default function Home() {
     cloudUser?.platformRole,
     cloudUser?.teamId,
     cloudUser?.teamName,
-    dataScopeVersion,
-    JSON.stringify(cloudUser?.workspaceSeeds || []),
-    profiles.length,
+    cloudUser.plan,
+    cloudUser.workspaceSeeds?.find,
+    teamRole,
+    cloudUser,
   ]);
 
   const workspaceOptions = useMemo<WorkspaceSwitcherOption[]>(() => {
@@ -558,30 +834,35 @@ export default function Home() {
       return [];
     }
 
+    const freePlanLabel = t("billingPage.freePlanLabel");
+
     if (workspaceSwitcherSummaries.length > 0) {
       return workspaceSwitcherSummaries.map((workspace) => ({
         id: workspace.id,
         label: workspace.name,
-        details: workspace.profilesUsed > 0
-          ? workspace.profileLimit !== null && workspace.profileLimit > 0
-            ? t("shell.workspaceSwitcher.usageProfiles", {
-                used: workspace.profilesUsed,
-                limit: workspace.profileLimit || "∞",
-              })
-            : t("shell.workspaceSwitcher.usageProfilesUsedOnly", {
-                used: workspace.profilesUsed,
-              })
-          : t("shell.workspaceSwitcher.membersInvites", {
-              members: workspace.members,
-              invites: workspace.activeInvites,
-            }),
+        details:
+          workspace.profilesUsed > 0
+            ? workspace.profileLimit !== null && workspace.profileLimit > 0
+              ? t("shell.workspaceSwitcher.usageProfiles", {
+                  used: workspace.profilesUsed,
+                  limit: workspace.profileLimit || "∞",
+                })
+              : t("shell.workspaceSwitcher.usageProfilesUsedOnly", {
+                  used: workspace.profilesUsed,
+                })
+            : t("shell.workspaceSwitcher.membersInvites", {
+                members: workspace.members,
+                invites: workspace.activeInvites,
+              }),
         status:
           `${t(`shell.roles.${workspace.role}`)} · ` +
           (workspace.expiresAt
             ? t("shell.workspaceSwitcher.expiresOn", {
-                date: new Date(workspace.expiresAt).toLocaleDateString(),
+                date: formatLocaleDate(workspace.expiresAt),
               })
-            : t(`shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`)),
+            : t(
+                `shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`,
+              )),
         planLabel: workspace.planLabel ?? undefined,
       }));
     }
@@ -597,11 +878,13 @@ export default function Home() {
         status: workspace.expiresAt
           ? t("shell.workspaceSwitcher.planExpiry", {
               plan: `${t(`shell.roles.${workspace.role}`)} · ${workspace.planLabel ?? t("billingPage.planFallback")}`,
-              date: new Date(workspace.expiresAt).toLocaleDateString(),
+              date: formatLocaleDate(workspace.expiresAt),
             })
           : t("shell.workspaceSwitcher.planSummary", {
               plan: `${t(`shell.roles.${workspace.role}`)} · ${workspace.planLabel ?? t("billingPage.planFallback")}`,
-              status: t(`shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`),
+              status: t(
+                `shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`,
+              ),
             }),
         planLabel: workspace.planLabel ?? undefined,
       }));
@@ -609,32 +892,52 @@ export default function Home() {
 
     const options: WorkspaceSwitcherOption[] = [];
     if (cloudUser.teamId || cloudUser.teamName) {
+      const teamPlanLabel = formatPlanLabel(cloudUser.plan);
+      const teamProfileLimit = resolveWorkspaceProfileLimit({
+        workspaceId: cloudUser.teamId ?? "team",
+        workspaceMode: "team",
+        planLabel: teamPlanLabel,
+        profileLimit: cloudUser.profileLimit,
+      });
       options.push({
         id: cloudUser.teamId ?? "team",
         label: cloudUser.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
         details: t("shell.workspaceSwitcher.usageProfiles", {
           used: cloudUser.cloudProfilesUsed,
-          limit: cloudUser.profileLimit || "∞",
+          limit: teamProfileLimit || "∞",
         }),
         status: t("shell.workspaceSwitcher.planSummary", {
           plan: `${t(`shell.roles.${teamRole ?? "member"}`)} · ${cloudUser.plan}`,
           status: cloudUser.subscriptionStatus,
         }),
-        planLabel: formatPlanLabel(cloudUser.plan) ?? undefined,
+        planLabel: teamPlanLabel ?? undefined,
       });
     }
+    const defaultPersonalPlanLabel =
+      formatPlanLabel(cloudUser.plan) ?? freePlanLabel;
+    const defaultPersonalName = resolveWorkspaceDisplayName({
+      name: cloudUser.email,
+      mode: "personal",
+      userEmail: cloudUser.email,
+    });
+    const personalProfileLimit = resolveWorkspaceProfileLimit({
+      workspaceId: "personal",
+      workspaceMode: "personal",
+      planLabel: defaultPersonalPlanLabel,
+      profileLimit: cloudUser.profileLimit,
+    });
     options.push({
       id: "personal",
-      label: t("shell.workspaceSwitcher.personalWorkspace"),
+      label: defaultPersonalName,
       details: t("shell.workspaceSwitcher.usageProfiles", {
         used: cloudUser.cloudProfilesUsed,
-        limit: cloudUser.profileLimit || "∞",
+        limit: personalProfileLimit || "∞",
       }),
       status: t("shell.workspaceSwitcher.planSummary", {
-        plan: `${t("shell.roles.owner")} · ${cloudUser.plan}`,
+        plan: `${t("shell.roles.owner")} · ${defaultPersonalPlanLabel}`,
         status: cloudUser.subscriptionStatus,
       }),
-      planLabel: formatPlanLabel(cloudUser.plan) ?? undefined,
+      planLabel: defaultPersonalPlanLabel,
     });
 
     if (workspaceSwitcherError && cloudUser.platformRole === "platform_admin") {
@@ -655,52 +958,149 @@ export default function Home() {
     workspaceProfilesUsed,
     workspaceSwitcherError,
     workspaceSwitcherSummaries,
+    teamRole,
   ]);
 
-  const [sidebarWorkspaceId, setSidebarWorkspaceId] = useState<string>("personal");
+  const [sidebarWorkspaceId, setSidebarWorkspaceId] =
+    useState<string>("personal");
+  const [workspaceSwitchState, setWorkspaceSwitchState] = useState<{
+    targetWorkspaceId: string;
+    startedAt: number;
+  } | null>(null);
+  const workspaceScopeRecoveryKeyRef = useRef<string>("");
+  const didRestoreWorkspaceSelectionRef = useRef(false);
+  const [isWorkspaceSelectionReady, setIsWorkspaceSelectionReady] =
+    useState(false);
+  const handleWorkspaceChange = useCallback(
+    (nextWorkspaceId: string) => {
+      if (nextWorkspaceId === sidebarWorkspaceId) {
+        return;
+      }
+      setWorkspaceSwitchState({
+        targetWorkspaceId: nextWorkspaceId,
+        startedAt: Date.now(),
+      });
+      setSidebarWorkspaceId(nextWorkspaceId);
+    },
+    [sidebarWorkspaceId],
+  );
 
-  const selectedWorkspaceContext = useMemo<WorkspaceBillingContext | null>(() => {
-    const fromSummary = workspaceSwitcherSummaries.find(
-      (workspace) => workspace.id === sidebarWorkspaceId,
-    );
-    if (fromSummary) {
-      return {
-        id: fromSummary.id,
-        name: fromSummary.name,
-        mode: fromSummary.mode,
-        role: fromSummary.role,
-        planLabel: fromSummary.planLabel ?? null,
-        profileLimit: fromSummary.profileLimit ?? null,
-        profilesUsed: fromSummary.profilesUsed,
-        entitlementState: fromSummary.entitlementState,
-      };
+  const selectedWorkspaceContext =
+    useMemo<WorkspaceBillingContext | null>(() => {
+      const fromSummary = workspaceSwitcherSummaries.find(
+        (workspace) => workspace.id === sidebarWorkspaceId,
+      );
+      if (fromSummary) {
+        return {
+          id: fromSummary.id,
+          name: fromSummary.name,
+          mode: fromSummary.mode,
+          role: fromSummary.role,
+          planLabel: fromSummary.planLabel ?? null,
+          profileLimit: fromSummary.profileLimit ?? null,
+          profilesUsed: fromSummary.profilesUsed,
+          entitlementState: fromSummary.entitlementState,
+        };
+      }
+
+      const fromFallback = fallbackWorkspaceDescriptors.find(
+        (workspace) => workspace.id === sidebarWorkspaceId,
+      );
+      if (fromFallback) {
+        return {
+          id: fromFallback.id,
+          name: fromFallback.name,
+          mode: fromFallback.mode,
+          role: fromFallback.role,
+          planLabel: fromFallback.planLabel ?? null,
+          profileLimit: fromFallback.profileLimit ?? null,
+          profilesUsed: workspaceProfilesUsed[fromFallback.id] ?? 0,
+          entitlementState: fromFallback.entitlementState,
+        };
+      }
+
+      return null;
+    }, [
+      fallbackWorkspaceDescriptors,
+      sidebarWorkspaceId,
+      workspaceProfilesUsed,
+      workspaceSwitcherSummaries,
+    ]);
+
+  useEffect(() => {
+    if (!isWorkspaceSelectionReady || workspaceSwitchState) {
+      return;
     }
-
-    const fromFallback = fallbackWorkspaceDescriptors.find(
-      (workspace) => workspace.id === sidebarWorkspaceId,
-    );
-    if (fromFallback) {
-      return {
-        id: fromFallback.id,
-        name: fromFallback.name,
-        mode: fromFallback.mode,
-        role: fromFallback.role,
-        planLabel: fromFallback.planLabel ?? null,
-        profileLimit: fromFallback.profileLimit ?? null,
-        profilesUsed: workspaceProfilesUsed[fromFallback.id] ?? 0,
-        entitlementState: fromFallback.entitlementState,
-      };
+    const usage = selectedWorkspaceContext?.profilesUsed ?? 0;
+    if (usage <= 0 || profiles.length > 0) {
+      workspaceScopeRecoveryKeyRef.current = "";
+      return;
     }
-
-    return null;
+    const recoveryKey = `${cloudUser?.id ?? "guest"}::${sidebarWorkspaceId}`;
+    if (workspaceScopeRecoveryKeyRef.current === recoveryKey) {
+      return;
+    }
+    workspaceScopeRecoveryKeyRef.current = recoveryKey;
+    void Promise.allSettled([reloadProfiles(), reloadGroups()]);
   }, [
-    fallbackWorkspaceDescriptors,
+    cloudUser?.id,
+    isWorkspaceSelectionReady,
+    profiles.length,
+    reloadGroups,
+    reloadProfiles,
+    selectedWorkspaceContext?.profilesUsed,
     sidebarWorkspaceId,
-    workspaceProfilesUsed,
-    workspaceSwitcherSummaries,
+    workspaceSwitchState,
   ]);
 
-  const selectedWorkspaceRole: TeamRole = selectedWorkspaceContext?.role ?? "member";
+  const selectedWorkspaceRole: TeamRole =
+    selectedWorkspaceContext?.role ?? "member";
+  const lastWorkspaceSubscriptionSyncRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!cloudUser || !selectedWorkspaceContext || !isWorkspaceSelectionReady) {
+      return;
+    }
+
+    const normalizedPlanId = normalizePlanIdFromLabel(
+      selectedWorkspaceContext.planLabel,
+    );
+    const nextPlan = normalizedPlanId ?? "free";
+    const nextSubscriptionStatus =
+      selectedWorkspaceContext.entitlementState === "read_only"
+        ? "inactive"
+        : "active";
+    const nextTeamRole = selectedWorkspaceContext.role ?? teamRole ?? "member";
+    const syncKey = [
+      cloudUser.id,
+      selectedWorkspaceContext.id,
+      nextPlan,
+      cloudUser.planPeriod ?? "",
+      nextSubscriptionStatus,
+      nextTeamRole,
+    ].join("::");
+    if (lastWorkspaceSubscriptionSyncRef.current === syncKey) {
+      return;
+    }
+    lastWorkspaceSubscriptionSyncRef.current = syncKey;
+
+    void invoke("cloud_sync_local_subscription_state", {
+      state: {
+        plan: nextPlan,
+        planPeriod: cloudUser.planPeriod ?? null,
+        subscriptionStatus: nextSubscriptionStatus,
+        teamRole: nextTeamRole,
+      },
+    }).catch(() => {
+      // Keep workspace switch non-blocking if backend sync fails.
+    });
+  }, [
+    cloudUser,
+    isWorkspaceSelectionReady,
+    selectedWorkspaceContext,
+    teamRole,
+  ]);
+
   const canAccessAdminWorkspace =
     isPlatformAdmin ||
     selectedWorkspaceRole === "owner" ||
@@ -716,9 +1116,6 @@ export default function Home() {
 
   const [createProfileDialogOpen, setCreateProfileDialogOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
-  const didRestoreWorkspaceSelectionRef = useRef(false);
-  const [isWorkspaceSelectionReady, setIsWorkspaceSelectionReady] =
-    useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [importProfileDialogOpen, setImportProfileDialogOpen] = useState(false);
   const [camoufoxConfigDialogOpen, setCamoufoxConfigDialogOpen] =
@@ -749,8 +1146,7 @@ export default function Home() {
   const [selectedProfilesForCookies, setSelectedProfilesForCookies] = useState<
     string[]
   >([]);
-  const [selectedGroupId, setSelectedGroupId] =
-    useState<string>(ALL_GROUP_ID);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(ALL_GROUP_ID);
   const [selectedProfilesForGroup, setSelectedProfilesForGroup] = useState<
     string[]
   >([]);
@@ -785,21 +1181,125 @@ export default function Home() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [syncConfigDialogOpen, setSyncConfigDialogOpen] = useState(false);
   const [syncAllDialogOpen, setSyncAllDialogOpen] = useState(false);
-  const [prefilledInviteToken, setPrefilledInviteToken] = useState<
-    string | null
-  >(null);
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
   const [currentProfileForSync, setCurrentProfileForSync] =
     useState<BrowserProfile | null>(null);
   const { isMicrophoneAccessGranted, isCameraAccessGranted, isInitialized } =
     usePermissions();
+  const inAdminPanel = activeSection.startsWith("admin-");
+  const inWorkspaceGovernancePanel =
+    isWorkspaceGovernanceSection(activeSection);
+
+  useEffect(() => {
+    if (
+      activeSection === "billing-checkout" ||
+      activeSection === "billing-coupon" ||
+      activeSection === "billing-license"
+    ) {
+      setActiveSection("billing");
+    }
+  }, [activeSection]);
+
+  const selectedWorkspaceOption = useMemo(
+    () =>
+      workspaceOptions.find(
+        (workspace) => workspace.id === sidebarWorkspaceId,
+      ) ??
+      workspaceOptions[0] ??
+      null,
+    [sidebarWorkspaceId, workspaceOptions],
+  );
+  const effectiveWorkspaceCount = useMemo(() => {
+    if (workspaceSwitcherSummaries.length > 0) {
+      return workspaceSwitcherSummaries.length;
+    }
+    if (fallbackWorkspaceDescriptors.length > 0) {
+      return fallbackWorkspaceDescriptors.length;
+    }
+    return workspaceOptions.filter(
+      (workspace) => workspace.id !== "platform-fallback",
+    ).length;
+  }, [
+    fallbackWorkspaceDescriptors.length,
+    workspaceOptions,
+    workspaceSwitcherSummaries.length,
+  ]);
 
   useEffect(() => {
     setCurrentDataScope({
       accountId: cloudUser?.id ?? "guest",
       workspaceId: sidebarWorkspaceId,
     });
-  }, [cloudUser?.id, sidebarWorkspaceId]);
+    void reloadProfiles();
+    void reloadGroups();
+  }, [cloudUser?.id, reloadGroups, reloadProfiles, sidebarWorkspaceId]);
+
+  useEffect(() => {
+    if (!isWorkspaceSelectionReady) {
+      return;
+    }
+    setSelectedProfiles([]);
+    setSelectedGroupId(ALL_GROUP_ID);
+    setSearchQuery("");
+    setShowPinnedOnly(false);
+    setProfileViewMode("active");
+  }, [isWorkspaceSelectionReady]);
+
+  useEffect(() => {
+    if (!workspaceSwitchState) {
+      return;
+    }
+    if (sidebarWorkspaceId !== workspaceSwitchState.targetWorkspaceId) {
+      return;
+    }
+
+    let isCancelled = false;
+    const switchStartedAt = workspaceSwitchState.startedAt;
+    const switchTargetId = workspaceSwitchState.targetWorkspaceId;
+
+    const performWorkspaceSwitchWarmup = async () => {
+      await Promise.allSettled([
+        reloadProfiles(),
+        reloadGroups(),
+        reloadProxies(),
+        reloadVpnConfigs(),
+      ]);
+
+      const elapsed = Date.now() - switchStartedAt;
+      const remaining = Math.max(0, WORKSPACE_SWITCH_MIN_DURATION_MS - elapsed);
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+      }
+      if (isCancelled) {
+        return;
+      }
+      setWorkspaceSwitchState((current) => {
+        if (!current) {
+          return current;
+        }
+        if (
+          current.startedAt !== switchStartedAt ||
+          current.targetWorkspaceId !== switchTargetId
+        ) {
+          return current;
+        }
+        return null;
+      });
+    };
+
+    void performWorkspaceSwitchWarmup();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    reloadGroups,
+    reloadProfiles,
+    reloadProxies,
+    reloadVpnConfigs,
+    sidebarWorkspaceId,
+    workspaceSwitchState,
+  ]);
 
   useEffect(() => {
     if (!cloudUser || workspaceOptions.length === 0) {
@@ -837,7 +1337,14 @@ export default function Home() {
         );
 
         const [profileRows, groupRows, proxyRows, vpnRows] = await Promise.all([
-          invoke<Array<{ id: string; group_id?: string; proxy_id?: string; vpn_id?: string }>>("list_browser_profiles"),
+          invoke<
+            Array<{
+              id: string;
+              group_id?: string;
+              proxy_id?: string;
+              vpn_id?: string;
+            }>
+          >("list_browser_profiles"),
           invoke<Array<{ id: string }>>("get_profile_groups"),
           invoke<Array<{ id: string }>>("get_stored_proxies"),
           invoke<Array<{ id: string }>>("list_vpn_configs"),
@@ -928,7 +1435,12 @@ export default function Home() {
     return () => {
       isCancelled = true;
     };
-  }, [cloudUser, isWorkspaceSelectionReady, sidebarWorkspaceId, workspaceOptions]);
+  }, [
+    cloudUser,
+    isWorkspaceSelectionReady,
+    sidebarWorkspaceId,
+    workspaceOptions,
+  ]);
 
   const profileDataScopeKey = useMemo(
     () => `${cloudUser?.id ?? "guest"}::${sidebarWorkspaceId}`,
@@ -944,6 +1456,7 @@ export default function Home() {
 
   const handleCloudSignOut = useCallback(async () => {
     try {
+      setActiveSection("profiles");
       await cloudLogout();
       showSuccessToast(t("authDialog.logoutSuccess"));
     } catch (error) {
@@ -971,7 +1484,10 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(savedViewsStorageKey, JSON.stringify(savedViews));
+      window.localStorage.setItem(
+        savedViewsStorageKey,
+        JSON.stringify(savedViews),
+      );
     } catch {
       // Ignore storage errors.
     }
@@ -1022,7 +1538,10 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(pinnedIdsStorageKey, JSON.stringify(pinnedProfileIds));
+      window.localStorage.setItem(
+        pinnedIdsStorageKey,
+        JSON.stringify(pinnedProfileIds),
+      );
     } catch {
       // Ignore storage errors.
     }
@@ -1043,7 +1562,10 @@ export default function Home() {
         return false;
       }
 
-      if (isPlatformAdmin || canPerformTeamAction(selectedWorkspaceRole, action)) {
+      if (
+        isPlatformAdmin ||
+        canPerformTeamAction(selectedWorkspaceRole, action)
+      ) {
         return true;
       }
 
@@ -1077,39 +1599,80 @@ export default function Home() {
   }, [runtimeConfig, showRuntimeConfigHints, t]);
 
   useEffect(() => {
+    if (!cloudUser) {
+      return;
+    }
     if (activeSection.startsWith("admin-") && !canAccessAdminWorkspace) {
       setActiveSection("profiles");
       showErrorToast(t("adminWorkspace.noAccessTitle"), {
         description: t("adminWorkspace.noAccessDescription"),
       });
     }
-  }, [activeSection, canAccessAdminWorkspace, t]);
+  }, [activeSection, canAccessAdminWorkspace, cloudUser, t]);
 
   useEffect(() => {
+    if (!cloudUser) {
+      return;
+    }
     const isPlatformOnlySection =
       activeSection === "admin-billing" || activeSection === "admin-audit";
     if (isPlatformOnlySection && !isPlatformAdmin) {
-      setActiveSection("admin-overview");
+      setActiveSection(
+        activeSection.startsWith("workspace-admin-")
+          ? "workspace-admin-overview"
+          : "admin-overview",
+      );
       showErrorToast(t("adminWorkspace.noAccessTitle"), {
         description: t("adminWorkspace.noAccessDescription"),
       });
     }
-  }, [activeSection, isPlatformAdmin, t]);
+  }, [activeSection, cloudUser, isPlatformAdmin, t]);
 
   useEffect(() => {
-    if (activeSection !== "workspace-governance" || canManageSelectedWorkspaceGovernance) {
+    if (!cloudUser) {
+      return;
+    }
+    if (
+      !isWorkspaceGovernanceSection(activeSection) ||
+      canManageSelectedWorkspaceGovernance
+    ) {
       return;
     }
     setActiveSection("profiles");
     showErrorToast(t("adminWorkspace.noAccessTitle"), {
       description: t("adminWorkspace.ownerOnlyGovernance"),
     });
-  }, [activeSection, canManageSelectedWorkspaceGovernance, t]);
+  }, [activeSection, canManageSelectedWorkspaceGovernance, cloudUser, t]);
+
+  useEffect(() => {
+    if (activeSection === "workspace-governance") {
+      setActiveSection("workspace-admin-overview");
+      return;
+    }
+    if (activeSection === "workspace-admin-workspace") {
+      setActiveSection("workspace-admin-directory");
+      return;
+    }
+    if (
+      activeSection === "workspace-admin-members" ||
+      activeSection === "workspace-admin-access"
+    ) {
+      setActiveSection("workspace-admin-permissions");
+      return;
+    }
+    if (
+      activeSection === "workspace-admin-audit" ||
+      activeSection === "workspace-admin-system" ||
+      activeSection === "workspace-admin-analytics"
+    ) {
+      setActiveSection("workspace-admin-overview");
+    }
+  }, [activeSection]);
 
   useEffect(() => {
     didRestoreWorkspaceSelectionRef.current = false;
     setIsWorkspaceSelectionReady(false);
-  }, [workspaceSelectionStorageKey]);
+  }, []);
 
   useEffect(() => {
     if (workspaceOptions.length === 0) {
@@ -1145,6 +1708,19 @@ export default function Home() {
       setSidebarWorkspaceId(workspaceOptions[0].id);
     }
   }, [sidebarWorkspaceId, workspaceOptions, workspaceSelectionStorageKey]);
+
+  useEffect(() => {
+    if (!workspaceSwitchState) {
+      return;
+    }
+    const stillExists = workspaceOptions.some(
+      (item) => item.id === workspaceSwitchState.targetWorkspaceId,
+    );
+    if (stillExists) {
+      return;
+    }
+    setWorkspaceSwitchState(null);
+  }, [workspaceOptions, workspaceSwitchState]);
 
   useEffect(() => {
     if (!isWorkspaceSelectionReady) {
@@ -1294,50 +1870,138 @@ export default function Home() {
     }
   }, []);
 
-  const [processingUrls, setProcessingUrls] = useState<Set<string>>(new Set());
+  const processingUrlsRef = useRef<Set<string>>(new Set());
+  const recentlyProcessedUrlsRef = useRef<Map<string, number>>(new Map());
 
   const handleUrlOpen = useCallback(
     async (url: string) => {
-      // Prevent duplicate processing of the same URL
-      if (processingUrls.has(url)) {
-        console.log("URL already being processed:", url);
+      const normalizedUrl = url.trim();
+      if (!normalizedUrl) {
+        return;
+      }
+      const processingKey = buildUrlProcessingKey(normalizedUrl);
+      if (!processingKey) {
+        return;
+      }
+      const now = Date.now();
+      const lastProcessedAt =
+        recentlyProcessedUrlsRef.current.get(processingKey);
+      if (
+        typeof lastProcessedAt === "number" &&
+        now - lastProcessedAt < URL_DEDUP_WINDOW_MS
+      ) {
         return;
       }
 
-      setProcessingUrls((prev) => new Set(prev).add(url));
+      // Prevent duplicate processing of the same URL
+      if (processingUrlsRef.current.has(processingKey)) {
+        console.log("URL already being processed:", processingKey);
+        return;
+      }
+
+      processingUrlsRef.current.add(processingKey);
 
       try {
-        console.log("URL received for opening:", url);
-        const inviteToken = extractInviteTokenFromUrl(url);
-        if (inviteToken) {
-          setPrefilledInviteToken(inviteToken);
-          setActiveSection("profiles");
-          showSuccessToast(t("authDialog.inviteDetected"));
+        console.log("URL received for opening:", normalizedUrl);
+        const oauthPayload = extractOAuthCallbackPayload(normalizedUrl);
+        if (oauthPayload) {
+          if (oauthPayload.error) {
+            showErrorToast(t("authLanding.googleLoginErrorTitle"), {
+              description: oauthPayload.error,
+            });
+            return;
+          }
+          if (!oauthPayload.email) {
+            showErrorToast(t("authLanding.googleLoginErrorTitle"), {
+              description: "invalid_callback_payload",
+            });
+            return;
+          }
+
+          try {
+            await loginWithEmail(oauthPayload.email, {
+              scope: "workspace_user",
+              authProvider: "google_oauth",
+              name: oauthPayload.name,
+              avatar: oauthPayload.avatar,
+            });
+            await refreshProfile().catch(() => null);
+            setActiveSection("profiles");
+            showSuccessToast(t("authDialog.loginSuccess"));
+          } catch (authError) {
+            const authMessage = extractRootError(authError);
+            if (
+              authMessage.includes("password_required") ||
+              authMessage.includes("password_login_required")
+            ) {
+              showErrorToast(t("authLanding.googleSoon"));
+              return;
+            }
+            showErrorToast(t("authDialog.loginFailed"), {
+              description: authMessage,
+            });
+          }
           return;
         }
 
         // Always show profile selector for manual selection - never auto-open
         // Replace any existing pending URL with the new one
-        setPendingUrls([{ id: Date.now().toString(), url }]);
+        setPendingUrls([{ id: Date.now().toString(), url: normalizedUrl }]);
       } finally {
-        // Remove URL from processing set after a short delay to prevent rapid duplicates
-        setTimeout(() => {
-          setProcessingUrls((prev) => {
-            const next = new Set(prev);
-            next.delete(url);
-            return next;
-          });
-        }, 1000);
+        processingUrlsRef.current.delete(processingKey);
+        const markedAt = Date.now();
+        recentlyProcessedUrlsRef.current.set(processingKey, markedAt);
+        for (const [
+          entryKey,
+          entryTime,
+        ] of recentlyProcessedUrlsRef.current.entries()) {
+          if (markedAt - entryTime > URL_DEDUP_WINDOW_MS * 2) {
+            recentlyProcessedUrlsRef.current.delete(entryKey);
+          }
+        }
       }
     },
-    [processingUrls, t],
+    [loginWithEmail, refreshProfile, t],
   );
 
   // Auto-update functionality - use the existing hook for compatibility
   const updateNotifications = useUpdateNotifications();
   const { checkForUpdates, isUpdating } = updateNotifications;
+  const [isCheckingHeaderUpdates, setIsCheckingHeaderUpdates] = useState(false);
+  const isCheckingHeaderUpdatesRef = useRef(false);
 
   useAppUpdateNotifications();
+
+  const handleCheckForUpdates = useCallback(async () => {
+    if (isCheckingHeaderUpdatesRef.current) {
+      return;
+    }
+    isCheckingHeaderUpdatesRef.current = true;
+    setIsCheckingHeaderUpdates(true);
+    try {
+      await checkForUpdates();
+    } finally {
+      isCheckingHeaderUpdatesRef.current = false;
+      setIsCheckingHeaderUpdates(false);
+    }
+  }, [checkForUpdates]);
+
+  const topbarNotifications = useMemo(
+    () =>
+      updateNotifications.notifications.map((notification) => ({
+        id: notification.id,
+        title: t("shell.topbar.notificationTitle", {
+          browser: getBrowserDisplayName(notification.browser),
+        }),
+        description: t("shell.topbar.notificationDescription", {
+          current: notification.current_version,
+          next: notification.new_version,
+          profiles: notification.affected_profiles.length,
+        }),
+        isUpdating: isUpdating(notification.browser),
+      })),
+    [isUpdating, t, updateNotifications.notifications],
+  );
 
   // Check for startup URLs but only process them once
   const [hasCheckedStartupUrl, setHasCheckedStartupUrl] = useState(false);
@@ -1381,13 +2045,6 @@ export default function Home() {
       showErrorToast(profilesError);
     }
   }, [profilesError]);
-
-  // Handle group errors from useGroupEvents hook
-  useEffect(() => {
-    if (groupsError) {
-      showErrorToast(groupsError);
-    }
-  }, [groupsError]);
 
   // Handle proxy errors from useProxyEvents hook
   useEffect(() => {
@@ -1435,28 +2092,37 @@ export default function Home() {
   const listenForUrlEvents = useCallback(async () => {
     try {
       // Listen for URL open events from the deep link handler (when app is already running)
-      await listen<string>("url-open-request", (event) => {
-        console.log("Received URL open request:", event.payload);
-        void handleUrlOpen(event.payload);
-      });
+      const unlistenUrlOpenRequest = await listen<string>(
+        "url-open-request",
+        (event) => {
+          console.log("Received URL open request:", event.payload);
+          void handleUrlOpen(event.payload);
+        },
+      );
 
       // Listen for show profile selector events
-      await listen<string>("show-profile-selector", (event) => {
-        console.log("Received show profile selector request:", event.payload);
-        void handleUrlOpen(event.payload);
-      });
+      const unlistenShowProfileSelector = await listen<string>(
+        "show-profile-selector",
+        (event) => {
+          console.log("Received show profile selector request:", event.payload);
+          void handleUrlOpen(event.payload);
+        },
+      );
 
       // Listen for show create profile dialog events
-      await listen<string>("show-create-profile-dialog", (event) => {
-        console.log(
-          "Received show create profile dialog request:",
-          event.payload,
-        );
-        showErrorToast(
-          "No profiles available. Please create a profile first before opening URLs.",
-        );
-        setCreateProfileDialogOpen(true);
-      });
+      const unlistenShowCreateProfileDialog = await listen<string>(
+        "show-create-profile-dialog",
+        (event) => {
+          console.log(
+            "Received show create profile dialog request:",
+            event.payload,
+          );
+          showErrorToast(
+            "No profiles available. Please create a profile first before opening URLs.",
+          );
+          setCreateProfileDialogOpen(true);
+        },
+      );
 
       // Listen for custom logo click events
       const handleLogoUrlEvent = (event: CustomEvent) => {
@@ -1471,6 +2137,9 @@ export default function Home() {
 
       // Return cleanup function
       return () => {
+        unlistenUrlOpenRequest();
+        unlistenShowProfileSelector();
+        unlistenShowCreateProfileDialog();
         window.removeEventListener(
           "url-open-request",
           handleLogoUrlEvent as EventListener,
@@ -1566,8 +2235,7 @@ export default function Home() {
             wayfernConfig: profileData.wayfernConfig,
             groupId:
               profileData.groupId ||
-              (selectedGroupId !== ALL_GROUP_ID &&
-              selectedGroupId !== "default"
+              (selectedGroupId !== ALL_GROUP_ID && selectedGroupId !== "default"
                 ? selectedGroupId
                 : undefined),
             ephemeral: profileData.ephemeral,
@@ -1887,10 +2555,14 @@ export default function Home() {
       if (!requireTeamPermission("assign_extension_group")) {
         return;
       }
+      if (!extensionManagementUnlocked) {
+        showErrorToast(t("extensions.proRequired"));
+        return;
+      }
       setSelectedProfilesForExtensionGroup(profileIds);
       setExtensionGroupAssignmentDialogOpen(true);
     },
-    [requireTeamPermission],
+    [extensionManagementUnlocked, requireTeamPermission, t],
   );
 
   const handleBulkExtensionGroupAssignment = useCallback(() => {
@@ -1923,6 +2595,10 @@ export default function Home() {
 
   const handleBulkCopyCookies = useCallback(() => {
     if (selectedProfiles.length === 0) return;
+    if (!cookieManagementUnlocked) {
+      showErrorToast(t("pro.cookieCopyLocked"));
+      return;
+    }
     const eligibleProfiles = profiles.filter(
       (p) =>
         selectedProfiles.includes(p.id) &&
@@ -1936,17 +2612,31 @@ export default function Home() {
     }
     setSelectedProfilesForCookies(eligibleProfiles.map((p) => p.id));
     setCookieCopyDialogOpen(true);
-  }, [selectedProfiles, profiles]);
+  }, [cookieManagementUnlocked, profiles, selectedProfiles, t]);
 
-  const handleCopyCookiesToProfile = useCallback((profile: BrowserProfile) => {
-    setSelectedProfilesForCookies([profile.id]);
-    setCookieCopyDialogOpen(true);
-  }, []);
+  const handleCopyCookiesToProfile = useCallback(
+    (profile: BrowserProfile) => {
+      if (!cookieManagementUnlocked) {
+        showErrorToast(t("pro.cookieCopyLocked"));
+        return;
+      }
+      setSelectedProfilesForCookies([profile.id]);
+      setCookieCopyDialogOpen(true);
+    },
+    [cookieManagementUnlocked, t],
+  );
 
-  const handleOpenCookieManagement = useCallback((profile: BrowserProfile) => {
-    setCurrentProfileForCookieManagement(profile);
-    setCookieManagementDialogOpen(true);
-  }, []);
+  const handleOpenCookieManagement = useCallback(
+    (profile: BrowserProfile) => {
+      if (!cookieManagementUnlocked) {
+        showErrorToast(t("pro.cookieManagementLocked"));
+        return;
+      }
+      setCurrentProfileForCookieManagement(profile);
+      setCookieManagementDialogOpen(true);
+    },
+    [cookieManagementUnlocked, t],
+  );
 
   const handleGroupAssignmentComplete = useCallback(async () => {
     // No need to manually reload - useProfileEvents will handle the update
@@ -1981,17 +2671,22 @@ export default function Home() {
           profileId: profile.id,
           syncMode: enabling ? "Regular" : "Disabled",
         });
-        showSuccessToast(enabling ? "Sync enabled" : "Sync disabled", {
-          description: enabling
-            ? "Profile sync has been enabled"
-            : "Profile sync has been disabled",
-        });
+        showSuccessToast(
+          enabling
+            ? t("profiles.syncToggle.enabledTitle")
+            : t("profiles.syncToggle.disabledTitle"),
+          {
+            description: enabling
+              ? t("profiles.syncToggle.enabledDescription")
+              : t("profiles.syncToggle.disabledDescription"),
+          },
+        );
       } catch (error) {
         console.error("Failed to toggle sync:", error);
-        showErrorToast("Failed to update sync settings");
+        showErrorToast(t("profiles.syncToggle.updateFailed"));
       }
     },
-    [requireTeamPermission],
+    [requireTeamPermission, t],
   );
 
   useEffect(() => {
@@ -2007,24 +2702,24 @@ export default function Home() {
           const { profile_id, status, error } = event.payload;
           const toastId = `sync-${profile_id}`;
           const profile = profiles.find((p) => p.id === profile_id);
-          const name = profile?.name ?? "Unknown";
+          const name = profile?.name ?? t("common.labels.unknown");
 
           if (status === "syncing") {
             showToast({
               type: "loading",
-              title: `Syncing profile '${name}'...`,
+              title: t("profiles.syncToggle.syncingProfile", { name }),
               id: toastId,
               duration: Number.POSITIVE_INFINITY,
               onCancel: () => dismissToast(toastId),
             });
           } else if (status === "synced") {
             dismissToast(toastId);
-            showSuccessToast(`Profile '${name}' synced successfully`);
+            showSuccessToast(t("toasts.success.profileSynced", { name }));
           } else if (status === "error") {
             dismissToast(toastId);
-            showErrorToast(
-              `Failed to sync profile '${name}'${error ? `: ${error}` : ""}`,
-            );
+            showErrorToast(t("toasts.error.profileSyncFailed", { name }), {
+              description: error ?? undefined,
+            });
           }
         });
 
@@ -2039,7 +2734,7 @@ export default function Home() {
 
           const toastId = `sync-${profile_id}`;
           const profile = profiles.find((p) => p.id === profile_id);
-          const name = profile?.name ?? "Unknown";
+          const name = profile?.name ?? t("common.labels.unknown");
 
           showSyncProgressToast(name, total_files ?? 0, total_bytes ?? 0, {
             id: toastId,
@@ -2053,7 +2748,7 @@ export default function Home() {
       if (unlistenStatus) unlistenStatus();
       if (unlistenProgress) unlistenProgress();
     };
-  }, [profiles]);
+  }, [profiles, t]);
 
   useEffect(() => {
     // Check for startup default browser prompt
@@ -2065,8 +2760,16 @@ export default function Home() {
       return cleanup;
     };
 
+    let isDisposed = false;
     let cleanup: (() => void) | undefined;
     setupListeners().then((cleanupFn) => {
+      if (typeof cleanupFn !== "function") {
+        return;
+      }
+      if (isDisposed) {
+        cleanupFn();
+        return;
+      }
       cleanup = cleanupFn;
     });
 
@@ -2074,9 +2777,10 @@ export default function Home() {
     void checkCurrentUrl();
 
     // Set up periodic update checks (every 30 minutes)
+    void handleCheckForUpdates();
     const updateInterval = setInterval(
       () => {
-        void checkForUpdates();
+        void handleCheckForUpdates();
       },
       30 * 60 * 1000,
     );
@@ -2094,17 +2798,18 @@ export default function Home() {
     }
 
     return () => {
+      isDisposed = true;
       clearInterval(updateInterval);
       if (cleanup) {
         cleanup();
       }
     };
   }, [
-    checkForUpdates,
     checkStartupPrompt,
     listenForUrlEvents,
     checkCurrentUrl,
     checkMissingBinaries,
+    handleCheckForUpdates,
     profilesLoading,
     profiles.length,
   ]);
@@ -2266,6 +2971,28 @@ export default function Home() {
     showPinnedOnly,
   ]);
 
+  const hiddenProfilesCount = useMemo(() => {
+    return Math.max(0, profiles.length - filteredProfiles.length);
+  }, [filteredProfiles.length, profiles.length]);
+
+  const hasProfileVisibilityFilters = useMemo(() => {
+    return (
+      Boolean(searchQuery.trim()) ||
+      showPinnedOnly ||
+      profileViewMode === "archived" ||
+      (selectedGroupId !== ALL_GROUP_ID && selectedGroupId !== "default")
+    );
+  }, [profileViewMode, searchQuery, selectedGroupId, showPinnedOnly]);
+
+  const handleResetProfileVisibilityFilters = useCallback(() => {
+    setSearchQuery("");
+    setShowPinnedOnly(false);
+    setProfileViewMode("active");
+    setSelectedGroupId(ALL_GROUP_ID);
+    setSelectedProfiles([]);
+    showSuccessToast(t("profiles.filterResetSuccess"));
+  }, [t]);
+
   useEffect(() => {
     if (
       !selectedGroupId ||
@@ -2280,7 +3007,7 @@ export default function Home() {
   }, [groupsData, selectedGroupId]);
 
   // Update loading states
-  const isLoading = profilesLoading || groupsLoading || proxiesLoading;
+  const isLoading = profilesLoading || proxiesLoading;
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -2298,10 +3025,80 @@ export default function Home() {
             isOpen={true}
             onClose={() => void 0}
             onIntegrationsOpen={() => setActiveSection("integrations")}
+            canUseEncryption={syncEncryptionUnlocked}
             mode="page"
           />
         );
       case "workspace-governance":
+      case "workspace-admin-overview":
+      case "workspace-admin-directory":
+      case "workspace-admin-permissions":
+      case "workspace-admin-members":
+      case "workspace-admin-access":
+      case "workspace-admin-workspace":
+      case "workspace-admin-audit":
+      case "workspace-admin-system":
+      case "workspace-admin-analytics": {
+        const workspaceSectionToTab = {
+          "workspace-governance": "overview",
+          "workspace-admin-overview": "overview",
+          "workspace-admin-directory": "workspace",
+          "workspace-admin-permissions": "workspace",
+          "workspace-admin-members": "workspace",
+          "workspace-admin-access": "workspace",
+          "workspace-admin-workspace": "workspace",
+          "workspace-admin-audit": "overview",
+          "workspace-admin-system": "overview",
+          "workspace-admin-analytics": "overview",
+        } as const;
+        const workspaceSectionToFlow = {
+          "workspace-governance": null,
+          "workspace-admin-overview": null,
+          "workspace-admin-directory": "directory",
+          "workspace-admin-permissions": "permissions",
+          "workspace-admin-members": "permissions",
+          "workspace-admin-access": "permissions",
+          "workspace-admin-workspace": "directory",
+          "workspace-admin-audit": null,
+          "workspace-admin-system": null,
+          "workspace-admin-analytics": null,
+        } as const;
+        const workspaceSectionToTitleKey = {
+          "workspace-governance": "shell.sections.workspaceAdminOverview",
+          "workspace-admin-overview": "shell.sections.workspaceAdminOverview",
+          "workspace-admin-directory": "shell.sections.workspaceAdminDirectory",
+          "workspace-admin-permissions":
+            "shell.sections.workspaceAdminPermissions",
+          "workspace-admin-members": "shell.sections.workspaceAdminPermissions",
+          "workspace-admin-access": "shell.sections.workspaceAdminPermissions",
+          "workspace-admin-workspace": "shell.sections.workspaceAdminDirectory",
+          "workspace-admin-audit": "shell.sections.workspaceAdminOverview",
+          "workspace-admin-system": "shell.sections.workspaceAdminOverview",
+          "workspace-admin-analytics": "shell.sections.workspaceAdminOverview",
+        } as const;
+        const workspaceAdminTab = workspaceSectionToTab[activeSection];
+        const workspaceAdminFlow = workspaceSectionToFlow[activeSection];
+        const workspaceAdminTitle = t(
+          workspaceSectionToTitleKey[activeSection],
+        );
+        let workspaceAdminDescription = t(
+          "adminWorkspace.panel.workspaceOverviewDescription",
+        );
+        if (workspaceAdminTab === "overview") {
+          workspaceAdminDescription = t(
+            "adminWorkspace.panel.workspaceOverviewDescription",
+          );
+        } else if (workspaceAdminTab === "workspace") {
+          if (workspaceAdminFlow === "permissions") {
+            workspaceAdminDescription = t(
+              "adminWorkspace.ui.userPermissionDescription",
+            );
+          } else {
+            workspaceAdminDescription = t(
+              "adminWorkspace.ui.selectedWorkspaceDescription",
+            );
+          }
+        }
         if (!canManageSelectedWorkspaceGovernance) {
           return (
             <WorkspacePageShell
@@ -2317,8 +3114,8 @@ export default function Home() {
         }
         return (
           <WorkspacePageShell
-            title={t("shell.sections.workspaceGovernance")}
-            description={t("adminWorkspace.workspaceSubtitle")}
+            title={workspaceAdminTitle}
+            description={workspaceAdminDescription}
             contentClassName="max-w-none space-y-4 pb-0"
           >
             <PlatformAdminWorkspace
@@ -2326,12 +3123,16 @@ export default function Home() {
               entitlement={entitlement}
               platformRole={cloudUser?.platformRole}
               teamRole={selectedWorkspaceRole}
-              sidebarTab="workspace"
+              sidebarTab={workspaceAdminTab}
+              workspaceFlow={workspaceAdminFlow}
+              showWorkspaceFlowTabs={workspaceAdminFlow === null}
+              workspaceScopedOnly={true}
               workspaceContextId={sidebarWorkspaceId}
-              onWorkspaceContextChange={setSidebarWorkspaceId}
+              onWorkspaceContextChange={handleWorkspaceChange}
             />
           </WorkspacePageShell>
         );
+      }
       case "integrations":
         return (
           <IntegrationsDialog
@@ -2341,6 +3142,9 @@ export default function Home() {
           />
         );
       case "billing":
+      case "billing-checkout":
+      case "billing-coupon":
+      case "billing-license":
         if (!canManageSelectedWorkspaceBilling) {
           return (
             <WorkspacePageShell
@@ -2366,10 +3170,24 @@ export default function Home() {
               user={cloudUser!}
               teamRole={selectedWorkspaceRole}
               workspaceId={selectedWorkspaceContext?.id ?? null}
+              workspaceMode={selectedWorkspaceContext?.mode ?? null}
               workspaceName={selectedWorkspaceContext?.name ?? null}
               workspacePlanLabel={selectedWorkspaceContext?.planLabel ?? null}
-              workspaceProfileLimit={selectedWorkspaceContext?.profileLimit ?? null}
-              workspaceProfilesUsed={selectedWorkspaceContext?.profilesUsed ?? 0}
+              workspaceProfileLimit={
+                selectedWorkspaceContext?.profileLimit ?? null
+              }
+              workspaceProfilesUsed={
+                selectedWorkspaceContext?.profilesUsed ?? 0
+              }
+              mode={
+                activeSection === "billing-checkout"
+                  ? "checkout"
+                  : activeSection === "billing-coupon"
+                    ? "coupon"
+                    : activeSection === "billing-license"
+                      ? "license"
+                      : "management"
+              }
               onOpenAdminWorkspace={() => setActiveSection("admin-overview")}
               onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
               onOpenPricingPage={() => setActiveSection("pricing")}
@@ -2387,8 +3205,10 @@ export default function Home() {
               user={cloudUser!}
               teamRole={selectedWorkspaceRole}
               workspaceId={selectedWorkspaceContext?.id ?? null}
+              workspaceMode={selectedWorkspaceContext?.mode ?? null}
               workspaceName={selectedWorkspaceContext?.name ?? null}
               workspacePlanLabel={selectedWorkspaceContext?.planLabel ?? null}
+              workspaceCount={effectiveWorkspaceCount}
               onOpenBillingManagement={() => setActiveSection("billing")}
             />
           </WorkspacePageShell>
@@ -2398,7 +3218,7 @@ export default function Home() {
       case "admin-billing":
       case "admin-audit":
       case "admin-system":
-      case "admin-analytics":
+      case "admin-analytics": {
         const adminSectionToTab = {
           "admin-overview": "overview",
           "admin-workspace": "workspace",
@@ -2408,10 +3228,33 @@ export default function Home() {
           "admin-analytics": "analytics",
         } as const;
         const adminTab = adminSectionToTab[activeSection];
-        const adminDescription =
-          cloudUser?.platformRole === "platform_admin"
-            ? t("adminWorkspace.subtitle")
-            : t("adminWorkspace.workspaceSubtitle");
+        const adminTitle =
+          adminTab === "workspace"
+            ? t("adminWorkspace.ui.workspaceDirectoryTitle")
+            : t(`adminWorkspace.tabs.${adminTab}`);
+        let adminDescription = t("adminWorkspace.workspaceSubtitle");
+        if (adminTab === "overview") {
+          adminDescription =
+            cloudUser?.platformRole === "platform_admin"
+              ? t("adminWorkspace.subtitle")
+              : t("adminWorkspace.workspaceSubtitle");
+        } else if (adminTab === "workspace") {
+          adminDescription = t(
+            "adminWorkspace.ui.workspaceDirectoryOpsDescription",
+          );
+        } else if (adminTab === "billing") {
+          adminDescription = t(
+            "adminWorkspace.modules.billingEntitlement.description",
+          );
+        } else if (adminTab === "audit") {
+          adminDescription = t("adminWorkspace.modules.audit.description");
+        } else if (adminTab === "system") {
+          adminDescription = t(
+            "adminWorkspace.modules.systemConfig.description",
+          );
+        } else if (adminTab === "analytics") {
+          adminDescription = t("adminWorkspace.modules.analytics.description");
+        }
         if (!canAccessAdminWorkspace) {
           return (
             <WorkspacePageShell
@@ -2427,7 +3270,7 @@ export default function Home() {
         }
         return (
           <WorkspacePageShell
-            title={t(`adminWorkspace.tabs.${adminTab}`)}
+            title={adminTitle}
             description={adminDescription}
             contentClassName="max-w-none space-y-4 pb-0"
           >
@@ -2437,11 +3280,13 @@ export default function Home() {
               platformRole={cloudUser?.platformRole}
               teamRole={selectedWorkspaceRole}
               sidebarTab={adminTab}
+              workspaceScopedOnly={false}
               workspaceContextId={sidebarWorkspaceId}
-              onWorkspaceContextChange={setSidebarWorkspaceId}
+              onWorkspaceContextChange={handleWorkspaceChange}
             />
           </WorkspacePageShell>
         );
+      }
       default:
         return (
           <WorkspacePageShell
@@ -2458,7 +3303,7 @@ export default function Home() {
                 onExtensionManagementDialogOpen={
                   setExtensionManagementDialogOpen
                 }
-                crossOsUnlocked={crossOsUnlocked}
+                extensionManagementUnlocked={extensionManagementUnlocked}
               />
             }
             toolbar={
@@ -2484,6 +3329,27 @@ export default function Home() {
             }
             contentClassName="max-w-none space-y-4 pb-0"
           >
+            {filteredProfiles.length === 0 &&
+              profiles.length > 0 &&
+              hasProfileVisibilityFilters && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("profiles.filteredStateHint", {
+                      visible: filteredProfiles.length,
+                      total: profiles.length,
+                      hidden: hiddenProfilesCount,
+                    })}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-xs"
+                    onClick={handleResetProfileVisibilityFilters}
+                  >
+                    {t("profiles.resetFilters")}
+                  </Button>
+                </div>
+              )}
             <GroupBadges
               selectedGroupId={selectedGroupId}
               onGroupSelect={handleSelectGroup}
@@ -2516,6 +3382,7 @@ export default function Home() {
               }
               onBulkArchive={handleArchiveSelectedProfiles}
               onAssignExtensionGroup={handleAssignExtensionGroup}
+              onOpenProxyCenter={() => setActiveSection("proxies")}
               onOpenProfileSyncDialog={handleOpenProfileSyncDialog}
               onToggleProfileSync={handleToggleProfileSync}
               onArchiveProfile={handleArchiveProfile}
@@ -2530,6 +3397,8 @@ export default function Home() {
               }
               workspaceRole={selectedWorkspaceRole}
               crossOsUnlocked={crossOsUnlocked}
+              extensionManagementUnlocked={extensionManagementUnlocked}
+              cookieManagementUnlocked={cookieManagementUnlocked}
               syncUnlocked={syncUnlocked}
             />
           </WorkspacePageShell>
@@ -2541,10 +3410,11 @@ export default function Home() {
     if (isCloudAuthLoading) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-background text-[13px] leading-[1.35] tracking-[-0.005em] font-(family-name:--font-sans)">
-          <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
-            <div className="w-6 h-6 rounded-full border-[2px] border-primary/20 border-t-primary animate-spin" />
-            <span className="text-muted-foreground font-medium text-[12px] uppercase tracking-wider">Bug Login</span>
-          </div>
+          <AppState
+            kind="loading"
+            title={t("shell.states.bootTitle")}
+            description={t("shell.states.bootDescription")}
+          />
         </div>
       );
     }
@@ -2556,12 +3426,7 @@ export default function Home() {
             {pendingConfigMessages.join(" • ")}
           </div>
         )}
-        <AuthPricingWorkspace
-          runtimeConfig={runtimeConfig}
-          prefilledInviteToken={prefilledInviteToken}
-          onConsumeInviteToken={() => setPrefilledInviteToken(null)}
-          onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
-        />
+        <AuthPricingWorkspace />
         <SyncConfigDialog
           isOpen={syncConfigDialogOpen}
           onClose={(loginOccurred) => {
@@ -2570,6 +3435,18 @@ export default function Home() {
               setSyncAllDialogOpen(true);
             }
           }}
+        />
+      </div>
+    );
+  }
+
+  if (isPostLoginTransitioning) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-[13px] leading-[1.35] tracking-[-0.005em] font-(family-name:--font-sans)">
+        <AppState
+          kind="loading"
+          title={t("shell.states.postLoginTitle")}
+          description={t("shell.states.postLoginDescription")}
         />
       </div>
     );
@@ -2588,7 +3465,8 @@ export default function Home() {
         platformRole={cloudUser?.platformRole ?? null}
         workspaceOptions={workspaceOptions}
         currentWorkspaceId={sidebarWorkspaceId}
-        onWorkspaceChange={setSidebarWorkspaceId}
+        onWorkspaceChange={handleWorkspaceChange}
+        isWorkspaceSwitching={Boolean(workspaceSwitchState)}
         authEmail={cloudUser?.email ?? null}
         authName={cloudUser?.name ?? null}
         authAvatar={cloudUser?.avatar ?? null}
@@ -2604,14 +3482,52 @@ export default function Home() {
 
       <main className="app-shell-safe flex min-w-0 flex-1 flex-col overflow-hidden pl-6 pb-4 md:pl-8 md:pb-6">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {pendingConfigMessages.length > 0 && (
-            <div className="mb-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {pendingConfigMessages.join(" • ")}
-            </div>
-          )}
+          <MainWorkspaceTopBar
+            workspaceName={
+              selectedWorkspaceContext?.name ??
+              selectedWorkspaceOption?.label ??
+              t("shell.workspaceSwitcher.placeholder")
+            }
+            workspaceRoleLabel={
+              isPlatformAdmin
+                ? t("shell.roles.platform_admin")
+                : t(`shell.roles.${selectedWorkspaceRole}`)
+            }
+            pendingConfigMessages={pendingConfigMessages}
+            notifications={topbarNotifications}
+            isCheckingUpdates={isCheckingHeaderUpdates}
+            onCheckUpdates={() => {
+              void handleCheckForUpdates();
+            }}
+            onOpenSettings={() => setActiveSection("settings")}
+            onOpenAdminPanel={() => setActiveSection("admin-overview")}
+            onOpenWorkspaceGovernancePanel={() =>
+              setActiveSection("workspace-admin-overview")
+            }
+            onOpenWorkspacePanel={() => setActiveSection("profiles")}
+            onSignOut={() => {
+              void handleCloudSignOut();
+            }}
+            authEmail={cloudUser?.email ?? ""}
+            authAvatar={cloudUser?.avatar ?? null}
+            inAdminPanel={inAdminPanel}
+            inWorkspaceGovernancePanel={inWorkspaceGovernancePanel}
+            canAccessAdminPanel={canAccessAdminWorkspace}
+            canAccessWorkspaceGovernancePanel={
+              canManageSelectedWorkspaceGovernance
+            }
+          />
           {renderActiveSection()}
         </div>
       </main>
+
+      <AppStateOverlay
+        open={Boolean(workspaceSwitchState)}
+        kind="loading"
+        title={t("shell.workspaceSwitcher.switchingTitle")}
+        description={t("shell.workspaceSwitcher.switchingDescription")}
+        overlayClassName="bg-background"
+      />
 
       <CreateProfileDialog
         isOpen={createProfileDialogOpen}
@@ -2687,7 +3603,7 @@ export default function Home() {
       <ExtensionManagementDialog
         isOpen={extensionManagementDialogOpen}
         onClose={() => setExtensionManagementDialogOpen(false)}
-        limitedMode={!crossOsUnlocked}
+        limitedMode={!extensionManagementUnlocked}
       />
 
       <GroupAssignmentDialog
@@ -2708,6 +3624,7 @@ export default function Home() {
         selectedProfiles={selectedProfilesForExtensionGroup}
         onAssignmentComplete={handleExtensionGroupAssignmentComplete}
         profiles={profiles}
+        limitedMode={!extensionManagementUnlocked}
       />
 
       <ProxyAssignmentDialog
@@ -2747,9 +3664,13 @@ export default function Home() {
         isOpen={showBulkDeleteConfirmation}
         onClose={() => setShowBulkDeleteConfirmation(false)}
         onConfirm={confirmBulkDelete}
-        title="Delete Selected Profiles"
-        description={`This action cannot be undone. This will permanently delete ${selectedProfiles.length} profile${selectedProfiles.length !== 1 ? "s" : ""} and all associated data.`}
-        confirmButtonText={`Delete ${selectedProfiles.length} Profile${selectedProfiles.length !== 1 ? "s" : ""}`}
+        title={t("profiles.bulkDelete.title")}
+        description={t("profiles.bulkDelete.description", {
+          count: selectedProfiles.length,
+        })}
+        confirmButtonText={t("profiles.bulkDelete.confirmButton", {
+          count: selectedProfiles.length,
+        })}
         isLoading={isBulkDeleting}
         profileIds={selectedProfiles}
         profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
@@ -2778,6 +3699,7 @@ export default function Home() {
         }}
         profile={currentProfileForSync}
         onSyncConfigOpen={() => setSyncConfigDialogOpen(true)}
+        canUseEncryption={syncEncryptionUnlocked}
       />
 
       {/* Wayfern Terms and Conditions Dialog - shown if terms not accepted */}

@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
@@ -28,6 +29,7 @@ export function LocationProxyDialog({
   isOpen,
   onClose,
 }: LocationProxyDialogProps) {
+  const { t } = useTranslation();
   const [countries, setCountries] = useState<LocationItem[]>([]);
   const [states, setStates] = useState<LocationItem[]>([]);
   const [cities, setCities] = useState<LocationItem[]>([]);
@@ -60,10 +62,10 @@ export function LocationProxyDialog({
       .then((data) => setCountries(data))
       .catch((err) => {
         console.error("Failed to fetch countries:", err);
-        toast.error("Failed to load countries");
+        toast.error(t("locationProxyDialog.toasts.loadCountriesFailed"));
       })
       .finally(() => setIsLoadingCountries(false));
-  }, [isOpen]);
+  }, [isOpen, t]);
 
   // Fetch states when country changes
   useEffect(() => {
@@ -122,7 +124,7 @@ export function LocationProxyDialog({
         state: selectedState || null,
         city: selectedCity || null,
       });
-      toast.success("Location proxy created");
+      toast.success(t("locationProxyDialog.toasts.created"));
       await emit("stored-proxies-changed");
       handleClose();
     } catch (error) {
@@ -133,7 +135,7 @@ export function LocationProxyDialog({
     } finally {
       setIsCreating(false);
     }
-  }, [selectedCountry, selectedState, selectedCity, proxyName, handleClose]);
+  }, [selectedCountry, selectedState, selectedCity, proxyName, handleClose, t]);
 
   const countryOptions = countries.map((c) => ({
     value: c.code,
@@ -146,15 +148,15 @@ export function LocationProxyDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Location Proxy</DialogTitle>
+          <DialogTitle>{t("locationProxyDialog.title")}</DialogTitle>
           <DialogDescription>
-            Create a geo-targeted proxy from your cloud credentials
+            {t("locationProxyDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Country (required)</Label>
+            <Label>{t("locationProxyDialog.labels.countryRequired")}</Label>
             <Combobox
               options={countryOptions}
               value={selectedCountry}
@@ -166,7 +168,7 @@ export function LocationProxyDialog({
 
           {selectedCountry && stateOptions.length > 0 && (
             <div className="space-y-2">
-              <Label>State (optional)</Label>
+              <Label>{t("locationProxyDialog.labels.stateOptional")}</Label>
               <Combobox
                 options={stateOptions}
                 value={selectedState}
@@ -179,7 +181,7 @@ export function LocationProxyDialog({
 
           {selectedState && cityOptions.length > 0 && (
             <div className="space-y-2">
-              <Label>City (optional)</Label>
+              <Label>{t("locationProxyDialog.labels.cityOptional")}</Label>
               <Combobox
                 options={cityOptions}
                 value={selectedCity}
@@ -191,7 +193,7 @@ export function LocationProxyDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{t("common.labels.name")}</Label>
             <Input
               value={proxyName}
               onChange={(e) => setProxyName(e.target.value)}
@@ -208,7 +210,9 @@ export function LocationProxyDialog({
             onClick={handleCreate}
             disabled={!selectedCountry || !proxyName.trim() || isCreating}
           >
-            {isCreating ? "Creating..." : "Create"}
+            {isCreating
+              ? t("locationProxyDialog.actions.creating")
+              : t("common.buttons.create")}
           </RippleButton>
         </DialogFooter>
       </DialogContent>

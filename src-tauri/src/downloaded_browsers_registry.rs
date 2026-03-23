@@ -141,6 +141,19 @@ impl DownloadedBrowsersRegistry {
       .unwrap_or_default()
   }
 
+  pub fn list_registered_browser_versions(&self) -> Vec<(String, String)> {
+    let data = self.data.lock().unwrap();
+    data
+      .browsers
+      .iter()
+      .flat_map(|(browser, versions)| {
+        versions
+          .keys()
+          .map(|version| (browser.clone(), version.clone()))
+      })
+      .collect()
+  }
+
   pub fn mark_download_started(&self, browser: &str, version: &str, file_path: PathBuf) {
     // Only mark download started, don't add to registry yet
     // The browser will be added to registry only after verification succeeds
@@ -909,6 +922,22 @@ impl DownloadedBrowsersRegistry {
       }
     }
 
+    #[cfg(target_os = "windows")]
+    {
+      match crate::downloader::patch_all_installed_browser_icons_windows_once().await {
+        Ok((patched, failed)) => {
+          log::info!(
+            "Post-ensure icon patch completed: patched={}, failed={}",
+            patched,
+            failed
+          );
+        }
+        Err(e) => {
+          log::warn!("Post-ensure icon patch failed: {e}");
+        }
+      }
+    }
+
     Ok(downloaded)
   }
 
@@ -1277,6 +1306,13 @@ pub async fn ensure_active_browsers_downloaded(
       Err(e) => {
         log::warn!("Failed to auto-download {browser} {version}: {e}");
       }
+    }
+  }
+
+  #[cfg(target_os = "windows")]
+  {
+    if let Err(e) = crate::downloader::patch_all_installed_browser_icons_windows_once().await {
+      log::warn!("Post-auto-download icon patch failed: {e}");
     }
   }
 

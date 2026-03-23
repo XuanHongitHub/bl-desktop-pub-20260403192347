@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LoadingButton } from "@/components/loading-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,6 +48,7 @@ export function ProfileSelectorDialog({
   runningProfiles: externalRunningProfiles,
   isUpdating,
 }: ProfileSelectorDialogProps) {
+  const { t } = useTranslation();
   // Use the centralized profile events hook
   const { profiles, runningProfiles: hookRunningProfiles } = useProfileEvents();
 
@@ -161,14 +163,16 @@ export function ProfileSelectorDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Choose Profile</DialogTitle>
+          <DialogTitle>{t("profileSelectorDialog.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           {url && (
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label className="text-sm font-medium">Opening URL:</Label>
+                <Label className="text-sm font-medium">
+                  {t("profileSelectorDialog.labels.openingUrl")}
+                </Label>
                 <CopyToClipboard
                   text={url}
                   successMessage="URL copied to clipboard!"
@@ -181,7 +185,9 @@ export function ProfileSelectorDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="profile-select">Select Profile:</Label>
+            <Label htmlFor="profile-select">
+              {t("profileSelectorDialog.labels.selectProfile")}
+            </Label>
             {profiles.length === 0 ? (
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground">

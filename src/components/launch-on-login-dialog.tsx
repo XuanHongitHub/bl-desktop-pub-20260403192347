@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LoadingButton } from "@/components/loading-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ export function LaunchOnLoginDialog({
   isOpen,
   onClose,
 }: LaunchOnLoginDialogProps) {
+  const { t } = useTranslation();
   const [isEnabling, setIsEnabling] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
 
@@ -29,18 +31,20 @@ export function LaunchOnLoginDialog({
     setIsEnabling(true);
     try {
       await invoke("enable_launch_on_login");
-      showSuccessToast("Launch on login enabled");
+      showSuccessToast(t("launchOnLogin.toasts.enabled"));
       onClose();
     } catch (error) {
       console.error("Failed to enable launch on login:", error);
-      showErrorToast("Failed to enable launch on login", {
+      showErrorToast(t("launchOnLogin.toasts.enableFailed"), {
         description:
-          error instanceof Error ? error.message : "Please try again",
+          error instanceof Error
+            ? error.message
+            : t("launchOnLogin.toasts.tryAgain"),
       });
     } finally {
       setIsEnabling(false);
     }
-  }, [onClose]);
+  }, [onClose, t]);
 
   const handleDecline = useCallback(async () => {
     setIsDeclining(true);
@@ -49,14 +53,16 @@ export function LaunchOnLoginDialog({
       onClose();
     } catch (error) {
       console.error("Failed to decline launch on login:", error);
-      showErrorToast("Failed to save preference", {
+      showErrorToast(t("launchOnLogin.toasts.savePreferenceFailed"), {
         description:
-          error instanceof Error ? error.message : "Please try again",
+          error instanceof Error
+            ? error.message
+            : t("launchOnLogin.toasts.tryAgain"),
       });
     } finally {
       setIsDeclining(false);
     }
-  }, [onClose]);
+  }, [onClose, t]);
 
   return (
     <Dialog open={isOpen}>
@@ -67,7 +73,7 @@ export function LaunchOnLoginDialog({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Enable Launch on Login?</DialogTitle>
+          <DialogTitle>{t("launchOnLogin.title")}</DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">

@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -30,6 +31,7 @@ export function EditGroupDialog({
   group,
   onGroupUpdated,
 }: EditGroupDialogProps) {
+  const { t } = useTranslation();
   const [groupName, setGroupName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function EditGroupDialog({
         name: groupName.trim(),
       });
 
-      toast.success("Group updated successfully");
+      toast.success(t("groupDialogs.toasts.updated"));
       onGroupUpdated(updatedGroup);
       onClose();
     } catch (err) {
@@ -66,7 +68,7 @@ export function EditGroupDialog({
     } finally {
       setIsUpdating(false);
     }
-  }, [group, groupName, onGroupUpdated, onClose]);
+  }, [group, groupName, onGroupUpdated, onClose, t]);
 
   const handleClose = useCallback(() => {
     setError(null);
@@ -77,7 +79,7 @@ export function EditGroupDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Group</DialogTitle>
+          <DialogTitle>{t("groupDialogs.edit.title")}</DialogTitle>
           <DialogDescription>
             Update the name of the group "{group?.name}".
           </DialogDescription>
@@ -85,7 +87,9 @@ export function EditGroupDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="group-name">Group Name</Label>
+            <Label htmlFor="group-name">
+              {t("groupDialogs.labels.groupName")}
+            </Label>
             <Input
               id="group-name"
               placeholder="Enter group name..."

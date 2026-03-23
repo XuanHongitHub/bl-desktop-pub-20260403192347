@@ -6,6 +6,10 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/i18n";
+import {
+  mergeAppSettingsCache,
+  readAppSettingsCache,
+} from "@/lib/app-settings-cache";
 
 interface AppSettings {
   language?: string | null;
@@ -14,40 +18,26 @@ interface AppSettings {
 
 export function useLanguage() {
   const { i18n } = useTranslation();
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentLanguage, setCurrentLanguage] = useState<string>("vi");
-
-  const loadLanguage = useCallback(async () => {
-    try {
-      const settings = await invoke<AppSettings>("get_app_settings");
-      let language = settings.language;
-
-      if (!language) {
-        const systemLanguage = await invoke<string>("get_system_language");
-        language = getLanguageWithFallback(systemLanguage);
-      }
-
-      if (
-        language &&
-        SUPPORTED_LANGUAGES.some((lang) => lang.code === language)
-      ) {
-        await i18n.changeLanguage(language);
-        setCurrentLanguage(language);
-      } else {
-        // Migrate removed locales to the new default.
-        await i18n.changeLanguage("vi");
-        setCurrentLanguage("vi");
-      }
-    } catch (error) {
-      console.error("Failed to load language setting:", error);
-    } finally {
-      setIsLoading(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState<string>(() => {
+    const cachedLanguage = readAppSettingsCache()?.language;
+    if (
+      typeof cachedLanguage === "string" &&
+      SUPPORTED_LANGUAGES.some((lang) => lang.code === cachedLanguage)
+    ) {
+      return cachedLanguage;
     }
-  }, [i18n]);
+    const resolved = i18n.resolvedLanguage || i18n.language || "vi";
+    const fallback = getLanguageWithFallback(resolved);
+    return SUPPORTED_LANGUAGES.some((lang) => lang.code === fallback)
+      ? fallback
+      : "vi";
+  });
 
   const changeLanguage = useCallback(
     async (language: SupportedLanguage | null) => {
       try {
+        setIsLoading(true);
         const settings = await invoke<AppSettings>("get_app_settings");
         const updatedSettings = {
           ...settings,
@@ -55,26 +45,41 @@ export function useLanguage() {
         };
         await invoke("save_app_settings", { settings: updatedSettings });
 
+        let nextLanguage: string;
         if (language) {
-          await i18n.changeLanguage(language);
-          setCurrentLanguage(language);
+          nextLanguage = language;
         } else {
           const systemLanguage = await invoke<string>("get_system_language");
-          const fallbackLanguage = getLanguageWithFallback(systemLanguage);
-          await i18n.changeLanguage(fallbackLanguage);
-          setCurrentLanguage(fallbackLanguage);
+          nextLanguage = getLanguageWithFallback(systemLanguage);
+          if (!SUPPORTED_LANGUAGES.some((lang) => lang.code === nextLanguage)) {
+            nextLanguage = "vi";
+          }
         }
-      } catch (error) {
-        console.error("Failed to change language:", error);
-        throw error;
+        await i18n.changeLanguage(nextLanguage);
+        setCurrentLanguage(nextLanguage);
+        mergeAppSettingsCache({
+          language: language ?? nextLanguage,
+        });
+      } finally {
+        setIsLoading(false);
       }
     },
     [i18n],
   );
 
   useEffect(() => {
-    void loadLanguage();
-  }, [loadLanguage]);
+    const handleLanguageChanged = (language: string) => {
+      const normalized = getLanguageWithFallback(language);
+      if (SUPPORTED_LANGUAGES.some((lang) => lang.code === normalized)) {
+        setCurrentLanguage(normalized);
+      }
+    };
+
+    i18n.on("languageChanged", handleLanguageChanged);
+    return () => {
+      i18n.off("languageChanged", handleLanguageChanged);
+    };
+  }, [i18n]);
 
   return {
     currentLanguage,

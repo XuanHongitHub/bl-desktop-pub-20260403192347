@@ -2,7 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
 import { extractRootError } from "@/lib/error-utils";
-import type { GroupWithCount } from "@/types";
+import {
+  applyScopedGroupCounts,
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
+import type { BrowserProfile, GroupWithCount } from "@/types";
 
 /**
  * Custom hook to manage group-related state and listen for backend events.
@@ -17,10 +23,27 @@ export function useGroupEvents() {
   // Load groups from backend
   const loadGroups = useCallback(async () => {
     try {
-      const groupsWithCounts = await invoke<GroupWithCount[]>(
-        "get_groups_with_profile_counts",
+      const [groupsWithCounts, profileList] = await Promise.all([
+        invoke<GroupWithCount[]>("get_groups_with_profile_counts"),
+        invoke<BrowserProfile[]>("list_browser_profiles"),
+      ]);
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        profileList,
+        (profile) => profile.id,
+        scope,
       );
-      setGroups(groupsWithCounts);
+      const scopedGroups = scopeEntitiesForContext(
+        "groups",
+        groupsWithCounts,
+        (group) => group.id,
+        scope,
+        { keepGlobalIds: ["default"] },
+      );
+      setGroups(
+        applyScopedGroupCounts(scopedGroups, scopedProfiles, "Default"),
+      );
       setError(null);
     } catch (err: unknown) {
       console.error("Failed to load groups:", err);
@@ -37,6 +60,9 @@ export function useGroupEvents() {
   useEffect(() => {
     let groupsUnlisten: (() => void) | undefined;
     let profilesUnlisten: (() => void) | undefined;
+    const handleScopeChanged = () => {
+      void loadGroups();
+    };
 
     const setupListeners = async () => {
       try {
@@ -58,6 +84,7 @@ export function useGroupEvents() {
         });
 
         console.log("Group event listeners set up successfully");
+        window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
       } catch (err) {
         console.error("Failed to setup group event listeners:", err);
         setError(
@@ -74,6 +101,7 @@ export function useGroupEvents() {
     return () => {
       if (groupsUnlisten) groupsUnlisten();
       if (profilesUnlisten) profilesUnlisten();
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
   }, [loadGroups]);
 

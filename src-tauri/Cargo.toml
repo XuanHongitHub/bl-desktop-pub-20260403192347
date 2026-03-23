@@ -1,6 +1,6 @@
 [package]
 name = "buglogin"
-version = "0.16.0"
+version = "0.17.0"
 description = "Simple Yet Powerful Anti-Detect Browser"
 authors = ["BugLogin Team <support@buglogin.com>"]
 edition = "2021"

@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Area,
   AreaChart,
@@ -31,6 +32,7 @@ import {
   TooltipTrigger,
   Tooltip as UITooltip,
 } from "@/components/ui/tooltip";
+import { formatLocaleNumber, formatLocaleTime } from "@/lib/locale-format";
 import type { FilteredTrafficStats } from "@/types";
 
 type TimePeriod =
@@ -148,8 +150,28 @@ export function TrafficDetailsDialog({
   profileId,
   profileName,
 }: TrafficDetailsDialogProps) {
+  const { t } = useTranslation();
   const [stats, setStats] = React.useState<FilteredTrafficStats | null>(null);
   const [timePeriod, setTimePeriod] = React.useState<TimePeriod>("5m");
+  const periodLabels: Record<TimePeriod, string> = React.useMemo(
+    () => ({
+      "1m": t("trafficDetails.periods.last1Min"),
+      "5m": t("trafficDetails.periods.last5Min"),
+      "30m": t("trafficDetails.periods.last30Min"),
+      "1h": t("trafficDetails.periods.last1Hour"),
+      "2h": t("trafficDetails.periods.last2Hours"),
+      "4h": t("trafficDetails.periods.last4Hours"),
+      "1d": t("trafficDetails.periods.last1Day"),
+      "7d": t("trafficDetails.periods.last7Days"),
+      "30d": t("trafficDetails.periods.last30Days"),
+      all: t("trafficDetails.periods.allTime"),
+    }),
+    [t],
+  );
+  const periodSuffixLabel =
+    timePeriod === "all"
+      ? t("trafficDetails.periods.total")
+      : periodLabels[timePeriod];
 
   // Fetch stats periodically - now uses filtered API
   React.useEffect(() => {
@@ -163,8 +185,8 @@ export function TrafficDetailsDialog({
           { profileId, seconds },
         );
         setStats(filteredStats);
-      } catch (error) {
-        console.error("Failed to fetch traffic stats:", error);
+      } catch {
+        setStats(null);
       }
     };
 
@@ -197,7 +219,7 @@ export function TrafficDetailsDialog({
       if (!active || !payload?.length) return null;
 
       const time = new Date((typeof label === "number" ? label : 0) * 1000);
-      const formattedTime = time.toLocaleTimeString();
+      const formattedTime = formatLocaleTime(time);
 
       return (
         <div className="bg-popover border rounded-lg px-3 py-2 shadow-lg">
@@ -205,7 +227,9 @@ export function TrafficDetailsDialog({
           {payload.map((entry) => (
             <p key={String(entry.dataKey)} className="text-sm">
               <span className="text-muted-foreground">
-                {entry.dataKey === "sent" ? "↑ Sent: " : "↓ Received: "}
+                {entry.dataKey === "sent"
+                  ? t("trafficDetails.chart.sentTooltip")
+                  : t("trafficDetails.chart.receivedTooltip")}
               </span>
               <span className="font-medium">
                 {formatBytesPerSecond(
@@ -217,7 +241,7 @@ export function TrafficDetailsDialog({
         </div>
       );
     },
-    [],
+    [t],
   );
 
   // Top domains sorted by total traffic
@@ -244,10 +268,11 @@ export function TrafficDetailsDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Traffic Details
+            {t("trafficDetails.title")}
             {profileName && (
               <span className="text-muted-foreground font-normal ml-2">
-                — {profileName}
+                {" - "}
+                {profileName}
               </span>
             )}
           </DialogTitle>
@@ -258,25 +283,29 @@ export function TrafficDetailsDialog({
             {/* Chart with Period Selector */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium">Bandwidth Over Time</h3>
+                <h3 className="text-sm font-medium">
+                  {t("trafficDetails.chart.bandwidthOverTime")}
+                </h3>
                 <Select
                   value={timePeriod}
                   onValueChange={(v) => setTimePeriod(v as TimePeriod)}
                 >
                   <SelectTrigger className="w-[120px] h-8">
-                    <SelectValue placeholder="Time period" />
+                    <SelectValue
+                      placeholder={t("trafficDetails.chart.timePeriod")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1m">Last 1 min</SelectItem>
-                    <SelectItem value="5m">Last 5 min</SelectItem>
-                    <SelectItem value="30m">Last 30 min</SelectItem>
-                    <SelectItem value="1h">Last 1 hour</SelectItem>
-                    <SelectItem value="2h">Last 2 hours</SelectItem>
-                    <SelectItem value="4h">Last 4 hours</SelectItem>
-                    <SelectItem value="1d">Last 1 day</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="all">All time</SelectItem>
+                    <SelectItem value="1m">{periodLabels["1m"]}</SelectItem>
+                    <SelectItem value="5m">{periodLabels["5m"]}</SelectItem>
+                    <SelectItem value="30m">{periodLabels["30m"]}</SelectItem>
+                    <SelectItem value="1h">{periodLabels["1h"]}</SelectItem>
+                    <SelectItem value="2h">{periodLabels["2h"]}</SelectItem>
+                    <SelectItem value="4h">{periodLabels["4h"]}</SelectItem>
+                    <SelectItem value="1d">{periodLabels["1d"]}</SelectItem>
+                    <SelectItem value="7d">{periodLabels["7d"]}</SelectItem>
+                    <SelectItem value="30d">{periodLabels["30d"]}</SelectItem>
+                    <SelectItem value="all">{periodLabels.all}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -332,7 +361,7 @@ export function TrafficDetailsDialog({
                     <XAxis
                       dataKey="time"
                       tickFormatter={(t) =>
-                        new Date(t * 1000).toLocaleTimeString([], {
+                        formatLocaleTime(t * 1000, {
                           hour: "2-digit",
                           minute: "2-digit",
                         })
@@ -375,7 +404,9 @@ export function TrafficDetailsDialog({
                     className="w-3 h-3 rounded"
                     style={{ backgroundColor: "var(--chart-1)" }}
                   />
-                  <span className="text-xs text-muted-foreground">Sent</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("trafficDetails.labels.sent")}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
@@ -383,7 +414,7 @@ export function TrafficDetailsDialog({
                     style={{ backgroundColor: "var(--chart-2)" }}
                   />
                   <span className="text-xs text-muted-foreground">
-                    Received
+                    {t("trafficDetails.labels.received")}
                   </span>
                 </div>
               </div>
@@ -393,7 +424,9 @@ export function TrafficDetailsDialog({
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
-                  Sent ({timePeriod === "all" ? "total" : timePeriod})
+                  {t("trafficDetails.labels.sentWithPeriod", {
+                    period: periodSuffixLabel,
+                  })}
                 </p>
                 <p className="text-lg font-semibold text-chart-1">
                   {formatBytes(stats?.period_bytes_sent || 0)}
@@ -401,7 +434,9 @@ export function TrafficDetailsDialog({
               </div>
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
-                  Received ({timePeriod === "all" ? "total" : timePeriod})
+                  {t("trafficDetails.labels.receivedWithPeriod", {
+                    period: periodSuffixLabel,
+                  })}
                 </p>
                 <p className="text-lg font-semibold text-chart-2">
                   {formatBytes(stats?.period_bytes_received || 0)}
@@ -409,10 +444,12 @@ export function TrafficDetailsDialog({
               </div>
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
-                  Requests ({timePeriod === "all" ? "total" : timePeriod})
+                  {t("trafficDetails.labels.requestsWithPeriod", {
+                    period: periodSuffixLabel,
+                  })}
                 </p>
                 <p className="text-lg font-semibold">
-                  {(stats?.period_requests || 0).toLocaleString()}
+                  {formatLocaleNumber(stats?.period_requests || 0)}
                 </p>
               </div>
             </div>
@@ -420,38 +457,50 @@ export function TrafficDetailsDialog({
             {/* Total Stats (smaller, under period stats) */}
             <div className="flex items-center gap-6 text-sm text-muted-foreground border-t pt-4">
               <div>
-                <span className="font-medium">All-time traffic:</span>{" "}
+                <span className="font-medium">
+                  {t("trafficDetails.labels.allTimeTraffic")}
+                </span>{" "}
                 {formatBytes(
                   (stats?.total_bytes_sent || 0) +
                     (stats?.total_bytes_received || 0),
                 )}
               </div>
               <div>
-                <span className="font-medium">All-time requests:</span>{" "}
-                {stats?.total_requests?.toLocaleString() || 0}
+                <span className="font-medium">
+                  {t("trafficDetails.labels.allTimeRequests")}
+                </span>{" "}
+                {formatLocaleNumber(stats?.total_requests || 0)}
               </div>
             </div>
 
             {/* Disclaimer about proxy/VPN traffic calculation */}
             <p className="text-xs text-muted-foreground italic">
-              Note: If you are using a proxy, VPN, or similar service, your
-              provider may calculate traffic differently due to encryption
-              overhead and protocol differences.
+              {t("trafficDetails.disclaimer")}
             </p>
 
             {/* Top Domains by Traffic */}
             {topDomainsByTraffic.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium mb-2">
-                  Top Domains by Traffic (
-                  {timePeriod === "all" ? "all time" : timePeriod})
+                  {t("trafficDetails.topDomainsByTraffic", {
+                    period:
+                      timePeriod === "all"
+                        ? periodLabels.all
+                        : periodLabels[timePeriod],
+                  })}
                 </h3>
                 <div className="border rounded-md">
                   <div className="grid grid-cols-[1fr_80px_80px_80px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">
-                    <span>Domain</span>
-                    <span className="text-right">Requests</span>
-                    <span className="text-right">Sent</span>
-                    <span className="text-right">Received</span>
+                    <span>{t("trafficDetails.table.domain")}</span>
+                    <span className="text-right">
+                      {t("trafficDetails.table.requests")}
+                    </span>
+                    <span className="text-right">
+                      {t("trafficDetails.table.sent")}
+                    </span>
+                    <span className="text-right">
+                      {t("trafficDetails.table.received")}
+                    </span>
                   </div>
                   <ScrollArea className="max-h-[180px]">
                     {topDomainsByTraffic.map((domain, index) => (
@@ -466,7 +515,7 @@ export function TrafficDetailsDialog({
                           <TruncatedDomain domain={domain.domain} />
                         </div>
                         <span className="text-right text-muted-foreground">
-                          {domain.request_count.toLocaleString()}
+                          {formatLocaleNumber(domain.request_count)}
                         </span>
                         <span className="text-right text-chart-1">
                           {formatBytes(domain.bytes_sent)}
@@ -485,14 +534,22 @@ export function TrafficDetailsDialog({
             {topDomainsByRequests.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium mb-2">
-                  Top Domains by Requests (
-                  {timePeriod === "all" ? "all time" : timePeriod})
+                  {t("trafficDetails.topDomainsByRequests", {
+                    period:
+                      timePeriod === "all"
+                        ? periodLabels.all
+                        : periodLabels[timePeriod],
+                  })}
                 </h3>
                 <div className="border rounded-md">
                   <div className="grid grid-cols-[1fr_80px_100px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">
-                    <span>Domain</span>
-                    <span className="text-right">Requests</span>
-                    <span className="text-right">Total Traffic</span>
+                    <span>{t("trafficDetails.table.domain")}</span>
+                    <span className="text-right">
+                      {t("trafficDetails.table.requests")}
+                    </span>
+                    <span className="text-right">
+                      {t("trafficDetails.table.totalTraffic")}
+                    </span>
                   </div>
                   <ScrollArea className="max-h-[180px]">
                     {topDomainsByRequests.map((domain, index) => (
@@ -507,7 +564,7 @@ export function TrafficDetailsDialog({
                           <TruncatedDomain domain={domain.domain} />
                         </div>
                         <span className="text-right text-muted-foreground">
-                          {domain.request_count.toLocaleString()}
+                          {formatLocaleNumber(domain.request_count)}
                         </span>
                         <span className="text-right">
                           {formatBytes(
@@ -525,7 +582,9 @@ export function TrafficDetailsDialog({
             {stats?.unique_ips && stats.unique_ips.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium mb-2">
-                  Unique IPs ({stats.unique_ips.length})
+                  {t("trafficDetails.uniqueIps", {
+                    count: stats.unique_ips.length,
+                  })}
                 </h3>
                 <ScrollArea className="border rounded-md p-3 max-h-[120px]">
                   <div className="flex flex-wrap gap-1.5">
@@ -545,9 +604,9 @@ export function TrafficDetailsDialog({
             {/* No data state */}
             {!stats && (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No traffic data available for this profile.</p>
+                <p>{t("trafficDetails.empty.title")}</p>
                 <p className="text-sm mt-1">
-                  Traffic data will appear after you launch the profile.
+                  {t("trafficDetails.empty.description")}
                 </p>
               </div>
             )}

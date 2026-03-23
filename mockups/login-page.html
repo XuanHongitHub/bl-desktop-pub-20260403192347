@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BugLogin - Đăng nhập</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: ["class"],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                        card: {
+                            DEFAULT: "hsl(var(--card))",
+                            foreground: "hsl(var(--card-foreground))",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                    boxShadow: {
+                        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        'subtle': '0 4px 24px -4px rgba(0, 0, 0, 0.04)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 240 10% 6%;
+            --card: 0 0% 100%;
+            --card-foreground: 240 10% 4%;
+            --muted: 240 4.8% 95.9%;
+            --muted-foreground: 240 3.8% 46.1%;
+            --accent: 240 4.8% 95.9%;
+            --accent-foreground: 240 5.9% 10%;
+            --primary: 240 8% 12%;
+            --primary-foreground: 0 0% 98%;
+            --secondary: 240 4.8% 95.9%;
+            --secondary-foreground: 240 5.9% 10%;
+            --border: 240 5.9% 90%;
+            --input: 240 5.9% 90%;
+            --ring: 240 10% 12%;
+            --radius: 0.5rem;
+        }
+
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .bg-grid {
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+        }
+
+        .btn-press:active {
+            transform: scale(0.98);
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Custom tab styles */
+        .tab-btn {
+            position: relative;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: hsl(var(--primary));
+            border-radius: 2px 2px 0 0;
+        }
+        
+        /* Form inputs Notion style */
+        .notion-input {
+            width: 100%;
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--input));
+            background: hsl(var(--background));
+            padding: 0.625rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .notion-input:focus {
+            border-color: hsl(var(--primary));
+            box-shadow: 0 0 0 1px hsl(var(--primary));
+        }
+    </style>
+</head>
+<body class="min-h-screen flex text-sm">
+
+    <!-- Left Pane (Aesthetic Illustration / Quote) -->
+    <div class="hidden lg:flex w-[45%] bg-zinc-50 border-r border-border relative flex-col justify-between p-12 overflow-hidden bg-grid">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 font-semibold text-lg z-10 fade-in-up">
+            <img src="../public/buglogin-logo.webp" alt="BugLogin Logo" class="w-8 h-8 rounded-md shadow-sm border border-border" onerror="this.src='https://via.placeholder.com/32?text=BL'">
+            BugLogin
+        </div>
+
+        <!-- Quote Content -->
+        <div class="z-10 max-w-md fade-in-up delay-200">
+            <h2 class="text-3xl font-medium tracking-tight mb-6 leading-tight">
+                "Một công cụ đơn giản cho toàn bộ đội ngũ. Quản lý hệ sinh thái tài khoản hiệu quả, an toàn, chuẩn xác."
+            </h2>
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-500 font-semibold border border-zinc-300">TV</div>
+                <div>
+                    <div class="font-medium text-base">Trần Văn A</div>
+                    <div class="text-muted-foreground">Automation Manager</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-muted-foreground z-10 fade-in-up delay-300">
+            © 2026 BugLogin Inc.
+        </div>
+    </div>
+
+    <!-- Right Pane (Login Workspace) -->
+    <div class="w-full lg:w-[55%] flex items-center justify-center p-8 bg-background relative">
+        <!-- Mobile Logo -->
+        <div class="absolute top-8 left-8 flex lg:hidden items-center gap-2 font-semibold text-lg fade-in-up">
+            <img src="../public/buglogin-logo.webp" alt="BugLogin Logo" class="w-7 h-7 rounded-sm border border-border" onerror="this.src='https://via.placeholder.com/28?text=BL'">
+            BugLogin
+        </div>
+
+        <div class="w-full max-w-sm fade-in-up delay-100">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-semibold tracking-tight mb-2">Đăng nhập tài khoản</h1>
+                <p class="text-muted-foreground text-sm">Truy cập vào Workspace BugLogin của bạn</p>
+            </div>
+
+            <!-- Tabs (Login/Register/Forgot) -->
+            <div class="flex mb-6 border-b border-border">
+                <button class="flex-1 pb-3 text-sm font-medium text-primary tab-btn active hover:text-primary transition-colors flex justify-center items-center gap-2">
+                    <i data-lucide="mail" class="w-4 h-4"></i> Đăng nhập
+                </button>
+                <button class="flex-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex justify-center items-center gap-2 tab-btn">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Đăng ký
+                </button>
+                <button class="flex-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex justify-center items-center gap-2 tab-btn">
+                    <i data-lucide="key-round" class="w-4 h-4"></i> Quên mật khẩu
+                </button>
+            </div>
+
+            <!-- Form -->
+            <form class="space-y-4">
+                <div class="space-y-2">
+                    <label for="email" class="text-[13px] font-medium text-foreground">Địa chỉ Email</label>
+                    <input type="email" id="email" placeholder="m@example.com" class="notion-input">
+                </div>
+
+                <div class="space-y-2">
+                    <label for="scope" class="text-[13px] font-medium text-foreground">Phạm vi truy cập (Scope)</label>
+                    <div class="relative">
+                        <select id="scope" class="notion-input appearance-none bg-white">
+                            <option value="workspace_user">Workspace User (Mặc định)</option>
+                            <option value="platform_admin">Platform Admin</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="invite" class="text-[13px] font-medium text-foreground">Mã lời mời (Invite Token)</label>
+                    <input type="text" id="invite" placeholder="Chỉ nhập nếu được mời" class="notion-input">
+                </div>
+
+                <div class="pt-4">
+                    <button type="button" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/95 h-10 px-4 w-full btn-press shadow-sm">
+                        Đăng nhập qua Email
+                    </button>
+                </div>
+                
+                <div class="pt-2">
+                    <button type="button" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-border bg-background text-foreground hover:bg-muted h-10 px-4 w-full btn-press shadow-sm gap-2">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Đăng nhập qua Google
+                    </button>
+                </div>
+            </form>
+
+            <!-- Quick Presets -->
+            <div class="mt-8 rounded-md border border-border bg-zinc-50/50 p-4">
+                <p class="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Presets Truy Cập Nhanh</p>
+                <div class="space-y-2">
+                    <button type="button" class="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-xs transition-colors hover:bg-muted btn-press shadow-sm">
+                        <span class="font-medium text-foreground">Admin Preset</span>
+                        <span class="truncate text-muted-foreground">admin@buglogin.test</span>
+                    </button>
+                    <button type="button" class="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-xs transition-colors hover:bg-muted btn-press shadow-sm">
+                        <span class="font-medium text-foreground">User Preset</span>
+                        <span class="truncate text-muted-foreground">user@buglogin.test</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

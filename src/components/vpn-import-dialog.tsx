@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LuShield, LuUpload } from "react-icons/lu";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
@@ -67,6 +68,7 @@ const detectVpnType = (
 };
 
 export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<ImportStep>("dropzone");
   const [isDragOver, setIsDragOver] = useState(false);
   const [vpnPreview, setVpnPreview] = useState<VpnPreviewData | null>(null);
@@ -92,25 +94,28 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
     onClose();
   }, [resetState, onClose]);
 
-  const processContent = useCallback((content: string, filename: string) => {
-    const detection = detectVpnType(content, filename);
-    if (!detection.isVpn) {
-      toast.error("Content does not appear to be a valid VPN configuration");
-      return;
-    }
-    setVpnPreview({
-      content,
-      filename,
-      detectedType: detection.type,
-      endpoint: detection.endpoint,
-    });
-    const baseName = filename
-      .replace(/\.(conf|ovpn)$/i, "")
-      .replace(/_/g, " ")
-      .replace(/-/g, " ");
-    setVpnName(baseName || `${detection.type} VPN`);
-    setStep("vpn-preview");
-  }, []);
+  const processContent = useCallback(
+    (content: string, filename: string) => {
+      const detection = detectVpnType(content, filename);
+      if (!detection.isVpn) {
+        toast.error(t("vpnImportDialog.toasts.invalidContent"));
+        return;
+      }
+      setVpnPreview({
+        content,
+        filename,
+        detectedType: detection.type,
+        endpoint: detection.endpoint,
+      });
+      const baseName = filename
+        .replace(/\.(conf|ovpn)$/i, "")
+        .replace(/_/g, " ")
+        .replace(/-/g, " ");
+      setVpnName(baseName || `${detection.type} VPN`);
+      setStep("vpn-preview");
+    },
+    [t],
+  );
 
   const handleFileRead = useCallback(
     (file: File) => {
@@ -120,11 +125,11 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
         processContent(content, file.name);
       };
       reader.onerror = () => {
-        toast.error("Failed to read file");
+        toast.error(t("vpnImportDialog.toasts.readFailed"));
       };
       reader.readAsText(file);
     },
-    [processContent],
+    [processContent, t],
   );
 
   const handleDrop = useCallback(
@@ -138,10 +143,10 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
       if (validFile) {
         handleFileRead(validFile);
       } else {
-        toast.error("Please drop a .conf or .ovpn file");
+        toast.error(t("vpnImportDialog.toasts.dropFileHint"));
       }
     },
-    [handleFileRead],
+    [handleFileRead, t],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -197,7 +202,7 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import VPN Config</DialogTitle>
+          <DialogTitle>{t("vpnImportDialog.title")}</DialogTitle>
           <DialogDescription>
             {step === "dropzone" &&
               "Import a WireGuard (.conf) or OpenVPN (.ovpn) configuration file"}
@@ -271,7 +276,9 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="vpn-name">VPN Name</Label>
+              <Label htmlFor="vpn-name">
+                {t("vpnImportDialog.labels.vpnName")}
+              </Label>
               <Input
                 id="vpn-name"
                 placeholder="My VPN"
@@ -281,7 +288,7 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Config Preview</Label>
+              <Label>{t("vpnImportDialog.labels.configPreview")}</Label>
               <ScrollArea className="h-[150px] border rounded-md">
                 <pre className="p-2 text-xs font-mono whitespace-pre-wrap break-all">
                   {vpnPreview.content.slice(0, 1000)}
@@ -345,7 +352,9 @@ export function VpnImportDialog({ isOpen, onClose }: VpnImportDialogProps) {
           )}
 
           {step === "vpn-result" && (
-            <RippleButton onClick={handleClose}>Done</RippleButton>
+            <RippleButton onClick={handleClose}>
+              {t("vpnImportDialog.actions.done")}
+            </RippleButton>
           )}
         </DialogFooter>
       </DialogContent>

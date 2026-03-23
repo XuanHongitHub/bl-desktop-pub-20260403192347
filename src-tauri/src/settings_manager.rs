@@ -39,6 +39,10 @@ pub struct AppSettings {
   pub api_token: Option<String>, // Displayed token for user to copy
   #[serde(default)]
   pub sync_server_url: Option<String>, // URL of the sync server
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub stripe_publishable_key: Option<String>, // Runtime-only value from app_config/env
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub stripe_billing_url: Option<String>, // Runtime-only value from app_config/env
   #[serde(default)]
   pub first_launch_timestamp: Option<u64>, // Unix epoch seconds when app was first launched
   #[serde(default)]
@@ -85,6 +89,8 @@ impl Default for AppSettings {
       api_port: 10108,
       api_token: None,
       sync_server_url: None,
+      stripe_publishable_key: None,
+      stripe_billing_url: None,
       first_launch_timestamp: None,
       mcp_enabled: false,
       mcp_port: None,
@@ -855,6 +861,10 @@ pub async fn get_app_settings(app_handle: tauri::AppHandle) -> Result<AppSetting
     .await
     .map_err(|e| format!("Failed to load MCP token: {e}"))?;
 
+  let endpoints = crate::app_config::get();
+  settings.stripe_publishable_key = endpoints.stripe_publishable_key.clone();
+  settings.stripe_billing_url = endpoints.stripe_billing_url.clone();
+
   Ok(settings)
 }
 
@@ -925,6 +935,9 @@ pub async fn save_app_settings(
   let mut persist_settings = settings.clone();
   persist_settings.api_token = None;
   persist_settings.mcp_token = None;
+  // Stripe endpoint/key are runtime-config only and should not be persisted in app_settings.json.
+  persist_settings.stripe_publishable_key = None;
+  persist_settings.stripe_billing_url = None;
 
   log::info!(
     "[settings] Saving settings: theme={}, custom_theme_keys={}",
@@ -1187,6 +1200,8 @@ mod tests {
       api_port: 10108,
       api_token: None,
       sync_server_url: None,
+      stripe_publishable_key: None,
+      stripe_billing_url: None,
       first_launch_timestamp: None,
       mcp_enabled: false,
       mcp_port: None,

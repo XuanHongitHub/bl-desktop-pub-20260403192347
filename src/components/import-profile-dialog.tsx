@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FaFolder } from "react-icons/fa";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
@@ -38,6 +39,7 @@ export function ImportProfileDialog({
   isOpen,
   onClose,
 }: ImportProfileDialogProps) {
+  const { t } = useTranslation();
   const [detectedProfiles, setDetectedProfiles] = useState<DetectedProfile[]>(
     [],
   );
@@ -88,11 +90,11 @@ export function ImportProfileDialog({
       }
     } catch (error) {
       console.error("Failed to detect existing profiles:", error);
-      toast.error("Failed to detect existing browser profiles");
+      toast.error(t("importProfileDialog.toasts.detectFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleBrowseFolder = async () => {
     try {
@@ -107,13 +109,13 @@ export function ImportProfileDialog({
       }
     } catch (error) {
       console.error("Failed to open folder dialog:", error);
-      toast.error("Failed to open folder dialog");
+      toast.error(t("importProfileDialog.toasts.openFolderFailed"));
     }
   };
 
   const handleAutoDetectImport = useCallback(async () => {
     if (!selectedDetectedProfile || !autoDetectProfileName.trim()) {
-      toast.error("Please select a profile and provide a name");
+      toast.error(t("importProfileDialog.toasts.selectProfileAndName"));
       return;
     }
 
@@ -121,7 +123,7 @@ export function ImportProfileDialog({
       (p) => p.path === selectedDetectedProfile,
     );
     if (!profile) {
-      toast.error("Selected profile not found");
+      toast.error(t("importProfileDialog.toasts.selectedProfileNotFound"));
       return;
     }
 
@@ -152,7 +154,11 @@ export function ImportProfileDialog({
           },
         );
       } else {
-        toast.error(`Failed to import profile: ${errorMessage}`);
+        toast.error(
+          t("importProfileDialog.toasts.importFailed", {
+            message: errorMessage,
+          }),
+        );
       }
     } finally {
       setIsImporting(false);
@@ -162,6 +168,7 @@ export function ImportProfileDialog({
     autoDetectProfileName,
     detectedProfiles,
     onClose,
+    t,
   ]);
 
   const handleManualImport = useCallback(async () => {
@@ -170,7 +177,7 @@ export function ImportProfileDialog({
       !manualProfilePath.trim() ||
       !manualProfileName.trim()
     ) {
-      toast.error("Please fill in all fields");
+      toast.error(t("importProfileDialog.toasts.fillAllFields"));
       return;
     }
 
@@ -201,12 +208,16 @@ export function ImportProfileDialog({
           },
         );
       } else {
-        toast.error(`Failed to import profile: ${errorMessage}`);
+        toast.error(
+          t("importProfileDialog.toasts.importFailed", {
+            message: errorMessage,
+          }),
+        );
       }
     } finally {
       setIsImporting(false);
     }
-  }, [manualBrowserType, manualProfilePath, manualProfileName, onClose]);
+  }, [manualBrowserType, manualProfilePath, manualProfileName, onClose, t]);
 
   const handleClose = () => {
     setSelectedDetectedProfile(null);
@@ -251,7 +262,7 @@ export function ImportProfileDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] my-8 flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Import Browser Profile</DialogTitle>
+          <DialogTitle>{t("importProfileDialog.title")}</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="flex-1 min-h-0">
@@ -348,11 +359,15 @@ export function ImportProfileDialog({
                     {selectedProfile && (
                       <div className="p-3 rounded-lg bg-muted">
                         <p className="text-sm">
-                          <span className="font-medium">Path:</span>{" "}
+                          <span className="font-medium">
+                            {t("importProfileDialog.labels.path")}
+                          </span>{" "}
                           {selectedProfile.path}
                         </p>
                         <p className="text-sm">
-                          <span className="font-medium">Browser:</span>{" "}
+                          <span className="font-medium">
+                            {t("importProfileDialog.labels.browser")}
+                          </span>{" "}
                           {getBrowserDisplayName(selectedProfile.browser)}
                         </p>
                       </div>
@@ -379,7 +394,9 @@ export function ImportProfileDialog({
             {/* Manual Import Mode */}
             {importMode === "manual" && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Manual Profile Import</h3>
+                <h3 className="text-lg font-medium">
+                  {t("importProfileDialog.manualTitle")}
+                </h3>
 
                 <div className="space-y-4">
                   <div>

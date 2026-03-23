@@ -4,6 +4,7 @@ import type { Table } from "@tanstack/react-table";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import { useTranslation } from "react-i18next";
 import { LuX } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
@@ -132,6 +133,7 @@ interface DataTableActionBarSelectionProps<TData> {
 function DataTableActionBarSelection<TData>({
   table,
 }: DataTableActionBarSelectionProps<TData>) {
+  const { t } = useTranslation();
   const onClearSelection = React.useCallback(() => {
     table.toggleAllRowsSelected(false);
   }, [table]);
@@ -157,7 +159,7 @@ function DataTableActionBarSelection<TData>({
           sideOffset={10}
           className="flex items-center gap-2 border bg-accent px-2 py-1 font-semibold text-foreground dark:bg-zinc-900 [&>span]:hidden"
         >
-          <p>Clear selection</p>
+          <p>{t("dataTableActionBar.clearSelection")}</p>
           <kbd className="select-none rounded border bg-background px-1.5 py-px font-mono font-normal text-[0.7rem] text-foreground shadow-xs">
             <abbr title="Escape" className="no-underline">
               Esc

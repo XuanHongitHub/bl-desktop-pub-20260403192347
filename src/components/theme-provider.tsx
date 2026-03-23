@@ -2,7 +2,15 @@
 
 import { ThemeProvider } from "next-themes";
 import { useEffect, useState } from "react";
-import { applyThemeColors, getThemeAppearance } from "@/lib/themes";
+import {
+  mergeAppSettingsCache,
+  readAppSettingsCache,
+} from "@/lib/app-settings-cache";
+import {
+  applyThemeColors,
+  getThemeAppearance,
+  THEME_VARIABLES,
+} from "@/lib/themes";
 
 interface AppSettings {
   set_as_default_browser: boolean;
@@ -15,10 +23,47 @@ interface CustomThemeProviderProps {
 }
 
 export function CustomThemeProvider({ children }: CustomThemeProviderProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [defaultTheme, setDefaultTheme] = useState<string>("system");
+  const cachedSettings = readAppSettingsCache();
+  const cachedTheme = cachedSettings?.theme;
+  const cachedCustomTheme = cachedSettings?.custom_theme;
+
+  const [defaultTheme, setDefaultTheme] = useState<string>(() => {
+    if (
+      cachedTheme === "light" ||
+      cachedTheme === "dark" ||
+      cachedTheme === "system"
+    ) {
+      return cachedTheme;
+    }
+    if (
+      cachedTheme === "custom" &&
+      cachedCustomTheme &&
+      Object.keys(cachedCustomTheme).length > 0
+    ) {
+      return getThemeAppearance(cachedCustomTheme);
+    }
+    return "system";
+  });
 
   useEffect(() => {
+    if (cachedTheme !== "custom" || !cachedCustomTheme) {
+      return;
+    }
+    try {
+      applyThemeColors(cachedCustomTheme);
+    } catch {}
+  }, [cachedCustomTheme, cachedTheme]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const clearCustomThemeVariables = () => {
+      const root = document.documentElement;
+      for (const variable of THEME_VARIABLES) {
+        root.style.removeProperty(variable.key as string);
+      }
+    };
+
     const loadTheme = async () => {
       try {
         // Lazy import to avoid pulling Tauri API on SSR
@@ -26,19 +71,16 @@ export function CustomThemeProvider({ children }: CustomThemeProviderProps) {
         const settings = await invoke<AppSettings>("get_app_settings");
         const themeValue = settings?.theme ?? "system";
 
-        console.log("[theme-provider] Loaded settings:", {
-          theme: themeValue,
-          hasCustomTheme: !!settings?.custom_theme,
-          customThemeKeys: settings?.custom_theme
-            ? Object.keys(settings.custom_theme).length
-            : 0,
-        });
-
+        mergeAppSettingsCache(settings);
+        if (isCancelled) {
+          return;
+        }
         if (
           themeValue === "light" ||
           themeValue === "dark" ||
           themeValue === "system"
         ) {
+          clearCustomThemeVariables();
           setDefaultTheme(themeValue);
         } else if (themeValue === "custom") {
           if (
@@ -48,41 +90,37 @@ export function CustomThemeProvider({ children }: CustomThemeProviderProps) {
             setDefaultTheme(getThemeAppearance(settings.custom_theme));
             try {
               applyThemeColors(settings.custom_theme);
-            } catch (error) {
-              console.warn("Failed to apply custom theme variables:", error);
-            }
+            } catch {}
           } else {
+            clearCustomThemeVariables();
             setDefaultTheme("dark");
           }
         } else {
+          clearCustomThemeVariables();
           setDefaultTheme("system");
         }
-      } catch (error) {
-        // Failed to load settings; fall back to system (handled by next-themes)
-        console.warn(
-          "Failed to load theme settings; defaulting to system:",
-          error,
-        );
+      } catch {
+        if (isCancelled) {
+          return;
+        }
         setDefaultTheme("system");
-      } finally {
-        setIsLoading(false);
       }
     };
 
     void loadTheme();
-  }, []);
 
-  if (isLoading) {
-    // Keep UI simple during initial settings load to avoid flicker
-    return null;
-  }
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   return (
     <ThemeProvider
+      key={`theme-provider-${defaultTheme}`}
       attribute="class"
       defaultTheme={defaultTheme}
       enableSystem={true}
-      disableTransitionOnChange={false}
+      disableTransitionOnChange={true}
     >
       {children}
     </ThemeProvider>

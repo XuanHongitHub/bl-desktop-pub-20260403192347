@@ -3,52 +3,88 @@
  * Centralized helpers for browser name mapping, icons, etc.
  */
 
+import { Flame } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import {
-  FaChrome,
-  FaExclamationTriangle,
-  FaFire,
-  FaFirefox,
-} from "react-icons/fa";
+  BugBraveBrowserIcon,
+  BugCamoufoxBrowserIcon,
+  BugChromiumBrowserIcon,
+  BugFirefoxBrowserIcon,
+  BugFirefoxDeveloperBrowserIcon,
+  BugUnknownBrowserIcon,
+  BugWayfernBrowserIcon,
+  BugZenBrowserIcon,
+} from "@/components/icons/browser-brand-icons";
+
+type BrowserIconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+const BROWSER_NAME_MAP: Record<string, string> = {
+  firefox: "Firefox",
+  "firefox-developer": "Firefox Developer Edition",
+  zen: "Zen Browser",
+  brave: "Brave",
+  chromium: "Chromium",
+  camoufox: "Camoufox",
+  wayfern: "Wayfern",
+};
+
+const BROWSER_ALIAS_MAP: Record<string, string> = {
+  chrome: "chromium",
+  "google-chrome": "chromium",
+  "chrome-stable": "chromium",
+  "chrome-beta": "chromium",
+  msedge: "chromium",
+  edge: "chromium",
+  "firefox-developer-edition": "firefox-developer",
+  firefoxdeveloper: "firefox-developer",
+  devedition: "firefox-developer",
+};
+
+const BROWSER_ICON_MAP: Record<string, BrowserIconComponent> = {
+  firefox: BugFirefoxBrowserIcon,
+  "firefox-developer": BugFirefoxDeveloperBrowserIcon,
+  zen: BugZenBrowserIcon,
+  brave: BugBraveBrowserIcon,
+  chromium: BugChromiumBrowserIcon,
+  camoufox: BugCamoufoxBrowserIcon,
+  wayfern: BugWayfernBrowserIcon,
+};
+
+function formatUnknownBrowserName(browserType: string): string {
+  return browserType
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+}
+
+export function normalizeBrowserType(browserType: string): string {
+  const normalized = browserType.trim().toLowerCase();
+  return BROWSER_ALIAS_MAP[normalized] ?? normalized;
+}
 
 /**
  * Map internal browser names to display names
  */
 export function getBrowserDisplayName(browserType: string): string {
-  const browserNames: Record<string, string> = {
-    firefox: "Firefox",
-    "firefox-developer": "Firefox Developer Edition",
-    zen: "Zen Browser",
-    brave: "Brave",
-    chromium: "Chromium",
-    camoufox: "Camoufox",
-    wayfern: "Wayfern",
-  };
-
-  return browserNames[browserType] || browserType;
+  const normalized = normalizeBrowserType(browserType);
+  return BROWSER_NAME_MAP[normalized] ?? formatUnknownBrowserName(browserType);
 }
 
 /**
- * Get the appropriate icon component for a browser type
- * Anti-detect browsers get their base browser icons
- * Other browsers get a warning icon to indicate they're not anti-detect
+ * Get BugMedia-owned browser icon component for a browser type.
+ * Any alias values coming from API/download channels are normalized first.
  */
-export function getBrowserIcon(browserType: string) {
-  switch (browserType) {
-    case "camoufox":
-      return FaFirefox; // Firefox-based anti-detect browser
-    case "wayfern":
-      return FaChrome; // Chromium-based anti-detect browser
-    default:
-      // All other browsers get a warning icon
-      return FaExclamationTriangle;
-  }
+export function getBrowserIcon(browserType: string): BrowserIconComponent {
+  const normalized = normalizeBrowserType(browserType);
+  return BROWSER_ICON_MAP[normalized] ?? BugUnknownBrowserIcon;
 }
 
 export function getProfileIcon(profile: {
   browser: string;
   ephemeral?: boolean;
 }) {
-  if (profile.ephemeral) return FaFire;
+  if (profile.ephemeral) return Flame;
   return getBrowserIcon(profile.browser);
 }
 

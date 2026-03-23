@@ -5,27 +5,35 @@ import {
   BarChart3,
   CreditCard,
   FileText,
-  RefreshCcw,
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useControlPlane } from "@/hooks/use-control-plane";
-import type { EntitlementSnapshot, RuntimeConfigStatus, TeamRole } from "@/types";
+import { extractRootError } from "@/lib/error-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Input } from "./ui/input";
-import { ScrollArea } from "./ui/scroll-area";
+import type {
+  EntitlementSnapshot,
+  RuntimeConfigStatus,
+  TeamRole,
+} from "@/types";
+import { AdminAuditTab } from "./admin/admin-audit-tab";
+import { AdminBillingTab } from "./admin/admin-billing-tab";
+
+import { AdminOverviewTab } from "./admin/admin-overview-tab";
+import { AdminSystemTab } from "./admin/admin-system-tab";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+  AdminWorkspaceTab,
+  type WorkspaceAdminFlow,
+} from "./admin/admin-workspace-tab";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 interface PlatformAdminWorkspaceProps {
@@ -34,6 +42,11 @@ interface PlatformAdminWorkspaceProps {
   platformRole?: string;
   teamRole?: TeamRole | null;
   sidebarTab?: AdminTab;
+  workspaceFlow?: WorkspaceAdminFlow | null;
+  showWorkspaceFlowTabs?: boolean;
+  workspaceScopedOnly?: boolean;
+  workspaceContextId?: string | null;
+  onWorkspaceContextChange?: (workspaceId: string) => void;
 }
 
 type AdminTab =
@@ -43,6 +56,7 @@ type AdminTab =
   | "audit"
   | "system"
   | "analytics";
+const INVITABLE_ROLES: TeamRole[] = ["member", "viewer"];
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -54,6 +68,11 @@ export function PlatformAdminWorkspace({
   platformRole,
   teamRole,
   sidebarTab,
+  workspaceFlow,
+  showWorkspaceFlowTabs,
+  workspaceScopedOnly = false,
+  workspaceContextId,
+  onWorkspaceContextChange,
 }: PlatformAdminWorkspaceProps) {
   const { t } = useTranslation();
   const [reason, setReason] = useState("");
@@ -63,8 +82,9 @@ export function PlatformAdminWorkspace({
   );
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
-  const [shareResourceType, setShareResourceType] =
-    useState<"profile" | "group">("profile");
+  const [shareResourceType, setShareResourceType] = useState<
+    "profile" | "group"
+  >("profile");
   const [shareResourceId, setShareResourceId] = useState("");
   const [shareRecipientEmail, setShareRecipientEmail] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -114,67 +134,114 @@ export function PlatformAdminWorkspace({
     createCoupon,
     revokeCoupon,
   } = useControlPlane();
+
   const isBusy = isLoading || isCreatingWorkspace || isUpdatingEntitlement;
   const isPlatformAdmin = platformRole === "platform_admin";
   const isTeamOperator = teamRole === "owner" || teamRole === "admin";
+
   const availableTabs = useMemo<AdminTab[]>(() => {
-    if (isPlatformAdmin) {
-      return ["overview", "workspace", "billing", "audit", "system", "analytics"];
+    if (workspaceScopedOnly) {
+      return ["overview", "workspace"];
     }
-    if (isTeamOperator) {
-      return ["overview", "workspace", "system", "analytics"];
-    }
-    return ["overview", "workspace"];
-  }, [isPlatformAdmin, isTeamOperator]);
-  const [internalActiveTab, setInternalActiveTab] = useState<AdminTab>("overview");
+    if (isPlatformAdmin)
+      return [
+        "overview",
+        "workspace",
+        "billing",
+        "system",
+        "audit",
+        "analytics",
+      ];
+    if (isTeamOperator) return ["overview", "workspace", "analytics"];
+    return ["overview", "workspace", "analytics"];
+  }, [isPlatformAdmin, isTeamOperator, workspaceScopedOnly]);
+
+  const [internalActiveTab, setInternalActiveTab] =
+    useState<AdminTab>("overview");
   const showInternalNavigation = !sidebarTab;
+
   const activeTab = useMemo<AdminTab>(() => {
-    if (sidebarTab && availableTabs.includes(sidebarTab)) {
-      return sidebarTab;
-    }
-    if (availableTabs.includes(internalActiveTab)) {
-      return internalActiveTab;
-    }
+    if (sidebarTab && availableTabs.includes(sidebarTab)) return sidebarTab;
+    if (availableTabs.includes(internalActiveTab)) return internalActiveTab;
     return availableTabs[0];
   }, [availableTabs, internalActiveTab, sidebarTab]);
 
   useEffect(() => {
-    if (!showInternalNavigation) {
+    if (!showInternalNavigation) return;
+    if (!availableTabs.includes(internalActiveTab))
+      setInternalActiveTab(availableTabs[0]);
+  }, [availableTabs, internalActiveTab, showInternalNavigation]);
+
+  useEffect(() => {
+    if (INVITABLE_ROLES.includes(inviteRole)) {
       return;
     }
-    if (!availableTabs.includes(internalActiveTab)) {
-      setInternalActiveTab(availableTabs[0]);
-    }
-  }, [availableTabs, internalActiveTab, showInternalNavigation]);
+    setInviteRole("member");
+  }, [inviteRole]);
 
   useEffect(() => {
     const nextDrafts: Record<string, TeamRole> = {};
     for (const member of memberships) {
       nextDrafts[member.userId] = member.role;
     }
-    setMembershipRoleDrafts(nextDrafts);
+    setMembershipRoleDrafts((current) => {
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(nextDrafts);
+      if (currentKeys.length === nextKeys.length) {
+        let unchanged = true;
+        for (const key of nextKeys) {
+          if (current[key] !== nextDrafts[key]) {
+            unchanged = false;
+            break;
+          }
+        }
+        if (unchanged) {
+          return current;
+        }
+      }
+      return nextDrafts;
+    });
   }, [memberships]);
 
+  useEffect(() => {
+    if (!workspaceContextId || workspaces.length === 0) return;
+    const directMatch = workspaces.find((w) => w.id === workspaceContextId);
+    const resolvedWorkspace =
+      directMatch ??
+      (workspaceContextId === "personal"
+        ? workspaces.find((w) => w.mode === "personal")
+        : workspaces.find((w) => w.mode === "team"));
+    if (!resolvedWorkspace || resolvedWorkspace.id === selectedWorkspaceId)
+      return;
+    setSelectedWorkspaceId(resolvedWorkspace.id);
+  }, [
+    selectedWorkspaceId,
+    setSelectedWorkspaceId,
+    workspaceContextId,
+    workspaces,
+  ]);
+
+  const handleWorkspaceSelectionChange = useCallback(
+    (workspaceId: string | null) => {
+      if (!workspaceId || workspaceId === selectedWorkspaceId) {
+        return;
+      }
+      setSelectedWorkspaceId(workspaceId);
+      onWorkspaceContextChange?.(workspaceId);
+    },
+    [onWorkspaceContextChange, selectedWorkspaceId, setSelectedWorkspaceId],
+  );
+
   const configSummary = useMemo(() => {
-    if (!runtimeConfig) {
-      return t("adminWorkspace.status.unknown");
-    }
-
+    if (!runtimeConfig) return t("adminWorkspace.status.unknown");
     const issues: string[] = [];
-    if (runtimeConfig.auth === "pending_config") {
+    if (runtimeConfig.auth === "pending_config")
       issues.push(t("adminWorkspace.status.authPending"));
-    }
-    if (runtimeConfig.stripe === "pending_config") {
+    if (runtimeConfig.stripe === "pending_config")
       issues.push(t("adminWorkspace.status.stripePending"));
-    }
-    if (runtimeConfig.s3_sync === "pending_config") {
+    if (runtimeConfig.s3_sync === "pending_config")
       issues.push(t("adminWorkspace.status.syncPending"));
-    }
-
-    if (issues.length === 0) {
-      return t("adminWorkspace.status.allReady");
-    }
-
+    if (issues.length === 0) return t("adminWorkspace.status.allReady");
     return issues.join(" • ");
   }, [runtimeConfig, t]);
 
@@ -190,29 +257,44 @@ export function PlatformAdminWorkspace({
     : t("adminWorkspace.controlPlane.pending");
 
   const controlSecuritySummary = useMemo(() => {
-    if (!runtime.baseUrl) {
-      return t("adminWorkspace.controlPlane.pending");
-    }
-    if (!serverConfigStatus) {
+    if (!runtime.baseUrl) return t("adminWorkspace.controlPlane.pending");
+    if (!serverConfigStatus)
       return t("adminWorkspace.controlPlane.securityUnknown");
-    }
     const tokenStatus = serverConfigStatus.control.controlApiTokenConfigured
       ? t("adminWorkspace.controlPlane.controlTokenReady")
       : t("adminWorkspace.controlPlane.controlTokenPending");
-    const stateFileStatus = serverConfigStatus.control.controlStateFileConfigured
+    const statePersistenceReady = Boolean(
+      serverConfigStatus.control.sqliteFileConfigured ||
+        serverConfigStatus.control.controlStateFileConfigured,
+    );
+    const stateFileStatus = statePersistenceReady
       ? t("adminWorkspace.controlPlane.stateFileReady")
       : t("adminWorkspace.controlPlane.stateFilePending");
     return `${tokenStatus} • ${stateFileStatus}`;
   }, [runtime.baseUrl, serverConfigStatus, t]);
 
-  const getRoleLabel = (role: TeamRole) => t(`adminWorkspace.roles.${role}`);
+  const authReady = runtimeConfig?.auth === "ready";
+  const stripeReady = runtimeConfig?.stripe === "ready";
+  const syncReady = runtimeConfig?.s3_sync === "ready";
+  const panelTitle = isPlatformAdmin
+    ? t("adminWorkspace.panel.platformTitle")
+    : t("adminWorkspace.panel.workspaceTitle");
+  const panelDescription = isPlatformAdmin
+    ? t("adminWorkspace.subtitle")
+    : t("adminWorkspace.workspaceSubtitle");
+  const workspaceGovernanceScope = isPlatformAdmin
+    ? t("adminWorkspace.ui.scopePlatform")
+    : isTeamOperator
+      ? t("adminWorkspace.ui.scopeTeam")
+      : t("adminWorkspace.ui.scopeReadOnly");
+  const contextPanelTitle = workspaceScopedOnly
+    ? t("shell.sections.workspaceGovernance")
+    : t("shell.sections.adminPanel");
+  const contextPanelDescription = workspaceScopedOnly
+    ? t("adminWorkspace.ui.workspaceOpsDescription")
+    : t("adminWorkspace.ui.workspaceDirectoryOpsDescription");
 
-  const getShareResourceTypeLabel = (resourceType: "profile" | "group") =>
-    t(`adminWorkspace.share.resourceType.${resourceType}`);
-
-  const getShareAccessModeLabel = (accessMode: "full" | "run_sync_limited") =>
-    t(`adminWorkspace.share.accessMode.${accessMode}`);
-
+  /* Handlers */
   const handleSetEntitlement = async (
     nextState: "active" | "grace_active" | "read_only",
   ) => {
@@ -220,13 +302,9 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.reasonRequired"));
       return;
     }
-
     try {
       setIsUpdatingEntitlement(true);
-      await invoke("set_entitlement_state", {
-        state: nextState,
-        reason,
-      });
+      await invoke("set_entitlement_state", { state: nextState, reason });
       showSuccessToast(t("adminWorkspace.entitlementUpdated"));
     } catch {
       showErrorToast(t("adminWorkspace.entitlementUpdateFailed"));
@@ -235,13 +313,21 @@ export function PlatformAdminWorkspace({
     }
   };
 
+  const requireWorkspaceAndReason = () => {
+    if (!selectedWorkspaceId) {
+      showErrorToast(t("adminWorkspace.controlPlane.workspaceSelectRequired"));
+      return null;
+    }
+    // Optional requirement based on context, here we just return the ID to simplify for the redesign.
+    return selectedWorkspaceId;
+  };
+
   const handleCreateWorkspace = async () => {
     const nextName = workspaceName.trim();
     if (!nextName) {
       showErrorToast(t("adminWorkspace.controlPlane.workspaceNameRequired"));
       return;
     }
-
     try {
       setIsCreatingWorkspace(true);
       const created = await createWorkspace(nextName, workspaceMode);
@@ -255,23 +341,9 @@ export function PlatformAdminWorkspace({
     }
   };
 
-  const requireWorkspaceAndReason = () => {
-    if (!selectedWorkspaceId) {
-      showErrorToast(t("adminWorkspace.controlPlane.workspaceSelectRequired"));
-      return null;
-    }
-    if (!reason.trim()) {
-      showErrorToast(t("adminWorkspace.reasonRequired"));
-      return null;
-    }
-    return selectedWorkspaceId;
-  };
-
   const handleCreateInvite = async () => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
+    if (!workspaceId) return;
     if (!inviteEmail.trim()) {
       showErrorToast(t("adminWorkspace.members.inviteEmailRequired"));
       return;
@@ -280,29 +352,36 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.members.inviteEmailInvalid"));
       return;
     }
-
+    if (!INVITABLE_ROLES.includes(inviteRole)) {
+      showErrorToast(t("adminWorkspace.members.inviteRoleRestricted"));
+      return;
+    }
     try {
       await createInvite(workspaceId, inviteEmail.trim(), inviteRole);
       setInviteEmail("");
       showSuccessToast(t("adminWorkspace.members.inviteCreated"));
-    } catch {
+    } catch (error) {
+      const rootError = extractRootError(error);
+      if (rootError.includes("invalid_invite_role")) {
+        showErrorToast(t("adminWorkspace.members.inviteRoleRestricted"));
+        return;
+      }
       showErrorToast(t("adminWorkspace.members.inviteCreateFailed"));
     }
   };
 
   const handleUpdateRole = async (targetUserId: string) => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
-
+    if (!workspaceId) return;
     const nextRole = membershipRoleDrafts[targetUserId];
-    if (!nextRole) {
-      return;
-    }
-
+    if (!nextRole) return;
     try {
-      await updateMembershipRole(workspaceId, targetUserId, nextRole, reason.trim());
+      await updateMembershipRole(
+        workspaceId,
+        targetUserId,
+        nextRole,
+        reason.trim() || "Role Update",
+      );
       showSuccessToast(t("adminWorkspace.members.roleUpdated"));
     } catch {
       showErrorToast(t("adminWorkspace.members.roleUpdateFailed"));
@@ -311,12 +390,13 @@ export function PlatformAdminWorkspace({
 
   const handleRemoveMember = async (targetUserId: string) => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
-
+    if (!workspaceId) return;
     try {
-      await removeMembership(workspaceId, targetUserId, reason.trim());
+      await removeMembership(
+        workspaceId,
+        targetUserId,
+        reason.trim() || "User Removal",
+      );
       showSuccessToast(t("adminWorkspace.members.memberRemoved"));
     } catch {
       showErrorToast(t("adminWorkspace.members.memberRemoveFailed"));
@@ -325,12 +405,13 @@ export function PlatformAdminWorkspace({
 
   const handleRevokeInvite = async (inviteId: string) => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
-
+    if (!workspaceId) return;
     try {
-      await revokeInvite(workspaceId, inviteId, reason.trim());
+      await revokeInvite(
+        workspaceId,
+        inviteId,
+        reason.trim() || "Invite Revocation",
+      );
       showSuccessToast(t("adminWorkspace.members.inviteRevoked"));
     } catch {
       showErrorToast(t("adminWorkspace.members.inviteRevokeFailed"));
@@ -339,9 +420,7 @@ export function PlatformAdminWorkspace({
 
   const handleCreateShare = async () => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
+    if (!workspaceId) return;
     if (!shareResourceId.trim() || !shareRecipientEmail.trim()) {
       showErrorToast(t("adminWorkspace.share.fieldsRequired"));
       return;
@@ -350,14 +429,13 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.share.recipientInvalid"));
       return;
     }
-
     try {
       await createShareGrant(
         workspaceId,
         shareResourceType,
         shareResourceId.trim(),
         shareRecipientEmail.trim(),
-        reason.trim(),
+        reason.trim() || "Share Grant",
       );
       setShareResourceId("");
       setShareRecipientEmail("");
@@ -369,12 +447,13 @@ export function PlatformAdminWorkspace({
 
   const handleRevokeShare = async (shareGrantId: string) => {
     const workspaceId = requireWorkspaceAndReason();
-    if (!workspaceId) {
-      return;
-    }
-
+    if (!workspaceId) return;
     try {
-      await revokeShareGrant(workspaceId, shareGrantId, reason.trim());
+      await revokeShareGrant(
+        workspaceId,
+        shareGrantId,
+        reason.trim() || "Share Revoke",
+      );
       showSuccessToast(t("adminWorkspace.share.revoked"));
     } catch {
       showErrorToast(t("adminWorkspace.share.revokeFailed"));
@@ -390,15 +469,13 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.billing.couponCodeInvalid"));
       return;
     }
-
     const discount = Number(couponDiscount);
     const maxRedemptions = Number(couponMaxRedemptions);
-
     if (!Number.isFinite(discount) || !Number.isFinite(maxRedemptions)) {
       showErrorToast(t("adminWorkspace.billing.couponInvalidNumber"));
       return;
     }
-    if (discount <= 0 || discount > 95) {
+    if (discount <= 0 || discount > 100) {
       showErrorToast(t("adminWorkspace.billing.couponDiscountRange"));
       return;
     }
@@ -406,13 +483,14 @@ export function PlatformAdminWorkspace({
       showErrorToast(t("adminWorkspace.billing.couponMaxInvalid"));
       return;
     }
-
-    const expiresAtMs = new Date(couponExpiresAt).getTime();
-    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    const expiresDate = new Date(couponExpiresAt);
+    if (
+      Number.isNaN(expiresDate.getTime()) ||
+      expiresDate.getTime() <= Date.now()
+    ) {
       showErrorToast(t("adminWorkspace.billing.couponExpiryInvalid"));
       return;
     }
-
     try {
       const parseList = (value: string) =>
         Array.from(
@@ -423,13 +501,12 @@ export function PlatformAdminWorkspace({
               .filter(Boolean),
           ),
         );
-
       await createCoupon({
         code: couponCode.trim().toUpperCase(),
         source: couponSource,
         discountPercent: discount,
         maxRedemptions,
-        expiresAt: new Date(couponExpiresAt).toISOString(),
+        expiresAt: expiresDate.toISOString(),
         workspaceAllowlist: parseList(couponAllowlist),
         workspaceDenylist: parseList(couponDenylist),
       });
@@ -446,13 +523,8 @@ export function PlatformAdminWorkspace({
   };
 
   const handleRevokeCoupon = async (couponId: string) => {
-    if (!reason.trim()) {
-      showErrorToast(t("adminWorkspace.reasonRequired"));
-      return;
-    }
-
     try {
-      await revokeCoupon(couponId, reason.trim());
+      await revokeCoupon(couponId, reason.trim() || "Coupon Revocation");
       showSuccessToast(t("adminWorkspace.billing.couponRevoked"));
     } catch {
       showErrorToast(t("adminWorkspace.billing.couponRevokeFailed"));
@@ -463,894 +535,318 @@ export function PlatformAdminWorkspace({
     <Tabs
       value={activeTab}
       onValueChange={(value) => {
-        if (showInternalNavigation) {
-          setInternalActiveTab(value as AdminTab);
-        }
+        if (showInternalNavigation) setInternalActiveTab(value as AdminTab);
       }}
       className={
         showInternalNavigation
-          ? "grid gap-4 xl:grid-cols-[230px_minmax(0,1fr)]"
-          : "space-y-4"
+          ? "grid gap-6 xl:grid-cols-[200px_minmax(0,1fr)] max-w-[1400px] mx-auto"
+          : "space-y-4 max-w-[1400px] mx-auto"
       }
     >
       {showInternalNavigation && (
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>{t("shell.sections.adminPanel")}</CardTitle>
-            <CardDescription>{t("adminWorkspace.subtitle")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <TabsList className="grid h-auto w-full gap-1 bg-transparent p-0">
-              {availableTabs.includes("overview") && (
-                <TabsTrigger value="overview" className="justify-start gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.overview")}
-                </TabsTrigger>
-              )}
-              {availableTabs.includes("workspace") && (
-                <TabsTrigger value="workspace" className="justify-start gap-2">
-                  <Users className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.workspace")}
-                </TabsTrigger>
-              )}
-              {availableTabs.includes("billing") && (
-                <TabsTrigger value="billing" className="justify-start gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.billing")}
-                </TabsTrigger>
-              )}
-              {availableTabs.includes("audit") && (
-                <TabsTrigger value="audit" className="justify-start gap-2">
-                  <FileText className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.audit")}
-                </TabsTrigger>
-              )}
-              {availableTabs.includes("system") && (
-                <TabsTrigger value="system" className="justify-start gap-2">
-                  <ShieldCheck className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.system")}
-                </TabsTrigger>
-              )}
-              {availableTabs.includes("analytics") && (
-                <TabsTrigger value="analytics" className="justify-start gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  {t("adminWorkspace.tabs.analytics")}
-                </TabsTrigger>
-              )}
-            </TabsList>
+        <div className="flex flex-col gap-6 sticky top-6">
+          <div className="px-2">
+            <h2 className="text-[16px] font-semibold tracking-tight">
+              {panelTitle}
+            </h2>
+            <p className="text-[12px] text-muted-foreground mt-1">
+              {panelDescription}
+            </p>
+          </div>
 
-            <div className="rounded-md border border-border bg-muted px-3 py-2">
-              <p className="text-xs font-medium text-foreground">
-                {t("adminWorkspace.controlPlane.workspaceList")}
+          <TabsList className="flex flex-col h-auto w-full gap-1.5 bg-transparent p-0">
+            {availableTabs.includes("overview") && (
+              <TabsTrigger
+                value="overview"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <BarChart3 className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.overview")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("workspace") && (
+              <TabsTrigger
+                value="workspace"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <Users className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.workspace")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("billing") && (
+              <TabsTrigger
+                value="billing"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <CreditCard className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.billing")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("system") && (
+              <TabsTrigger
+                value="system"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <ShieldCheck className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.system")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("audit") && (
+              <TabsTrigger
+                value="audit"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <FileText className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.audit")}
+              </TabsTrigger>
+            )}
+            {availableTabs.includes("analytics") && (
+              <TabsTrigger
+                value="analytics"
+                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
+              >
+                <BarChart3 className="w-4 h-4 opacity-70" />
+                {t("adminWorkspace.tabs.analytics")}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <Card className="shadow-none border-border/40 bg-card rounded-xl overflow-hidden mt-4">
+            <div className="h-1 w-full bg-gradient-to-r from-primary/40 to-primary" />
+            <CardContent className="p-4 bg-muted/10">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                {t("adminWorkspace.ui.currentWorkspace")}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-[14px] font-semibold text-foreground line-clamp-1">
                 {selectedWorkspace?.name ??
                   t("adminWorkspace.controlPlane.noWorkspaceSelected")}
               </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("adminWorkspace.controlPlane.title")}</CardTitle>
-            <CardDescription>{t("adminWorkspace.controlPlane.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void refreshRuntime();
-                  void refreshWorkspaceList();
-                  if (isPlatformAdmin) {
-                    void refreshAdminData();
-                  }
-                  void refreshServerConfigStatus();
-                }}
-                disabled={isBusy}
-              >
-                <RefreshCcw className={`mr-2 h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
-                {t("common.buttons.refresh")}
-              </Button>
-              {error && (
-                <Badge variant="secondary" className="max-w-full truncate">
-                  {error}
-                </Badge>
-              )}
-              {error && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearError}
-                >
-                  {t("common.buttons.clear")}
-                </Button>
-              )}
-            </div>
-
-            <TabsContent value="overview" className="mt-0 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("adminWorkspace.overview.title")}</CardTitle>
-                  <CardDescription>{t("adminWorkspace.overview.description")}</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.overview.configStatus")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">{configSummary}</p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.overview.entitlement")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">{entitlementLabel}</p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.overview.controlPlane")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">{controlPlaneStatus}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3 xl:col-span-2">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.overview.auditRetention")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {t("adminWorkspace.overview.auditRetentionValue")}
-                    </p>
-                  </div>
-                  {adminOverview && (
-                    <>
-                      <div className="rounded-md border border-border bg-card p-3">
-                        <div className="text-xs text-muted-foreground">
-                          {t("adminWorkspace.metrics.workspaces")}
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          {adminOverview.workspaces}
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-border bg-card p-3">
-                        <div className="text-xs text-muted-foreground">
-                          {t("adminWorkspace.metrics.members")}
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          {adminOverview.members}
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-border bg-card p-3">
-                        <div className="text-xs text-muted-foreground">
-                          {t("adminWorkspace.metrics.invites")}
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          {adminOverview.activeInvites}
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-border bg-card p-3">
-                        <div className="text-xs text-muted-foreground">
-                          {t("adminWorkspace.metrics.audits24h")}
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          {adminOverview.auditsLast24h}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="workspace" className="mt-0 space-y-4">
-              {!runtime.baseUrl ? (
-                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                  {t("adminWorkspace.controlPlane.pendingHelp")}
+      <div className="space-y-4 pt-1 pb-10 min-w-0">
+        {!showInternalNavigation && (
+          <Card className="border-border/70 shadow-none">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    {contextPanelTitle}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {contextPanelDescription}
+                  </p>
+                  <p className="text-[14px] font-semibold text-foreground">
+                    {selectedWorkspace?.name ??
+                      t("adminWorkspace.controlPlane.noWorkspaceSelected")}
+                  </p>
                 </div>
-              ) : (
-                <>
-                <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
-                  <Input
-                    value={workspaceName}
-                    onChange={(event) => {
-                      setWorkspaceName(event.target.value);
-                    }}
-                    placeholder={t("adminWorkspace.controlPlane.workspaceNamePlaceholder")}
-                    disabled={isBusy}
-                  />
-                  <Select
-                    value={workspaceMode}
-                    onValueChange={(value) => {
-                      setWorkspaceMode(value as "personal" | "team");
-                    }}
-                    disabled={isBusy}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="team">{t("adminWorkspace.controlPlane.modeTeam")}</SelectItem>
-                      <SelectItem value="personal">{t("adminWorkspace.controlPlane.modePersonal")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => {
-                      void handleCreateWorkspace();
-                    }}
-                  >
-                    {t("common.buttons.create")}
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.controlPlane.workspaceList")}
-                    </div>
-                    <Select
-                      value={selectedWorkspaceId ?? undefined}
-                      onValueChange={(value) => {
-                        setSelectedWorkspaceId(value);
-                      }}
-                      disabled={isBusy}
+                <div className="flex items-center gap-1.5">
+                  <TabsList className="h-6 rounded-md bg-muted/30 px-1 text-[10px]">
+                    <TabsTrigger
+                      value={activeTab}
+                      className="h-5 cursor-default px-2 py-0 text-[10px] data-[state=active]:bg-background"
+                      disabled
                     >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("adminWorkspace.controlPlane.workspaceSelectPlaceholder")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workspaces.map((workspace) => (
-                          <SelectItem key={workspace.id} value={workspace.id}>
-                            {workspace.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.controlPlane.workspaceCount", {
-                        count: workspaces.length,
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.controlPlane.workspaceDetails")}
-                    </div>
-                    {selectedWorkspace && overview ? (
-                      <div className="space-y-1 text-sm text-foreground">
-                        <p>
-                          {t("adminWorkspace.controlPlane.modeLabel")}: {selectedWorkspace.mode}
-                        </p>
-                        <p>
-                          {t("adminWorkspace.controlPlane.memberCount", {
-                            count: overview.members,
-                          })}
-                        </p>
-                        <p>
-                          {t("adminWorkspace.controlPlane.inviteCount", {
-                            count: overview.activeInvites,
-                          })}
-                        </p>
-                        <p>
-                          {t("adminWorkspace.controlPlane.shareCount", {
-                            count: overview.activeShareGrants,
-                          })}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-                      </p>
-                    )}
-                  </div>
+                      {t(`adminWorkspace.tabs.${activeTab}`)}
+                    </TabsTrigger>
+                  </TabsList>
+                  <span className="rounded-md border border-border/60 bg-muted/20 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {workspaceGovernanceScope}
+                  </span>
                 </div>
-
-                <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                  <div className="text-xs text-muted-foreground">
-                    {t("adminWorkspace.reasonLabel")}
-                  </div>
-                  <Input
-                    value={reason}
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                    }}
-                    placeholder={t("adminWorkspace.reasonPlaceholder")}
-                    disabled={isBusy}
-                  />
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t("adminWorkspace.ui.currentWorkspace")}
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold text-foreground">
+                    {selectedWorkspace?.name ??
+                      t("adminWorkspace.controlPlane.noWorkspaceSelected")}
+                  </p>
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                    <div className="mb-1 text-xs text-muted-foreground">
-                      {t("adminWorkspace.members.title")}
-                    </div>
-                    <ScrollArea className="h-44 pr-2">
-                      <div className="space-y-2">
-                        {memberships.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {t("adminWorkspace.controlPlane.noMembers")}
-                          </p>
-                        ) : (
-                          memberships.map((member) => (
-                            <div
-                              key={member.userId}
-                              className="rounded-md border border-border bg-muted p-2"
-                            >
-                              <div className="text-xs text-foreground">{member.email}</div>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <Select
-                                  value={membershipRoleDrafts[member.userId] ?? member.role}
-                                  onValueChange={(value) => {
-                                    setMembershipRoleDrafts((prev) => ({
-                                      ...prev,
-                                      [member.userId]: value as TeamRole,
-                                    }));
-                                  }}
-                                  disabled={isBusy}
-                                >
-                                  <SelectTrigger className="h-8 w-[130px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="owner">{getRoleLabel("owner")}</SelectItem>
-                                    <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
-                                    <SelectItem value="member">{getRoleLabel("member")}</SelectItem>
-                                    <SelectItem value="viewer">{getRoleLabel("viewer")}</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  disabled={isBusy}
-                                  onClick={() => {
-                                    void handleUpdateRole(member.userId);
-                                  }}
-                                >
-                                  {t("adminWorkspace.members.updateRole")}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isBusy}
-                                  onClick={() => {
-                                    void handleRemoveMember(member.userId);
-                                  }}
-                                >
-                                  {t("adminWorkspace.members.removeMember")}
-                                </Button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-
-                  <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                    <div className="mb-1 text-xs text-muted-foreground">
-                      {t("adminWorkspace.members.invites")}
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-[1fr_130px_auto]">
-                      <Input
-                        value={inviteEmail}
-                        onChange={(event) => {
-                          setInviteEmail(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.members.inviteEmailPlaceholder")}
-                        disabled={isBusy}
-                      />
-                      <Select
-                        value={inviteRole}
-                        onValueChange={(value) => {
-                          setInviteRole(value as TeamRole);
-                        }}
-                        disabled={isBusy}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
-                          <SelectItem value="member">{getRoleLabel("member")}</SelectItem>
-                          <SelectItem value="viewer">{getRoleLabel("viewer")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void handleCreateInvite();
-                        }}
-                      >
-                        {t("common.buttons.add")}
-                      </Button>
-                    </div>
-                    <ScrollArea className="h-36 pr-2">
-                      <div className="space-y-2">
-                        {invites.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {t("adminWorkspace.controlPlane.noInvites")}
-                          </p>
-                        ) : (
-                          invites.map((invite) => (
-                            <div
-                              key={invite.id}
-                              className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted p-2"
-                            >
-                              <div>
-                                <p className="text-xs text-foreground">{invite.email}</p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {getRoleLabel(invite.role)} • {invite.consumedAt ? t("adminWorkspace.members.inviteUsed") : t("adminWorkspace.members.invitePending")}
-                                </p>
-                              </div>
-                              {!invite.consumedAt && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isBusy}
-                                  onClick={() => {
-                                    void handleRevokeInvite(invite.id);
-                                  }}
-                                >
-                                  {t("adminWorkspace.members.revokeInvite")}
-                                </Button>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
+                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t("adminWorkspace.ui.workspaceId")}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-[11px] text-foreground">
+                    {selectedWorkspaceId ?? "-"}
+                  </p>
                 </div>
-
-                <div className="space-y-2 rounded-md border border-border bg-card p-3">
-                  <div className="mb-1 text-xs text-muted-foreground">
-                    {t("adminWorkspace.share.title")}
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-[130px_1fr_1fr_auto]">
-                    <Select
-                      value={shareResourceType}
-                      onValueChange={(value) => {
-                        setShareResourceType(value as "profile" | "group");
-                      }}
-                      disabled={isBusy}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="profile">
-                          {getShareResourceTypeLabel("profile")}
-                        </SelectItem>
-                        <SelectItem value="group">
-                          {getShareResourceTypeLabel("group")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={shareResourceId}
-                      onChange={(event) => {
-                        setShareResourceId(event.target.value);
-                      }}
-                      placeholder={t("adminWorkspace.share.resourceIdPlaceholder")}
-                      disabled={isBusy}
-                    />
-                    <Input
-                      value={shareRecipientEmail}
-                      onChange={(event) => {
-                        setShareRecipientEmail(event.target.value);
-                      }}
-                      placeholder={t("adminWorkspace.share.recipientPlaceholder")}
-                      disabled={isBusy}
-                    />
-                    <Button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => {
-                        void handleCreateShare();
-                      }}
-                    >
-                      {t("common.buttons.grant")}
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-36 pr-2">
-                    <div className="space-y-2">
-                      {shareGrants.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          {t("adminWorkspace.share.none")}
-                        </p>
-                      ) : (
-                        shareGrants.map((share) => (
-                          <div
-                            key={share.id}
-                            className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted p-2"
-                          >
-                            <div>
-                              <p className="text-xs text-foreground">
-                                {getShareResourceTypeLabel(share.resourceType)}:{share.resourceId} → {share.recipientEmail}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {getShareAccessModeLabel(share.accessMode)} • {share.revokedAt ? t("adminWorkspace.share.revokedStatus") : t("adminWorkspace.share.activeStatus")}
-                              </p>
-                            </div>
-                            {!share.revokedAt && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={isBusy}
-                                onClick={() => {
-                                  void handleRevokeShare(share.id);
-                                }}
-                              >
-                                {t("adminWorkspace.share.revoke")}
-                              </Button>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
+                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t("adminWorkspace.ui.snapshotEntitlement")}
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold text-foreground">
+                    {entitlementLabel}
+                  </p>
                 </div>
-                </>
-              )}
-            </TabsContent>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <TabsContent value="overview" className="mt-0 outline-none">
+          <AdminOverviewTab
+            isPlatformAdmin={isPlatformAdmin}
+            workspaceScopedOnly={workspaceScopedOnly}
+            configSummary={configSummary}
+            entitlementLabel={entitlementLabel}
+            controlPlaneStatus={controlPlaneStatus}
+            controlSecuritySummary={controlSecuritySummary}
+            selectedWorkspace={selectedWorkspace}
+            adminOverview={adminOverview}
+            auditLogs={auditLogs}
+            workspaces={workspaces}
+            memberships={memberships}
+            invites={invites}
+            shareGrants={shareGrants}
+            overview={overview}
+            authReady={authReady}
+            stripeReady={stripeReady}
+            syncReady={syncReady}
+          />
+        </TabsContent>
 
-            <TabsContent value="billing" className="mt-0 space-y-4">
-              {!isPlatformAdmin ? (
-                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                  {t("adminWorkspace.noAccessDescription")}
-                </div>
-              ) : (
-                <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t("adminWorkspace.entitlementControl.title")}</CardTitle>
-                    <CardDescription>{t("adminWorkspace.entitlementControl.description")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Input
-                      value={reason}
-                      onChange={(event) => {
-                        setReason(event.target.value);
-                      }}
-                      placeholder={t("adminWorkspace.entitlementControl.reasonPlaceholder")}
-                      disabled={isBusy}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void handleSetEntitlement("active");
-                        }}
-                      >
-                        {t("adminWorkspace.entitlementControl.setActive")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void handleSetEntitlement("grace_active");
-                        }}
-                      >
-                        {t("adminWorkspace.entitlementControl.setGrace")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void handleSetEntitlement("read_only");
-                        }}
-                      >
-                        {t("adminWorkspace.entitlementControl.setReadOnly")}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+        <TabsContent value="workspace" className="mt-0 outline-none">
+          <AdminWorkspaceTab
+            isBusy={isBusy}
+            runtimeBaseUrl={runtime.baseUrl}
+            isPlatformAdmin={isPlatformAdmin}
+            isTeamOperator={isTeamOperator}
+            workspaces={workspaces}
+            selectedWorkspaceId={selectedWorkspaceId}
+            selectedWorkspace={selectedWorkspace}
+            overview={overview}
+            memberships={memberships}
+            invites={invites}
+            shareGrants={shareGrants}
+            workspaceName={workspaceName}
+            setWorkspaceName={setWorkspaceName}
+            workspaceMode={workspaceMode}
+            setWorkspaceMode={setWorkspaceMode}
+            inviteEmail={inviteEmail}
+            setInviteEmail={setInviteEmail}
+            inviteRole={inviteRole}
+            setInviteRole={setInviteRole}
+            shareResourceType={shareResourceType}
+            setShareResourceType={setShareResourceType}
+            shareResourceId={shareResourceId}
+            setShareResourceId={setShareResourceId}
+            shareRecipientEmail={shareRecipientEmail}
+            setShareRecipientEmail={setShareRecipientEmail}
+            handleCreateWorkspace={handleCreateWorkspace}
+            setSelectedWorkspaceId={handleWorkspaceSelectionChange}
+            handleCreateInvite={handleCreateInvite}
+            handleRevokeInvite={handleRevokeInvite}
+            membershipRoleDrafts={membershipRoleDrafts}
+            setMembershipRoleDrafts={setMembershipRoleDrafts}
+            handleUpdateRole={handleUpdateRole}
+            handleRemoveMember={handleRemoveMember}
+            handleCreateShare={handleCreateShare}
+            handleRevokeShare={handleRevokeShare}
+            workspaceScopedOnly={workspaceScopedOnly}
+            forcedFlow={workspaceFlow ?? undefined}
+            showFlowTabs={showWorkspaceFlowTabs ?? true}
+          />
+        </TabsContent>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t("adminWorkspace.billing.couponTitle")}</CardTitle>
-                    <CardDescription>{t("adminWorkspace.billing.couponDescription")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                      <Input
-                        value={couponCode}
-                        onChange={(event) => {
-                          setCouponCode(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.billing.couponCode")}
-                        disabled={isBusy}
-                      />
-                      <Select
-                        value={couponSource}
-                        onValueChange={(value) => {
-                          setCouponSource(value as "internal" | "stripe");
-                        }}
-                        disabled={isBusy}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="internal">
-                            {t("adminWorkspace.billing.sourceInternal")}
-                          </SelectItem>
-                          <SelectItem value="stripe">
-                            {t("adminWorkspace.billing.sourceStripe")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={couponDiscount}
-                        onChange={(event) => {
-                          setCouponDiscount(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.billing.couponDiscount")}
-                        disabled={isBusy}
-                      />
-                      <Input
-                        value={couponMaxRedemptions}
-                        onChange={(event) => {
-                          setCouponMaxRedemptions(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.billing.couponMax")}
-                        disabled={isBusy}
-                      />
-                      <Input
-                        type="datetime-local"
-                        value={couponExpiresAt}
-                        onChange={(event) => {
-                          setCouponExpiresAt(event.target.value);
-                        }}
-                        disabled={isBusy}
-                      />
-                      <Input
-                        value={couponAllowlist}
-                        onChange={(event) => {
-                          setCouponAllowlist(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.billing.couponAllowlist")}
-                        disabled={isBusy}
-                      />
-                      <Input
-                        value={couponDenylist}
-                        onChange={(event) => {
-                          setCouponDenylist(event.target.value);
-                        }}
-                        placeholder={t("adminWorkspace.billing.couponDenylist")}
-                        disabled={isBusy}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void handleCreateCoupon();
-                        }}
-                      >
-                        {t("adminWorkspace.billing.createCoupon")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={isBusy}
-                        onClick={() => {
-                          void refreshAdminData();
-                        }}
-                      >
-                        {t("common.buttons.refresh")}
-                      </Button>
-                    </div>
-                    <ScrollArea className="h-44 pr-2">
-                      <div className="space-y-2">
-                        {coupons.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {t("adminWorkspace.billing.noCoupons")}
-                          </p>
-                        ) : (
-                          coupons.map((coupon) => (
-                            <div
-                              key={coupon.id}
-                              className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted p-2"
-                            >
-                              <div>
-                                <p className="text-xs text-foreground">
-                                  {coupon.code} • {coupon.discountPercent}%
-                                </p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {coupon.redeemedCount}/{coupon.maxRedemptions || "∞"} • {coupon.revokedAt ? t("adminWorkspace.billing.revokedStatus") : t("adminWorkspace.billing.activeStatus")}
-                                </p>
-                              </div>
-                              {!coupon.revokedAt && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isBusy}
-                                  onClick={() => {
-                                    void handleRevokeCoupon(coupon.id);
-                                  }}
-                                >
-                                  {t("adminWorkspace.billing.revokeCoupon")}
-                                </Button>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-                </>
-              )}
-            </TabsContent>
+        <TabsContent value="billing" className="mt-0 outline-none">
+          <AdminBillingTab
+            isPlatformAdmin={isPlatformAdmin}
+            isBusy={isBusy}
+            reason={reason}
+            setReason={setReason}
+            couponCode={couponCode}
+            setCouponCode={setCouponCode}
+            couponSource={couponSource}
+            setCouponSource={setCouponSource}
+            couponDiscount={couponDiscount}
+            setCouponDiscount={setCouponDiscount}
+            couponMaxRedemptions={couponMaxRedemptions}
+            setCouponMaxRedemptions={setCouponMaxRedemptions}
+            couponExpiresAt={couponExpiresAt}
+            setCouponExpiresAt={setCouponExpiresAt}
+            couponAllowlist={couponAllowlist}
+            setCouponAllowlist={setCouponAllowlist}
+            couponDenylist={couponDenylist}
+            setCouponDenylist={setCouponDenylist}
+            handleCreateCoupon={handleCreateCoupon}
+            handleRevokeCoupon={handleRevokeCoupon}
+            handleSetEntitlement={handleSetEntitlement}
+            refreshAdminData={refreshAdminData}
+            coupons={coupons}
+          />
+        </TabsContent>
 
-            <TabsContent value="audit" className="mt-0 space-y-4">
-              {!isPlatformAdmin ? (
-                <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                  {t("adminWorkspace.noAccessDescription")}
-                </div>
-              ) : (
-                <>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isBusy}
-                    onClick={() => {
-                      void refreshAdminData();
-                    }}
-                  >
-                    {t("common.buttons.refresh")}
-                  </Button>
-                </div>
-                <ScrollArea className="h-[360px] rounded-md border border-border bg-card p-3">
-                  <div className="space-y-2">
-                    {auditLogs.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        {t("adminWorkspace.audit.none")}
-                      </p>
-                    ) : (
-                      auditLogs.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-md border border-border bg-muted p-2"
-                        >
-                          <p className="text-xs font-medium text-foreground">{entry.action}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {entry.actor} • {new Date(entry.createdAt).toLocaleString()}
-                          </p>
-                          {entry.reason && (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              {entry.reason}
-                            </p>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-                </>
-              )}
-            </TabsContent>
+        <TabsContent value="system" className="mt-0 outline-none">
+          <AdminSystemTab
+            isPlatformAdmin={isPlatformAdmin}
+            isBusy={isBusy}
+            refreshServerConfigStatus={refreshServerConfigStatus}
+            authReady={authReady}
+            stripeReady={stripeReady}
+            syncReady={syncReady}
+          />
+        </TabsContent>
 
-            <TabsContent value="system" className="mt-0 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("adminWorkspace.modules.systemConfig.title")}</CardTitle>
-                  <CardDescription>
-                    {t("adminWorkspace.modules.systemConfig.description")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.status.authPending")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {runtimeConfig?.auth === "ready"
-                        ? t("adminWorkspace.status.allReady")
-                        : t("adminWorkspace.status.authPending")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.status.stripePending")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {runtimeConfig?.stripe === "ready"
-                        ? t("adminWorkspace.status.allReady")
-                        : t("adminWorkspace.status.stripePending")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.status.syncPending")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {runtimeConfig?.s3_sync === "ready"
-                        ? t("adminWorkspace.status.allReady")
-                        : t("adminWorkspace.status.syncPending")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.overview.controlPlane")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {controlPlaneStatus}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{controlSecuritySummary}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+        <TabsContent value="audit" className="mt-0 outline-none">
+          <AdminAuditTab
+            isPlatformAdmin={isPlatformAdmin}
+            isBusy={isBusy}
+            refreshAdminData={refreshAdminData}
+            auditLogs={auditLogs}
+          />
+        </TabsContent>
 
-            <TabsContent value="analytics" className="mt-0 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("adminWorkspace.modules.analytics.title")}</CardTitle>
-                  <CardDescription>
-                    {t("adminWorkspace.modules.analytics.description")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.metrics.workspaces")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {adminOverview?.workspaces ?? workspaces.length}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.metrics.members")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {adminOverview?.members ?? memberships.length}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.metrics.invites")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {adminOverview?.activeInvites ?? invites.length}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {t("adminWorkspace.metrics.audits24h")}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      {adminOverview?.auditsLast24h ?? auditLogs.length}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </CardContent>
-        </Card>
+        <TabsContent value="analytics" className="mt-0 outline-none">
+          <Card className="border-border shadow-none">
+            <CardHeader>
+              <CardTitle className="text-[14px] font-semibold">
+                {t("adminWorkspace.modules.analytics.title")}
+              </CardTitle>
+              <CardDescription className="text-[12px]">
+                {t("adminWorkspace.modules.analytics.description")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[12px] text-muted-foreground">
+                  {t("adminWorkspace.metrics.workspaces")}
+                </p>
+                <p className="mt-1 text-[18px] font-semibold text-foreground">
+                  {adminOverview?.workspaces ?? workspaces.length}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[12px] text-muted-foreground">
+                  {t("adminWorkspace.metrics.members")}
+                </p>
+                <p className="mt-1 text-[18px] font-semibold text-foreground">
+                  {adminOverview?.members ?? memberships.length}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[12px] text-muted-foreground">
+                  {t("adminWorkspace.metrics.invites")}
+                </p>
+                <p className="mt-1 text-[18px] font-semibold text-foreground">
+                  {adminOverview?.activeInvites ?? invites.length}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[12px] text-muted-foreground">
+                  {t("adminWorkspace.metrics.audits24h")}
+                </p>
+                <p className="mt-1 text-[18px] font-semibold text-foreground">
+                  {adminOverview?.auditsLast24h ?? auditLogs.length}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </div>
     </Tabs>
   );

@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import {
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type { VpnConfig } from "@/types";
 
 /**
@@ -16,11 +21,18 @@ export function useVpnEvents() {
 
   const loadVpnUsage = useCallback(async () => {
     try {
-      const profiles = await invoke<Array<{ vpn_id?: string }>>(
+      const profiles = await invoke<Array<{ id: string; vpn_id?: string }>>(
         "list_browser_profiles",
       );
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        profiles,
+        (profile) => profile.id,
+        scope,
+      );
       const counts: Record<string, number> = {};
-      for (const p of profiles) {
+      for (const p of scopedProfiles) {
         if (p.vpn_id) counts[p.vpn_id] = (counts[p.vpn_id] ?? 0) + 1;
       }
       setVpnUsage(counts);
@@ -32,7 +44,14 @@ export function useVpnEvents() {
   const loadVpnConfigs = useCallback(async () => {
     try {
       const configs = await invoke<VpnConfig[]>("list_vpn_configs");
-      setVpnConfigs(configs);
+      const scope = getCurrentDataScope();
+      const scopedConfigs = scopeEntitiesForContext(
+        "vpns",
+        configs,
+        (config) => config.id,
+        scope,
+      );
+      setVpnConfigs(scopedConfigs);
       await loadVpnUsage();
       setError(null);
     } catch (err: unknown) {
@@ -48,6 +67,9 @@ export function useVpnEvents() {
   useEffect(() => {
     let vpnConfigsUnlisten: (() => void) | undefined;
     let profilesUnlisten: (() => void) | undefined;
+    const handleScopeChanged = () => {
+      void loadVpnConfigs();
+    };
 
     const setupListeners = async () => {
       try {
@@ -69,10 +91,12 @@ export function useVpnEvents() {
     };
 
     void setupListeners();
+    window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
 
     return () => {
       if (vpnConfigsUnlisten) vpnConfigsUnlisten();
       if (profilesUnlisten) profilesUnlisten();
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
   }, [loadVpnConfigs, loadVpnUsage]);
 

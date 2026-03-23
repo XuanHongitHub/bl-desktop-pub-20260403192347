@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LuChevronDown,
   LuChevronRight,
@@ -65,6 +66,7 @@ export function CookieCopyDialog({
   runningProfiles,
   onCopyComplete,
 }: CookieCopyDialogProps) {
+  const { t } = useTranslation();
   const [sourceProfileId, setSourceProfileId] = useState<string | null>(null);
   const [cookieData, setCookieData] = useState<CookieReadResult | null>(null);
   const [isLoadingCookies, setIsLoadingCookies] = useState(false);
@@ -272,7 +274,11 @@ export function CookieCopyDialog({
       }
 
       if (errors.length > 0) {
-        toast.error(`Some errors occurred: ${errors.join(", ")}`);
+        toast.error(
+          t("cookieCopyDialog.toasts.someErrors", {
+            errors: errors.join(", "),
+          }),
+        );
       } else {
         toast.success(
           `Successfully copied ${totalCopied + totalReplaced} cookies (${totalReplaced} replaced)`,
@@ -295,6 +301,7 @@ export function CookieCopyDialog({
     buildSelectedCookies,
     onCopyComplete,
     onClose,
+    t,
   ]);
 
   useEffect(() => {
@@ -331,7 +338,7 @@ export function CookieCopyDialog({
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Source Profile</Label>
+              <Label>{t("cookieCopyDialog.labels.sourceProfile")}</Label>
               <Select
                 value={sourceProfileId ?? undefined}
                 onValueChange={handleSourceChange}

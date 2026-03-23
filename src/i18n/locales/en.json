@@ -4,6 +4,7 @@
       "save": "Save",
       "cancel": "Cancel",
       "close": "Close",
+      "done": "Done",
       "delete": "Delete",
       "create": "Create",
       "back": "Back",
@@ -49,13 +50,17 @@
       "name": "Name",
       "type": "Type",
       "status": "Status",
+      "usage": "Usage",
+      "sync": "Sync",
       "actions": "Actions",
       "description": "Description",
       "none": "None",
       "default": "Default",
       "custom": "Custom",
       "optional": "Optional",
-      "required": "Required"
+      "required": "Required",
+      "never": "Never",
+      "unknown": "Unknown"
     },
     "time": {
       "days": "days",
@@ -70,15 +75,114 @@
     "appearance": {
       "title": "Appearance",
       "theme": "Theme",
-      "themeDescription": "Choose your preferred theme or follow your system settings. Custom theme changes are applied only when you save.",
+      "themeDescription": "Choose your preferred theme or follow your system settings. Theme changes are applied and saved automatically.",
       "themePreset": "Theme Preset",
       "customColors": "Custom Colors",
+      "colorEditHint": "Tap a color to edit",
       "selectTheme": "Select theme",
       "selectThemePreset": "Select a theme preset",
       "yourOwn": "Your Own",
       "light": "Light",
       "dark": "Dark",
       "system": "System"
+    },
+    "autoSaveStatus": {
+      "idle": "Auto-save enabled",
+      "saving": "Saving changes...",
+      "saved": "All changes saved",
+      "error": "Save failed"
+    },
+    "groups": {
+      "workspace": "Workspace Preferences",
+      "system": "System Preferences"
+    },
+    "navigation": {
+      "groups": {
+        "workspace": "Workspace Preferences",
+        "network": "Network & Identity",
+        "security": "Security & Access",
+        "billing": "Billing & Plan",
+        "sync": "Sync & Data",
+        "system": "System"
+      },
+      "items": {
+        "appearance": "Appearance",
+        "languageRegion": "Language & Region",
+        "notifications": "Notifications",
+        "profileDefaults": "Profile Defaults",
+        "templatesStartup": "Templates & Startup",
+        "proxyVpn": "Proxy & VPN",
+        "fingerprintPrivacy": "Fingerprint & Privacy",
+        "dnsTraffic": "DNS / Traffic Rules",
+        "teamRoles": "Team Members & Roles",
+        "sessionPolicies": "Session Policies",
+        "accountSecurity": "Account Security",
+        "auditLogs": "Audit Logs",
+        "subscription": "Subscription",
+        "paymentMethods": "Payment Methods",
+        "invoices": "Invoices",
+        "couponLicense": "Coupon / License",
+        "usageAddons": "Usage & Add-ons",
+        "syncProvider": "Sync Provider",
+        "backupRestore": "Backup / Restore",
+        "importExport": "Import / Export",
+        "dataRetention": "Data Retention",
+        "integrations": "Integrations",
+        "runtimeUpdates": "Runtime & Updates",
+        "diagnostics": "Diagnostics / Logs",
+        "permissions": "System Permissions",
+        "advanced": "Advanced"
+      },
+      "status": {
+        "managed": "Managed by module"
+      },
+      "placeholderPanels": {
+        "subtitle": "{{section}} is configured in a dedicated module to keep production logic consistent.",
+        "overviewTitle": "Operational overview",
+        "sourceLabel": "Managed source",
+        "statusLabel": "Status",
+        "syncLabel": "Policy sync",
+        "ownerLabel": "Owner",
+        "statusManagedValue": "Managed",
+        "syncManagedValue": "Auto-synced",
+        "ownerManagedValue": "Platform/Workspace Admin",
+        "checklistTitle": "Applied checklist",
+        "checklistPolicy": "Core policies",
+        "checklistValidation": "Validation flow",
+        "checklistRollout": "Plan rollout",
+        "checklistAudit": "Monitoring & audit",
+        "checklistState": "Applied",
+        "openManagedModule": "Open managed module",
+        "controlsTitle": "Control panel",
+        "controlsDescription": "{{section}} uses centralized controls to stay aligned with the production checklist.",
+        "controlPrimaryLabel": "Control point",
+        "controlScopeLabel": "Applied scope",
+        "controlAutomationLabel": "Automation",
+        "controlRollbackLabel": "Rollback policy",
+        "controlPrimaryValue": "Standard setup for {{section}}",
+        "controlScopeValue": "Applies to {{group}} group",
+        "controlAutomationValue": "Enabled by policy",
+        "controlRollbackValue": "Safe rollback ready",
+        "timelineTitle": "Change timeline",
+        "timelineEventPolicy": "Policy synced for {{section}}",
+        "timelineEventValidation": "Role access review for {{group}} group",
+        "timelineEventSync": "State synced with primary navigation",
+        "timelineNow": "Just now",
+        "timelineToday": "Today",
+        "timelineThisWeek": "This week",
+        "requestPolicyReview": "Request policy review",
+        "reviewRequested": "Review request sent for {{section}}"
+      },
+      "placeholderDescription": "{{section}} is part of the production checklist and is operated in a dedicated module.",
+      "managedAt": "Managed at: {{location}}",
+      "locations": {
+        "settingsPage": "Settings Page",
+        "proxyCenter": "Proxy & VPN",
+        "workspaceGovernance": "Workspace Governance",
+        "pricingBilling": "Pricing & Billing",
+        "syncIntegrations": "Integrations + Sync",
+        "systemControls": "Integrations / Runtime"
+      }
     },
     "language": {
       "title": "Language",
@@ -133,7 +237,396 @@
     "advanced": {
       "title": "Advanced",
       "clearCache": "Clear All Version Cache",
-      "clearCacheDescription": "Clear all cached browser version data and refresh all browser versions from their sources. This will force a fresh download of version information for all browsers."
+      "clearCacheDescription": "Clear all cached browser version data and refresh all browser versions from their sources. This will force a fresh download of version information for all browsers.",
+      "clearCacheFailed": "Failed to clear cache",
+      "unknownError": "Unknown error occurred"
+    }
+  },
+  "vpnForm": {
+    "title": {
+      "edit": "Edit VPN",
+      "createWireGuard": "Create WireGuard VPN",
+      "createOpenVpn": "Create OpenVPN Configuration"
+    },
+    "description": {
+      "edit": "Update the name of your VPN configuration.",
+      "createWireGuard": "Enter your WireGuard interface and peer details.",
+      "createOpenVpn": "Paste your .ovpn configuration file content."
+    },
+    "actions": {
+      "update": "Update VPN",
+      "create": "Create VPN"
+    },
+    "types": {
+      "wireGuard": "WireGuard",
+      "openVpn": "OpenVPN"
+    },
+    "fields": {
+      "vpnType": "VPN Type",
+      "privateKey": "Private Key",
+      "address": "Address",
+      "dnsOptional": "DNS (optional)",
+      "mtuOptional": "MTU (optional)",
+      "peerPublicKey": "Peer Public Key",
+      "peerEndpoint": "Peer Endpoint",
+      "allowedIps": "Allowed IPs",
+      "persistentKeepaliveOptional": "Persistent Keepalive (optional)",
+      "presharedKeyOptional": "Preshared Key (optional)",
+      "rawConfig": "Raw Config"
+    },
+    "placeholders": {
+      "selectVpnType": "Select VPN type",
+      "wireGuardName": "e.g. Home WireGuard",
+      "openVpnName": "e.g. Work OpenVPN",
+      "privateKey": "Base64-encoded private key",
+      "address": "e.g. 10.0.0.2/24",
+      "dns": "e.g. 1.1.1.1",
+      "mtu": "e.g. 1420",
+      "peerPublicKey": "Base64-encoded peer public key",
+      "peerEndpoint": "e.g. vpn.example.com:51820",
+      "allowedIps": "e.g. 0.0.0.0/0, ::/0",
+      "keepalive": "e.g. 25",
+      "presharedKey": "Base64-encoded preshared key",
+      "rawConfig": "Paste your .ovpn file content here..."
+    },
+    "errors": {
+      "nameRequired": "VPN name is required",
+      "privateKeyRequired": "Private key is required",
+      "addressRequired": "Address is required",
+      "peerPublicKeyRequired": "Peer public key is required",
+      "peerEndpointRequired": "Peer endpoint is required",
+      "openVpnConfigRequired": "OpenVPN config content is required",
+      "updateFailed": "Failed to update VPN: {{message}}",
+      "createFailed": "Failed to create VPN: {{message}}"
+    },
+    "toasts": {
+      "updated": "VPN updated successfully",
+      "wireguardCreated": "WireGuard VPN created successfully",
+      "openVpnCreated": "OpenVPN configuration created successfully"
+    }
+  },
+  "trafficDetails": {
+    "title": "Traffic Details",
+    "chart": {
+      "bandwidthOverTime": "Bandwidth Over Time",
+      "timePeriod": "Time period",
+      "sentTooltip": "↑ Sent: ",
+      "receivedTooltip": "↓ Received: "
+    },
+    "periods": {
+      "last1Min": "Last 1 min",
+      "last5Min": "Last 5 min",
+      "last30Min": "Last 30 min",
+      "last1Hour": "Last 1 hour",
+      "last2Hours": "Last 2 hours",
+      "last4Hours": "Last 4 hours",
+      "last1Day": "Last 1 day",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "allTime": "All time",
+      "total": "total"
+    },
+    "labels": {
+      "sent": "Sent",
+      "received": "Received",
+      "sentWithPeriod": "Sent ({{period}})",
+      "receivedWithPeriod": "Received ({{period}})",
+      "requestsWithPeriod": "Requests ({{period}})",
+      "allTimeTraffic": "All-time traffic:",
+      "allTimeRequests": "All-time requests:"
+    },
+    "disclaimer": "Note: If you are using a proxy, VPN, or similar service, your provider may calculate traffic differently due to encryption overhead and protocol differences.",
+    "topDomainsByTraffic": "Top Domains by Traffic ({{period}})",
+    "topDomainsByRequests": "Top Domains by Requests ({{period}})",
+    "table": {
+      "domain": "Domain",
+      "requests": "Requests",
+      "sent": "Sent",
+      "received": "Received",
+      "totalTraffic": "Total Traffic"
+    },
+    "uniqueIps": "Unique IPs ({{count}})",
+    "empty": {
+      "title": "No traffic data available for this profile.",
+      "description": "Traffic data will appear after you launch the profile."
+    }
+  },
+  "integrationsDialog": {
+    "title": "Integrations",
+    "description": "Keep local API and assistant access available from a full workspace instead of a separate modal stack.",
+    "tabs": {
+      "localApi": "Local API",
+      "mcpAssistants": "MCP (AI Assistants)",
+      "mcp": "MCP"
+    },
+    "labels": {
+      "port": "Port",
+      "authToken": "Authentication Token"
+    },
+    "api": {
+      "enableTitle": "Enable Local API Server",
+      "enableDescription": "Allow managing profiles, groups, and proxies via REST API.",
+      "serverRunning": "Server is running",
+      "authHeader": "Include in Authorization header: Bearer <token>"
+    },
+    "mcp": {
+      "enableTitle": "Enable MCP Server (Model Context Protocol)",
+      "enableDescription": "Allow AI assistants like Claude Desktop to control browsers.",
+      "acceptTermsHint": "(Accept Wayfern terms in Settings first)",
+      "claudeConfigTitle": "Claude Desktop Configuration",
+      "claudeConfigDescription": "Copy this configuration to your Claude Desktop config file at",
+      "availableTools": "Available Tools",
+      "tools": {
+        "listProfiles": "list_profiles - List browser profiles",
+        "runProfile": "run_profile - Launch a browser",
+        "killProfile": "kill_profile - Stop a running browser",
+        "getProfileStatus": "get_profile_status - Check if browser is running",
+        "manageGroups": "list_groups, create_group, etc. - Manage groups",
+        "manageProxies": "list_proxies, create_proxy, etc. - Manage proxies"
+      }
+    },
+    "toasts": {
+      "apiStarted": "API server started on port {{port}}",
+      "apiStopped": "API server stopped",
+      "apiToggleFailed": "Failed to toggle API server",
+      "mcpStarted": "MCP server started on port {{port}}",
+      "mcpStopped": "MCP server stopped",
+      "mcpToggleFailed": "Failed to toggle MCP server",
+      "tokenCopied": "Token copied",
+      "configCopied": "Configuration copied",
+      "unknownError": "Unknown error"
+    }
+  },
+  "proxyManagementDialog": {
+    "title": "Proxies & VPNs",
+    "description": "Manage your proxy and VPN configurations for reuse across profiles.",
+    "tabs": {
+      "proxies": "Proxies",
+      "vpns": "VPNs"
+    },
+    "actions": {
+      "quickPaste": "Quick Paste",
+      "location": "Location"
+    },
+    "loadingProxies": "Loading proxies...",
+    "loadingVpns": "Loading VPNs...",
+    "emptyProxies": "No proxies created yet. Create your first proxy using the button above.",
+    "emptyVpns": "No VPN configs created yet. Import or create one using the buttons above.",
+    "cloud": "Cloud",
+    "toasts": {
+      "syncDisabled": "Sync disabled",
+      "syncEnabled": "Sync enabled",
+      "syncUpdateFailed": "Failed to update sync"
+    },
+    "tooltips": {
+      "syncDisableBlockedProxy": "Sync cannot be disabled while this proxy is used by synced profiles",
+      "syncDisableBlockedVpn": "Sync cannot be disabled while this VPN is used by synced profiles",
+      "disableSync": "Disable sync",
+      "enableSync": "Enable sync",
+      "editProxy": "Edit proxy",
+      "deleteBlocked": "Cannot delete: in use by {{count}} profile(s)",
+      "deleteProxy": "Delete proxy",
+      "editVpn": "Edit VPN",
+      "deleteVpn": "Delete VPN"
+    },
+    "deleteProxy": {
+      "title": "Delete Proxy",
+      "description": "This action cannot be undone. This will permanently delete the proxy \"{{name}}\"."
+    },
+    "deleteVpn": {
+      "title": "Delete VPN",
+      "description": "This action cannot be undone. This will permanently delete the VPN \"{{name}}\"."
+    }
+  },
+  "importProfileDialog": {
+    "title": "Import Browser Profile",
+    "manualTitle": "Manual Profile Import",
+    "labels": {
+      "path": "Path:",
+      "browser": "Browser:"
+    },
+    "toasts": {
+      "detectFailed": "Failed to detect existing browser profiles",
+      "openFolderFailed": "Failed to open folder dialog",
+      "selectProfileAndName": "Please select a profile and provide a name",
+      "selectedProfileNotFound": "Selected profile not found",
+      "importFailed": "Failed to import profile: {{message}}",
+      "fillAllFields": "Please fill in all fields"
+    }
+  },
+  "proxyImportDialog": {
+    "title": "Import Proxies",
+    "labels": {
+      "namePrefix": "Name Prefix"
+    },
+    "result": {
+      "imported": "Imported:",
+      "skippedDuplicates": "Skipped (duplicates):",
+      "errors": "Errors:",
+      "errorsLabel": "Errors"
+    },
+    "actions": {
+      "done": "Done"
+    },
+    "toasts": {
+      "readFailed": "Failed to read file",
+      "noValidProxies": "No valid proxies found in the file",
+      "dropFileHint": "Please drop a .json or .txt file"
+    }
+  },
+  "vpnCheck": {
+    "toasts": {
+      "valid": "VPN \"{{name}}\" configuration is valid",
+      "invalid": "VPN \"{{name}}\" configuration is invalid",
+      "failed": "VPN check failed: {{message}}"
+    },
+    "tooltip": {
+      "checking": "Checking VPN config...",
+      "valid": "Configuration valid",
+      "invalid": "Configuration invalid",
+      "checkedAt": "Checked {{time}}",
+      "idle": "Check VPN config validity"
+    }
+  },
+  "vpnImportDialog": {
+    "title": "Import VPN Config",
+    "labels": {
+      "vpnName": "VPN Name",
+      "configPreview": "Config Preview"
+    },
+    "actions": {
+      "done": "Done"
+    },
+    "toasts": {
+      "invalidContent": "Content does not appear to be a valid VPN configuration",
+      "readFailed": "Failed to read file",
+      "dropFileHint": "Please drop a .conf or .ovpn file"
+    }
+  },
+  "proxyExportDialog": {
+    "title": "Export Proxies",
+    "description": "Export your proxy configurations to a file",
+    "labels": {
+      "exportFormat": "Export Format",
+      "preview": "Preview"
+    },
+    "actions": {
+      "copied": "Copied"
+    },
+    "toasts": {
+      "copied": "Copied to clipboard",
+      "copyFailed": "Failed to copy to clipboard",
+      "exportFailed": "Failed to export proxies",
+      "downloaded": "Downloaded {{filename}}"
+    }
+  },
+  "locationProxyDialog": {
+    "title": "Create Location Proxy",
+    "description": "Create a geo-targeted proxy from your cloud credentials",
+    "labels": {
+      "countryRequired": "Country (required)",
+      "stateOptional": "State (optional)",
+      "cityOptional": "City (optional)"
+    },
+    "actions": {
+      "creating": "Creating..."
+    },
+    "toasts": {
+      "loadCountriesFailed": "Failed to load countries",
+      "created": "Location proxy created"
+    }
+  },
+  "launchOnLogin": {
+    "title": "Enable Launch on Login?",
+    "toasts": {
+      "enabled": "Launch on login enabled",
+      "enableFailed": "Failed to enable launch on login",
+      "savePreferenceFailed": "Failed to save preference",
+      "tryAgain": "Please try again"
+    }
+  },
+  "groupDialogs": {
+    "labels": {
+      "groupName": "Group Name"
+    },
+    "create": {
+      "title": "Create New Group"
+    },
+    "edit": {
+      "title": "Edit Group"
+    },
+    "delete": {
+      "title": "Delete Group",
+      "profilesPrompt": "What should happen to these profiles?"
+    },
+    "toasts": {
+      "created": "Group created successfully",
+      "updated": "Group updated successfully",
+      "deleted": "Group deleted successfully"
+    }
+  },
+  "releaseTypeSelector": {
+    "empty": "No release types available."
+  },
+  "dataTableActionBar": {
+    "clearSelection": "Clear selection"
+  },
+  "permissionDialog": {
+    "toasts": {
+      "requestFailed": "Failed to request permission"
+    }
+  },
+  "camoufoxConfigDialog": {
+    "toasts": {
+      "invalidFingerprint": "Invalid fingerprint configuration",
+      "invalidFingerprintDescription": "The fingerprint configuration contains invalid JSON. Please check your advanced settings.",
+      "saveFailed": "Failed to save configuration"
+    }
+  },
+  "cookieCopyDialog": {
+    "labels": {
+      "sourceProfile": "Source Profile"
+    },
+    "toasts": {
+      "someErrors": "Some errors occurred: {{errors}}"
+    }
+  },
+  "profileSelectorDialog": {
+    "title": "Choose Profile",
+    "labels": {
+      "openingUrl": "Opening URL:",
+      "selectProfile": "Select Profile:"
+    }
+  },
+  "wayfernTerms": {
+    "title": "Wayfern Terms and Conditions",
+    "toasts": {
+      "accepted": "Terms accepted successfully",
+      "acceptFailed": "Failed to accept terms"
+    }
+  },
+  "groupAssignmentDialog": {
+    "title": "Assign to Group",
+    "labels": {
+      "selectedProfiles": "Selected Profiles:",
+      "assignToGroup": "Assign to Group:",
+      "defaultNoGroup": "Default (No Group)"
+    }
+  },
+  "proxyAssignmentDialog": {
+    "title": "Assign Proxy / VPN",
+    "labels": {
+      "selectedProfiles": "Selected Profiles:",
+      "assignProxyVpn": "Assign Proxy / VPN:",
+      "proxies": "Proxies",
+      "vpns": "VPNs"
+    }
+  },
+  "groupManagementDialog": {
+    "title": "Manage Profile Groups",
+    "groupsLabel": "Groups",
+    "columns": {
+      "profiles": "Profiles"
     }
   },
   "header": {
@@ -174,6 +667,9 @@
     "createFirst": "Create Profile",
     "noResults": "No profiles found",
     "noResultsDescription": "No profiles match your search criteria.",
+    "filteredStateHint": "{{visible}}/{{total}} profiles are visible. {{hidden}} profile(s) are hidden by current filters.",
+    "resetFilters": "Reset filters",
+    "filterResetSuccess": "Profile filters reset",
     "table": {
       "name": "Name",
       "browser": "Browser",
@@ -190,6 +686,9 @@
       "notePlaceholder": "Add a note...",
       "proxySearch": "Search proxies or VPNs...",
       "proxySearchWithCountries": "Search proxies, VPNs, or countries...",
+      "proxyQuickActions": "Quick actions",
+      "openProxyCenter": "Open Proxy Center",
+      "quickAddProxy": "Quick add proxy",
       "proxyEmpty": "No proxies or VPNs found.",
       "none": "None",
       "vpns": "VPNs",
@@ -233,9 +732,23 @@
       "archiveSuccess": "Profile archived",
       "restoreSuccess": "Profile restored",
       "pin": "Pin",
+      "pinned": "Pinned",
       "unpin": "Unpin",
       "pinSuccess": "Profile pinned",
       "unpinSuccess": "Profile unpinned"
+    },
+    "syncToggle": {
+      "enabledTitle": "Sync enabled",
+      "disabledTitle": "Sync disabled",
+      "enabledDescription": "Profile sync has been enabled",
+      "disabledDescription": "Profile sync has been disabled",
+      "updateFailed": "Failed to update sync settings",
+      "syncingProfile": "Syncing profile '{{name}}'..."
+    },
+    "bulkDelete": {
+      "title": "Delete Selected Profiles",
+      "description": "This action cannot be undone. This will permanently delete {{count}} profile(s) and all associated data.",
+      "confirmButton": "Delete {{count}} Profile(s)"
     },
     "ephemeral": "Ephemeral",
     "ephemeralDescription": "The browser is forced to write profile data into memory instead of disk. Data is deleted when the browser is closed.",
@@ -419,6 +932,7 @@
   },
   "groups": {
     "title": "Groups",
+    "all": "All",
     "management": "Group Management",
     "add": "Add Group",
     "edit": "Edit Group",
@@ -481,6 +995,9 @@
     "settingsSaveFailed": "Failed to save sync settings.",
     "disconnectSuccess": "Sync disconnected.",
     "disconnectFailed": "Failed to disconnect sync.",
+    "test": "Test",
+    "testing": "Testing...",
+    "disconnect": "Disconnect",
     "status": {
       "connected": "Connected",
       "disconnected": "Disconnected",
@@ -631,9 +1148,13 @@
       "title": "Import Cookies",
       "description": "Import cookies from a Netscape or JSON format file.",
       "selectFile": "Choose File",
+      "dropzoneTitle": "Click to choose a cookie file",
+      "dropzoneFormats": "(.txt, .cookies, or .json)",
       "preview": "{{count}} cookies found",
       "success": "Successfully imported {{imported}} cookies ({{replaced}} replaced)",
+      "linesSkipped": "{{count}} line(s) skipped",
       "error": "Failed to import cookies",
+      "fileReadError": "Failed to read file",
       "proFeature": "Cookie import is a Pro feature"
     },
     "export": {
@@ -642,7 +1163,14 @@
       "formatLabel": "Format",
       "netscape": "Netscape TXT",
       "json": "JSON",
+      "text": "Text",
+      "cookiesLabel": "Cookies",
+      "selectedSummary": "({{selected}} of {{total}} selected)",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "empty": "No cookies found in this profile",
       "success": "Cookies exported successfully",
+      "loadError": "Failed to load cookies",
       "error": "Failed to export cookies"
     }
   },
@@ -736,6 +1264,7 @@
     "basicWarning": "Warning: Only edit these parameters if you know what you're doing.",
     "automatic": "Automatic",
     "manual": "Manual",
+    "browserBehavior": "Browser Behavior",
     "blockingOptions": "Blocking Options",
     "blockImages": "Block Images",
     "blockWebRTC": "Block WebRTC",
@@ -897,7 +1426,8 @@
       "title": "Clone Profile",
       "description": "Enter a name for the cloned profile",
       "namePlaceholder": "Profile name",
-      "button": "Clone"
+      "button": "Clone",
+      "failed": "Failed to clone profile: {{message}}"
     }
   },
   "extensions": {
@@ -1164,11 +1694,15 @@
   },
   "authDialog": {
     "title": "Workspace Login",
-    "description": "Sign in with your invited email. You can accept invite token immediately after signing in.",
+    "description": "Sign in with your email and password to access the workspace.",
     "emailLabel": "Email",
     "emailPlaceholder": "name@company.com",
+    "passwordPlaceholder": "Enter password (min 8 characters)",
+    "rememberMe": "Remember me",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "quickPresetTitle": "Quick role preview accounts",
-    "quickPresetHint": "Preview accounts are for local UI/permission checks. For real workspace permissions, use invite flow.",
+    "quickPresetHint": "Seed accounts load workspace-scoped data for local role checks. For production permissioning, keep using invite flow.",
     "quickPresetPlatformAdmin": "Platform Admin",
     "quickPresetOwner": "Owner Preview",
     "quickPresetAdmin": "Admin Preview",
@@ -1179,6 +1713,8 @@
     "accessScopeAdmin": "Platform admin",
     "accessScopeHint": "Use platform admin only for trusted internal operators.",
     "otpLabel": "OTP Code",
+    "nameLabel": "Full Name",
+    "phoneLabel": "Phone",
     "otpPlaceholder": "Enter the 6-digit code",
     "inviteTokenLabel": "Invite token (optional)",
     "inviteTokenPlaceholder": "Paste invite token from email link",
@@ -1190,6 +1726,8 @@
     "resendOtp": "Resend OTP",
     "back": "Back",
     "invalidEmail": "Please enter a valid email.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "passwordMismatch": "Password confirmation does not match.",
     "invalidOtp": "Please enter the OTP code.",
     "otpRequested": "OTP sent. Check your inbox.",
     "otpRequestFailed": "Failed to request OTP.",
@@ -1224,11 +1762,14 @@
     "perMonth": "month",
     "perYear": "year",
     "planSelected": "Plan selected",
+    "checkoutPending": "ready on Checkout page",
     "selectedPlan": "Selected",
     "selectPlan": "Select plan",
+    "upgradeTo": "Upgrade to {{plan}}",
     "featureProfiles": "{{count}} managed profiles",
     "featureMembers": "{{count}} team members",
     "featureStorage": "{{count}} GB sync storage",
+    "featureProxy": "{{count}} GB resident proxy",
     "featureSupport": "{{level}} support",
     "support": {
       "email": "Email",
@@ -1237,23 +1778,31 @@
     },
     "stripeReady": "Stripe billing is connected. Checkout can be enabled directly in production flow.",
     "stripePending": "Stripe billing is not configured yet. Plan selection stays available, and checkout can be enabled after config.",
+    "selfHostedCheckoutReady": "Self-host checkout is active. Billing, coupons, and invoice flow run locally.",
+    "runtimeStripeLabel": "Stripe Billing",
+    "runtimeAuthLabel": "Authentication",
+    "runtimeSyncLabel": "Cloud Sync",
     "signInTitle": "Sign in to continue",
-    "signInDescription": "Use invited email for workspace access. Platform admin scope is for internal operators.",
+    "signInDescription": "Use your email and password to sign in to the workspace.",
     "syncReady": "Sync service is configured.",
     "syncPending": "Sync service is pending setup. Configure it to unlock full backup and restore.",
     "openSyncConfig": "Open Sync Config",
     "plans": {
       "starter": {
         "name": "Starter",
-        "description": "For solo operators and small experiments."
+        "description": "For solo operators and quick daily tasks."
       },
       "growth": {
         "name": "Growth",
-        "description": "Best fit for active teams in daily production."
+        "description": "For growing teams and shared workspace operations."
       },
       "scale": {
         "name": "Scale",
-        "description": "High-capacity operations with larger teams."
+        "description": "Large-volume operations with stronger capacity."
+      },
+      "custom": {
+        "name": "Custom",
+        "description": "Custom profile limits and internal team support."
       }
     },
     "tabs": {
@@ -1265,30 +1814,55 @@
     "authPending": "Auth service is pending configuration.",
     "googleButton": "Continue with Google",
     "googleSoon": "Google OAuth will be enabled once backend auth is configured.",
+    "googleOpenBrowserTitle": "Opening Google login in browser...",
+    "googleOpenBrowserDescription": "Complete sign-in and allow the app to open again.",
+    "googleOpenBrowserFailed": "Unable to open browser for Google login",
+    "googleLoginErrorTitle": "Google login error",
+    "controlAuthUnavailableTitle": "Authentication service unreachable",
+    "controlAuthUnavailableDescription": "Control auth server is not reachable. Local dev accounts (@buglogin.local) can still use fallback login. For real accounts, configure Sync server URL and enable control API.",
+    "localDevQuickTitle": "Quick credentials for local dev",
+    "localDevQuickDescription": "Click to fill test emails instantly. Default password: {{password}}.",
+    "registerFlowTitle": "Create workspace account",
+    "optionalLabel": "optional",
+    "registerNamePlaceholder": "Display name in workspace",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Re-enter password",
+    "useLocalDevPreset": "Use local dev preset",
     "registerHint": "Register with the invited email. After email verification, workspace permissions will be applied automatically.",
     "registerAction": "Submit registration request",
-    "registerQueued": "Registration request queued.",
-    "registerQueuedDescription": "In self-hosted mode, full email verification will be enabled after auth backend setup.",
+    "registerQueued": "Registration completed in self-host mode.",
+    "registerQueuedDescription": "Email verification can be enabled later. You can sign in now with the invited email.",
     "registerFailed": "Failed to submit registration request.",
     "forgotHint": "Enter your workspace email to receive account recovery instructions.",
     "forgotAction": "Send recovery instructions",
     "resetSent": "Recovery instructions sent to your email.",
-    "resetQueued": "Recovery request queued.",
-    "resetQueuedDescription": "Self-hosted mode does not expose full password reset yet. You can still use invited email login.",
-    "resetFailed": "Failed to send recovery instructions."
+    "resetQueued": "Recovery flow is available in self-host mode.",
+    "resetQueuedDescription": "You can continue using invited-email sign-in while full reset backend is being connected.",
+    "resetFailed": "Failed to send recovery instructions.",
+    "preferenceSaveFailed": "Failed to update appearance or language."
   },
   "adminWorkspace": {
     "subtitle": "Platform governance for billing, entitlements, and operational controls.",
+    "workspaceSubtitle": "Workspace administration for members, sharing, and operational health.",
+    "panel": {
+      "platformTitle": "Platform Admin Panel",
+      "workspaceTitle": "Workspace Admin Panel",
+      "platformBadge": "Platform Admin",
+      "workspaceBadge": "Workspace Admin",
+      "workspaceOverviewTitle": "Workspace Operations Overview",
+      "workspaceOverviewDescription": "Track member lifecycle, invite throughput, and sharing posture for the selected workspace."
+    },
     "reasonRequired": "Reason is required for this action.",
     "reasonLabel": "Reason",
     "reasonPlaceholder": "Explain why this operation is needed (required)",
     "noAccessTitle": "You do not have access to Admin Workspace",
     "noAccessDescription": "Only owner/admin roles or platform admins can access this management area.",
+    "ownerOnlyGovernance": "Only workspace owner/admin or platform admin can access Workspace Governance.",
     "signInRequired": "Please sign in first to access Admin Workspace and control-plane operations.",
     "entitlementUpdated": "Entitlement state updated.",
     "entitlementUpdateFailed": "Failed to update entitlement state.",
     "tabs": {
-      "workspace": "Workspace",
+      "workspace": "Workspace Directory",
       "billing": "Billing",
       "audit": "Audit",
       "overview": "Overview",
@@ -1300,6 +1874,20 @@
       "members": "Members",
       "invites": "Open invites",
       "audits24h": "Audit events (24h)"
+    },
+    "columns": {
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "resource": "Resource",
+      "recipient": "Recipient",
+      "access": "Access",
+      "source": "Source",
+      "usage": "Usage",
+      "action": "Action",
+      "actor": "Actor",
+      "time": "Time",
+      "reason": "Reason"
     },
     "overview": {
       "title": "Platform Overview",
@@ -1313,6 +1901,7 @@
     "controlPlane": {
       "title": "Workspace Governance",
       "description": "Manage workspaces, members, and invites from the control-plane.",
+      "workspaceDescription": "Operate members, invites, and sharing controls for the currently selected workspace.",
       "pending": "Sync server URL is not configured",
       "connected": "Connected: {{url}}",
       "securityUnknown": "Control-plane security status is unavailable.",
@@ -1349,6 +1938,8 @@
       "invites": "Invite management",
       "inviteEmailRequired": "Invite email is required.",
       "inviteEmailInvalid": "Invite email is invalid.",
+      "inviteRoleRestricted": "Invites can only use Member or Viewer role.",
+      "inviteRoleRestrictedHint": "For security, invite as Member/Viewer first, then upgrade role after onboarding.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Invite created successfully.",
       "inviteCreateFailed": "Failed to create invite.",
@@ -1369,6 +1960,44 @@
       "admin": "Admin",
       "member": "Member",
       "viewer": "Viewer"
+    },
+    "permissions": {
+      "ownerLockedHint": "Owner role is full-control and cannot be disabled.",
+      "editorHint": "Toggle capabilities for this role based on your workspace operating model.",
+      "items": {
+        "profiles_manage": {
+          "title": "Manage profiles",
+          "description": "Create, edit, clone, and organize profiles."
+        },
+        "profiles_delete": {
+          "title": "Delete profiles",
+          "description": "Remove profiles and execute destructive profile actions."
+        },
+        "network_manage": {
+          "title": "Manage proxy and VPN",
+          "description": "Configure and assign proxy or VPN resources."
+        },
+        "integrations_manage": {
+          "title": "Manage integrations",
+          "description": "Configure integrations and automation connectors."
+        },
+        "members_invite": {
+          "title": "Invite members",
+          "description": "Send, revoke, and track workspace invites."
+        },
+        "members_role": {
+          "title": "Manage member roles",
+          "description": "Promote, demote, or remove workspace members."
+        },
+        "share_manage": {
+          "title": "Manage sharing",
+          "description": "Create and revoke profile/group share grants."
+        },
+        "billing_manage": {
+          "title": "Manage billing",
+          "description": "Control pricing, plan actions, and billing operations."
+        }
+      }
     },
     "share": {
       "title": "Share grants",
@@ -1396,6 +2025,28 @@
     "billing": {
       "couponTitle": "Coupon governance",
       "couponDescription": "Create and control internal/Stripe-linked discounts with full auditability.",
+      "planMenuPricing": "Pricing & status",
+      "planMenuUsage": "Usage limits",
+      "planMenuExperience": "Plan experience",
+      "customPlanTitle": "Custom plan control",
+      "customPlanDescription": "Configure custom plan pricing and limits for internal workspace operations.",
+      "customPlanEnabled": "Custom plan visibility",
+      "customPlanEnabledYes": "Enabled",
+      "customPlanEnabledNo": "Disabled",
+      "customPlanMonthly": "Monthly price ($)",
+      "customPlanYearly": "Yearly price ($)",
+      "customPlanSupport": "Support tier",
+      "customPlanProfiles": "Managed profiles",
+      "customPlanMembers": "Team members",
+      "customPlanStorage": "Sync storage (GB)",
+      "customPlanProxy": "Resident proxy (GB)",
+      "customPlanRecommended": "Recommended badge",
+      "customPlanRecommendedYes": "Yes",
+      "customPlanRecommendedNo": "No",
+      "customPlanSaveAction": "Save custom plan",
+      "customPlanResetAction": "Reset defaults",
+      "customPlanSaved": "Custom plan updated.",
+      "customPlanReset": "Custom plan reset to defaults.",
       "sourceInternal": "Internal",
       "sourceStripe": "Stripe-linked",
       "couponCode": "Coupon code",
@@ -1406,7 +2057,7 @@
       "couponFieldsRequired": "Coupon code and expiry are required.",
       "couponInvalidNumber": "Discount and max redemptions must be valid numbers.",
       "couponCodeInvalid": "Coupon code must be 3-40 chars using letters, numbers, _ or -.",
-      "couponDiscountRange": "Discount must be greater than 0 and at most 95%.",
+      "couponDiscountRange": "Discount must be greater than 0 and at most 100%.",
       "couponMaxInvalid": "Max redemptions must be an integer greater than or equal to 0.",
       "couponExpiryInvalid": "Coupon expiry must be a valid date in the future.",
       "couponCreated": "Coupon created.",
@@ -1415,6 +2066,7 @@
       "couponRevokeFailed": "Failed to revoke coupon.",
       "createCoupon": "Create coupon",
       "revokeCoupon": "Revoke",
+      "generatedCoupons": "Generated coupons",
       "noCoupons": "No coupons found.",
       "activeStatus": "active",
       "revokedStatus": "revoked"
@@ -1439,6 +2091,73 @@
       "entitlementActive": "Active",
       "entitlementGrace": "Grace active",
       "entitlementReadOnly": "Read-only"
+    },
+    "ui": {
+      "workspaceOpsTitle": "Workspace Operations Center",
+      "workspaceOpsDescription": "Manage workspaces, membership, and sharing in one contextual governance flow with explicit role boundaries.",
+      "workspaceDirectoryTitle": "Workspace Directory & Provisioning",
+      "workspaceDirectoryOpsDescription": "Manage all workspaces globally from this admin scope. Membership and access policy actions are handled in the Workspace Governance panel for the active workspace.",
+      "scopePlatform": "Scope: Platform Admin",
+      "scopeTeam": "Scope: Workspace Owner/Admin",
+      "scopeReadOnly": "Scope: Read-only",
+      "workspaceDirectoryDescription": "Switch workspace context to inspect and operate the correct governance data.",
+      "workspaceScopedModeHint": "This panel governs only the currently opened workspace. Use the shell workspace switcher to manage another workspace.",
+      "quickCreateWorkspace": "Quick workspace provisioning",
+      "selectedWorkspaceTitle": "Selected workspace snapshot",
+      "selectedWorkspaceDescription": "Validate workspace identity, ownership metadata, and active plan before making governance changes.",
+      "notSelected": "Not selected",
+      "workspaceId": "Workspace ID",
+      "createdAt": "Created at",
+      "createdBy": "Created by",
+      "planLabel": "Plan",
+      "noPlanLabel": "No plan",
+      "localModeEnabled": "Local/self-host mode is active. Workspace governance actions run locally; Stripe/S3 features still require service configuration.",
+      "readOnlyHint": "Current account is read-only in this area. Use an Owner/Admin role to apply changes.",
+      "userPermissionTitle": "User Permissions",
+      "userPermissionDescription": "Manage invites, role assignment, share policy, and role-based capability toggles for the active workspace.",
+      "userPermissionOverviewTitle": "Role and access posture",
+      "userPermissionOverviewDescription": "Review role distribution and permission posture before changing membership or sharing policy.",
+      "userPermissionGuidanceTitle": "Governance guidance",
+      "userPermissionGuidanceDescription": "Invite as Member/Viewer first, then elevate role after ownership and responsibility are confirmed.",
+      "memberAccessTitle": "Member and invite governance",
+      "memberAccessDescription": "Manage role lifecycle, revoke access, and monitor invite throughput for the active workspace.",
+      "memberList": "Member list",
+      "inviteList": "Invite list",
+      "shareControlTitle": "Resource sharing policy",
+      "policyChecklistTitle": "Access policy checklist",
+      "policyChecklistDescription": "Apply these controls before sharing resources across operators or partner workspaces.",
+      "policyChecklistItem1": "Grant only least-privileged access for each role or recipient.",
+      "policyChecklistItem2": "Use explicit revocation immediately when ownership context changes.",
+      "policyChecklistItem3": "Review active shares and invite status before billing or seat audits.",
+      "policySnapshotTitle": "Policy posture snapshot",
+      "snapshotEntitlement": "Current entitlement",
+      "snapshotMembers": "Active members",
+      "snapshotInvites": "Open invites",
+      "snapshotShares": "Open share grants",
+      "serviceAuth": "Authentication",
+      "serviceStripe": "Stripe Billing",
+      "serviceSync": "S3 Sync",
+      "serviceAuthDescription": "Controls login, invite acceptance, and session verification.",
+      "serviceStripeDescription": "Handles subscription lifecycle, invoices, and payment webhooks.",
+      "serviceSyncDescription": "Protects backup and restore flows across devices.",
+      "healthTitle": "Operational health",
+      "healthDescription": "Keep release-critical services visible before switching environments.",
+      "entitlementTitle": "Entitlement posture",
+      "entitlementDescription": "Monitor effective runtime limits and retention policies.",
+      "latestAuditTitle": "Recent audit activity",
+      "latestAuditDescription": "Latest sensitive actions captured by the control-plane.",
+      "currentWorkspace": "Current workspace",
+      "createWorkspaceDescription": "Provision a new isolated workspace and start governance immediately.",
+      "shareDescription": "Grant access to workspace resources with explicit revoke control.",
+      "sendInvite": "Send invite",
+      "memberActive": "active",
+      "createShare": "Grant share",
+      "expiry": "Expiry",
+      "systemGuidanceTitle": "System operation notes",
+      "systemGuidanceDescription": "Recommended checks before production rollout.",
+      "systemGuidanceItem1": "Confirm auth and Stripe are ready before enabling paid seat changes.",
+      "systemGuidanceItem2": "Keep S3 sync healthy before triggering large backup/restore operations.",
+      "systemGuidanceItem3": "When a service is pending config, keep app startup non-blocking and surface clear warnings."
     },
     "modules": {
       "statusReady": "Ready",
@@ -1485,11 +2204,26 @@
       "profiles": "Profiles",
       "automation": "Automation",
       "proxies": "Proxy Center",
+      "pricing": "Pricing",
       "settings": "Settings",
       "integrations": "Integrations",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
-      "billing": "Pricing & Billing"
+      "billing": "Pricing & Billing",
+      "billingCheckout": "Checkout",
+      "billingCoupon": "Coupon",
+      "billingLicense": "License",
+      "billingManagement": "Billing Management",
+      "workspaceGovernance": "Workspace Governance",
+      "workspaceAdminOverview": "Overview",
+      "workspaceAdminDirectory": "Current Workspace",
+      "workspaceAdminPermissions": "User Permissions",
+      "workspaceAdminMembers": "Members & Invites",
+      "workspaceAdminAccess": "Access Policy",
+      "workspaceAdminWorkspace": "Current Workspace",
+      "workspaceAdminSystem": "System",
+      "workspaceAdminAudit": "Audit",
+      "workspaceAdminAnalytics": "Analytics"
     },
     "shared": {
       "enabled": "Enabled",
@@ -1551,21 +2285,169 @@
       "teamWorkspace": "Team Workspace",
       "personalWorkspace": "Personal Workspace",
       "current": "Current workspace",
-      "switchTo": "Switch to this workspace"
+      "switchTo": "Switch to this workspace",
+      "switchingTitle": "Switching workspace",
+      "switchingDescription": "Reloading workspace data...",
+      "membersInvites": "{{members}} members • {{invites}} invites",
+      "usageProfiles": "{{used}} / {{limit}} profiles",
+      "usageProfilesUsedOnly": "{{used}} profiles",
+      "planSummary": "{{plan}} • {{status}}",
+      "planExpiry": "{{plan}} • Expires {{date}}",
+      "expiresOn": "Expires {{date}}",
+      "syncUnavailable": "Sync server unavailable",
+      "entitlement": {
+        "active": "Active entitlement",
+        "grace_active": "Grace period",
+        "read_only": "Read-only"
+      }
     },
     "panelSwitch": {
       "toAdmin": "Go to Admin Panel",
-      "toWorkspace": "Back to Workspace App"
+      "toWorkspace": "Back to Workspace App",
+      "toWorkspaceGovernance": "Open Workspace Governance Panel"
     },
     "accountMenu": {
       "workspaces": "Workspaces",
-      "addWorkspace": "Add workspace"
+      "addWorkspace": "Add workspace",
+      "panels": "Governance panels"
+    },
+    "topbar": {
+      "languageSystem": "Use system language",
+      "systemWarnings": "{{count}} configuration warnings",
+      "systemReady": "System ready",
+      "systemStatus": "System status",
+      "systemReadyDescription": "Auth, Stripe, and Sync are ready.",
+      "notifications": "Notifications",
+      "checkingUpdates": "Checking...",
+      "checkUpdates": "Check updates",
+      "notificationsEmpty": "No new notifications.",
+      "autoUpdateInProgress": "Auto-update in progress",
+      "userMenu": "Account menu",
+      "openSettings": "Open settings",
+      "goAdminPanel": "Go to Admin Panel",
+      "goWorkspaceGovernance": "Open Workspace Governance",
+      "backWorkspace": "Back to Workspace App",
+      "preferenceSaveFailed": "Failed to save appearance preferences",
+      "notificationTitle": "{{browser}} has a new update",
+      "notificationDescription": "From {{current}} to {{next}} • affects {{profiles}} profiles"
+    },
+    "states": {
+      "bootTitle": "Initializing BugLogin",
+      "bootDescription": "Preparing workspace shell and account context...",
+      "postLoginTitle": "Sign-in successful",
+      "postLoginDescription": "Loading workspace data and access context..."
     }
+  },
+  "pricingPage": {
+    "description": "Compare plans, evaluate value, and choose the right subscription path before managing invoices.",
+    "badge": "Pricing",
+    "heroTitle": "Choose the right plan for the current workspace",
+    "heroTitleSubscribed": "Optimize your current subscription for growth",
+    "heroDescription": "Compare plan limits, pick the right tier for the active workspace, then continue in Billing to activate it.",
+    "heroMetricTeams": "active teams on paid subscriptions",
+    "heroMetricUptime": "billing platform uptime",
+    "heroMetricSetup": "average plan setup time",
+    "pillNoLock": "No long-term lock-in",
+    "pillScaleFast": "Built for scaling teams",
+    "pillSupport": "Priority support options",
+    "heroStatProfiles": "max managed profiles",
+    "heroStatUptime": "operational stability",
+    "heroStatTeams": "team support coverage",
+    "planSelected": "Plan selected",
+    "addonTitle": "Add-ons",
+    "addonMembers": "Extra members",
+    "addonProfiles": "Extra profiles (+100 each)",
+    "addonApplied": "from add-ons",
+    "planFootnote": "Tax and local regulations may apply.",
+    "planTierOnly": "Annual only",
+    "priceLine": "$ / {{period}}",
+    "compareTitle": "Plan comparison",
+    "compareDescription": "Quickly compare limits and support levels before making your decision.",
+    "compareColumnFeature": "Feature",
+    "compareProfiles": "Managed profiles",
+    "compareMembers": "Team members",
+    "compareStorage": "Sync storage",
+    "compareProxy": "Resident proxy",
+    "compareAutomation": "Automation capacity",
+    "compareAutomationStarter": "Basic",
+    "compareAutomationGrowth": "Standard",
+    "compareAutomationScale": "Advanced",
+    "compareAutomationCustom": "Custom workflow",
+    "compareSecurity": "Security controls",
+    "compareSecurityStarter": "Standard",
+    "compareSecurityGrowth": "Role-based",
+    "compareSecurityScale": "Custom policy",
+    "compareSecurityCustom": "Custom policy + internal review",
+    "compareSupport": "Support level",
+    "comparisonNote": "Need custom security and compliance? Contact us for enterprise onboarding.",
+    "enterpriseLabel": "Enterprise",
+    "enterpriseLine": "For teams that need custom limits, enterprise security, and dedicated support.",
+    "enterpriseCta": "Request trial",
+    "faqTitle": "Frequently asked questions",
+    "faq1Q": "Can I upgrade or downgrade later?",
+    "faq1A": "Yes. You can switch plans at any time from Billing Management and changes apply to the next billing cycle.",
+    "faq2Q": "How does yearly billing work?",
+    "faq2A": "Yearly mode applies a discounted annual price while keeping the same feature limits and support level.",
+    "faq3Q": "Do I need Stripe ready before selecting a plan?",
+    "faq3A": "No. You can pre-select plans now and activate full checkout as soon as Stripe is configured.",
+    "currentPlanBadge": "Manage",
+    "freePlanLabel": "Free",
+    "customPlanBadge": "Internal custom",
+    "ctaBadge": "Recommended flow",
+    "ctaTitle": "Need help choosing the right plan?",
+    "ctaDescription": "Start with a recommended plan, then complete payment through dedicated Checkout/Coupon/License pages.",
+    "paymentFlowLabel": "Payment flow",
+    "paymentFlowStripe": "Stripe checkout + coupon/license on dedicated payment pages",
+    "paymentFlowSelfHost": "Self-host checkout + coupon/license on dedicated payment pages",
+    "currentPlanHint": "Current active plan: {{plan}}",
+    "ctaPrimary": "Choose this plan",
+    "ctaSecondary": "Open Payment Center",
+    "trialBadge": "Trial active",
+    "managePlanCta": "Manage plan",
+    "currentWorkspacePlanHint": "Workspace {{workspace}} is on {{plan}}",
+    "workspaceContext": "Viewing workspace {{workspace}} · account {{email}}",
+    "workspaceRoleContext": "Role in this workspace: {{role}}",
+    "memberUpgradeBlocked": "Only owner/admin can change plans for this workspace.",
+    "memberReadonlyDescription": "You only have permission to view the current workspace plan.",
+    "memberReadonlyWorkspacePlan": "Workspace {{workspace}} is currently on {{plan}}.",
+    "memberReadonlyHint": "Contact workspace owner/admin to upgrade or change billing.",
+    "viewPlanCta": "View plan",
+    "ownerOnlyUpgradeCta": "Owner/admin only",
+    "planQueued": "Plan prepared in payment center",
+    "redirectingToStripeCheckout": "Opening Stripe checkout",
+    "planQueuedForWorkspace": "{{plan}} • ${{amount}}/{{period}} • workspace {{workspace}}",
+    "downgradeQueued": "Downgrade prepared in payment center",
+    "downgradeDisabled": "This account has multiple workspaces, so only upgrades are self-serve. Downgrades require manual handling.",
+    "downgradeDisabledHint": "This account has multiple workspaces, so self-service only supports upgrades. Downgrades are handled manually in Billing.",
+    "downgradeTo": "Downgrade to {{plan}}",
+    "pendingPlanCta": "Ready on payment pages",
+    "planActionTitle": "Choose checkout flow",
+    "planActionDescription": "You selected {{plan}}. Choose where to apply this plan.",
+    "planActionDescriptionFallback": "Choose where to apply this plan before checkout.",
+    "planActionContinueCurrent": "Continue with current workspace",
+    "planActionContinueNew": "Create workspace and continue checkout",
+    "actionUpgradeCurrentTitle": "Upgrade current workspace",
+    "actionUpgradeCurrentDescription": "Apply to workspace {{workspace}} and continue to Checkout page.",
+    "actionCreateWorkspaceTitle": "Create a new workspace with this plan",
+    "actionCreateWorkspaceDescription": "Create a new team workspace, then continue with payment/coupon/license flow.",
+    "actionCreateWorkspacePlaceholder": "Enter new workspace name",
+    "actionCreateWorkspaceCta": "Create workspace and continue checkout",
+    "workspaceCreateNameRequired": "New workspace name is required.",
+    "workspaceCreateRequiresSync": "Configure Sync server before creating a workspace from pricing flow.",
+    "workspaceCreateFailed": "Failed to create workspace.",
+    "workspaceCreateSuccess": "New workspace created."
   },
   "billingPage": {
     "title": "Pricing & Billing",
     "description": "Manage plans, usage, coupons, and payment posture with business-grade operational visibility.",
+    "managementPageDescription": "Track billing runtime, usage, and invoices, then route payment actions to dedicated pages.",
+    "checkoutPageDescription": "Stripe checkout page for the current workspace. Use only for checkout/confirm actions.",
+    "couponPageDescription": "Coupon page for the current workspace after selecting a plan from Pricing.",
+    "licensePageDescription": "License claim page for the current workspace after selecting a plan from Pricing.",
     "planFallback": "Self-hosted",
+    "freePlanLabel": "Free",
+    "freePlanPriceLine": "Free workspace plan",
+    "notAvailable": "N/A",
     "currentPlan": "Current plan",
     "entitlement": "Entitlement",
     "profileUsage": "Profile usage",
@@ -1579,7 +2461,15 @@
     "stripePending": "Stripe: Pending",
     "syncReady": "Sync: Ready",
     "syncPending": "Sync: Pending",
+    "pricingBadge": "Plans",
     "pricingDescription": "Choose billing cycle and tier before enabling production checkout.",
+    "pricingTrustNoCommitment": "No long-term lock-in",
+    "pricingTrustCancel": "Cancel anytime",
+    "pricingTrustSupport": "Priority support on higher tiers",
+    "pricingBilledMonthly": "Billed monthly",
+    "pricingBilledYearly": "Billed yearly at ${{amount}}",
+    "pricingYearlySavings": "Save ${{amount}} per year",
+    "pricingCurrentPlanHint": "You are currently subscribed to this plan.",
     "planSelected": "Billing plan selected",
     "couponTitle": "Internal coupons",
     "couponDescription": "Apply internal discount codes to control rollout and internal support operations.",
@@ -1587,20 +2477,123 @@
     "applyCoupon": "Apply coupon",
     "couponRequired": "Coupon code is required.",
     "couponInvalid": "Coupon code is invalid.",
-    "couponQueued": "Coupon queued in pending-config mode.",
-    "couponQueuedDescription": "Stripe is not configured yet, so this coupon stays in the internal flow.",
+    "couponQueued": "Coupon is ready in self-host flow.",
+    "couponQueuedDescription": "Stripe is not configured, so this coupon is applied through internal self-host billing.",
     "couponApplied": "Coupon applied.",
     "couponAppliedDescription": "Discount has been attached to the current billing flow.",
+    "couponValidationUnavailable": "Unable to validate coupon from billing server.",
+    "couponNotEligible": "Coupon is invalid or not eligible for this workspace.",
+    "couponLocalOnly": "In local mode, only FREE100/LOCAL100/BUG100 are supported for checkout simulation.",
+    "workspaceRequiredForBilling": "Select a workspace before changing plans.",
+    "pendingPlanBadge": "Pending activation",
+    "pendingPlanTitle": "Selected plan: {{plan}}",
+    "pendingPlanStripeReady": "Stripe is ready. Confirm payment to activate this plan.",
+    "pendingPlanCouponApplied": "Coupon applied. You can confirm and activate this plan.",
+    "pendingPlanSelfHostedReady": "Self-host checkout is ready. Pay now, or apply coupon/license to activate.",
+    "pendingProrationCredit": "Applied ${{amount}} credit from {{days}} remaining days on the current plan.",
+    "pendingAmountDue": "Amount due: ${{amount}}.",
+    "pendingPlanNeedsPayment": "Stripe payment or a valid coupon is required before activation.",
+    "confirmPlanActivation": "Confirm plan activation",
+    "startStripeCheckout": "Open Stripe checkout",
+    "selfHostedPayNow": "Pay now (Self-host)",
+    "checkoutOpened": "Stripe checkout opened in browser.",
+    "checkoutUrlMissing": "Stripe billing URL is missing in app settings.",
+    "checkoutStartRequired": "Open Stripe checkout first, then confirm after payment.",
+    "stripeConfigRequired": "Stripe setup required",
+    "stripeRequiredForCheckout": "Stripe is not ready. Direct paid checkout is blocked until Stripe is configured.",
+    "stripeRequiredForPaidCoupon": "Coupon is valid but cannot activate yet.",
+    "stripeRequiredForPaidCouponDescription": "Coupon discount is below 100%. Configure Stripe to pay the remaining amount.",
+    "paymentOrCouponRequired": "Stripe payment or a valid coupon is required to change plan.",
+    "pendingPlanMissing": "No pending plan was found.",
+    "planActivated": "Plan activated successfully.",
+    "planActivatedDescription": "Plan {{plan}} has been applied to the current workspace.",
+    "paymentPendingVerification": "Payment for the selected plan has not been verified yet.",
+    "planActivateFailed": "Failed to activate plan.",
     "openAdminWorkspace": "Open Admin Workspace",
+    "managementBadge": "Billing Management",
+    "managementTitle": "Manage subscription, usage, and invoices",
+    "managementDescription": "Use Pricing to choose a plan, complete payment on dedicated pages, then monitor billing operations here.",
+    "openPricingPage": "Open Pricing Page",
+    "openCheckoutPage": "Open Checkout Page",
+    "openCouponPage": "Open Coupon Page",
+    "openLicensePage": "Open License Page",
+    "openBillingManagementPage": "Back to Billing Management",
+    "nextInvoiceHint": "Next invoice in 30 days",
+    "paymentRoute": "Payment route",
+    "paymentRouteStripe": "Stripe checkout",
+    "paymentRouteSelfHosted": "Self-host checkout",
+    "paymentRouteClaim": "Coupon / license claim",
+    "selfHostedModeReady": "Self-host: Ready",
+    "addonTitle": "Active add-ons",
+    "addonApplied": "from add-ons",
+    "addonUnavailableOnFree": "Add-ons are available after selecting a paid plan.",
+    "addonMembersValue": "{{count}} extra members",
+    "addonProfilesValue": "{{count}} extra profiles",
+    "metricRetention": "Invoice retention",
+    "metricMonths": "months",
+    "metricFailedCharges": "Failed charges this quarter",
+    "metricExportTime": "Average export completion",
+    "paymentMethodTitle": "Payment Method",
+    "paymentActionCenterTitle": "Payment Action Center",
+    "paymentActionCenterBodyTitle": "Centralized payment actions",
+    "paymentActionCenterBodyDescription": "Use Checkout, Coupon, and License tabs directly on this page to complete payment flow.",
+    "paymentActionCenterSelfHostTitle": "Self-host checkout is currently active",
+    "tabs": {
+      "checkout": "Checkout",
+      "coupon": "Coupon",
+      "license": "License"
+    },
+    "paymentConnectedTitle": "Stripe checkout is configured",
+    "paymentConnectedDescription": "Plan changes will be verified through Stripe payment and webhook reconciliation.",
+    "paymentClaimDescription": "Stripe is not configured. Select a plan first, then claim it for this workspace via coupon or license key.",
+    "paymentSelfHostedDescription": "Self-host checkout is active. Select a pending plan and pay now, or apply coupon/license for this workspace.",
+    "noPaymentMethod": "No payment method connected yet.",
+    "selectPlanBeforeClaim": "Select a plan from Pricing before applying coupon or license.",
+    "licenseTitle": "License claim",
+    "licensePlaceholder": "Enter workspace license key",
+    "claimLicense": "Claim plan",
+    "licenseHint": "Use an admin-issued license key for plan {{code}}.",
+    "licenseRequired": "License key is required.",
+    "licenseInvalid": "License key is invalid.",
+    "licenseInvalidDescription": "Use a valid key for the selected plan, for example: {{sample}}",
+    "licenseClaimed": "License claimed successfully.",
+    "licenseClaimFailed": "Failed to claim license.",
+    "licenseValidationUnavailable": "Unable to validate license from control-plane server.",
+    "licenseStripeEnabled": "Stripe is already configured. Complete checkout via Stripe instead of license claim.",
+    "storageUsage": "Cloud sync storage",
+    "bandwidthUsage": "Proxy bandwidth",
+    "viewFullHistory": "View full billing history",
     "invoice": {
       "title": "Invoice history",
       "description": "Track latest billing periods and collection statuses.",
+      "historyTitle": "Full invoice history",
+      "exportCsv": "Export CSV",
+      "empty": "No invoice data yet. Invoices will appear after the first successful plan activation.",
+      "pendingSyncDescription": "Invoice feed is waiting for Stripe webhook sync. This section will populate after first successful charge event.",
+      "filter3": "Last 3",
+      "filter6": "Last 6",
+      "filterAll": "All",
+      "colDate": "Date",
+      "colPlan": "Plan",
+      "colMethod": "Method",
+      "colAmount": "Amount",
+      "colStatus": "Status",
       "currentPeriod": "Current period",
+      "currentPeriodWithDate": "Current period · {{date}}",
+      "periodWithDate": "Billed at {{date}}",
       "previousPeriod": "Previous period",
       "twoMonthsAgo": "Two periods ago",
       "statusOpen": "Open",
       "statusPaid": "Paid",
+      "methodCoupon": "Coupon",
+      "methodLicense": "License",
+      "methodStripe": "Stripe",
+      "methodSelfHosted": "Self-host checkout",
       "note": "Detailed invoice sync is enabled automatically once Stripe webhooks are configured."
-    }
+    },
+    "ownerOnlyTitle": "Billing management is restricted",
+    "ownerOnlyDescription": "Only workspace owner/admin or platform admin can manage payment methods and invoices.",
+    "workspaceContext": "Managing workspace {{workspace}} · account {{email}}",
+    "workspaceRoleContext": "Role in this workspace: {{role}}"
   }
 }

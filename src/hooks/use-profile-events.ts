@@ -2,6 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractRootError } from "@/lib/error-utils";
+import {
+  applyScopedGroupCounts,
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type { BrowserProfile, GroupWithCount } from "@/types";
 
 interface UseProfileEventsReturn {
@@ -40,7 +46,14 @@ export function useProfileEvents(): UseProfileEventsReturn {
       const profileList = await invoke<BrowserProfile[]>(
         "list_browser_profiles",
       );
-      setProfiles(profileList);
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        profileList,
+        (profile) => profile.id,
+        scope,
+      );
+      setProfiles(scopedProfiles);
       setError(null);
     } catch (err: unknown) {
       console.error("Failed to load profiles:", err);
@@ -51,10 +64,27 @@ export function useProfileEvents(): UseProfileEventsReturn {
   // Load groups from backend
   const loadGroups = useCallback(async () => {
     try {
-      const groupsWithCounts = await invoke<GroupWithCount[]>(
-        "get_groups_with_profile_counts",
+      const [groupsWithCounts, profileList] = await Promise.all([
+        invoke<GroupWithCount[]>("get_groups_with_profile_counts"),
+        invoke<BrowserProfile[]>("list_browser_profiles"),
+      ]);
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        profileList,
+        (profile) => profile.id,
+        scope,
       );
-      setGroups(groupsWithCounts);
+      const scopedGroups = scopeEntitiesForContext(
+        "groups",
+        groupsWithCounts,
+        (group) => group.id,
+        scope,
+        { keepGlobalIds: ["default"] },
+      );
+      setGroups(
+        applyScopedGroupCounts(scopedGroups, scopedProfiles, "Default"),
+      );
       setError(null);
     } catch (err) {
       console.error("Failed to load groups with counts:", err);
@@ -72,12 +102,13 @@ export function useProfileEvents(): UseProfileEventsReturn {
     let profilesUnlisten: (() => void) | undefined;
     let profileUpdatedUnlisten: (() => void) | undefined;
     let runningUnlisten: (() => void) | undefined;
+    const handleScopeChanged = () => {
+      void loadProfiles();
+      void loadGroups();
+    };
 
     const setupListeners = async () => {
       try {
-        // Initial load
-        await Promise.all([loadProfiles(), loadGroups()]);
-
         // Listen for profile changes (create, delete, rename, update, etc.)
         profilesUnlisten = await listen("profiles-changed", () => {
           console.log(
@@ -93,13 +124,27 @@ export function useProfileEvents(): UseProfileEventsReturn {
           (event) => {
             const updated = event.payload;
             setProfiles((prev) => {
-              const index = prev.findIndex((item) => item.id === updated.id);
+              const scope = getCurrentDataScope();
+              const scopedUpdated = scopeEntitiesForContext(
+                "profiles",
+                [updated],
+                (profile) => profile.id,
+                scope,
+              );
+              if (scopedUpdated.length === 0) {
+                return prev.filter((item) => item.id !== updated.id);
+              }
+
+              const nextProfile = scopedUpdated[0];
+              const index = prev.findIndex(
+                (item) => item.id === nextProfile.id,
+              );
               if (index === -1) {
-                return [...prev, updated];
+                return [...prev, nextProfile];
               }
 
               const next = [...prev];
-              next[index] = updated;
+              next[index] = nextProfile;
               return next;
             });
           },
@@ -132,6 +177,11 @@ export function useProfileEvents(): UseProfileEventsReturn {
         );
 
         console.log("Profile event listeners set up successfully");
+        window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+
+        // Initial load runs after listeners are attached to avoid missing
+        // early scope-change events during app bootstrap/workspace restore.
+        await Promise.all([loadProfiles(), loadGroups()]);
       } catch (err) {
         console.error("Failed to setup profile event listeners:", err);
         setError(
@@ -149,6 +199,7 @@ export function useProfileEvents(): UseProfileEventsReturn {
       if (profilesUnlisten) profilesUnlisten();
       if (profileUpdatedUnlisten) profileUpdatedUnlisten();
       if (runningUnlisten) runningUnlisten();
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
   }, [loadProfiles, loadGroups]);
 

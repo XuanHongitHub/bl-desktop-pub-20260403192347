@@ -60,6 +60,7 @@ Additional operational endpoints:
   - `POST /v1/control/workspaces/:workspaceId/share-grants/:shareGrantId/revoke`
 - Coupon + admin:
   - `POST /v1/control/workspaces/:workspaceId/coupons/select-best`
+  - `POST /v1/control/workspaces/:workspaceId/licenses/claim`
   - `POST /v1/control/admin/coupons`
   - `GET /v1/control/admin/coupons`
   - `POST /v1/control/admin/coupons/:couponId/revoke`
@@ -72,11 +73,15 @@ Additional operational endpoints:
 - `SYNC_TOKEN` is also accepted as bearer token for self-hosted desktop integration.
 - If `CONTROL_API_TOKEN` is empty, control-plane endpoints run in open mode (development only).
 
-> Current control-plane storage is in-memory for implementation bring-up.
-> Replace `ControlService` storage maps with Postgres repositories before production rollout.
-> Bootstrap schema for Postgres target is available at `docs/control-plane-postgres-schema.sql`.
+> Control-plane now supports PostgreSQL persistence when `DATABASE_URL` is configured.
+> On startup, `ControlService` boots schema, loads state from PostgreSQL, and persists every state change back to PostgreSQL.
+> If `DATABASE_URL` is missing, it uses local SQLite persistence at `CONTROL_SQLITE_FILE` (default `./.data/control-state.sqlite`).
+> `CONTROL_STATE_FILE` is only used for one-time legacy JSON import into SQLite.
+> Bootstrap schema for production is documented at `docs/control-plane-postgres-schema.sql`.
 > Production topology recommendations are documented in `docs/production-architecture.md`.
-> Temporary persistence is enabled via `CONTROL_STATE_FILE` (JSON snapshot) so control-plane state survives restarts during rollout.
+> `CONTROL_LICENSE_KEYS` can be configured for self-hosted license-claim flows.
+> Format: `CODE:planId:profileLimit:billingCycle` (comma-separated).
+> Example: `BUG-GROWTH-CLAIM:growth:300:monthly`
 
 ## Project setup
 

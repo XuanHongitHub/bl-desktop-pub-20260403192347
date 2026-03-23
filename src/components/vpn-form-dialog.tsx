@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -92,6 +93,7 @@ export function VpnFormDialog({
   onClose,
   editingVpn,
 }: VpnFormDialogProps) {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vpnType, setVpnType] = useState<VpnType>("WireGuard");
   const [wireGuardForm, setWireGuardForm] =
@@ -134,7 +136,7 @@ export function VpnFormDialog({
           : openVpnForm.name.trim();
 
       if (!name) {
-        toast.error("VPN name is required");
+        toast.error(t("vpnForm.errors.nameRequired"));
         return;
       }
 
@@ -145,12 +147,14 @@ export function VpnFormDialog({
           name,
         });
         await emit("vpn-configs-changed");
-        toast.success("VPN updated successfully");
+        toast.success(t("vpnForm.toasts.updated"));
         onClose();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        toast.error(`Failed to update VPN: ${errorMessage}`);
+        toast.error(
+          t("vpnForm.errors.updateFailed", { message: errorMessage }),
+        );
       } finally {
         setIsSubmitting(false);
       }
@@ -162,23 +166,23 @@ export function VpnFormDialog({
         wireGuardForm;
 
       if (!name.trim()) {
-        toast.error("VPN name is required");
+        toast.error(t("vpnForm.errors.nameRequired"));
         return;
       }
       if (!privateKey.trim()) {
-        toast.error("Private key is required");
+        toast.error(t("vpnForm.errors.privateKeyRequired"));
         return;
       }
       if (!address.trim()) {
-        toast.error("Address is required");
+        toast.error(t("vpnForm.errors.addressRequired"));
         return;
       }
       if (!peerPublicKey.trim()) {
-        toast.error("Peer public key is required");
+        toast.error(t("vpnForm.errors.peerPublicKeyRequired"));
         return;
       }
       if (!peerEndpoint.trim()) {
-        toast.error("Peer endpoint is required");
+        toast.error(t("vpnForm.errors.peerEndpointRequired"));
         return;
       }
 
@@ -191,12 +195,14 @@ export function VpnFormDialog({
           configData,
         });
         await emit("vpn-configs-changed");
-        toast.success("WireGuard VPN created successfully");
+        toast.success(t("vpnForm.toasts.wireguardCreated"));
         onClose();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        toast.error(`Failed to create VPN: ${errorMessage}`);
+        toast.error(
+          t("vpnForm.errors.createFailed", { message: errorMessage }),
+        );
       } finally {
         setIsSubmitting(false);
       }
@@ -204,11 +210,11 @@ export function VpnFormDialog({
       const { name, rawConfig } = openVpnForm;
 
       if (!name.trim()) {
-        toast.error("VPN name is required");
+        toast.error(t("vpnForm.errors.nameRequired"));
         return;
       }
       if (!rawConfig.trim()) {
-        toast.error("OpenVPN config content is required");
+        toast.error(t("vpnForm.errors.openVpnConfigRequired"));
         return;
       }
 
@@ -220,17 +226,19 @@ export function VpnFormDialog({
           configData: rawConfig,
         });
         await emit("vpn-configs-changed");
-        toast.success("OpenVPN configuration created successfully");
+        toast.success(t("vpnForm.toasts.openVpnCreated"));
         onClose();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        toast.error(`Failed to create VPN: ${errorMessage}`);
+        toast.error(
+          t("vpnForm.errors.createFailed", { message: errorMessage }),
+        );
       } finally {
         setIsSubmitting(false);
       }
     }
-  }, [editingVpn, vpnType, wireGuardForm, openVpnForm, onClose]);
+  }, [editingVpn, onClose, openVpnForm, t, vpnType, wireGuardForm]);
 
   const updateWireGuard = useCallback(
     (field: keyof WireGuardFormData, value: string) => {
@@ -247,16 +255,16 @@ export function VpnFormDialog({
   );
 
   const dialogTitle = editingVpn
-    ? "Edit VPN"
+    ? t("vpnForm.title.edit")
     : vpnType === "WireGuard"
-      ? "Create WireGuard VPN"
-      : "Create OpenVPN Configuration";
+      ? t("vpnForm.title.createWireGuard")
+      : t("vpnForm.title.createOpenVpn");
 
   const dialogDescription = editingVpn
-    ? "Update the name of your VPN configuration."
+    ? t("vpnForm.description.edit")
     : vpnType === "WireGuard"
-      ? "Enter your WireGuard interface and peer details."
-      : "Paste your .ovpn configuration file content.";
+      ? t("vpnForm.description.createWireGuard")
+      : t("vpnForm.description.createOpenVpn");
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -270,18 +278,24 @@ export function VpnFormDialog({
           <div className="grid gap-4 py-2">
             {!editingVpn && (
               <div className="grid gap-2">
-                <Label>VPN Type</Label>
+                <Label>{t("vpnForm.fields.vpnType")}</Label>
                 <Select
                   value={vpnType}
                   onValueChange={(value) => setVpnType(value as VpnType)}
                   disabled={isSubmitting}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select VPN type" />
+                    <SelectValue
+                      placeholder={t("vpnForm.placeholders.selectVpnType")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WireGuard">WireGuard</SelectItem>
-                    <SelectItem value="OpenVPN">OpenVPN</SelectItem>
+                    <SelectItem value="WireGuard">
+                      {t("vpnForm.types.wireGuard")}
+                    </SelectItem>
+                    <SelectItem value="OpenVPN">
+                      {t("vpnForm.types.openVpn")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -290,12 +304,12 @@ export function VpnFormDialog({
             {vpnType === "WireGuard" && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="wg-name">Name</Label>
+                  <Label htmlFor="wg-name">{t("common.labels.name")}</Label>
                   <Input
                     id="wg-name"
                     value={wireGuardForm.name}
                     onChange={(e) => updateWireGuard("name", e.target.value)}
-                    placeholder="e.g. Home WireGuard"
+                    placeholder={t("vpnForm.placeholders.wireGuardName")}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -303,47 +317,55 @@ export function VpnFormDialog({
                 {!editingVpn && (
                   <>
                     <div className="grid gap-2">
-                      <Label htmlFor="wg-private-key">Private Key</Label>
+                      <Label htmlFor="wg-private-key">
+                        {t("vpnForm.fields.privateKey")}
+                      </Label>
                       <Input
                         id="wg-private-key"
                         value={wireGuardForm.privateKey}
                         onChange={(e) =>
                           updateWireGuard("privateKey", e.target.value)
                         }
-                        placeholder="Base64-encoded private key"
+                        placeholder={t("vpnForm.placeholders.privateKey")}
                         disabled={isSubmitting}
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="wg-address">Address</Label>
+                      <Label htmlFor="wg-address">
+                        {t("vpnForm.fields.address")}
+                      </Label>
                       <Input
                         id="wg-address"
                         value={wireGuardForm.address}
                         onChange={(e) =>
                           updateWireGuard("address", e.target.value)
                         }
-                        placeholder="e.g. 10.0.0.2/24"
+                        placeholder={t("vpnForm.placeholders.address")}
                         disabled={isSubmitting}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="wg-dns">DNS (optional)</Label>
+                        <Label htmlFor="wg-dns">
+                          {t("vpnForm.fields.dnsOptional")}
+                        </Label>
                         <Input
                           id="wg-dns"
                           value={wireGuardForm.dns}
                           onChange={(e) =>
                             updateWireGuard("dns", e.target.value)
                           }
-                          placeholder="e.g. 1.1.1.1"
+                          placeholder={t("vpnForm.placeholders.dns")}
                           disabled={isSubmitting}
                         />
                       </div>
 
                       <div className="grid gap-2">
-                        <Label htmlFor="wg-mtu">MTU (optional)</Label>
+                        <Label htmlFor="wg-mtu">
+                          {t("vpnForm.fields.mtuOptional")}
+                        </Label>
                         <Input
                           id="wg-mtu"
                           type="number"
@@ -351,7 +373,7 @@ export function VpnFormDialog({
                           onChange={(e) =>
                             updateWireGuard("mtu", e.target.value)
                           }
-                          placeholder="e.g. 1420"
+                          placeholder={t("vpnForm.placeholders.mtu")}
                           disabled={isSubmitting}
                         />
                       </div>
@@ -359,7 +381,7 @@ export function VpnFormDialog({
 
                     <div className="grid gap-2">
                       <Label htmlFor="wg-peer-public-key">
-                        Peer Public Key
+                        {t("vpnForm.fields.peerPublicKey")}
                       </Label>
                       <Input
                         id="wg-peer-public-key"
@@ -367,33 +389,37 @@ export function VpnFormDialog({
                         onChange={(e) =>
                           updateWireGuard("peerPublicKey", e.target.value)
                         }
-                        placeholder="Base64-encoded peer public key"
+                        placeholder={t("vpnForm.placeholders.peerPublicKey")}
                         disabled={isSubmitting}
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="wg-peer-endpoint">Peer Endpoint</Label>
+                      <Label htmlFor="wg-peer-endpoint">
+                        {t("vpnForm.fields.peerEndpoint")}
+                      </Label>
                       <Input
                         id="wg-peer-endpoint"
                         value={wireGuardForm.peerEndpoint}
                         onChange={(e) =>
                           updateWireGuard("peerEndpoint", e.target.value)
                         }
-                        placeholder="e.g. vpn.example.com:51820"
+                        placeholder={t("vpnForm.placeholders.peerEndpoint")}
                         disabled={isSubmitting}
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="wg-allowed-ips">Allowed IPs</Label>
+                      <Label htmlFor="wg-allowed-ips">
+                        {t("vpnForm.fields.allowedIps")}
+                      </Label>
                       <Input
                         id="wg-allowed-ips"
                         value={wireGuardForm.allowedIps}
                         onChange={(e) =>
                           updateWireGuard("allowedIps", e.target.value)
                         }
-                        placeholder="e.g. 0.0.0.0/0, ::/0"
+                        placeholder={t("vpnForm.placeholders.allowedIps")}
                         disabled={isSubmitting}
                       />
                     </div>
@@ -401,7 +427,7 @@ export function VpnFormDialog({
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="wg-keepalive">
-                          Persistent Keepalive (optional)
+                          {t("vpnForm.fields.persistentKeepaliveOptional")}
                         </Label>
                         <Input
                           id="wg-keepalive"
@@ -413,14 +439,14 @@ export function VpnFormDialog({
                               e.target.value,
                             )
                           }
-                          placeholder="e.g. 25"
+                          placeholder={t("vpnForm.placeholders.keepalive")}
                           disabled={isSubmitting}
                         />
                       </div>
 
                       <div className="grid gap-2">
                         <Label htmlFor="wg-preshared-key">
-                          Preshared Key (optional)
+                          {t("vpnForm.fields.presharedKeyOptional")}
                         </Label>
                         <Input
                           id="wg-preshared-key"
@@ -428,7 +454,7 @@ export function VpnFormDialog({
                           onChange={(e) =>
                             updateWireGuard("presharedKey", e.target.value)
                           }
-                          placeholder="Base64-encoded preshared key"
+                          placeholder={t("vpnForm.placeholders.presharedKey")}
                           disabled={isSubmitting}
                         />
                       </div>
@@ -441,26 +467,28 @@ export function VpnFormDialog({
             {vpnType === "OpenVPN" && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="ovpn-name">Name</Label>
+                  <Label htmlFor="ovpn-name">{t("common.labels.name")}</Label>
                   <Input
                     id="ovpn-name"
                     value={openVpnForm.name}
                     onChange={(e) => updateOpenVpn("name", e.target.value)}
-                    placeholder="e.g. Work OpenVPN"
+                    placeholder={t("vpnForm.placeholders.openVpnName")}
                     disabled={isSubmitting}
                   />
                 </div>
 
                 {!editingVpn && (
                   <div className="grid gap-2">
-                    <Label htmlFor="ovpn-config">Raw Config</Label>
+                    <Label htmlFor="ovpn-config">
+                      {t("vpnForm.fields.rawConfig")}
+                    </Label>
                     <Textarea
                       id="ovpn-config"
                       value={openVpnForm.rawConfig}
                       onChange={(e) =>
                         updateOpenVpn("rawConfig", e.target.value)
                       }
-                      placeholder="Paste your .ovpn file content here..."
+                      placeholder={t("vpnForm.placeholders.rawConfig")}
                       className="min-h-[200px] font-mono text-xs"
                       disabled={isSubmitting}
                     />
@@ -477,10 +505,12 @@ export function VpnFormDialog({
             onClick={handleClose}
             disabled={isSubmitting}
           >
-            Cancel
+            {t("common.buttons.cancel")}
           </RippleButton>
           <LoadingButton isLoading={isSubmitting} onClick={handleSubmit}>
-            {editingVpn ? "Update VPN" : "Create VPN"}
+            {editingVpn
+              ? t("vpnForm.actions.update")
+              : t("vpnForm.actions.create")}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, SyncMode, SyncSettings } from "@/types";
 import { isSyncEnabled } from "@/types";
@@ -25,6 +26,17 @@ interface ProfileSyncDialogProps {
   onClose: () => void;
   profile: BrowserProfile | null;
   onSyncConfigOpen: () => void;
+  canUseEncryption?: boolean;
+}
+
+function resolveErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error;
+  }
+  return fallback;
 }
 
 export function ProfileSyncDialog({
@@ -32,10 +44,9 @@ export function ProfileSyncDialog({
   onClose,
   profile,
   onSyncConfigOpen,
+  canUseEncryption = false,
 }: ProfileSyncDialogProps) {
   const { t } = useTranslation();
-  const isCloudSyncEligible = false;
-  const canUseEncryption = true;
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<SyncMode>(
@@ -45,7 +56,7 @@ export function ProfileSyncDialog({
   const [hasE2ePassword, setHasE2ePassword] = useState(false);
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
 
-  const hasConfig = isCloudSyncEligible || hasSelfHostedConfig;
+  const hasConfig = hasSelfHostedConfig;
 
   const checkSyncConfig = useCallback(async () => {
     setIsCheckingConfig(true);
@@ -110,13 +121,22 @@ export function ProfileSyncDialog({
             : t("sync.mode.disabledToast"),
         );
       } catch (error) {
-        console.error("Failed to set sync mode:", error);
-        showErrorToast(String(error));
+        showErrorToast(
+          resolveErrorMessage(error, t("toasts.error.syncFailed")),
+        );
       } finally {
         setIsSaving(false);
       }
     },
-    [profile, hasConfig, hasE2ePassword, onSyncConfigOpen, onClose, t],
+    [
+      canUseEncryption,
+      profile,
+      hasConfig,
+      hasE2ePassword,
+      onSyncConfigOpen,
+      onClose,
+      t,
+    ],
   );
 
   const handleSyncNow = useCallback(async () => {
@@ -134,8 +154,7 @@ export function ProfileSyncDialog({
       await invoke("request_profile_sync", { profileId: profile.id });
       showSuccessToast(t("sync.mode.syncQueued"));
     } catch (error) {
-      console.error("Failed to queue sync:", error);
-      showErrorToast(String(error));
+      showErrorToast(resolveErrorMessage(error, t("toasts.error.syncFailed")));
     } finally {
       setIsSyncing(false);
     }
@@ -143,8 +162,7 @@ export function ProfileSyncDialog({
 
   const formatLastSync = (timestamp?: number) => {
     if (!timestamp) return t("common.labels.never", "Never");
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString();
+    return formatLocaleDateTime(timestamp * 1000);
   };
 
   if (!profile) return null;

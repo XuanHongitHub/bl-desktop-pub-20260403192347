@@ -767,12 +767,20 @@ async fn list_active_vpn_connections() -> Result<Vec<vpn::VpnStatus>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let args: Vec<String> = env::args().collect();
-  let startup_url = args.iter().find(|arg| arg.starts_with("http")).cloned();
+  let startup_urls: Vec<String> = args
+    .iter()
+    .filter(|arg| {
+      arg.starts_with("buglogin://")
+        || arg.starts_with("http://")
+        || arg.starts_with("https://")
+    })
+    .cloned()
+    .collect();
 
-  if let Some(url) = startup_url.clone() {
-    log::info!("Found startup URL in command line: {url}");
+  if !startup_urls.is_empty() {
+    log::info!("Found startup URL(s) in command line: {startup_urls:?}");
     let mut pending = PENDING_URLS.lock().unwrap();
-    pending.push(url.clone());
+    pending.extend(startup_urls.clone());
   }
 
   let log_file_name = app_dirs::app_name();
@@ -809,6 +817,28 @@ pub fn run() {
     .plugin(tauri_plugin_single_instance::init(
       |app_handle, args, _cwd| {
         log::info!("Single instance triggered with args: {args:?}");
+        let deep_link_urls: Vec<String> = args
+          .iter()
+          .filter(|arg| {
+            arg.starts_with("buglogin://")
+              || arg.starts_with("http://")
+              || arg.starts_with("https://")
+          })
+          .cloned()
+          .collect();
+
+        if !deep_link_urls.is_empty() {
+          log::info!("Processing deep link URL(s) from single instance: {deep_link_urls:?}");
+          for url in deep_link_urls {
+            let handle = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+              if let Err(e) = handle_url_open(handle, url.clone()).await {
+                log::error!("Failed to process single-instance deep link URL `{url}`: {e}");
+              }
+            });
+          }
+        }
+
         if let Some(window) = app_handle.get_webview_window("main") {
           let _ = window.show();
           let _ = window.set_focus();
@@ -822,7 +852,7 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_macos_permissions::init())
-    .setup(|app| {
+    .setup(move |app| {
       // Recover ephemeral dir mappings from RAM-backed storage (tmpfs/ramdisk)
       ephemeral_dirs::recover_ephemeral_dirs();
 
@@ -957,14 +987,16 @@ pub fn run() {
         }
       });
 
-      if let Some(startup_url) = startup_url {
-        let handle_clone = handle.clone();
-        tauri::async_runtime::spawn(async move {
-          log::info!("Processing startup URL from command line: {startup_url}");
-          if let Err(e) = handle_url_open(handle_clone, startup_url.clone()).await {
-            log::error!("Failed to handle startup URL: {e}");
-          }
-        });
+      if !startup_urls.is_empty() {
+        for startup_url in startup_urls.clone() {
+          let handle_clone = handle.clone();
+          tauri::async_runtime::spawn(async move {
+            log::info!("Processing startup URL from command line: {startup_url}");
+            if let Err(e) = handle_url_open(handle_clone, startup_url.clone()).await {
+              log::error!("Failed to handle startup URL: {e}");
+            }
+          });
+        }
       }
 
       // Initialize and start background version updater
@@ -1123,6 +1155,22 @@ pub fn run() {
           }
           Err(e) => {
             log::error!("Failed to check GeoIP database status at startup: {e}");
+          }
+        }
+      });
+
+      #[cfg(target_os = "windows")]
+      tauri::async_runtime::spawn(async move {
+        match crate::downloader::patch_all_installed_browser_icons_windows_once().await {
+          Ok((patched, failed)) => {
+            log::info!(
+              "Windows browser icon startup check completed: patched={}, failed={}",
+              patched,
+              failed
+            );
+          }
+          Err(e) => {
+            log::warn!("Windows browser icon startup check failed: {e}");
           }
         }
       });
@@ -1500,10 +1548,12 @@ pub fn run() {
       cloud_auth::cloud_get_states,
       cloud_auth::cloud_get_cities,
       cloud_auth::create_cloud_location_proxy,
+      cloud_auth::cloud_sync_local_subscription_state,
       cloud_auth::restart_sync_service,
       entitlement::get_entitlement_state,
       entitlement::set_entitlement_state,
       entitlement::is_entitlement_read_only,
+      entitlement::get_feature_access_snapshot,
       entitlement::get_runtime_config_status,
       // Team lock commands
       team_lock::get_team_locks,

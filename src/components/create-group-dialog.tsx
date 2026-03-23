@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -28,6 +29,7 @@ export function CreateGroupDialog({
   onClose,
   onGroupCreated,
 }: CreateGroupDialogProps) {
+  const { t } = useTranslation();
   const [groupName, setGroupName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function CreateGroupDialog({
         name: groupName.trim(),
       });
 
-      toast.success("Group created successfully");
+      toast.success(t("groupDialogs.toasts.created"));
       onGroupCreated(newGroup);
       setGroupName("");
       onClose();
@@ -55,7 +57,7 @@ export function CreateGroupDialog({
     } finally {
       setIsCreating(false);
     }
-  }, [groupName, onGroupCreated, onClose]);
+  }, [groupName, onGroupCreated, onClose, t]);
 
   const handleClose = useCallback(() => {
     setGroupName("");
@@ -67,7 +69,7 @@ export function CreateGroupDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Group</DialogTitle>
+          <DialogTitle>{t("groupDialogs.create.title")}</DialogTitle>
           <DialogDescription>
             Create a new group to organize your browser profiles.
           </DialogDescription>
@@ -75,7 +77,9 @@ export function CreateGroupDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="group-name">Group Name</Label>
+            <Label htmlFor="group-name">
+              {t("groupDialogs.labels.groupName")}
+            </Label>
             <Input
               id="group-name"
               placeholder="Enter group name..."

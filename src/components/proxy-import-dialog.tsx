@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LuUpload } from "react-icons/lu";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
@@ -41,6 +42,7 @@ interface AmbiguousProxy {
 }
 
 export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<ImportStep>("dropzone");
   const [isDragOver, setIsDragOver] = useState(false);
   const [parsedProxies, setParsedProxies] = useState<ParsedProxyLine[]>([]);
@@ -120,7 +122,7 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
           } else if (parsed.length > 0) {
             setStep("preview");
           } else {
-            toast.error("No valid proxies found in the file");
+            toast.error(t("proxyImportDialog.toasts.noValidProxies"));
           }
         }
       } catch (error) {
@@ -132,7 +134,7 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
         setIsImporting(false);
       }
     },
-    [],
+    [t],
   );
 
   const handleFileRead = useCallback(
@@ -144,11 +146,11 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
         void processContent(content, isJson, file.name);
       };
       reader.onerror = () => {
-        toast.error("Failed to read file");
+        toast.error(t("proxyImportDialog.toasts.readFailed"));
       };
       reader.readAsText(file);
     },
-    [processContent],
+    [processContent, t],
   );
 
   const handleDrop = useCallback(
@@ -164,10 +166,10 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
       if (validFile) {
         handleFileRead(validFile);
       } else {
-        toast.error("Please drop a .json or .txt file");
+        toast.error(t("proxyImportDialog.toasts.dropFileHint"));
       }
     },
-    [handleFileRead],
+    [handleFileRead, t],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -285,7 +287,7 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import Proxies</DialogTitle>
+          <DialogTitle>{t("proxyImportDialog.title")}</DialogTitle>
           <DialogDescription>
             {step === "dropzone" &&
               "Import proxies from a JSON/TXT file or paste raw proxy text"}
@@ -352,7 +354,9 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
               <Progress value={benchmarkProgress} className="h-1.5" />
             )}
             <div className="space-y-2">
-              <Label htmlFor="name-prefix">Name Prefix</Label>
+              <Label htmlFor="name-prefix">
+                {t("proxyImportDialog.labels.namePrefix")}
+              </Label>
               <Input
                 id="name-prefix"
                 placeholder="Imported"
@@ -446,14 +450,18 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
           <div className="space-y-4">
             <div className="p-4 bg-muted/30 rounded-lg space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm">Imported:</span>
+                <span className="text-sm">
+                  {t("proxyImportDialog.result.imported")}
+                </span>
                 <span className="text-sm font-medium text-green-600 dark:text-green-400">
                   {importResult.imported_count}
                 </span>
               </div>
               {importResult.skipped_count > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-sm">Skipped (duplicates):</span>
+                  <span className="text-sm">
+                    {t("proxyImportDialog.result.skippedDuplicates")}
+                  </span>
                   <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
                     {importResult.skipped_count}
                   </span>
@@ -461,7 +469,9 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
               )}
               {importResult.errors.length > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-sm">Errors:</span>
+                  <span className="text-sm">
+                    {t("proxyImportDialog.result.errors")}
+                  </span>
                   <span className="text-sm font-medium text-red-600 dark:text-red-400">
                     {importResult.errors.length}
                   </span>
@@ -471,7 +481,7 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
 
             {importResult.errors.length > 0 && (
               <div className="space-y-2">
-                <Label>Errors</Label>
+                <Label>{t("proxyImportDialog.result.errorsLabel")}</Label>
                 <ScrollArea className="h-[100px] border rounded-md">
                   <div className="p-2 space-y-1">
                     {importResult.errors.map((error, i) => (
@@ -526,7 +536,9 @@ export function ProxyImportDialog({ isOpen, onClose }: ProxyImportDialogProps) {
           )}
 
           {step === "result" && (
-            <RippleButton onClick={handleClose}>Done</RippleButton>
+            <RippleButton onClick={handleClose}>
+              {t("proxyImportDialog.actions.done")}
+            </RippleButton>
           )}
         </DialogFooter>
       </DialogContent>

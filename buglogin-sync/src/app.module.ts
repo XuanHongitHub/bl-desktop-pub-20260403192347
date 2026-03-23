@@ -9,6 +9,7 @@ import { SyncModule } from "./sync/sync.module.js";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [".env.local", ".env"],
     }),
     ControlModule,
     SyncModule,

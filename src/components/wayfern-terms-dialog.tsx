@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LoadingButton } from "@/components/loading-button";
 import {
   Dialog,
@@ -22,24 +23,27 @@ export function WayfernTermsDialog({
   isOpen,
   onAccepted,
 }: WayfernTermsDialogProps) {
+  const { t } = useTranslation();
   const [isAccepting, setIsAccepting] = useState(false);
 
   const handleAccept = useCallback(async () => {
     setIsAccepting(true);
     try {
       await invoke("accept_wayfern_terms");
-      showSuccessToast("Terms accepted successfully");
+      showSuccessToast(t("wayfernTerms.toasts.accepted"));
       onAccepted();
     } catch (error) {
       console.error("Failed to accept terms:", error);
-      showErrorToast("Failed to accept terms", {
+      showErrorToast(t("wayfernTerms.toasts.acceptFailed"), {
         description:
-          error instanceof Error ? error.message : "Please try again",
+          error instanceof Error
+            ? error.message
+            : t("launchOnLogin.toasts.tryAgain"),
       });
     } finally {
       setIsAccepting(false);
     }
-  }, [onAccepted]);
+  }, [onAccepted, t]);
 
   return (
     <Dialog open={isOpen}>
@@ -50,7 +54,7 @@ export function WayfernTermsDialog({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Wayfern Terms and Conditions</DialogTitle>
+          <DialogTitle>{t("wayfernTerms.title")}</DialogTitle>
           <DialogDescription>
             Before using BugLogin, you must read and agree to Wayfern's Terms
             and Conditions.

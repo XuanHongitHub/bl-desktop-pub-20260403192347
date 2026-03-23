@@ -19,7 +19,7 @@ export async function setupLogging() {
     consoleAttached = true;
   } catch (err) {
     // If attachConsole fails, log to regular console as fallback
-    console.error("Failed to attach console to logging plugin:", err);
+    console.warn("Failed to attach console to logging plugin:", err);
   }
 }
 

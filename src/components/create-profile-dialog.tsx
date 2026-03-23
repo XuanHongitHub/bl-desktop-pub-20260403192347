@@ -33,6 +33,11 @@ import {
   type ProxyCheckFailureMeta,
 } from "@/lib/proxy-check-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import {
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type {
   BrowserReleaseTypes,
   CamoufoxConfig,
@@ -273,7 +278,14 @@ export function CreateProfileDialog({
       void (async () => {
         try {
           const proxies = await invoke<StoredProxy[]>("get_stored_proxies");
-          const sortedProxies = [...proxies].sort((a, b) =>
+          const scope = getCurrentDataScope();
+          const scopedProxies = scopeEntitiesForContext(
+            "proxies",
+            proxies,
+            (proxy) => proxy.id,
+            scope,
+          );
+          const sortedProxies = [...scopedProxies].sort((a, b) =>
             a.name.localeCompare(b.name),
           );
           setStoredProxies(sortedProxies);
@@ -303,6 +315,41 @@ export function CreateProfileDialog({
         }
       })();
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const reloadProxiesForScope = async () => {
+      try {
+        const proxies = await invoke<StoredProxy[]>("get_stored_proxies");
+        const scope = getCurrentDataScope();
+        const scopedProxies = scopeEntitiesForContext(
+          "proxies",
+          proxies,
+          (proxy) => proxy.id,
+          scope,
+        );
+        setStoredProxies(
+          [...scopedProxies].sort((left, right) =>
+            left.name.localeCompare(right.name),
+          ),
+        );
+      } catch {
+        setStoredProxies([]);
+      }
+    };
+
+    const handleScopeChanged = () => {
+      void reloadProxiesForScope();
+    };
+
+    window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    return () => {
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    };
   }, [isOpen]);
   const [releaseTypes, setReleaseTypes] = useState<BrowserReleaseTypes>();
   const [isLoadingReleaseTypes, setIsLoadingReleaseTypes] = useState(false);
@@ -862,7 +909,9 @@ export function CreateProfileDialog({
             proxyId: resolvedProxyId,
             wayfernConfig: finalWayfernConfig,
             groupId:
-              selectedGroupId !== "default" ? selectedGroupId : undefined,
+              selectedGroupId !== "all" && selectedGroupId !== "default"
+                ? selectedGroupId
+                : undefined,
             extensionGroupId: selectedExtensionGroupId,
             ephemeral,
             launchAfterCreate,
@@ -887,7 +936,9 @@ export function CreateProfileDialog({
             proxyId: resolvedProxyId,
             camoufoxConfig: finalCamoufoxConfig,
             groupId:
-              selectedGroupId !== "default" ? selectedGroupId : undefined,
+              selectedGroupId !== "all" && selectedGroupId !== "default"
+                ? selectedGroupId
+                : undefined,
             extensionGroupId: selectedExtensionGroupId,
             ephemeral,
             launchAfterCreate,
@@ -913,7 +964,10 @@ export function CreateProfileDialog({
           version: bestVersion.version,
           releaseType: bestVersion.releaseType,
           proxyId: resolvedProxyId,
-          groupId: selectedGroupId !== "default" ? selectedGroupId : undefined,
+          groupId:
+            selectedGroupId !== "all" && selectedGroupId !== "default"
+              ? selectedGroupId
+              : undefined,
           launchAfterCreate,
         });
       }
@@ -1652,7 +1706,9 @@ export function CreateProfileDialog({
                             })()}
                           </div>
                           <div className="text-left">
-                            <div className="font-medium">Wayfern</div>
+                            <div className="font-medium">
+                              {t("createProfile.antiDetect.chromium")}
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               Anti-Detect Browser
                             </div>
@@ -1674,7 +1730,9 @@ export function CreateProfileDialog({
                             })()}
                           </div>
                           <div className="text-left">
-                            <div className="font-medium">Camoufox</div>
+                            <div className="font-medium">
+                              {t("createProfile.antiDetect.firefox")}
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               Anti-Detect Browser
                             </div>

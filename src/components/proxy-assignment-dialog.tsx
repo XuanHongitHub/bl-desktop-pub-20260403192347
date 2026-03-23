@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ export function ProxyAssignmentDialog({
   storedProxies = [],
   vpnConfigs = [],
 }: ProxyAssignmentDialogProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectionType, setSelectionType] = useState<"none" | "proxy" | "vpn">(
     "none",
@@ -138,7 +140,7 @@ export function ProxyAssignmentDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Proxy / VPN</DialogTitle>
+          <DialogTitle>{t("proxyAssignmentDialog.title")}</DialogTitle>
           <DialogDescription>
             Assign a proxy or VPN to {selectedProfiles.length} selected
             profile(s).
@@ -147,7 +149,7 @@ export function ProxyAssignmentDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Selected Profiles:</Label>
+            <Label>{t("proxyAssignmentDialog.labels.selectedProfiles")}</Label>
             <ScrollArea className="p-3 bg-muted rounded-md max-h-32">
               <ul className="text-sm space-y-1">
                 {selectedProfiles.map((profileId) => {
@@ -166,16 +168,20 @@ export function ProxyAssignmentDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="proxy-vpn-select">Assign Proxy / VPN:</Label>
+            <Label htmlFor="proxy-vpn-select">
+              {t("proxyAssignmentDialog.labels.assignProxyVpn")}
+            </Label>
             <Select value={selectValue} onValueChange={handleValueChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a proxy or VPN" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="none">{t("common.labels.none")}</SelectItem>
                 {storedProxies.length > 0 && (
                   <SelectGroup>
-                    <SelectLabel>Proxies</SelectLabel>
+                    <SelectLabel>
+                      {t("proxyAssignmentDialog.labels.proxies")}
+                    </SelectLabel>
                     {storedProxies.map((proxy) => (
                       <SelectItem key={proxy.id} value={proxy.id}>
                         {proxy.name}
@@ -186,7 +192,9 @@ export function ProxyAssignmentDialog({
                 )}
                 {vpnConfigs.length > 0 && (
                   <SelectGroup>
-                    <SelectLabel>VPNs</SelectLabel>
+                    <SelectLabel>
+                      {t("proxyAssignmentDialog.labels.vpns")}
+                    </SelectLabel>
                     {vpnConfigs.map((vpn) => (
                       <SelectItem key={vpn.id} value={`vpn-${vpn.id}`}>
                         <span className="flex items-center gap-1">

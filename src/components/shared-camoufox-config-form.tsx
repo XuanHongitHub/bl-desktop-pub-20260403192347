@@ -1008,7 +1008,7 @@ export function SharedCamoufoxConfigForm({
 
           {/* Browser Behavior */}
           {/* <div className="space-y-3">
-        <Label>Browser Behavior</Label>
+        <Label>{t("fingerprint.browserBehavior")}</Label>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="allow-addon-new-tab"

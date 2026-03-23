@@ -54,6 +54,16 @@ export class AppController {
     const controlApiTokenConfigured = Boolean(
       this.configService.get<string>("CONTROL_API_TOKEN"),
     );
+    const databaseUrlConfigured = Boolean(
+      this.configService.get<string>("DATABASE_URL"),
+    );
+    const sqliteFileConfigured = databaseUrlConfigured
+      ? false
+      : Boolean(
+          this.configService.get<string>("CONTROL_SQLITE_FILE") ||
+            process.env.CONTROL_SQLITE_FILE ||
+            "./.data/control-state.sqlite",
+        );
     const controlStateFileConfigured = Boolean(
       this.configService.get<string>("CONTROL_STATE_FILE"),
     );
@@ -65,7 +75,11 @@ export class AppController {
       },
       control: {
         controlApiTokenConfigured,
-        controlStateFileConfigured,
+        databaseUrlConfigured,
+        sqliteFileConfigured,
+        controlStateFileConfigured: databaseUrlConfigured
+          ? false
+          : !sqliteFileConfigured && controlStateFileConfigured,
       },
       stripe: {
         stripeSecretConfigured,

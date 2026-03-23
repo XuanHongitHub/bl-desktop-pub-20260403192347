@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BugLogin - Bảng Giá (Pricing)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: ["class"],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                        card: {
+                            DEFAULT: "hsl(var(--card))",
+                            foreground: "hsl(var(--card-foreground))",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                    boxShadow: {
+                        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        'subtle': '0 4px 24px -4px rgba(0, 0, 0, 0.04)',
+                        'hover': '0 12px 32px -4px rgba(0, 0, 0, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 240 10% 6%;
+            --card: 0 0% 100%;
+            --card-foreground: 240 10% 4%;
+            --muted: 240 4.8% 95.9%;
+            --muted-foreground: 240 3.8% 46.1%;
+            --accent: 240 4.8% 95.9%;
+            --accent-foreground: 240 5.9% 10%;
+            --primary: 240 8% 12%;
+            --primary-foreground: 0 0% 98%;
+            --secondary: 240 4.8% 95.9%;
+            --secondary-foreground: 240 5.9% 10%;
+            --border: 240 5.9% 90%;
+            --input: 240 5.9% 90%;
+            --ring: 240 10% 12%;
+            --radius: 0.75rem;
+        }
+
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .btn-press:active {
+            transform: scale(0.98);
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-hover-effect {
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.06);
+        }
+
+        .bg-grid {
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-grid relative text-sm">
+
+    <!-- Navbar -->
+    <nav class="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-8">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 font-semibold text-lg cursor-pointer">
+                    <img src="../public/buglogin-logo.webp" alt="BugLogin Logo" class="w-7 h-7 rounded-sm shadow-sm border border-border" onerror="this.src='https://via.placeholder.com/28?text=BL'">
+                    BugLogin
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <a href="login-page.html" class="text-sm font-medium hover:text-muted-foreground transition-colors hidden sm:block">Đăng nhập</a>
+                <a href="login-page.html" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 btn-press shadow-sm">
+                    Mở Sync Config
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-6 py-16">
+        <!-- Heading -->
+        <div class="text-center max-w-2xl mx-auto mb-16 fade-in-up">
+            <h1 class="text-3xl font-semibold tracking-tight mb-2">Bảng giá</h1>
+            <p class="text-[0.95rem] text-muted-foreground">Quản lý hiệu quả, bảo mật và đồng bộ mượt mà</p>
+            
+            <!-- Billing Toggle -->
+            <div class="flex items-center justify-center mt-6 gap-2">
+                <button class="px-4 py-1.5 rounded-md text-sm font-medium bg-foreground text-background shadow-sm transition-colors">
+                    Hàng tháng
+                </button>
+                <button class="px-4 py-1.5 rounded-md text-sm font-medium border border-border bg-background hover:bg-muted transition-colors">
+                    Hàng năm
+                </button>
+            </div>
+            <div class="mt-2">
+                <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-zinc-100 text-zinc-800">
+                    Tiết kiệm chi phí khi thanh toán năm
+                </span>
+            </div>
+        </div>
+
+        <!-- Pricing Cards based on buglogin AuthWorkspace components -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            
+            <!-- Starter Plan -->
+            <div class="fade-in-up delay-100 rounded-xl border border-border bg-card p-6 flex flex-col card-hover-effect shadow-sm relative bg-white">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-1">Starter</h3>
+                    <p class="text-muted-foreground text-[13px] leading-relaxed select-none">Khởi đầu hoàn hảo cho cá nhân với nhu cầu cơ bản.</p>
+                </div>
+                <div class="mb-6 pb-6 border-b border-border">
+                    <span class="text-3xl font-bold tracking-tight">$0</span>
+                    <span class="text-muted-foreground text-sm ml-1">/ tháng</span>
+                </div>
+                
+                <div class="space-y-3.5 flex-grow mb-8">
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        Lên tới 10 profiles
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        1 thành viên (Cá nhân)
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        1 GB lưu trữ đám mây
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        Hỗ trợ cộng đồng
+                    </p>
+                </div>
+
+                <button class="w-full inline-flex items-center justify-center rounded-md text-[13px] font-medium transition-colors border border-border bg-background hover:bg-muted h-9 px-4 btn-press">
+                    Chọn gói này
+                </button>
+            </div>
+
+            <!-- Growth Plan (Recommended) -->
+            <div class="fade-in-up delay-200 rounded-xl border border-primary bg-background p-6 flex flex-col card-hover-effect shadow-md relative transform">
+                <div class="mb-4 flex items-start justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-1">Growth</h3>
+                        <p class="text-muted-foreground text-[13px] leading-relaxed">Phù hợp cho đội nhóm nhỏ cần mở rộng quy mô.</p>
+                    </div>
+                </div>
+                
+                <div class="mb-6 pb-6 border-b border-border">
+                    <span class="text-3xl font-bold tracking-tight">$39</span>
+                    <span class="text-muted-foreground text-sm ml-1">/ tháng</span>
+                </div>
+                
+                <div class="space-y-3.5 flex-grow mb-8">
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-primary shrink-0"></i>
+                        Lên tới 150 profiles
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-primary shrink-0"></i>
+                        Đến 5 thành viên nhóm
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-primary shrink-0"></i>
+                        50 GB lưu trữ đám mây
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-primary shrink-0"></i>
+                        Hỗ trợ ưu tiên qua Email
+                    </p>
+                </div>
+
+                <button class="w-full inline-flex items-center justify-center rounded-md text-[13px] font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/95 h-9 px-4 btn-press shadow-sm">
+                    Đã chọn
+                </button>
+            </div>
+
+            <!-- Scale Plan -->
+            <div class="fade-in-up delay-300 rounded-xl border border-border bg-card p-6 flex flex-col card-hover-effect shadow-sm bg-white">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-1">Scale</h3>
+                    <p class="text-muted-foreground text-[13px] leading-relaxed">Thiết kế cho hệ thống tự động hóa lớn và team chuyên nghiệp.</p>
+                </div>
+                <div class="mb-6 pb-6 border-b border-border">
+                    <span class="text-3xl font-bold tracking-tight">$99</span>
+                    <span class="text-muted-foreground text-sm ml-1">/ tháng</span>
+                </div>
+                
+                <div class="space-y-3.5 flex-grow mb-8">
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        Profiles không giới hạn
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        Đến 25 thành viên nhóm
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        200 GB lưu trữ đám mây
+                    </p>
+                    <p class="flex items-center gap-2.5 text-[13px] text-foreground font-medium">
+                        <i data-lucide="check" class="w-4 h-4 text-muted-foreground shrink-0"></i>
+                        Hỗ trợ trực tiếp trong ngày (24/7)
+                    </p>
+                </div>
+
+                <button class="w-full inline-flex items-center justify-center rounded-md text-[13px] font-medium transition-colors border border-border bg-background hover:bg-muted h-9 px-4 btn-press">
+                    Chọn gói này
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Readiness status row (from actual AuthWorkspace) -->
+        <div class="mt-12 flex justify-center gap-3 fade-in-up delay-300 max-w-2xl mx-auto">
+            <div class="rounded-md border border-border bg-zinc-50 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+                Tính năng thanh toán: Sẵn sàng
+            </div>
+            <div class="rounded-md border border-border bg-zinc-50 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+                Đăng nhập hệ thống: Sẵn sàng
+            </div>
+            <div class="rounded-md border border-border bg-zinc-50 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+                Dịch vụ đồng bộ đám mây: Sẵn sàng
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer minimal -->
+    <footer class="border-t border-border mt-auto py-6 text-center text-xs font-medium text-muted-foreground">
+        <p>© 2026 BugLogin Inc. Mọi bản quyền được bảo lưu.</p>
+    </footer>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

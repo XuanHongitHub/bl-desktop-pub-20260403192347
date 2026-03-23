@@ -19,8 +19,10 @@ services:
       - "3929:3929"
     environment:
       - SYNC_TOKEN=your-secret-token-here
+      - SYNC_ROOT_PREFIX=selfhost-dev
+      - SYNC_AUDIT_LOG_FILE=/data/sync-audit.log
       - CONTROL_API_TOKEN=your-control-api-token-here
-      - CONTROL_STATE_FILE=/data/control-state.json
+      - CONTROL_SQLITE_FILE=/data/control-state.sqlite
       - PORT=3929
       - S3_ENDPOINT=http://minio:9000
       - S3_REGION=us-east-1
@@ -31,6 +33,8 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    volumes:
+      - sync_data:/data
 
   minio:
     image: minio/minio:latest
@@ -50,6 +54,7 @@ services:
       - minio_data:/data
 
 volumes:
+  sync_data:
   minio_data:
 ```
 
@@ -73,11 +78,16 @@ curl http://localhost:3929/readyz
 
 ## Environment Variables
 
+`buglogin-sync` reads environment in this order: `.env.local` -> `.env` -> system env.
+
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SYNC_TOKEN` | Yes | - | Bearer token used to authenticate requests from BugLogin clients |
+| `SYNC_ROOT_PREFIX` | No | - | Optional S3 namespace root prefix (e.g., `selfhost-dev`). Helps isolate/reset environments cleanly without mixing old objects. |
+| `SYNC_AUDIT_LOG_FILE` | No | - | Optional JSONL audit log path for sync actions (`presign_*`, `delete`, `delete-prefix`) to keep traceability when local data resets. |
 | `CONTROL_API_TOKEN` | No | - | Bearer token for `v1/control/*` endpoints. If empty, control-plane APIs run in open mode (development only). |
-| `CONTROL_STATE_FILE` | No | `./.data/control-state.json` | JSON snapshot path for temporary control-plane persistence (workspace/member/invite/share/coupon/audit). |
+| `CONTROL_SQLITE_FILE` | No | `./.data/control-state.sqlite` | Local SQLite database path for control-plane persistence when `DATABASE_URL` is not set. |
+| `CONTROL_STATE_FILE` | No | `./.data/control-state.json` | Legacy JSON import path. Only used one time to migrate old snapshot data into SQLite. |
 | `PORT` | No | `3929` | Port the sync server listens on |
 | `S3_ENDPOINT` | No | - | S3-compatible endpoint URL (e.g., `http://minio:9000` or `https://s3.amazonaws.com`) |
 | `S3_REGION` | No | `us-east-1` | S3 region |
@@ -150,8 +160,8 @@ Once configured, you can enable sync on individual profiles, proxies, and groups
 
 Use a two-step rollout for control-plane data:
 
-1. **Now (simple + safe)**: keep `CONTROL_STATE_FILE` enabled so workspace governance data survives restarts without adding DB complexity.
-2. **Before large production rollout**: move control-plane authority data to Postgres.
+1. **Now (local/dev)**: use `CONTROL_SQLITE_FILE` so control-plane data is persisted in a real local database.
+2. **Before large production rollout**: move control-plane authority data to Postgres with `DATABASE_URL`.
    - Reference schema: `buglogin-sync/docs/control-plane-postgres-schema.sql`
    - Architecture notes: `buglogin-sync/docs/production-architecture.md`
 
@@ -165,6 +175,8 @@ Recommended minimum topology for production:
 ## Security Considerations
 
 - **Use a strong `SYNC_TOKEN`**: Generate a random token (e.g., `openssl rand -hex 32`) and keep it secret.
+- **Set `SYNC_ROOT_PREFIX` per environment**: Use separate prefixes (or buckets) for dev/staging/prod to avoid stale object mixing after local resets.
+- **Persist `SYNC_AUDIT_LOG_FILE` on volume**: Keep audit logs on durable storage so you can track historical sync writes/deletes.
 - **HTTPS**: In production, place a reverse proxy (e.g., Nginx, Caddy, Traefik) in front of BugLogin Sync to terminate TLS. The sync token is sent as a Bearer token in the `Authorization` header and should not be transmitted over plain HTTP.
 - **Network isolation**: If running on a VPS, consider restricting access to the sync port using firewall rules or binding only to localhost behind a reverse proxy.
 - **S3 credentials**: Use dedicated IAM credentials with minimal permissions (read/write to the sync bucket only).

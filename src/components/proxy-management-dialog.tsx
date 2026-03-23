@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoGlobe, GoPlus } from "react-icons/go";
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
+import { formatLocaleDateTime } from "@/lib/locale-format";
 import type { ProxyCheckFailureMeta } from "@/lib/proxy-check-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,7 @@ import { WorkspacePageShell } from "./workspace-page-shell";
 type SyncStatus = "disabled" | "syncing" | "synced" | "error" | "waiting";
 
 function getSyncStatusDot(
+  t: TFunction,
   item: { sync_enabled?: boolean; last_sync?: number },
   liveStatus: SyncStatus | undefined,
 ): { color: string; tooltip: string; animate: boolean } {
@@ -67,25 +70,39 @@ function getSyncStatusDot(
 
   switch (status) {
     case "syncing":
-      return { color: "bg-yellow-500", tooltip: "Syncing...", animate: true };
+      return {
+        color: "bg-yellow-500",
+        tooltip: t("common.status.syncing"),
+        animate: true,
+      };
     case "synced":
       return {
         color: "bg-green-500",
         tooltip: item.last_sync
-          ? `Synced ${new Date(item.last_sync * 1000).toLocaleString()}`
-          : "Synced",
+          ? t("profiles.table.syncedAt", {
+              time: formatLocaleDateTime(item.last_sync * 1000),
+            })
+          : t("common.status.synced"),
         animate: false,
       };
     case "waiting":
       return {
         color: "bg-yellow-500",
-        tooltip: "Waiting to sync",
+        tooltip: t("profiles.table.waitingToSync"),
         animate: false,
       };
     case "error":
-      return { color: "bg-red-500", tooltip: "Sync error", animate: false };
+      return {
+        color: "bg-red-500",
+        tooltip: t("profiles.table.syncError"),
+        animate: false,
+      };
     default:
-      return { color: "bg-gray-400", tooltip: "Not synced", animate: false };
+      return {
+        color: "bg-gray-400",
+        tooltip: t("sync.mode.disabledDescription"),
+        animate: false,
+      };
   }
 }
 
@@ -314,24 +331,33 @@ export function ProxyManagementDialog({
     setEditingProxy(null);
   }, []);
 
-  const handleToggleSync = useCallback(async (proxy: StoredProxy) => {
-    setIsTogglingSync((prev) => ({ ...prev, [proxy.id]: true }));
-    try {
-      await invoke("set_proxy_sync_enabled", {
-        proxyId: proxy.id,
-        enabled: !proxy.sync_enabled,
-      });
-      showSuccessToast(proxy.sync_enabled ? "Sync disabled" : "Sync enabled");
-      await emit("stored-proxies-changed");
-    } catch (error) {
-      console.error("Failed to toggle sync:", error);
-      showErrorToast(
-        error instanceof Error ? error.message : "Failed to update sync",
-      );
-    } finally {
-      setIsTogglingSync((prev) => ({ ...prev, [proxy.id]: false }));
-    }
-  }, []);
+  const handleToggleSync = useCallback(
+    async (proxy: StoredProxy) => {
+      setIsTogglingSync((prev) => ({ ...prev, [proxy.id]: true }));
+      try {
+        await invoke("set_proxy_sync_enabled", {
+          proxyId: proxy.id,
+          enabled: !proxy.sync_enabled,
+        });
+        showSuccessToast(
+          proxy.sync_enabled
+            ? t("proxyManagementDialog.toasts.syncDisabled")
+            : t("proxyManagementDialog.toasts.syncEnabled"),
+        );
+        await emit("stored-proxies-changed");
+      } catch (error) {
+        console.error("Failed to toggle sync:", error);
+        showErrorToast(
+          error instanceof Error
+            ? error.message
+            : t("proxyManagementDialog.toasts.syncUpdateFailed"),
+        );
+      } finally {
+        setIsTogglingSync((prev) => ({ ...prev, [proxy.id]: false }));
+      }
+    },
+    [t],
+  );
 
   // VPN handlers
   const handleDeleteVpn = useCallback((vpn: VpnConfig) => {
@@ -371,24 +397,33 @@ export function ProxyManagementDialog({
     setEditingVpn(null);
   }, []);
 
-  const handleToggleVpnSync = useCallback(async (vpn: VpnConfig) => {
-    setIsTogglingVpnSync((prev) => ({ ...prev, [vpn.id]: true }));
-    try {
-      await invoke("set_vpn_sync_enabled", {
-        vpnId: vpn.id,
-        enabled: !vpn.sync_enabled,
-      });
-      showSuccessToast(vpn.sync_enabled ? "Sync disabled" : "Sync enabled");
-      await emit("vpn-configs-changed");
-    } catch (error) {
-      console.error("Failed to toggle VPN sync:", error);
-      showErrorToast(
-        error instanceof Error ? error.message : "Failed to update sync",
-      );
-    } finally {
-      setIsTogglingVpnSync((prev) => ({ ...prev, [vpn.id]: false }));
-    }
-  }, []);
+  const handleToggleVpnSync = useCallback(
+    async (vpn: VpnConfig) => {
+      setIsTogglingVpnSync((prev) => ({ ...prev, [vpn.id]: true }));
+      try {
+        await invoke("set_vpn_sync_enabled", {
+          vpnId: vpn.id,
+          enabled: !vpn.sync_enabled,
+        });
+        showSuccessToast(
+          vpn.sync_enabled
+            ? t("proxyManagementDialog.toasts.syncDisabled")
+            : t("proxyManagementDialog.toasts.syncEnabled"),
+        );
+        await emit("vpn-configs-changed");
+      } catch (error) {
+        console.error("Failed to toggle VPN sync:", error);
+        showErrorToast(
+          error instanceof Error
+            ? error.message
+            : t("proxyManagementDialog.toasts.syncUpdateFailed"),
+        );
+      } finally {
+        setIsTogglingVpnSync((prev) => ({ ...prev, [vpn.id]: false }));
+      }
+    },
+    [t],
+  );
 
   const proxyPanel = (
     <div className="space-y-4">
@@ -401,7 +436,7 @@ export function ProxyManagementDialog({
             className="flex gap-2 items-center"
           >
             <LuUpload className="w-4 h-4" />
-            Import
+            {t("common.buttons.import")}
           </RippleButton>
           <RippleButton
             size="sm"
@@ -410,7 +445,7 @@ export function ProxyManagementDialog({
             className="flex gap-2 items-center"
           >
             <LuClipboardPaste className="w-4 h-4" />
-            Quick Paste
+            {t("proxyManagementDialog.actions.quickPaste")}
           </RippleButton>
           <RippleButton
             size="sm"
@@ -420,7 +455,7 @@ export function ProxyManagementDialog({
             disabled={storedProxies.length === 0}
           >
             <LuDownload className="w-4 h-4" />
-            Export
+            {t("common.buttons.export")}
           </RippleButton>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -432,7 +467,7 @@ export function ProxyManagementDialog({
               className="flex gap-2 items-center"
             >
               <GoGlobe className="w-4 h-4" />
-              Location
+              {t("proxyManagementDialog.actions.location")}
             </RippleButton>
           )}
           <RippleButton
@@ -441,17 +476,18 @@ export function ProxyManagementDialog({
             className="flex gap-2 items-center"
           >
             <GoPlus className="w-4 h-4" />
-            Create
+            {t("common.buttons.create")}
           </RippleButton>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading proxies...</div>
+        <div className="text-sm text-muted-foreground">
+          {t("proxyManagementDialog.loadingProxies")}
+        </div>
       ) : storedProxies.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          No proxies created yet. Create your first proxy using the button
-          above.
+          {t("proxyManagementDialog.emptyProxies")}
         </div>
       ) : (
         <div className="border rounded-md">
@@ -459,16 +495,23 @@ export function ProxyManagementDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-20">Usage</TableHead>
-                  <TableHead className="w-24">Sync</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead>{t("common.labels.name")}</TableHead>
+                  <TableHead className="w-20">
+                    {t("common.labels.usage")}
+                  </TableHead>
+                  <TableHead className="w-24">
+                    {t("common.labels.sync")}
+                  </TableHead>
+                  <TableHead className="w-24">
+                    {t("common.labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {storedProxies.map((proxy) => {
                   const isCloud = proxy.is_cloud_managed === true;
                   const syncDot = getSyncStatusDot(
+                    t,
                     proxy,
                     proxySyncStatus[proxy.id],
                   );
@@ -521,7 +564,9 @@ export function ProxyManagementDialog({
                       </TableCell>
                       <TableCell>
                         {isCloud ? (
-                          <Badge variant="outline">Cloud</Badge>
+                          <Badge variant="outline">
+                            {t("proxyManagementDialog.cloud")}
+                          </Badge>
                         ) : (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -541,14 +586,19 @@ export function ProxyManagementDialog({
                             <TooltipContent>
                               {proxyInUse[proxy.id] ? (
                                 <p>
-                                  Sync cannot be disabled while this proxy is
-                                  used by synced profiles
+                                  {t(
+                                    "proxyManagementDialog.tooltips.syncDisableBlockedProxy",
+                                  )}
                                 </p>
                               ) : (
                                 <p>
                                   {proxy.sync_enabled
-                                    ? "Disable sync"
-                                    : "Enable sync"}
+                                    ? t(
+                                        "proxyManagementDialog.tooltips.disableSync",
+                                      )
+                                    : t(
+                                        "proxyManagementDialog.tooltips.enableSync",
+                                      )}
                                 </p>
                               )}
                             </TooltipContent>
@@ -602,7 +652,9 @@ export function ProxyManagementDialog({
                                     ? t(
                                         `proxies.check.failures.${proxyCheckFailures[proxy.id].category}`,
                                       )
-                                    : "Edit proxy"}
+                                    : t(
+                                        "proxyManagementDialog.tooltips.editProxy",
+                                      )}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -624,12 +676,19 @@ export function ProxyManagementDialog({
                               <TooltipContent>
                                 {(proxyUsage[proxy.id] ?? 0) > 0 ? (
                                   <p>
-                                    Cannot delete: in use by{" "}
-                                    {proxyUsage[proxy.id]} profile
-                                    {proxyUsage[proxy.id] > 1 ? "s" : ""}
+                                    {t(
+                                      "proxyManagementDialog.tooltips.deleteBlocked",
+                                      {
+                                        count: proxyUsage[proxy.id] ?? 0,
+                                      },
+                                    )}
                                   </p>
                                 ) : (
-                                  <p>Delete proxy</p>
+                                  <p>
+                                    {t(
+                                      "proxyManagementDialog.tooltips.deleteProxy",
+                                    )}
+                                  </p>
                                 )}
                               </TooltipContent>
                             </Tooltip>
@@ -658,7 +717,7 @@ export function ProxyManagementDialog({
             className="flex gap-2 items-center"
           >
             <LuUpload className="w-4 h-4" />
-            Import
+            {t("common.buttons.import")}
           </RippleButton>
         </div>
         <RippleButton
@@ -667,16 +726,17 @@ export function ProxyManagementDialog({
           className="flex gap-2 items-center"
         >
           <GoPlus className="w-4 h-4" />
-          Create
+          {t("common.buttons.create")}
         </RippleButton>
       </div>
 
       {isLoadingVpns ? (
-        <div className="text-sm text-muted-foreground">Loading VPNs...</div>
+        <div className="text-sm text-muted-foreground">
+          {t("proxyManagementDialog.loadingVpns")}
+        </div>
       ) : vpnConfigs.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          No VPN configs created yet. Import or create one using the buttons
-          above.
+          {t("proxyManagementDialog.emptyVpns")}
         </div>
       ) : (
         <div className="border rounded-md">
@@ -684,16 +744,28 @@ export function ProxyManagementDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-16">Type</TableHead>
-                  <TableHead className="w-20">Usage</TableHead>
-                  <TableHead className="w-24">Sync</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead>{t("common.labels.name")}</TableHead>
+                  <TableHead className="w-16">
+                    {t("common.labels.type")}
+                  </TableHead>
+                  <TableHead className="w-20">
+                    {t("common.labels.usage")}
+                  </TableHead>
+                  <TableHead className="w-24">
+                    {t("common.labels.sync")}
+                  </TableHead>
+                  <TableHead className="w-24">
+                    {t("common.labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {vpnConfigs.map((vpn) => {
-                  const syncDot = getSyncStatusDot(vpn, vpnSyncStatus[vpn.id]);
+                  const syncDot = getSyncStatusDot(
+                    t,
+                    vpn,
+                    vpnSyncStatus[vpn.id],
+                  );
                   return (
                     <TableRow key={vpn.id}>
                       <TableCell className="font-medium">
@@ -739,14 +811,19 @@ export function ProxyManagementDialog({
                           <TooltipContent>
                             {vpnInUse[vpn.id] ? (
                               <p>
-                                Sync cannot be disabled while this VPN is used
-                                by synced profiles
+                                {t(
+                                  "proxyManagementDialog.tooltips.syncDisableBlockedVpn",
+                                )}
                               </p>
                             ) : (
                               <p>
                                 {vpn.sync_enabled
-                                  ? "Disable sync"
-                                  : "Enable sync"}
+                                  ? t(
+                                      "proxyManagementDialog.tooltips.disableSync",
+                                    )
+                                  : t(
+                                      "proxyManagementDialog.tooltips.enableSync",
+                                    )}
                               </p>
                             )}
                           </TooltipContent>
@@ -771,7 +848,9 @@ export function ProxyManagementDialog({
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Edit VPN</p>
+                              <p>
+                                {t("proxyManagementDialog.tooltips.editVpn")}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
@@ -790,12 +869,19 @@ export function ProxyManagementDialog({
                             <TooltipContent>
                               {(vpnUsage[vpn.id] ?? 0) > 0 ? (
                                 <p>
-                                  Cannot delete: in use by {vpnUsage[vpn.id]}{" "}
-                                  profile
-                                  {vpnUsage[vpn.id] > 1 ? "s" : ""}
+                                  {t(
+                                    "proxyManagementDialog.tooltips.deleteBlocked",
+                                    {
+                                      count: vpnUsage[vpn.id] ?? 0,
+                                    },
+                                  )}
                                 </p>
                               ) : (
-                                <p>Delete VPN</p>
+                                <p>
+                                  {t(
+                                    "proxyManagementDialog.tooltips.deleteVpn",
+                                  )}
+                                </p>
                               )}
                             </TooltipContent>
                           </Tooltip>
@@ -825,10 +911,10 @@ export function ProxyManagementDialog({
         )}
       >
         <TabsTrigger value="proxies" className="flex-1">
-          Proxies
+          {t("proxyManagementDialog.tabs.proxies")}
         </TabsTrigger>
         <TabsTrigger value="vpns" className="flex-1">
-          VPNs
+          {t("proxyManagementDialog.tabs.vpns")}
         </TabsTrigger>
       </TabsList>
 
@@ -846,9 +932,9 @@ export function ProxyManagementDialog({
     <>
       <div className="app-shell-safe-header shrink-0 border-b px-5 py-4">
         <DialogHeader>
-          <DialogTitle>Proxies & VPNs</DialogTitle>
+          <DialogTitle>{t("proxyManagementDialog.title")}</DialogTitle>
           <DialogDescription>
-            Manage your proxy and VPN configurations for reuse across profiles
+            {t("proxyManagementDialog.description")}
           </DialogDescription>
         </DialogHeader>
       </div>
@@ -859,7 +945,7 @@ export function ProxyManagementDialog({
       {mode === "dialog" && (
         <DialogFooter className="shrink-0 border-t px-5 py-4">
           <RippleButton variant="outline" onClick={onClose}>
-            Close
+            {t("common.buttons.close")}
           </RippleButton>
         </DialogFooter>
       )}
@@ -870,8 +956,8 @@ export function ProxyManagementDialog({
     <>
       {mode === "page" ? (
         <WorkspacePageShell
-          title="Proxies & VPNs"
-          description="Manage your proxy and VPN configurations for reuse across profiles."
+          title={t("proxyManagementDialog.title")}
+          description={t("proxyManagementDialog.description")}
           toolbar={
             <Tabs
               value={activeTab}
@@ -880,8 +966,12 @@ export function ProxyManagementDialog({
               }
             >
               <TabsList className="grid w-[220px] grid-cols-2">
-                <TabsTrigger value="proxies">Proxies</TabsTrigger>
-                <TabsTrigger value="vpns">VPNs</TabsTrigger>
+                <TabsTrigger value="proxies">
+                  {t("proxyManagementDialog.tabs.proxies")}
+                </TabsTrigger>
+                <TabsTrigger value="vpns">
+                  {t("proxyManagementDialog.tabs.vpns")}
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           }
@@ -904,9 +994,11 @@ export function ProxyManagementDialog({
         isOpen={proxyToDelete !== null}
         onClose={() => setProxyToDelete(null)}
         onConfirm={handleConfirmDelete}
-        title="Delete Proxy"
-        description={`This action cannot be undone. This will permanently delete the proxy "${proxyToDelete?.name ?? ""}".`}
-        confirmButtonText="Delete"
+        title={t("proxyManagementDialog.deleteProxy.title")}
+        description={t("proxyManagementDialog.deleteProxy.description", {
+          name: proxyToDelete?.name ?? "",
+        })}
+        confirmButtonText={t("common.buttons.delete")}
         isLoading={isDeleting}
       />
       <ProxyImportDialog
@@ -931,9 +1023,11 @@ export function ProxyManagementDialog({
         isOpen={vpnToDelete !== null}
         onClose={() => setVpnToDelete(null)}
         onConfirm={handleConfirmDeleteVpn}
-        title="Delete VPN"
-        description={`This action cannot be undone. This will permanently delete the VPN "${vpnToDelete?.name ?? ""}".`}
-        confirmButtonText="Delete"
+        title={t("proxyManagementDialog.deleteVpn.title")}
+        description={t("proxyManagementDialog.deleteVpn.description", {
+          name: vpnToDelete?.name ?? "",
+        })}
+        confirmButtonText={t("common.buttons.delete")}
         isLoading={isDeletingVpn}
       />
       <VpnImportDialog

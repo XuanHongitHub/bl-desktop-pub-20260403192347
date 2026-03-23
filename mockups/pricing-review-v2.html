@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pricing Mockup V3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #05070b;
+      --bg-2: #0a1020;
+      --panel: #090f19;
+      --panel-2: #0d1524;
+      --line: #1b2538;
+      --line-2: #283654;
+      --text: #f6f9ff;
+      --muted: #98a7c2;
+      --primary: #2563eb;
+      --primary-2: #3b82f6;
+      --cta: #f97316;
+      --ok: #6de3b7;
+      --warn: #ffd48d;
+      --shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background: radial-gradient(circle at 20% -15%, #1b2f56 0%, transparent 42%),
+        radial-gradient(circle at 90% 0%, #1a2243 0%, transparent 35%),
+        var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      min-height: 100%;
+    }
+
+    .wrap {
+      width: min(1160px, 100% - 36px);
+      margin-inline: auto;
+      padding: 26px 0 68px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(9, 15, 25, 0.74);
+      backdrop-filter: blur(8px);
+    }
+
+    .crumb {
+      font-family: "JetBrains Mono", monospace;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: #c7d4ec;
+      letter-spacing: 0.08em;
+    }
+
+    .top-actions { display: flex; gap: 8px; }
+
+    .btn {
+      border: 1px solid #29344b;
+      background: #0f1728;
+      color: #eaf2ff;
+      height: 34px;
+      border-radius: 999px;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 180ms ease-out, background-color 180ms ease-out;
+    }
+
+    .btn:hover { border-color: #3f5378; background: #121c30; }
+    .btn.primary {
+      border: none;
+      background: linear-gradient(180deg, var(--primary-2), var(--primary));
+      box-shadow: 0 10px 26px rgba(37, 99, 235, 0.35);
+    }
+
+    .hero {
+      text-align: center;
+      padding: 34px 0 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid #27344d;
+      background: rgba(15, 23, 40, 0.8);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #c8d6f0;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    h1 {
+      margin: 14px 0 0;
+      font-size: clamp(36px, 6.1vw, 64px);
+      line-height: 1.02;
+      letter-spacing: -0.045em;
+    }
+
+    .hero p {
+      width: min(760px, 100%);
+      margin: 14px auto 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .toggle {
+      margin: 22px auto 0;
+      width: max-content;
+      display: flex;
+      gap: 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0b1322;
+      padding: 5px;
+    }
+
+    .toggle button {
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: #92a0b8;
+      height: 34px;
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 180ms ease-out, color 180ms ease-out;
+    }
+
+    .toggle button.active {
+      color: white;
+      background: #111d32;
+      box-shadow: inset 0 0 0 1px #2e4265;
+    }
+
+    .plans {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .plan {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #0a111e, #080d16 42%);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      min-height: 456px;
+      position: relative;
+      transition: transform 200ms ease-out, border-color 200ms ease-out;
+    }
+
+    .plan:hover {
+      transform: translateY(-3px);
+      border-color: #35507a;
+    }
+
+    .plan.popular {
+      border-color: #3b82f6;
+      background: linear-gradient(180deg, #0f1a31, #0b1425 44%);
+      box-shadow: 0 24px 50px rgba(22, 76, 173, 0.28);
+    }
+
+    .plan.popular::before {
+      content: "MOST POPULAR";
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 10px;
+      background: linear-gradient(180deg, #5fa3ff, #2563eb);
+      color: white;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.09em;
+      display: grid;
+      place-items: center;
+    }
+
+    .plan-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .plan-head h3 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .plan-note {
+      font-size: 11px;
+      color: #9eb2d3;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .price {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 0;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .price b {
+      font-size: 46px;
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+
+    .price span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+      color: #c7d4eb;
+    }
+
+    .list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.45;
+    }
+
+    .list li::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--ok);
+      margin-top: 8px;
+      flex: 0 0 auto;
+    }
+
+    .plan .btn {
+      margin-top: auto;
+      width: 100%;
+      height: 40px;
+      font-size: 13px;
+    }
+
+    .metrics {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #08101b;
+      padding: 12px;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 24px;
+      letter-spacing: -0.03em;
+      margin-bottom: 3px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .enterprise {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #0a111d, #090f18);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      color: #c9d5eb;
+      font-size: 13px;
+    }
+
+    .comparison {
+      margin-top: 24px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #060c15;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr;
+    }
+
+    .row > div {
+      padding: 12px;
+      border-right: 1px solid #172133;
+      border-bottom: 1px solid #172133;
+      font-size: 12px;
+    }
+
+    .row > div:last-child { border-right: none; }
+
+    .row.head > div {
+      background: #0c1423;
+      color: #dde8ff;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .f { color: #9fb2d1; }
+    .c { text-align: center; }
+
+    .faq {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .panel h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .qa {
+      border: 1px solid #1c2940;
+      border-radius: 11px;
+      padding: 10px 12px;
+      margin-top: 8px;
+      background: #090f1a;
+    }
+
+    .qa b {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .qa p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .final-cta p {
+      color: var(--muted);
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .final-cta .btn {
+      margin-top: 12px;
+      width: 100%;
+      height: 40px;
+      font-size: 13px;
+      background: linear-gradient(180deg, var(--cta), #dc6a16);
+      border: none;
+      box-shadow: 0 12px 30px rgba(249, 115, 22, 0.26);
+    }
+
+    @media (max-width: 1020px) {
+      .plans, .metrics, .faq { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1.35fr 1fr 1fr 1fr; }
+      .enterprise { flex-direction: column; align-items: flex-start; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+      .top-actions { width: 100%; }
+      .top-actions .btn { flex: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+      .plan:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="topbar">
+      <div class="crumb">Pricing / Subscription</div>
+      <div class="top-actions">
+        <button class="btn">Open Billing Management</button>
+        <button class="btn primary">Start Free Trial</button>
+      </div>
+    </section>
+
+    <section class="hero">
+      <div class="badge">conversion-optimized pricing</div>
+      <h1>Choose your growth stage. Scale without friction.</h1>
+      <p>Focused pricing page for conversion: clear plan separation, annual discount visibility, objection handling via comparison and FAQ, and an explicit handoff to billing management.</p>
+      <div class="toggle">
+        <button class="active">Monthly</button>
+        <button>Yearly <span style="color: var(--warn)">Save 20%</span></button>
+      </div>
+    </section>
+
+    <section class="plans">
+      <article class="plan">
+        <div class="plan-head">
+          <h3>Starter</h3>
+          <span class="plan-note">for solo</span>
+        </div>
+        <div class="price"><b>$9</b><span>/month</span></div>
+        <ul class="list">
+          <li>30 managed browser profiles</li>
+          <li>1 workspace member</li>
+          <li>5 GB cloud sync storage</li>
+          <li>Email support</li>
+          <li>Core anti-detect features</li>
+        </ul>
+        <button class="btn">Start with Starter</button>
+      </article>
+
+      <article class="plan popular">
+        <div class="plan-head">
+          <h3>Growth</h3>
+          <span class="plan-note">team default</span>
+        </div>
+        <div class="price"><b>$19</b><span>/month</span></div>
+        <ul class="list">
+          <li>120 managed browser profiles</li>
+          <li>5 workspace members</li>
+          <li>20 GB cloud sync storage</li>
+          <li>Priority support queue</li>
+          <li>Role-based access controls</li>
+          <li>Shared team templates</li>
+        </ul>
+        <button class="btn primary">Start with Growth</button>
+      </article>
+
+      <article class="plan">
+        <div class="plan-head">
+          <h3>Scale</h3>
+          <span class="plan-note">high volume</span>
+        </div>
+        <div class="price"><b>$39</b><span>/month</span></div>
+        <ul class="list">
+          <li>500 managed browser profiles</li>
+          <li>25 workspace members</li>
+          <li>80 GB cloud sync storage</li>
+          <li>Dedicated support channel</li>
+          <li>Advanced automation quota</li>
+          <li>Custom security policies</li>
+        </ul>
+        <button class="btn">Start with Scale</button>
+      </article>
+    </section>
+
+    <section class="metrics">
+      <article class="metric"><b>10,000+</b><span>active growth teams on monthly plans</span></article>
+      <article class="metric"><b>99.95%</b><span>billing uptime in the last 90 days</span></article>
+      <article class="metric"><b>&lt;3 min</b><span>average setup time from plan to checkout</span></article>
+    </section>
+
+    <section class="enterprise">
+      <div><strong style="color:#fff">Enterprise</strong> For organizations needing compliance workflows, high-volume custom limits, procurement support, and SLA-backed onboarding.</div>
+      <button class="btn">Request Enterprise Demo</button>
+    </section>
+
+    <section class="comparison">
+      <div class="row head">
+        <div>Feature comparison</div>
+        <div class="c">Starter</div>
+        <div class="c">Growth</div>
+        <div class="c">Scale</div>
+      </div>
+      <div class="row"><div class="f">Managed profiles</div><div class="c">30</div><div class="c">120</div><div class="c">500</div></div>
+      <div class="row"><div class="f">Workspace members</div><div class="c">1</div><div class="c">5</div><div class="c">25</div></div>
+      <div class="row"><div class="f">Cloud sync storage</div><div class="c">5 GB</div><div class="c">20 GB</div><div class="c">80 GB</div></div>
+      <div class="row"><div class="f">Automation capacity</div><div class="c">Basic</div><div class="c">Standard</div><div class="c">Advanced</div></div>
+      <div class="row"><div class="f">Support</div><div class="c">Email</div><div class="c">Priority</div><div class="c">Dedicated</div></div>
+      <div class="row"><div class="f">Security controls</div><div class="c">Standard</div><div class="c">Role-based</div><div class="c">Custom policy</div></div>
+    </section>
+
+    <section class="faq">
+      <article class="panel">
+        <h3>FAQ</h3>
+        <div class="qa">
+          <b>Can I switch plans later?</b>
+          <p>Yes. Upgrades are immediate and prorated. Downgrades apply on the next billing cycle without deleting your data.</p>
+        </div>
+        <div class="qa">
+          <b>How does yearly discount work?</b>
+          <p>Yearly billing gives 20% savings while preserving all feature limits of the selected plan.</p>
+        </div>
+        <div class="qa">
+          <b>Where do I manage invoices and payment methods?</b>
+          <p>All post-subscription operations move to Billing Management, kept separate from this conversion page for cleaner marketing flow.</p>
+        </div>
+      </article>
+      <article class="panel final-cta">
+        <h3>Ready to activate?</h3>
+        <p>Select your plan first, then continue to Billing Management for payment method setup, coupon application, and invoice control.</p>
+        <button class="btn">Continue to Billing</button>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

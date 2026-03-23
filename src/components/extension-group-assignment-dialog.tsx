@@ -3,7 +3,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
   Dialog,
@@ -14,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ProBadge } from "@/components/ui/pro-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, ExtensionGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -31,6 +32,7 @@ interface ExtensionGroupAssignmentDialogProps {
   selectedProfiles: string[];
   onAssignmentComplete: () => void;
   profiles?: BrowserProfile[];
+  limitedMode?: boolean;
 }
 
 export function ExtensionGroupAssignmentDialog({
@@ -39,6 +41,7 @@ export function ExtensionGroupAssignmentDialog({
   selectedProfiles,
   onAssignmentComplete,
   profiles = [],
+  limitedMode = false,
 }: ExtensionGroupAssignmentDialogProps) {
   const { t } = useTranslation();
   const [groups, setGroups] = useState<ExtensionGroup[]>([]);
@@ -48,22 +51,30 @@ export function ExtensionGroupAssignmentDialog({
   const [error, setError] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
+    if (limitedMode) {
+      setGroups([]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
       const groupList = await invoke<ExtensionGroup[]>("list_extension_groups");
       setGroups(groupList);
     } catch (err) {
-      console.error("Failed to load extension groups:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load extension groups",
-      );
+      setGroups([]);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [limitedMode]);
 
   const handleAssign = useCallback(async () => {
+    if (limitedMode) {
+      showErrorToast(t("extensions.proRequired"));
+      return;
+    }
     setIsAssigning(true);
     setError(null);
     try {
@@ -74,27 +85,37 @@ export function ExtensionGroupAssignmentDialog({
         });
       }
 
-      toast.success(t("extensions.assignSuccess"));
+      showSuccessToast(t("extensions.assignSuccess"));
       onAssignmentComplete();
       onClose();
     } catch (err) {
-      console.error("Failed to assign extension group:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to assign extension group";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsAssigning(false);
     }
-  }, [selectedProfiles, selectedGroupId, onAssignmentComplete, onClose, t]);
+  }, [
+    limitedMode,
+    selectedProfiles,
+    selectedGroupId,
+    onAssignmentComplete,
+    onClose,
+    t,
+  ]);
 
   useEffect(() => {
     if (isOpen) {
-      void loadGroups();
+      if (limitedMode) {
+        setGroups([]);
+      } else {
+        void loadGroups();
+      }
       setSelectedGroupId(null);
       setError(null);
     }
-  }, [isOpen, loadGroups]);
+  }, [isOpen, limitedMode, loadGroups]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -109,6 +130,14 @@ export function ExtensionGroupAssignmentDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {limitedMode && (
+            <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <ProBadge />
+                {t("extensions.proRequired")}
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>{t("extensions.assignTitle")}:</Label>
             <ScrollArea className="p-3 bg-muted rounded-md max-h-32">
@@ -161,7 +190,7 @@ export function ExtensionGroupAssignmentDialog({
           </div>
 
           {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -178,7 +207,7 @@ export function ExtensionGroupAssignmentDialog({
           <LoadingButton
             isLoading={isAssigning}
             onClick={() => void handleAssign()}
-            disabled={isLoading}
+            disabled={isLoading || limitedMode}
           >
             {t("common.buttons.apply")}
           </LoadingButton>

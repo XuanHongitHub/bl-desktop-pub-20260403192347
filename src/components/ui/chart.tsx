@@ -9,6 +9,7 @@ import type {
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 
+import { formatLocaleNumber } from "@/lib/locale-format";
 import { cn } from "@/lib/utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -251,7 +252,7 @@ const ChartTooltipContent = React.forwardRef<
                         </div>
                         {item.value && (
                           <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
+                            {formatLocaleNumber(item.value)}
                           </span>
                         )}
                       </div>

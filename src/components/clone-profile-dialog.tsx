@@ -62,7 +62,7 @@ export function CloneProfileDialog({
       onCloneComplete?.();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      showErrorToast(`Failed to clone profile: ${errorMessage}`);
+      showErrorToast(t("profileInfo.clone.failed", { message: errorMessage }));
     } finally {
       setIsLoading(false);
     }

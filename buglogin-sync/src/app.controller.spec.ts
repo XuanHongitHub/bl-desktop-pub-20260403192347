@@ -62,6 +62,8 @@ describe("AppController", () => {
         },
         control: {
           controlApiTokenConfigured: false,
+          databaseUrlConfigured: false,
+          sqliteFileConfigured: true,
           controlStateFileConfigured: false,
         },
         stripe: {

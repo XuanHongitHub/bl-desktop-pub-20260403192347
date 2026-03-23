@@ -11,14 +11,21 @@ export interface BillingCheckoutIntent {
   couponDiscountPercent?: number | null;
   checkoutStartedAt?: string | null;
   checkoutCompletedAt?: string | null;
+  stripeCheckoutSessionId?: string | null;
+  checkoutAmountUsd?: number | null;
+  prorationCreditUsd?: number | null;
+  prorationRemainingDays?: number | null;
   activationMethod?: "stripe" | "coupon" | "license" | null;
+  autoStartStripeCheckout?: boolean;
 }
 
 const BILLING_CHECKOUT_INTENT_KEY = "buglogin.billing.checkout-intent.v1";
 const BILLING_CHECKOUT_INTENT_EVENT = "buglogin:billing-checkout-intent";
 
 function canUseStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return (
+    typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+  );
 }
 
 export function readBillingCheckoutIntent(): BillingCheckoutIntent | null {
@@ -46,7 +53,21 @@ export function readBillingCheckoutIntent(): BillingCheckoutIntent | null {
           : null,
       checkoutStartedAt: parsed.checkoutStartedAt ?? null,
       checkoutCompletedAt: parsed.checkoutCompletedAt ?? null,
+      stripeCheckoutSessionId: parsed.stripeCheckoutSessionId ?? null,
+      checkoutAmountUsd:
+        typeof parsed.checkoutAmountUsd === "number"
+          ? parsed.checkoutAmountUsd
+          : null,
+      prorationCreditUsd:
+        typeof parsed.prorationCreditUsd === "number"
+          ? parsed.prorationCreditUsd
+          : null,
+      prorationRemainingDays:
+        typeof parsed.prorationRemainingDays === "number"
+          ? parsed.prorationRemainingDays
+          : null,
       activationMethod: parsed.activationMethod ?? null,
+      autoStartStripeCheckout: Boolean(parsed.autoStartStripeCheckout),
     };
   } catch {
     return null;
@@ -86,12 +107,19 @@ export function resolveBillingCheckoutIntentForContext(
   return intent;
 }
 
-export function writeBillingCheckoutIntent(intent: BillingCheckoutIntent): BillingCheckoutIntent {
+export function writeBillingCheckoutIntent(
+  intent: BillingCheckoutIntent,
+): BillingCheckoutIntent {
   if (!canUseStorage()) {
     return intent;
   }
-  window.localStorage.setItem(BILLING_CHECKOUT_INTENT_KEY, JSON.stringify(intent));
-  window.dispatchEvent(new CustomEvent(BILLING_CHECKOUT_INTENT_EVENT, { detail: intent }));
+  window.localStorage.setItem(
+    BILLING_CHECKOUT_INTENT_KEY,
+    JSON.stringify(intent),
+  );
+  window.dispatchEvent(
+    new CustomEvent(BILLING_CHECKOUT_INTENT_EVENT, { detail: intent }),
+  );
   return intent;
 }
 
@@ -100,7 +128,9 @@ export function clearBillingCheckoutIntent(): void {
     return;
   }
   window.localStorage.removeItem(BILLING_CHECKOUT_INTENT_KEY);
-  window.dispatchEvent(new CustomEvent(BILLING_CHECKOUT_INTENT_EVENT, { detail: null }));
+  window.dispatchEvent(
+    new CustomEvent(BILLING_CHECKOUT_INTENT_EVENT, { detail: null }),
+  );
 }
 
 export function subscribeBillingCheckoutIntent(

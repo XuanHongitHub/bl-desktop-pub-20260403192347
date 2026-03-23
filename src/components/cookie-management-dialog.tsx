@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LuChevronDown, LuChevronRight, LuUpload } from "react-icons/lu";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
@@ -121,6 +122,7 @@ export function CookieManagementDialog({
   profile,
   initialTab = "import",
 }: CookieManagementDialogProps) {
+  const { t } = useTranslation();
   // Import state
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -169,14 +171,14 @@ export function CookieManagementDialog({
         setExportCookieData(result);
         setExportSelection(initSelectionFromCookieData(result));
       } catch (err) {
-        toast.error(
-          `Failed to load cookies: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        toast.error(t("cookies.export.loadError"), {
+          description: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         setIsLoadingExportCookies(false);
       }
     },
-    [exportCookieData],
+    [exportCookieData, t],
   );
 
   useEffect(() => {
@@ -219,19 +221,22 @@ export function CookieManagementDialog({
     [resetImportState, resetExportState],
   );
 
-  const handleFileRead = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      setFileContent(content);
-      setFileName(file.name);
-      setCookieCount(countCookies(content));
-    };
-    reader.onerror = () => {
-      toast.error("Failed to read file");
-    };
-    reader.readAsText(file);
-  }, []);
+  const handleFileRead = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setFileContent(content);
+        setFileName(file.name);
+        setCookieCount(countCookies(content));
+      };
+      reader.onerror = () => {
+        toast.error(t("cookies.import.fileReadError"));
+      };
+      reader.readAsText(file);
+    },
+    [t],
+  );
 
   const handleImport = useCallback(async () => {
     if (!fileContent || !profile) return;
@@ -284,7 +289,10 @@ export function CookieManagementDialog({
         defaultPath: defaultName,
         filters: [
           {
-            name: format === "json" ? "JSON" : "Text",
+            name:
+              format === "json"
+                ? t("cookies.export.json")
+                : t("cookies.export.text"),
             extensions: [ext],
           },
         ],
@@ -296,14 +304,14 @@ export function CookieManagementDialog({
       }
 
       await writeTextFile(filePath, content);
-      toast.success("Cookies exported successfully");
+      toast.success(t("cookies.export.success"));
       handleClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setIsExporting(false);
     }
-  }, [profile, format, getSelectedCookies, handleClose]);
+  }, [profile, format, getSelectedCookies, handleClose, t]);
 
   const toggleDomain = useCallback(
     (domain: string, cookies: UnifiedCookie[]) => {
@@ -381,7 +389,7 @@ export function CookieManagementDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Cookie Management</DialogTitle>
+          <DialogTitle>{t("cookies.management.title")}</DialogTitle>
         </DialogHeader>
 
         <Tabs
@@ -390,15 +398,19 @@ export function CookieManagementDialog({
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="import">Import</TabsTrigger>
-            <TabsTrigger value="export">Export</TabsTrigger>
+            <TabsTrigger value="import">
+              {t("common.buttons.import")}
+            </TabsTrigger>
+            <TabsTrigger value="export">
+              {t("common.buttons.export")}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="import" className="space-y-4 mt-4">
             {!fileContent && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Import cookies from a Netscape or JSON format file.
+                  {t("cookies.import.description")}
                 </p>
                 <div
                   role="button"
@@ -416,9 +428,11 @@ export function CookieManagementDialog({
                 >
                   <LuUpload className="w-10 h-10 text-muted-foreground mb-4" />
                   <p className="text-sm text-muted-foreground text-center">
-                    Click to choose a cookie file
+                    {t("cookies.import.dropzoneTitle")}
                     <br />
-                    <span className="text-xs">(.txt, .cookies, or .json)</span>
+                    <span className="text-xs">
+                      {t("cookies.import.dropzoneFormats")}
+                    </span>
                   </p>
                   <input
                     id="cookie-file-input"
@@ -441,20 +455,20 @@ export function CookieManagementDialog({
                   <div>
                     <div className="font-medium">{fileName}</div>
                     <div className="text-sm text-muted-foreground">
-                      {cookieCount} cookies found
+                      {t("cookies.import.preview", { count: cookieCount })}
                     </div>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <RippleButton variant="outline" onClick={resetImportState}>
-                    Back
+                    {t("common.buttons.back")}
                   </RippleButton>
                   <LoadingButton
                     isLoading={isImporting}
                     onClick={() => void handleImport()}
                     disabled={cookieCount === 0}
                   >
-                    Import
+                    {t("common.buttons.import")}
                   </LoadingButton>
                 </div>
               </div>
@@ -464,17 +478,23 @@ export function CookieManagementDialog({
               <div className="space-y-4">
                 <div className="p-4 rounded-lg bg-green-500/10">
                   <div className="font-medium text-green-600 dark:text-green-400">
-                    Successfully imported {importResult.cookies_imported}{" "}
-                    cookies ({importResult.cookies_replaced} replaced)
+                    {t("cookies.import.success", {
+                      imported: importResult.cookies_imported,
+                      replaced: importResult.cookies_replaced,
+                    })}
                   </div>
                   {importResult.errors.length > 0 && (
                     <div className="mt-2 text-sm text-muted-foreground">
-                      {importResult.errors.length} line(s) skipped
+                      {t("cookies.import.linesSkipped", {
+                        count: importResult.errors.length,
+                      })}
                     </div>
                   )}
                 </div>
                 <div className="flex justify-end">
-                  <RippleButton onClick={handleClose}>Done</RippleButton>
+                  <RippleButton onClick={handleClose}>
+                    {t("common.buttons.done")}
+                  </RippleButton>
                 </div>
               </div>
             )}
@@ -482,7 +502,7 @@ export function CookieManagementDialog({
 
           <TabsContent value="export" className="space-y-3 mt-4">
             <div className="space-y-2">
-              <Label>Format</Label>
+              <Label>{t("cookies.export.formatLabel")}</Label>
               <Select
                 value={format}
                 onValueChange={(v) => setFormat(v as "netscape" | "json")}
@@ -491,8 +511,12 @@ export function CookieManagementDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="json">JSON</SelectItem>
-                  <SelectItem value="netscape">Netscape TXT</SelectItem>
+                  <SelectItem value="json">
+                    {t("cookies.export.json")}
+                  </SelectItem>
+                  <SelectItem value="netscape">
+                    {t("cookies.export.netscape")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -500,11 +524,13 @@ export function CookieManagementDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>
-                  Cookies{" "}
+                  {t("cookies.export.cookiesLabel")}{" "}
                   {exportCookieData && (
                     <span className="text-muted-foreground font-normal">
-                      ({selectedExportCount} of {exportCookieData.total_count}{" "}
-                      selected)
+                      {t("cookies.export.selectedSummary", {
+                        selected: selectedExportCount,
+                        total: exportCookieData.total_count,
+                      })}
                     </span>
                   )}
                 </Label>
@@ -515,8 +541,8 @@ export function CookieManagementDialog({
                     onClick={toggleSelectAll}
                   >
                     {selectedExportCount === exportCookieData.total_count
-                      ? "Deselect all"
-                      : "Select all"}
+                      ? t("cookies.export.deselectAll")
+                      : t("cookies.export.selectAll")}
                   </button>
                 )}
               </div>
@@ -527,7 +553,7 @@ export function CookieManagementDialog({
                 </div>
               ) : !exportCookieData || exportCookieData.domains.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground border rounded-md">
-                  No cookies found in this profile
+                  {t("cookies.export.empty")}
                 </div>
               ) : (
                 <ScrollArea className="h-[200px] border rounded-md">
@@ -550,14 +576,14 @@ export function CookieManagementDialog({
 
             <div className="flex justify-end gap-2">
               <RippleButton variant="outline" onClick={handleClose}>
-                Cancel
+                {t("common.buttons.cancel")}
               </RippleButton>
               <LoadingButton
                 isLoading={isExporting}
                 onClick={() => void handleExport()}
                 disabled={selectedExportCount === 0}
               >
-                Export
+                {t("common.buttons.export")}
               </LoadingButton>
             </div>
           </TabsContent>

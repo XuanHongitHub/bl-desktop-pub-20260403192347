@@ -77,13 +77,14 @@ static CONFIG: OnceLock<AppEndpoints> = OnceLock::new();
 /// Computed once on first call (reads config file if present), then cached.
 pub fn get() -> &'static AppEndpoints {
   CONFIG.get_or_init(|| {
-    if let Some(config) = load_from_file() {
+    let base_config = if let Some(config) = load_from_file() {
       log::info!("app_config: loaded runtime endpoint overrides from buglogin-config.json");
       config
     } else {
       log::info!("app_config: using default endpoints (api.buglogin.com)");
       AppEndpoints::default()
-    }
+    };
+    apply_env_overrides(base_config)
   })
 }
 
@@ -121,4 +122,36 @@ fn load_from_file() -> Option<AppEndpoints> {
       None
     }
   }
+}
+
+fn env_opt(name: &str) -> Option<String> {
+  std::env::var(name)
+    .ok()
+    .map(|value| value.trim().to_string())
+    .filter(|value| !value.is_empty())
+}
+
+fn apply_env_overrides(mut config: AppEndpoints) -> AppEndpoints {
+  if let Some(value) = env_opt("BUGLOGIN_CLOUD_API_URL") {
+    config.cloud_api_url = value;
+  }
+  if let Some(value) = env_opt("BUGLOGIN_CLOUD_SYNC_URL") {
+    config.cloud_sync_url = value;
+  }
+  if let Some(value) = env_opt("BUGLOGIN_UPDATE_CHECK_URL") {
+    config.update_check_url = value;
+  }
+  if let Some(value) = env_opt("BUGLOGIN_BROWSER_MANIFEST_URL") {
+    config.browser_manifest_url = value;
+  }
+  if let Some(value) = env_opt("BUGLOGIN_AUTH_API_URL") {
+    config.auth_api_url = Some(value);
+  }
+  if let Some(value) = env_opt("BUGLOGIN_STRIPE_PUBLISHABLE_KEY") {
+    config.stripe_publishable_key = Some(value);
+  }
+  if let Some(value) = env_opt("BUGLOGIN_STRIPE_BILLING_URL") {
+    config.stripe_billing_url = Some(value);
+  }
+  config
 }

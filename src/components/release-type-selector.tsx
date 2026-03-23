@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LuCheck, LuChevronsUpDown, LuDownload } from "react-icons/lu";
 import { LoadingButton } from "@/components/loading-button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ export function ReleaseTypeSelector({
   showDownloadButton = true,
   downloadedVersions = [],
 }: ReleaseTypeSelectorProps) {
+  const { t } = useTranslation();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
   const releaseOptions = [
@@ -95,7 +97,7 @@ export function ReleaseTypeSelector({
           </PopoverTrigger>
           <PopoverContent className="p-0">
             <Command>
-              <CommandEmpty>No release types available.</CommandEmpty>
+              <CommandEmpty>{t("releaseTypeSelector.empty")}</CommandEmpty>
               <CommandList>
                 <CommandGroup>
                   {releaseOptions.map((option) => {

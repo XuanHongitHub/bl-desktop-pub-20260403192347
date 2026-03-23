@@ -66,6 +66,17 @@ pub struct CloudAuthState {
   pub logged_in_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalSubscriptionState {
+  pub plan: String,
+  #[serde(rename = "planPeriod")]
+  pub plan_period: Option<String>,
+  #[serde(rename = "subscriptionStatus")]
+  pub subscription_status: String,
+  #[serde(rename = "teamRole", default)]
+  pub team_role: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct OtpRequestResponse {
   message: String,
@@ -117,6 +128,7 @@ struct CloudProxyConfigResponse {
 pub struct CloudAuthManager {
   client: Client,
   state: Mutex<Option<CloudAuthState>>,
+  local_subscription_state: Mutex<Option<LocalSubscriptionState>>,
   refresh_lock: tokio::sync::Mutex<()>,
 }
 
@@ -127,9 +139,11 @@ lazy_static! {
 impl CloudAuthManager {
   fn new() -> Self {
     let state = Self::load_auth_state_from_disk();
+    let local_subscription_state = Self::load_local_subscription_state_from_disk();
     Self {
       client: Client::new(),
       state: Mutex::new(state),
+      local_subscription_state: Mutex::new(local_subscription_state),
       refresh_lock: tokio::sync::Mutex::new(()),
     }
   }
@@ -327,6 +341,43 @@ impl CloudAuthManager {
         let _ = fs::remove_file(path);
       }
     }
+  }
+
+  fn store_local_subscription_state(state: &LocalSubscriptionState) -> Result<(), String> {
+    let path = Self::get_settings_dir().join("local_subscription_state.json");
+    if let Some(parent) = path.parent() {
+      fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
+    }
+    let json =
+      serde_json::to_string_pretty(state).map_err(|e| format!("Failed to serialize: {e}"))?;
+    fs::write(path, json).map_err(|e| format!("Failed to write local subscription state: {e}"))?;
+    Ok(())
+  }
+
+  fn load_local_subscription_state_from_disk() -> Option<LocalSubscriptionState> {
+    let path = Self::get_settings_dir().join("local_subscription_state.json");
+    if !path.exists() {
+      return None;
+    }
+    let content = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+  }
+
+  fn clear_local_subscription_state_from_disk() {
+    let path = Self::get_settings_dir().join("local_subscription_state.json");
+    if path.exists() {
+      let _ = fs::remove_file(path);
+    }
+  }
+
+  fn is_paid_plan(plan: &str, subscription_status: &str, plan_period: Option<&str>) -> bool {
+    let normalized_plan = plan.trim().to_lowercase();
+    let normalized_subscription_status = subscription_status.trim().to_lowercase();
+    let normalized_plan_period = plan_period.map(|period| period.trim().to_lowercase());
+
+    normalized_plan != "free"
+      && (normalized_subscription_status == "active"
+        || normalized_plan_period.as_deref() == Some("lifetime"))
   }
 
   // --- JWT expiry check ---
@@ -625,29 +676,73 @@ impl CloudAuthManager {
 
   pub async fn has_active_paid_subscription(&self) -> bool {
     let state = self.state.lock().await;
-    match &*state {
-      Some(auth) => {
-        auth.user.plan != "free"
-          && (auth.user.subscription_status == "active"
-            || auth.user.plan_period.as_deref() == Some("lifetime"))
-      }
+    if let Some(auth) = &*state {
+      return Self::is_paid_plan(
+        &auth.user.plan,
+        &auth.user.subscription_status,
+        auth.user.plan_period.as_deref(),
+      );
+    }
+    drop(state);
+
+    let local_subscription_state = self.local_subscription_state.lock().await;
+    match &*local_subscription_state {
+      Some(local) => Self::is_paid_plan(
+        &local.plan,
+        &local.subscription_status,
+        local.plan_period.as_deref(),
+      ),
       None => false,
     }
   }
 
   /// Non-async version that uses try_lock, defaults to false if lock can't be acquired.
   pub fn has_active_paid_subscription_sync(&self) -> bool {
-    match self.state.try_lock() {
-      Ok(state) => match &*state {
-        Some(auth) => {
-          auth.user.plan != "free"
-            && (auth.user.subscription_status == "active"
-              || auth.user.plan_period.as_deref() == Some("lifetime"))
-        }
+    if let Ok(state) = self.state.try_lock() {
+      if let Some(auth) = &*state {
+        return Self::is_paid_plan(
+          &auth.user.plan,
+          &auth.user.subscription_status,
+          auth.user.plan_period.as_deref(),
+        );
+      }
+    } else {
+      return false;
+    }
+
+    match self.local_subscription_state.try_lock() {
+      Ok(local_state) => match &*local_state {
+        Some(local) => Self::is_paid_plan(
+          &local.plan,
+          &local.subscription_status,
+          local.plan_period.as_deref(),
+        ),
         None => false,
       },
       Err(_) => false,
     }
+  }
+
+  pub async fn has_pro_or_owner_access(&self) -> bool {
+    if self.has_active_paid_subscription().await {
+      return true;
+    }
+
+    let state = self.state.lock().await;
+    if state
+      .as_ref()
+      .and_then(|auth| auth.user.team_role.as_deref())
+      .is_some_and(|role| role.eq_ignore_ascii_case("owner"))
+    {
+      return true;
+    }
+    drop(state);
+
+    let local_subscription_state = self.local_subscription_state.lock().await;
+    local_subscription_state
+      .as_ref()
+      .and_then(|local| local.team_role.as_deref())
+      .is_some_and(|role| role.eq_ignore_ascii_case("owner"))
   }
 
   pub async fn is_fingerprint_os_allowed(&self, fingerprint_os: Option<&str>) -> bool {
@@ -674,7 +769,28 @@ impl CloudAuthManager {
   async fn clear_auth(&self) {
     let mut state = self.state.lock().await;
     *state = None;
+    drop(state);
+    let mut local_subscription_state = self.local_subscription_state.lock().await;
+    *local_subscription_state = None;
+    drop(local_subscription_state);
     Self::delete_all_cloud_files();
+    Self::clear_local_subscription_state_from_disk();
+  }
+
+  pub async fn sync_local_subscription_state(
+    &self,
+    local_state: Option<LocalSubscriptionState>,
+  ) -> Result<(), String> {
+    let mut state = self.local_subscription_state.lock().await;
+    *state = local_state.clone();
+    drop(state);
+
+    if let Some(local) = local_state {
+      Self::store_local_subscription_state(&local)
+    } else {
+      Self::clear_local_subscription_state_from_disk();
+      Ok(())
+    }
   }
 
   /// API call with 401 retry: if first attempt gets 401, refresh access token and retry once.
@@ -1029,7 +1145,7 @@ pub async fn cloud_logout(app_handle: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn cloud_has_active_subscription() -> Result<bool, String> {
-  Ok(false)
+  Ok(CLOUD_AUTH.has_active_paid_subscription().await)
 }
 
 #[tauri::command]
@@ -1068,6 +1184,17 @@ pub struct CloudProxyUsage {
   pub remaining_mb: i64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LocalSubscriptionSyncPayload {
+  pub plan: String,
+  #[serde(rename = "planPeriod")]
+  pub plan_period: Option<String>,
+  #[serde(rename = "subscriptionStatus")]
+  pub subscription_status: String,
+  #[serde(rename = "teamRole", default)]
+  pub team_role: Option<String>,
+}
+
 #[tauri::command]
 pub async fn cloud_get_proxy_usage() -> Result<Option<CloudProxyUsage>, String> {
   let state = CLOUD_AUTH.state.lock().await;
@@ -1083,6 +1210,22 @@ pub async fn cloud_get_proxy_usage() -> Result<Option<CloudProxyUsage>, String> 
     }
     _ => Ok(None),
   }
+}
+
+#[tauri::command]
+pub async fn cloud_sync_local_subscription_state(
+  state: Option<LocalSubscriptionSyncPayload>,
+) -> Result<(), String> {
+  let mapped = state.map(|item| LocalSubscriptionState {
+    plan: item.plan,
+    plan_period: item.plan_period,
+    subscription_status: item.subscription_status,
+    team_role: item.team_role,
+  });
+
+  CLOUD_AUTH.sync_local_subscription_state(mapped).await?;
+  let _ = crate::events::emit_empty("local-subscription-state-changed");
+  Ok(())
 }
 
 #[tauri::command]

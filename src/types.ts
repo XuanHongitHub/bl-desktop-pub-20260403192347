@@ -90,6 +90,16 @@ export interface RuntimeConfigStatus {
   auth: FeatureConfigStatus;
 }
 
+export interface FeatureAccessSnapshot {
+  pro_features: boolean;
+  extension_management: boolean;
+  cookie_management: boolean;
+  fingerprint_editing: boolean;
+  cross_os_spoofing: boolean;
+  sync_encryption: boolean;
+  read_only: boolean;
+}
+
 export interface SyncServerConfigStatus {
   auth: {
     syncTokenConfigured: boolean;
@@ -97,6 +107,8 @@ export interface SyncServerConfigStatus {
   };
   control: {
     controlApiTokenConfigured: boolean;
+    databaseUrlConfigured?: boolean;
+    sqliteFileConfigured?: boolean;
     controlStateFileConfigured: boolean;
   };
   stripe: {
@@ -112,6 +124,8 @@ export interface SyncServerConfigStatus {
 export interface CloudUser {
   id: string;
   email: string;
+  name?: string;
+  avatar?: string;
   plan: string;
   planPeriod: string | null;
   subscriptionStatus: string;
@@ -124,10 +138,26 @@ export interface CloudUser {
   teamName?: string;
   teamRole?: TeamRole;
   platformRole?: PlatformRole;
+  workspaceSeeds?: CloudWorkspaceSeed[];
 }
 
 export type TeamRole = "owner" | "admin" | "member" | "viewer";
 export type PlatformRole = "platform_admin";
+
+export interface CloudWorkspaceSeed {
+  id: string;
+  name: string;
+  mode: "personal" | "team";
+  role?: TeamRole;
+  members: number;
+  activeInvites: number;
+  activeShareGrants: number;
+  entitlementState: EntitlementState;
+  profileLimit: number;
+  profilesUsed: number;
+  planLabel: string;
+  expiresAt: string | null;
+}
 
 export interface ProfileLockInfo {
   profileId: string;
@@ -148,6 +178,12 @@ export interface ControlWorkspace {
   mode: "personal" | "team";
   createdAt: string;
   createdBy: string;
+  planLabel?: string;
+  profileLimit?: number;
+  billingCycle?: "monthly" | "yearly" | null;
+  subscriptionStatus?: "active" | "past_due" | "canceled";
+  subscriptionSource?: "internal" | "license" | "stripe";
+  expiresAt?: string | null;
 }
 
 export interface ControlWorkspaceOverview {
@@ -225,6 +261,61 @@ export interface ControlAdminOverview {
   entitlementGrace: number;
   entitlementReadOnly: number;
   auditsLast24h: number;
+}
+
+export interface ControlWorkspaceSubscription {
+  workspaceId: string;
+  planId: "starter" | "growth" | "scale" | "custom" | null;
+  planLabel: string;
+  profileLimit: number;
+  billingCycle: "monthly" | "yearly" | null;
+  status: "active" | "past_due" | "canceled";
+  source: "internal" | "license" | "stripe";
+  startedAt: string;
+  expiresAt: string | null;
+  updatedAt: string;
+}
+
+export interface ControlBillingInvoice {
+  id: string;
+  workspaceId: string;
+  planId: "starter" | "growth" | "scale" | "custom";
+  planLabel: string;
+  billingCycle: "monthly" | "yearly";
+  baseAmountUsd: number;
+  amountUsd: number;
+  discountPercent: number;
+  method: "self_host_checkout" | "coupon" | "license" | "stripe";
+  source: "internal" | "license" | "stripe";
+  couponCode: string | null;
+  status: "paid";
+  createdAt: string;
+  paidAt: string;
+  actorUserId: string;
+  stripeSessionId: string | null;
+}
+
+export interface ControlWorkspaceBillingState {
+  workspaceId: string;
+  subscription: ControlWorkspaceSubscription;
+  recentInvoices: ControlBillingInvoice[];
+}
+
+export interface ControlStripeCheckoutCreateResponse {
+  checkoutSessionId: string;
+  checkoutUrl: string;
+  amountUsd: number;
+  discountPercent: number;
+  couponCode: string | null;
+  immediateActivated?: boolean;
+  prorationCreditUsd?: number;
+  prorationRemainingDays?: number;
+}
+
+export interface ControlStripeCheckoutConfirmResponse {
+  status: "pending" | "paid";
+  subscription: ControlWorkspaceSubscription | null;
+  invoice: ControlBillingInvoice | null;
 }
 
 export interface ProfileSyncStatusEvent {
@@ -827,7 +918,21 @@ export interface VpnStatus {
 export type AppSection =
   | "profiles"
   | "proxies"
+  | "pricing"
+  | "billing-checkout"
+  | "billing-coupon"
+  | "billing-license"
   | "billing"
+  | "workspace-admin-overview"
+  | "workspace-admin-directory"
+  | "workspace-admin-permissions"
+  | "workspace-admin-members"
+  | "workspace-admin-access"
+  | "workspace-admin-workspace"
+  | "workspace-admin-audit"
+  | "workspace-admin-system"
+  | "workspace-admin-analytics"
+  | "workspace-governance"
   | "settings"
   | "integrations"
   | "admin-overview"

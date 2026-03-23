@@ -2,7 +2,9 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
@@ -34,13 +36,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import {
+  applyScopedGroupCounts,
+  DATA_SCOPE_CHANGED_EVENT,
+  getCurrentDataScope,
+  scopeEntitiesForContext,
+} from "@/lib/workspace-data-scope";
 import type { GroupWithCount, ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
 type SyncStatus = "disabled" | "syncing" | "synced" | "error" | "waiting";
 
 function getSyncStatusDot(
+  t: TFunction,
   group: GroupWithCount,
   liveStatus: SyncStatus | undefined,
 ): { color: string; tooltip: string; animate: boolean } {
@@ -48,25 +58,39 @@ function getSyncStatusDot(
 
   switch (status) {
     case "syncing":
-      return { color: "bg-yellow-500", tooltip: "Syncing...", animate: true };
+      return {
+        color: "bg-yellow-500",
+        tooltip: t("common.status.syncing"),
+        animate: true,
+      };
     case "synced":
       return {
         color: "bg-green-500",
         tooltip: group.last_sync
-          ? `Synced ${new Date(group.last_sync * 1000).toLocaleString()}`
-          : "Synced",
+          ? t("profiles.table.syncedAt", {
+              time: formatLocaleDateTime(group.last_sync * 1000),
+            })
+          : t("common.status.synced"),
         animate: false,
       };
     case "waiting":
       return {
         color: "bg-yellow-500",
-        tooltip: "Waiting to sync",
+        tooltip: t("profiles.table.waitingToSync"),
         animate: false,
       };
     case "error":
-      return { color: "bg-red-500", tooltip: "Sync error", animate: false };
+      return {
+        color: "bg-red-500",
+        tooltip: t("profiles.table.syncError"),
+        animate: false,
+      };
     default:
-      return { color: "bg-gray-400", tooltip: "Not synced", animate: false };
+      return {
+        color: "bg-gray-400",
+        tooltip: t("sync.mode.disabledDescription"),
+        animate: false,
+      };
   }
 }
 
@@ -81,6 +105,7 @@ export function GroupManagementDialog({
   onClose,
   onGroupManagementComplete,
 }: GroupManagementDialogProps) {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState<GroupWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,14 +152,40 @@ export function GroupManagementDialog({
     setIsLoading(true);
     setError(null);
     try {
-      const groupList = await invoke<GroupWithCount[]>(
-        "get_groups_with_profile_counts",
+      const [groupList, profileList] = await Promise.all([
+        invoke<GroupWithCount[]>("get_groups_with_profile_counts"),
+        invoke<Array<{ id: string; group_id?: string }>>(
+          "list_browser_profiles",
+        ),
+      ]);
+      const scope = getCurrentDataScope();
+      const scopedProfiles = scopeEntitiesForContext(
+        "profiles",
+        profileList,
+        (profile) => profile.id,
+        scope,
       );
-      setGroups(groupList);
+      const scopedGroups = scopeEntitiesForContext(
+        "groups",
+        groupList,
+        (group) => group.id,
+        scope,
+        { keepGlobalIds: ["default"] },
+      );
+      const mergedGroups = applyScopedGroupCounts(
+        scopedGroups,
+        scopedProfiles,
+        "Default",
+      );
+      setGroups(mergedGroups);
 
       // Check which groups are in use by synced profiles
       const inUse: Record<string, boolean> = {};
-      for (const group of groupList) {
+      for (const group of mergedGroups) {
+        if (group.id === "default") {
+          inUse[group.id] = false;
+          continue;
+        }
         try {
           const inUseBySynced = await invoke<boolean>(
             "is_group_in_use_by_synced_profile",
@@ -213,12 +264,25 @@ export function GroupManagementDialog({
     }
   }, [isOpen, loadGroups]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const handleScopeChanged = () => {
+      void loadGroups();
+    };
+    window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    return () => {
+      window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
+    };
+  }, [isOpen, loadGroups]);
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Manage Profile Groups</DialogTitle>
+            <DialogTitle>{t("groupManagementDialog.title")}</DialogTitle>
             <DialogDescription>
               Create, edit, and delete profile groups. Profiles without a group
               will appear in the "Default" group.
@@ -228,7 +292,7 @@ export function GroupManagementDialog({
           <div className="space-y-4">
             {/* Create new group button */}
             <div className="flex justify-between items-center">
-              <Label>Groups</Label>
+              <Label>{t("groupManagementDialog.groupsLabel")}</Label>
               <RippleButton
                 size="sm"
                 onClick={() => setCreateDialogOpen(true)}
@@ -261,16 +325,23 @@ export function GroupManagementDialog({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead className="w-20">Profiles</TableHead>
-                        <TableHead className="w-24">Sync</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
+                        <TableHead>{t("common.labels.name")}</TableHead>
+                        <TableHead className="w-20">
+                          {t("groupManagementDialog.columns.profiles")}
+                        </TableHead>
+                        <TableHead className="w-24">
+                          {t("common.labels.sync")}
+                        </TableHead>
+                        <TableHead className="w-24">
+                          {t("common.labels.actions")}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {groups.map((group) => {
                         const isDefaultGroup = group.id === "default";
                         const syncDot = getSyncStatusDot(
+                          t,
                           group,
                           groupSyncStatus[group.id],
                         );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BsCamera, BsMic } from "react-icons/bs";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -29,6 +30,7 @@ export function PermissionDialog({
   permissionType,
   onPermissionGranted,
 }: PermissionDialogProps) {
+  const { t } = useTranslation();
   const [isRequesting, setIsRequesting] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
   const {
@@ -101,7 +103,7 @@ export function PermissionDialog({
       );
     } catch (error) {
       console.error("Failed to request permission:", error);
-      showErrorToast("Failed to request permission");
+      showErrorToast(t("permissionDialog.toasts.requestFailed"));
     } finally {
       setIsRequesting(false);
     }
