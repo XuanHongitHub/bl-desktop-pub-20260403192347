@@ -8,6 +8,7 @@ import {
   type BillingPlanId,
 } from "@/lib/billing-plans";
 import { extractRootError } from "@/lib/error-utils";
+import { listSelfHostedSubscriptions } from "@/lib/self-host-billing";
 import { normalizeTeamRole } from "@/lib/team-permissions";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import type {
@@ -21,6 +22,11 @@ import type {
 interface SyncSettings {
   sync_server_url?: string;
   sync_token?: string;
+}
+
+interface ControlBaseUrlResolution {
+  baseUrl: string;
+  hasExplicitConfig: boolean;
 }
 
 interface PublicAuthUser {
@@ -101,6 +107,66 @@ function resolveLocalDevPlatformRole(
     return "platform_admin";
   }
   return email === "platform.admin@buglogin.local" ? "platform_admin" : null;
+}
+
+function shouldRestorePersistedSubscriptionSnapshot(
+  nextUser: CloudUser,
+  persistedUser: CloudUser | null,
+): boolean {
+  if (!persistedUser) {
+    return false;
+  }
+  if (normalizeEmail(nextUser.email) !== normalizeEmail(persistedUser.email)) {
+    return false;
+  }
+  if ((nextUser.workspaceSeeds?.length ?? 0) > 0) {
+    return false;
+  }
+
+  const nextPlanId = normalizePlanIdFromLabel(nextUser.plan);
+  const isNextFree = nextPlanId === "free" || nextUser.plan.toLowerCase() === "free";
+  if (!isNextFree) {
+    return false;
+  }
+
+  const persistedPlanId = normalizePlanIdFromLabel(persistedUser.plan);
+  const hasPersistedPaidPlan =
+    persistedPlanId !== null && persistedPlanId !== "free";
+  const hasPersistedWorkspace = (persistedUser.workspaceSeeds?.length ?? 0) > 0;
+  const hasPersistedLimitUpgrade =
+    Number.isFinite(persistedUser.profileLimit) && persistedUser.profileLimit > 3;
+
+  return hasPersistedPaidPlan || hasPersistedWorkspace || hasPersistedLimitUpgrade;
+}
+
+function restorePersistedSubscriptionSnapshot(
+  nextUser: CloudUser,
+  persistedUser: CloudUser,
+): CloudUser {
+  return {
+    ...nextUser,
+    name: nextUser.name ?? persistedUser.name,
+    avatar: nextUser.avatar ?? persistedUser.avatar,
+    plan: persistedUser.plan ?? nextUser.plan,
+    planPeriod: persistedUser.planPeriod ?? nextUser.planPeriod,
+    subscriptionStatus: persistedUser.subscriptionStatus ?? nextUser.subscriptionStatus,
+    profileLimit: persistedUser.profileLimit ?? nextUser.profileLimit,
+    cloudProfilesUsed: persistedUser.cloudProfilesUsed ?? nextUser.cloudProfilesUsed,
+    proxyBandwidthLimitMb:
+      persistedUser.proxyBandwidthLimitMb ?? nextUser.proxyBandwidthLimitMb,
+    proxyBandwidthUsedMb:
+      persistedUser.proxyBandwidthUsedMb ?? nextUser.proxyBandwidthUsedMb,
+    proxyBandwidthExtraMb:
+      persistedUser.proxyBandwidthExtraMb ?? nextUser.proxyBandwidthExtraMb,
+    teamId: nextUser.teamId ?? persistedUser.teamId,
+    teamName: nextUser.teamName ?? persistedUser.teamName,
+    teamRole: nextUser.teamRole ?? persistedUser.teamRole,
+    platformRole: nextUser.platformRole ?? persistedUser.platformRole,
+    workspaceSeeds:
+      (persistedUser.workspaceSeeds?.length ?? 0) > 0
+        ? persistedUser.workspaceSeeds
+        : nextUser.workspaceSeeds,
+  };
 }
 
 function normalizeBaseUrl(url?: string | null): string | null {
@@ -544,16 +610,30 @@ export function useCloudAuth(): UseCloudAuthReturn {
       updateAuthState(baseState);
 
       const enrichedUser = await enrichUserFromControlPlane(seedUser);
+      const persistedUser = (() => {
+        const persisted = readLocalAuthState();
+        if (!persisted?.user) {
+          return null;
+        }
+        return normalizeEmail(persisted.user.email) === normalizedEmail
+          ? persisted.user
+          : null;
+      })();
+      const resolvedUser =
+        persistedUser &&
+        shouldRestorePersistedSubscriptionSnapshot(enrichedUser, persistedUser)
+          ? restorePersistedSubscriptionSnapshot(enrichedUser, persistedUser)
+          : enrichedUser;
       const finalState: CloudAuthState = {
         ...baseState,
         user: {
-          ...enrichedUser,
+          ...resolvedUser,
           id: publicUser.id,
           email: normalizedEmail,
           platformRole:
             publicUser.platformRole === "platform_admin"
               ? "platform_admin"
-              : enrichedUser.platformRole,
+              : resolvedUser.platformRole,
         },
       };
       updateAuthState(finalState);

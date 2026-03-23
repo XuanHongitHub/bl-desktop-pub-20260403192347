@@ -4,6 +4,7 @@ import {
   BarChart3,
   Building2,
   Check,
+  CreditCard,
   ChevronRight,
   ChevronsUpDown,
   Crown,
@@ -110,12 +111,19 @@ const BILLING_NAV_ITEM: NavLeafItem = {
   icon: Receipt,
 };
 
+const BILLING_CHECKOUT_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "billing-checkout",
+  labelKey: "shell.sections.billingCheckout",
+  icon: CreditCard,
+};
+
 const WORKSPACE_BILLING_NAV_GROUP: NavGroupItem = {
   type: "group",
   id: "workspace-billing",
   labelKey: "shell.sections.billing",
   icon: Receipt,
-  children: [PRICING_NAV_ITEM, BILLING_NAV_ITEM],
+  children: [PRICING_NAV_ITEM, BILLING_CHECKOUT_NAV_ITEM, BILLING_NAV_ITEM],
 };
 
 const WORKSPACE_ADMIN_OVERVIEW_NAV_ITEM: NavLeafItem = {

@@ -525,13 +525,13 @@ export default function Home() {
     }
     const freePlanLabel = t("billingPage.freePlanLabel");
 
-    if (cloudUser.workspaceSeeds && cloudUser.workspaceSeeds.length > 0) {
-      return cloudUser.workspaceSeeds.map((workspace) => {
+    if (cloudUser?.workspaceSeeds && cloudUser?.workspaceSeeds.length > 0) {
+      return cloudUser?.workspaceSeeds.map((workspace) => {
         const planLabel = workspace.planLabel ?? null;
         const workspaceName = resolveWorkspaceDisplayName({
           name: workspace.name,
           mode: workspace.mode,
-          userEmail: cloudUser.email,
+          userEmail: cloudUser?.email,
         });
         return {
           id: workspace.id,
@@ -540,9 +540,9 @@ export default function Home() {
           role: resolveWorkspaceRole({
             workspaceId: workspace.id,
             workspaceMode: workspace.mode,
-            platformRole: cloudUser.platformRole,
+            platformRole: cloudUser?.platformRole,
             workspaceSeedRole: workspace.role ?? null,
-            teamWorkspaceId: cloudUser.teamId ?? null,
+            teamWorkspaceId: cloudUser?.teamId ?? null,
             userTeamRole: teamRole,
           }),
           planLabel,
@@ -559,11 +559,11 @@ export default function Home() {
     }
 
     const defaultPersonalPlanLabel =
-      formatPlanLabel(cloudUser.plan) ?? freePlanLabel;
+      formatPlanLabel(cloudUser?.plan) ?? freePlanLabel;
     const defaultPersonalName = resolveWorkspaceDisplayName({
-      name: cloudUser.email,
+      name: cloudUser?.email,
       mode: "personal",
-      userEmail: cloudUser.email,
+      userEmail: cloudUser?.email,
     });
 
     const rows: Array<{
@@ -576,20 +576,20 @@ export default function Home() {
       profileLimit: number | null;
       expiresAt: string | null;
     }> = [];
-    if (cloudUser.teamId || cloudUser.teamName) {
-      const teamPlanLabel = formatPlanLabel(cloudUser.plan);
+    if (cloudUser?.teamId || cloudUser?.teamName) {
+      const teamPlanLabel = formatPlanLabel(cloudUser?.plan);
       rows.push({
-        id: cloudUser.teamId ?? "team",
-        name: cloudUser.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
+        id: cloudUser?.teamId ?? "team",
+        name: cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
         mode: "team",
         role: teamRole ?? "member",
         planLabel: teamPlanLabel,
         entitlementState: "active",
         profileLimit: resolveWorkspaceProfileLimit({
-          workspaceId: cloudUser.teamId ?? "team",
+          workspaceId: cloudUser?.teamId ?? "team",
           workspaceMode: "team",
           planLabel: teamPlanLabel,
-          profileLimit: cloudUser.profileLimit,
+          profileLimit: cloudUser?.profileLimit,
         }),
         expiresAt: null,
       });
@@ -605,7 +605,7 @@ export default function Home() {
         workspaceId: "personal",
         workspaceMode: "personal",
         planLabel: defaultPersonalPlanLabel,
-        profileLimit: cloudUser.profileLimit,
+        profileLimit: cloudUser?.profileLimit,
       }),
       expiresAt: null,
     });
@@ -631,7 +631,7 @@ export default function Home() {
         const usage = getScopedEntityCountsForWorkspaces(
           "profiles",
           profileRows.map((row) => row.id),
-          cloudUser.id,
+          cloudUser?.id as string,
           fallbackWorkspaceDescriptors.map((workspace) => workspace.id),
         );
         setWorkspaceProfilesUsed(usage);
@@ -676,11 +676,11 @@ export default function Home() {
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
-          "x-user-id": cloudUser.id,
-          "x-user-email": cloudUser.email,
+          "x-user-id": cloudUser?.id as string,
+          "x-user-email": cloudUser?.email as string,
         };
-        if (cloudUser.platformRole) {
-          headers["x-platform-role"] = cloudUser.platformRole;
+        if (cloudUser?.platformRole) {
+          headers["x-platform-role"] = cloudUser?.platformRole;
         }
         if (settings.sync_token?.trim()) {
           headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
@@ -721,7 +721,7 @@ export default function Home() {
           profilesUsedByWorkspace = getScopedEntityCountsForWorkspaces(
             "profiles",
             profileRows.map((row) => row.id),
-            cloudUser.id,
+            cloudUser?.id as string,
             workspaces.map((workspace) => workspace.id),
           );
         } catch {
@@ -755,27 +755,27 @@ export default function Home() {
         const summaryRows: WorkspaceSwitcherSummary[] = workspaces.map(
           (workspace, index) => {
             const overview = overviewRows[index];
-            const seed = cloudUser.workspaceSeeds?.find(
+            const seed = cloudUser?.workspaceSeeds?.find(
               (item) => item.id === workspace.id,
             );
             const fallbackPlanLabel =
               workspace.planLabel ??
-              (workspace.id === cloudUser.teamId
-                ? formatPlanLabel(cloudUser.plan)
+              (workspace.id === cloudUser?.teamId
+                ? formatPlanLabel(cloudUser?.plan)
                 : null);
             const planLabel =
               workspace.planLabel ?? seed?.planLabel ?? fallbackPlanLabel;
             const workspaceName = resolveWorkspaceDisplayName({
               name: workspace.name,
               mode: workspace.mode,
-              userEmail: cloudUser.email,
+              userEmail: cloudUser?.email,
             });
             const workspaceRole = resolveWorkspaceRole({
               workspaceId: workspace.id,
               workspaceMode: workspace.mode,
-              platformRole: cloudUser.platformRole,
+              platformRole: cloudUser?.platformRole,
               workspaceSeedRole: seed?.role ?? null,
-              teamWorkspaceId: cloudUser.teamId ?? null,
+              teamWorkspaceId: cloudUser?.teamId ?? null,
               userTeamRole: teamRole,
             });
             return {
@@ -823,8 +823,8 @@ export default function Home() {
     cloudUser?.platformRole,
     cloudUser?.teamId,
     cloudUser?.teamName,
-    cloudUser.plan,
-    cloudUser.workspaceSeeds?.find,
+    cloudUser?.plan,
+    cloudUser?.workspaceSeeds?.find,
     teamRole,
     cloudUser,
   ]);
@@ -891,62 +891,62 @@ export default function Home() {
     }
 
     const options: WorkspaceSwitcherOption[] = [];
-    if (cloudUser.teamId || cloudUser.teamName) {
-      const teamPlanLabel = formatPlanLabel(cloudUser.plan);
+    if (cloudUser?.teamId || cloudUser?.teamName) {
+      const teamPlanLabel = formatPlanLabel(cloudUser?.plan);
       const teamProfileLimit = resolveWorkspaceProfileLimit({
-        workspaceId: cloudUser.teamId ?? "team",
+        workspaceId: cloudUser?.teamId ?? "team",
         workspaceMode: "team",
         planLabel: teamPlanLabel,
-        profileLimit: cloudUser.profileLimit,
+        profileLimit: cloudUser?.profileLimit,
       });
       options.push({
-        id: cloudUser.teamId ?? "team",
-        label: cloudUser.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
+        id: cloudUser?.teamId ?? "team",
+        label: cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
         details: t("shell.workspaceSwitcher.usageProfiles", {
-          used: cloudUser.cloudProfilesUsed,
+          used: cloudUser?.cloudProfilesUsed,
           limit: teamProfileLimit || "∞",
         }),
         status: t("shell.workspaceSwitcher.planSummary", {
-          plan: `${t(`shell.roles.${teamRole ?? "member"}`)} · ${cloudUser.plan}`,
-          status: cloudUser.subscriptionStatus,
+          plan: `${t(`shell.roles.${teamRole ?? "member"}`)} · ${cloudUser?.plan}`,
+          status: cloudUser?.subscriptionStatus,
         }),
         planLabel: teamPlanLabel ?? undefined,
       });
     }
     const defaultPersonalPlanLabel =
-      formatPlanLabel(cloudUser.plan) ?? freePlanLabel;
+      formatPlanLabel(cloudUser?.plan) ?? freePlanLabel;
     const defaultPersonalName = resolveWorkspaceDisplayName({
-      name: cloudUser.email,
+      name: cloudUser?.email,
       mode: "personal",
-      userEmail: cloudUser.email,
+      userEmail: cloudUser?.email,
     });
     const personalProfileLimit = resolveWorkspaceProfileLimit({
       workspaceId: "personal",
       workspaceMode: "personal",
       planLabel: defaultPersonalPlanLabel,
-      profileLimit: cloudUser.profileLimit,
+      profileLimit: cloudUser?.profileLimit,
     });
     options.push({
       id: "personal",
       label: defaultPersonalName,
       details: t("shell.workspaceSwitcher.usageProfiles", {
-        used: cloudUser.cloudProfilesUsed,
+        used: cloudUser?.cloudProfilesUsed,
         limit: personalProfileLimit || "∞",
       }),
       status: t("shell.workspaceSwitcher.planSummary", {
         plan: `${t("shell.roles.owner")} · ${defaultPersonalPlanLabel}`,
-        status: cloudUser.subscriptionStatus,
+        status: cloudUser?.subscriptionStatus,
       }),
       planLabel: defaultPersonalPlanLabel,
     });
 
-    if (workspaceSwitcherError && cloudUser.platformRole === "platform_admin") {
+    if (workspaceSwitcherError && cloudUser?.platformRole === "platform_admin") {
       options.unshift({
         id: "platform-fallback",
         label: "Bug Media",
         details: t("shell.workspaceSwitcher.syncUnavailable"),
         status: workspaceSwitcherError,
-        planLabel: formatPlanLabel(cloudUser.plan) ?? undefined,
+        planLabel: formatPlanLabel(cloudUser?.plan) ?? undefined,
       });
     }
 
@@ -1072,10 +1072,10 @@ export default function Home() {
         : "active";
     const nextTeamRole = selectedWorkspaceContext.role ?? teamRole ?? "member";
     const syncKey = [
-      cloudUser.id,
+      cloudUser?.id,
       selectedWorkspaceContext.id,
       nextPlan,
-      cloudUser.planPeriod ?? "",
+      cloudUser?.planPeriod ?? "",
       nextSubscriptionStatus,
       nextTeamRole,
     ].join("::");
@@ -1087,7 +1087,7 @@ export default function Home() {
     void invoke("cloud_sync_local_subscription_state", {
       state: {
         plan: nextPlan,
-        planPeriod: cloudUser.planPeriod ?? null,
+        planPeriod: cloudUser?.planPeriod ?? null,
         subscriptionStatus: nextSubscriptionStatus,
         teamRole: nextTeamRole,
       },
@@ -1189,16 +1189,6 @@ export default function Home() {
   const inAdminPanel = activeSection.startsWith("admin-");
   const inWorkspaceGovernancePanel =
     isWorkspaceGovernanceSection(activeSection);
-
-  useEffect(() => {
-    if (
-      activeSection === "billing-checkout" ||
-      activeSection === "billing-coupon" ||
-      activeSection === "billing-license"
-    ) {
-      setActiveSection("billing");
-    }
-  }, [activeSection]);
 
   const selectedWorkspaceOption = useMemo(
     () =>
@@ -1312,12 +1302,12 @@ export default function Home() {
     let isCancelled = false;
     const accountScopeKeys = workspaceOptions.map((workspace) =>
       toDataScopeKey({
-        accountId: cloudUser.id,
+        accountId: cloudUser?.id as string,
         workspaceId: workspace.id,
       }),
     );
     const preferredScopeKey = toDataScopeKey({
-      accountId: cloudUser.id,
+      accountId: cloudUser?.id as string,
       workspaceId: sidebarWorkspaceId,
     });
 
@@ -1326,12 +1316,12 @@ export default function Home() {
         const migrationWorkspaceIds = [sidebarWorkspaceId];
         const didMigrateGuest = migrateDataScopeAccount(
           "guest",
-          cloudUser.id,
+          cloudUser?.id as string,
           migrationWorkspaceIds,
           sidebarWorkspaceId,
         );
         const didNormalizeScopes = normalizeDataScopeWorkspacesForAccount(
-          cloudUser.id,
+          cloudUser?.id as string,
           workspaceOptions.map((workspace) => workspace.id),
           sidebarWorkspaceId,
         );
@@ -1355,7 +1345,7 @@ export default function Home() {
         }
 
         const didAlignGroupScopes = alignEntityScopesFromProfileReferences(
-          cloudUser.id,
+          cloudUser?.id as string,
           "groups",
           profileRows
             .filter((row) => row.group_id && row.group_id !== "default")
@@ -1365,7 +1355,7 @@ export default function Home() {
             })),
         );
         const didAlignProxyScopes = alignEntityScopesFromProfileReferences(
-          cloudUser.id,
+          cloudUser?.id as string,
           "proxies",
           profileRows
             .filter((row) => Boolean(row.proxy_id))
@@ -1375,7 +1365,7 @@ export default function Home() {
             })),
         );
         const didAlignVpnScopes = alignEntityScopesFromProfileReferences(
-          cloudUser.id,
+          cloudUser?.id as string,
           "vpns",
           profileRows
             .filter((row) => Boolean(row.vpn_id))
@@ -1906,8 +1896,20 @@ export default function Home() {
         const oauthPayload = extractOAuthCallbackPayload(normalizedUrl);
         if (oauthPayload) {
           if (oauthPayload.error) {
+            const oauthErrorKey = oauthPayload.error.toLowerCase();
+            const oauthErrorDescriptionMap: Record<string, string> = {
+              invalid_callback_payload: t("authLanding.googleErrorInvalidCallback"),
+              invalid_token_payload: t("authLanding.googleErrorInvalidToken"),
+              google_userinfo_unreachable: t("authLanding.googleErrorUserinfo"),
+              authorization_code_not_supported: t(
+                "authLanding.googleErrorAuthCodeUnsupported",
+              ),
+              missing_oauth_tokens: t("authLanding.googleErrorMissingTokens"),
+              access_denied: t("authLanding.googleErrorAccessDenied"),
+            };
             showErrorToast(t("authLanding.googleLoginErrorTitle"), {
-              description: oauthPayload.error,
+              description:
+                oauthErrorDescriptionMap[oauthErrorKey] ?? oauthPayload.error,
             });
             return;
           }
@@ -3148,7 +3150,15 @@ export default function Home() {
         if (!canManageSelectedWorkspaceBilling) {
           return (
             <WorkspacePageShell
-              title={t("shell.sections.billingManagement")}
+              title={
+                activeSection === "billing"
+                  ? t("shell.sections.billingManagement")
+                  : activeSection === "billing-checkout"
+                    ? t("shell.sections.billingCheckout")
+                    : activeSection === "billing-coupon"
+                      ? t("shell.sections.billingCoupon")
+                      : t("shell.sections.billingLicense")
+              }
               description={t("billingPage.ownerOnlyDescription")}
               contentClassName="max-w-none space-y-4 pb-0"
             >
@@ -3160,8 +3170,24 @@ export default function Home() {
         }
         return (
           <WorkspacePageShell
-            title={t("shell.sections.billingManagement")}
-            description={t("billingPage.managementPageDescription")}
+            title={
+              activeSection === "billing"
+                ? t("shell.sections.billingManagement")
+                : activeSection === "billing-checkout"
+                  ? t("shell.sections.billingCheckout")
+                  : activeSection === "billing-coupon"
+                    ? t("shell.sections.billingCoupon")
+                    : t("shell.sections.billingLicense")
+            }
+            description={
+              activeSection === "billing"
+                ? t("billingPage.managementPageDescription")
+                : activeSection === "billing-checkout"
+                  ? t("billingPage.checkoutPageDescription")
+                  : activeSection === "billing-coupon"
+                    ? t("billingPage.couponPageDescription")
+                    : t("billingPage.licensePageDescription")
+            }
             contentClassName="max-w-none space-y-4 pb-0"
           >
             <WorkspaceBillingPage
@@ -3209,7 +3235,7 @@ export default function Home() {
               workspaceName={selectedWorkspaceContext?.name ?? null}
               workspacePlanLabel={selectedWorkspaceContext?.planLabel ?? null}
               workspaceCount={effectiveWorkspaceCount}
-              onOpenBillingManagement={() => setActiveSection("billing")}
+              onOpenBillingManagement={() => setActiveSection("billing-checkout")}
             />
           </WorkspacePageShell>
         );

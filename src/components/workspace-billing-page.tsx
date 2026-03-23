@@ -79,6 +79,7 @@ interface WorkspaceBillingPageProps {
   onOpenAdminWorkspace: () => void;
   onOpenSyncConfig: () => void;
   onOpenPricingPage: () => void;
+  onOpenCheckoutPage: () => void;
 }
 
 interface SyncSettings {
@@ -188,6 +189,7 @@ export function WorkspaceBillingPage({
   onOpenAdminWorkspace,
   onOpenSyncConfig,
   onOpenPricingPage,
+  onOpenCheckoutPage,
 }: WorkspaceBillingPageProps) {
   const { t } = useTranslation();
   const showConfigHints =
@@ -256,9 +258,10 @@ export function WorkspaceBillingPage({
     user.platformRole === "platform_admin" ||
     teamRole === "owner" ||
     teamRole === "admin";
-  const isCheckoutMode = paymentActionTab === "checkout";
-  const isCouponMode = paymentActionTab === "coupon";
-  const isLicenseMode = paymentActionTab === "license";
+  const isManagementMode = mode === "management";
+  const isCheckoutMode = !isManagementMode && paymentActionTab === "checkout";
+  const isCouponMode = !isManagementMode && paymentActionTab === "coupon";
+  const isLicenseMode = !isManagementMode && paymentActionTab === "license";
 
   if (!canManageBilling) {
     return (

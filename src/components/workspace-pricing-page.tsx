@@ -36,7 +36,7 @@ import {
   writePlanAddonConfig,
 } from "@/lib/plan-addon-config";
 import { getPlanTierByBillingPlanId, getPlanTierTone } from "@/lib/plan-tier";
-import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import { showErrorToast } from "@/lib/toast-utils";
 import {
   buildEffectivePlans,
   comparePlanRank,
@@ -289,10 +289,7 @@ export function WorkspacePricingPage({
     ];
   }, [planDefinitions, t]);
 
-  const queuePlanForWorkspace = (
-    planId: BillingPlanId,
-    isDowngrade: boolean,
-  ) => {
+  const queuePlanForWorkspace = (planId: BillingPlanId) => {
     if (!workspaceId) {
       showErrorToast(t("billingPage.workspaceRequiredForBilling"));
       return;
@@ -301,8 +298,6 @@ export function WorkspacePricingPage({
     if (!plan) {
       return;
     }
-    const addon = getAddonState(planAddons, planId);
-    const totalPrice = getEffectivePlanPrice(plan, addon, billingCycle);
     writeBillingCheckoutIntent({
       accountId: user.id,
       planId,
@@ -320,23 +315,7 @@ export function WorkspacePricingPage({
       prorationRemainingDays: null,
       autoStartStripeCheckout: false,
     });
-
-    showSuccessToast(
-      isDowngrade
-        ? t("pricingPage.downgradeQueued")
-        : t("pricingPage.planQueued"),
-      {
-        description: t("pricingPage.planQueuedForWorkspace", {
-          workspace: workspaceName ?? workspaceId,
-          plan: t(`authLanding.plans.${plan.id}.name`),
-          amount: totalPrice,
-          period:
-            billingCycle === "monthly"
-              ? t("authLanding.perMonth")
-              : t("authLanding.perYear"),
-        }),
-      },
-    );
+    onOpenBillingManagement();
   };
 
   const handleSelectPlan = (planId: BillingPlanId) => {
@@ -349,11 +328,7 @@ export function WorkspacePricingPage({
       return;
     }
     if (currentPlanId && planId === currentPlanId) {
-      showSuccessToast(
-        t("pricingPage.currentPlanHint", {
-          plan: t(`authLanding.plans.${planId}.name`),
-        }),
-      );
+      onOpenBillingManagement();
       return;
     }
 
@@ -365,7 +340,7 @@ export function WorkspacePricingPage({
 
     setHasManualPlanSelection(true);
     setSelectedPlanId(planId);
-    queuePlanForWorkspace(planId, isDowngrade);
+    queuePlanForWorkspace(planId);
   };
 
   const handleAddonChange = (
@@ -552,6 +527,20 @@ export function WorkspacePricingPage({
           const isHighlighted = isCurrent || isPending;
           const isDowngrade = comparePlanRank(plan.id, currentPlanId) < 0;
           const isDowngradeDisabled = isDowngrade && !allowSelfServiceDowngrade;
+          const isPlanActionDisabled =
+            (!canManageBilling && !isCurrent) || isDowngradeDisabled;
+          const planActionVariant =
+            isCurrent
+              ? "outline"
+              : isPending || showSelectedState
+                ? "default"
+                : isPlanActionDisabled
+                  ? "outline"
+                  : "default";
+          const planActionClassName =
+            planActionVariant === "default"
+              ? "bg-foreground text-background hover:bg-foreground/90"
+              : "";
           const yearlyDiscountPercent = getYearlyDiscountPercent(plan);
           const addon = getAddonState(planAddons, plan.id);
           const addonPrice = getAddonCost(addon, billingCycle);
@@ -764,24 +753,16 @@ export function WorkspacePricingPage({
 
                 <Button
                   type="button"
-                  className="w-full"
-                  variant={
-                    isCurrent
-                      ? "outline"
-                      : isPending || showSelectedState
-                        ? "default"
-                        : "outline"
-                  }
+                  className={`w-full ${planActionClassName}`.trim()}
+                  variant={planActionVariant}
                   onClick={() => {
-                    if (isPending) {
+                    if (isPending || isCurrent) {
                       onOpenBillingManagement();
                       return;
                     }
                     handleSelectPlan(plan.id);
                   }}
-                  disabled={
-                    (!canManageBilling && !isCurrent) || isDowngradeDisabled
-                  }
+                  disabled={isPlanActionDisabled}
                 >
                   {isCurrent
                     ? canManageBilling

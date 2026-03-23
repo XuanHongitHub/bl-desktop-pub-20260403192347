@@ -426,6 +426,14 @@ export function listSelfHostedInvoices(
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
+export function listSelfHostedSubscriptions(
+  accountId: string,
+): SelfHostedWorkspaceSubscription[] {
+  return Object.values(readSelfHostedBillingState().subscriptions)
+    .filter((subscription) => subscription.accountId === accountId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
 export function activateSelfHostedPlan(input: SelfHostedActivationInput): {
   subscription: SelfHostedWorkspaceSubscription;
   invoice: SelfHostedInvoice;

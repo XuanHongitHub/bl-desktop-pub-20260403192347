@@ -3,6 +3,55 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+function decodeJwtPayload(idToken: string): Record<string, unknown> | null {
+  try {
+    const payloadBase64 = idToken.split(".")[1];
+    if (!payloadBase64) {
+      return null;
+    }
+    const base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((char) => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .join(""),
+    );
+    return JSON.parse(jsonPayload) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchGoogleProfile(
+  accessToken: string,
+): Promise<{ email: string; name?: string; picture?: string } | null> {
+  try {
+    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      email?: unknown;
+      name?: unknown;
+      picture?: unknown;
+    };
+    if (typeof payload.email !== "string" || payload.email.length === 0) {
+      return null;
+    }
+    return {
+      email: payload.email,
+      name: typeof payload.name === "string" ? payload.name : undefined,
+      picture: typeof payload.picture === "string" ? payload.picture : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function OAuthCallbackContent() {
   const searchParams = useSearchParams();
   const [manualDeepLink, setManualDeepLink] = useState<string>(
@@ -10,55 +59,82 @@ function OAuthCallbackContent() {
   );
 
   useEffect(() => {
-    // Chỉ chạy ở phía Client
-    if (typeof window === "undefined") return;
-
-    // Google Implicit Flow trả về token trong URL Hash thay vì query string
-    const hash = window.location.hash.substring(1);
-    const hashParams = new URLSearchParams(hash);
-
-    const idToken = hashParams.get("id_token");
-    const error = hashParams.get("error") || searchParams.get("error");
-
-    let deepLinkTarget = "buglogin://oauth-callback?error=unknown_error";
-
-    if (idToken) {
-      try {
-        // Parse JWT payload (phần thứ 2 của token)
-        const payloadBase64 = idToken.split(".")[1];
-        const base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
-            .join(""),
-        );
-        const user = JSON.parse(jsonPayload);
-
-        const email = encodeURIComponent(user.email || "");
-        const name = encodeURIComponent(user.name || "");
-        const avatar = encodeURIComponent(user.picture || "");
-
-        // Chuyển hướng kèm theo dữ liệu user
-        deepLinkTarget = `buglogin://oauth-callback?email=${email}&name=${name}&avatar=${avatar}`;
-      } catch (_err) {
-        deepLinkTarget = "buglogin://oauth-callback?error=invalid_token";
-      }
-    } else if (error) {
-      deepLinkTarget = `buglogin://oauth-callback?error=${encodeURIComponent(error)}`;
-    } else {
-      // Dự phòng nếu không có gì
-      deepLinkTarget = "buglogin://oauth-callback?error=unknown_error";
+    if (typeof window === "undefined") {
+      return;
     }
-    setManualDeepLink(deepLinkTarget);
-    window.location.assign(deepLinkTarget);
 
-    // Tuỳ chọn: Tự động đóng tab trình duyệt sau vài giây (trình duyệt có thể chặn nếu user ko tương tác)
-    const timer = setTimeout(() => {
-      window.close();
-    }, 3000);
+    let isCancelled = false;
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
-    return () => clearTimeout(timer);
+    const finish = (target: string) => {
+      if (isCancelled) {
+        return;
+      }
+      setManualDeepLink(target);
+      window.location.assign(target);
+      closeTimer = setTimeout(() => {
+        window.close();
+      }, 3000);
+    };
+
+    const resolveDeepLink = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const idToken = hashParams.get("id_token");
+      const accessToken = hashParams.get("access_token");
+      const error = hashParams.get("error") || searchParams.get("error");
+      const code = hashParams.get("code") || searchParams.get("code");
+
+      if (idToken) {
+        const payload = decodeJwtPayload(idToken);
+        const email =
+          payload && typeof payload.email === "string" ? payload.email : null;
+        if (!email) {
+          finish("buglogin://oauth-callback?error=invalid_token_payload");
+          return;
+        }
+        const name =
+          payload && typeof payload.name === "string" ? payload.name : "";
+        const avatar =
+          payload && typeof payload.picture === "string" ? payload.picture : "";
+        finish(
+          `buglogin://oauth-callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`,
+        );
+        return;
+      }
+
+      if (accessToken) {
+        const profile = await fetchGoogleProfile(accessToken);
+        if (!profile) {
+          finish("buglogin://oauth-callback?error=google_userinfo_unreachable");
+          return;
+        }
+        finish(
+          `buglogin://oauth-callback?email=${encodeURIComponent(profile.email)}&name=${encodeURIComponent(profile.name ?? "")}&avatar=${encodeURIComponent(profile.picture ?? "")}`,
+        );
+        return;
+      }
+
+      if (error) {
+        finish(`buglogin://oauth-callback?error=${encodeURIComponent(error)}`);
+        return;
+      }
+
+      if (code) {
+        finish("buglogin://oauth-callback?error=authorization_code_not_supported");
+        return;
+      }
+
+      finish("buglogin://oauth-callback?error=missing_oauth_tokens");
+    };
+
+    void resolveDeepLink();
+
+    return () => {
+      isCancelled = true;
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+      }
+    };
   }, [searchParams]);
 
   return (
