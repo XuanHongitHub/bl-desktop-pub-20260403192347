@@ -47,15 +47,6 @@
       "rpm": {
         "desktopTemplate": "buglogin.desktop",
         "depends": ["xdg-utils"]
-      },
-      "appimage": {
-        "files": {
-          "usr/share/applications/buglogin.desktop": "buglogin.desktop",
-          "usr/share/icons/hicolor/32x32/apps/buglogin.png": "icons/32x32.png",
-          "usr/share/icons/hicolor/128x128/apps/buglogin.png": "icons/128x128.png",
-          "usr/share/icons/hicolor/256x256/apps/buglogin.png": "icons/128x128@2x.png",
-          "usr/share/pixmaps/buglogin.png": "icons/128x128.png"
-        }
       }
     },
     "windows": {
