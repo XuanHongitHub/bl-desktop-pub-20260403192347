@@ -15,6 +15,7 @@ import type {
   CloudAuthState,
   CloudUser,
   ControlMembership,
+  ControlWorkspaceBillingState,
   ControlWorkspace,
   ControlWorkspaceOverview,
 } from "@/types";
@@ -109,72 +110,139 @@ function resolveLocalDevPlatformRole(
   return email === "platform.admin@buglogin.local" ? "platform_admin" : null;
 }
 
-function shouldRestorePersistedSubscriptionSnapshot(
-  nextUser: CloudUser,
-  persistedUser: CloudUser | null,
-): boolean {
-  if (!persistedUser) {
-    return false;
-  }
-  if (normalizeEmail(nextUser.email) !== normalizeEmail(persistedUser.email)) {
-    return false;
-  }
-  if ((nextUser.workspaceSeeds?.length ?? 0) > 0) {
-    return false;
-  }
-
-  const nextPlanId = normalizePlanIdFromLabel(nextUser.plan);
-  const isNextFree = nextPlanId === "free" || nextUser.plan.toLowerCase() === "free";
-  if (!isNextFree) {
-    return false;
-  }
-
-  const persistedPlanId = normalizePlanIdFromLabel(persistedUser.plan);
-  const hasPersistedPaidPlan =
-    persistedPlanId !== null && persistedPlanId !== "free";
-  const hasPersistedWorkspace = (persistedUser.workspaceSeeds?.length ?? 0) > 0;
-  const hasPersistedLimitUpgrade =
-    Number.isFinite(persistedUser.profileLimit) && persistedUser.profileLimit > 3;
-
-  return hasPersistedPaidPlan || hasPersistedWorkspace || hasPersistedLimitUpgrade;
-}
-
-function restorePersistedSubscriptionSnapshot(
-  nextUser: CloudUser,
-  persistedUser: CloudUser,
-): CloudUser {
-  return {
-    ...nextUser,
-    name: nextUser.name ?? persistedUser.name,
-    avatar: nextUser.avatar ?? persistedUser.avatar,
-    plan: persistedUser.plan ?? nextUser.plan,
-    planPeriod: persistedUser.planPeriod ?? nextUser.planPeriod,
-    subscriptionStatus: persistedUser.subscriptionStatus ?? nextUser.subscriptionStatus,
-    profileLimit: persistedUser.profileLimit ?? nextUser.profileLimit,
-    cloudProfilesUsed: persistedUser.cloudProfilesUsed ?? nextUser.cloudProfilesUsed,
-    proxyBandwidthLimitMb:
-      persistedUser.proxyBandwidthLimitMb ?? nextUser.proxyBandwidthLimitMb,
-    proxyBandwidthUsedMb:
-      persistedUser.proxyBandwidthUsedMb ?? nextUser.proxyBandwidthUsedMb,
-    proxyBandwidthExtraMb:
-      persistedUser.proxyBandwidthExtraMb ?? nextUser.proxyBandwidthExtraMb,
-    teamId: nextUser.teamId ?? persistedUser.teamId,
-    teamName: nextUser.teamName ?? persistedUser.teamName,
-    teamRole: nextUser.teamRole ?? persistedUser.teamRole,
-    platformRole: nextUser.platformRole ?? persistedUser.platformRole,
-    workspaceSeeds:
-      (persistedUser.workspaceSeeds?.length ?? 0) > 0
-        ? persistedUser.workspaceSeeds
-        : nextUser.workspaceSeeds,
-  };
-}
-
 function normalizeBaseUrl(url?: string | null): string | null {
   if (!url) {
     return null;
   }
   const normalized = url.trim().replace(/\/$/, "");
   return normalized.length > 0 ? normalized : null;
+}
+
+function resolveControlBaseUrlFromSettings(
+  settings?: SyncSettings | null,
+): ControlBaseUrlResolution {
+  const configuredBaseUrl = normalizeBaseUrl(settings?.sync_server_url);
+  if (configuredBaseUrl) {
+    return {
+      baseUrl: configuredBaseUrl,
+      hasExplicitConfig: true,
+    };
+  }
+
+  const envBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL);
+  if (envBaseUrl) {
+    return {
+      baseUrl: envBaseUrl,
+      hasExplicitConfig: true,
+    };
+  }
+
+  return {
+    baseUrl: "http://127.0.0.1:3929",
+    hasExplicitConfig: false,
+  };
+}
+
+function hydrateUserFromSelfHostedSubscriptions(user: CloudUser): CloudUser {
+  const subscriptions = listSelfHostedSubscriptions(user.id);
+  if (subscriptions.length === 0) {
+    return user;
+  }
+
+  const workspaceSeeds = [...(user.workspaceSeeds ?? [])];
+  const workspaceSeedById = new Map(
+    workspaceSeeds.map((workspace, index) => [workspace.id, index] as const),
+  );
+  let hasPersonalWorkspace = workspaceSeeds.some(
+    (workspace) => workspace.mode === "personal",
+  );
+
+  for (const subscription of subscriptions) {
+    const existingIndex = workspaceSeedById.get(subscription.workspaceId);
+    if (typeof existingIndex === "number") {
+      const existing = workspaceSeeds[existingIndex];
+      workspaceSeeds[existingIndex] = {
+        ...existing,
+        name: existing.name || subscription.workspaceName,
+        planLabel: subscription.planLabel,
+        profileLimit: subscription.profileLimit,
+        entitlementState: "active",
+      };
+      continue;
+    }
+
+    const mode =
+      subscription.workspaceId === "personal"
+        ? "personal"
+        : user.teamId && subscription.workspaceId === user.teamId
+          ? "team"
+          : !hasPersonalWorkspace && subscriptions.length === 1
+            ? "personal"
+            : "team";
+    const role =
+      mode === "personal"
+        ? "owner"
+        : normalizeTeamRole(user.teamRole) ?? "owner";
+    workspaceSeedById.set(subscription.workspaceId, workspaceSeeds.length);
+    workspaceSeeds.push({
+      id: subscription.workspaceId,
+      name: subscription.workspaceName || user.email,
+      mode,
+      role,
+      members: 1,
+      activeInvites: 0,
+      activeShareGrants: 0,
+      entitlementState: "active",
+      profileLimit: subscription.profileLimit,
+      profilesUsed: 0,
+      planLabel: subscription.planLabel,
+      expiresAt: null,
+    });
+    if (mode === "personal") {
+      hasPersonalWorkspace = true;
+    }
+  }
+
+  const teamWorkspace =
+    workspaceSeeds.find((workspace) => workspace.id === user.teamId) ??
+    workspaceSeeds.find((workspace) => workspace.mode === "team") ??
+    null;
+  const personalWorkspace =
+    workspaceSeeds.find((workspace) => workspace.mode === "personal") ?? null;
+  const primaryWorkspace = teamWorkspace ?? personalWorkspace ?? workspaceSeeds[0];
+  const primarySubscription =
+    subscriptions.find(
+      (subscription) => subscription.workspaceId === primaryWorkspace?.id,
+    ) ?? subscriptions[0];
+  const primaryPlanId =
+    primarySubscription?.planId ??
+    normalizePlanIdFromLabel(primaryWorkspace?.planLabel);
+  const primaryPlanConfig = primaryPlanId
+    ? BILLING_PLAN_DEFINITIONS.find((plan) => plan.id === primaryPlanId)
+    : null;
+  const primaryProxyBandwidthLimitMb = primaryPlanConfig
+    ? Math.max(0, Math.round(primaryPlanConfig.proxyGb * 1024))
+    : user.proxyBandwidthLimitMb;
+
+  return {
+    ...user,
+    plan: primaryPlanId ?? user.plan,
+    planPeriod: primarySubscription?.billingCycle ?? user.planPeriod,
+    subscriptionStatus: "active",
+    profileLimit: primaryWorkspace?.profileLimit ?? user.profileLimit,
+    proxyBandwidthLimitMb: primaryProxyBandwidthLimitMb,
+    proxyBandwidthUsedMb: Math.min(
+      user.proxyBandwidthUsedMb,
+      primaryProxyBandwidthLimitMb,
+    ),
+    teamId: teamWorkspace?.id ?? user.teamId,
+    teamName: teamWorkspace?.name ?? user.teamName,
+    teamRole:
+      normalizeTeamRole(teamWorkspace?.role) ??
+      normalizeTeamRole(user.teamRole) ??
+      undefined,
+    workspaceSeeds,
+  };
 }
 
 function deriveLocalUserId(normalizedEmail: string): string {
@@ -373,13 +441,11 @@ export function useCloudAuth(): UseCloudAuthReturn {
     try {
       syncSettings = await invoke<SyncSettings>("get_sync_settings");
     } catch {
-      return user;
+      syncSettings = null;
     }
 
-    const baseUrl = normalizeBaseUrl(syncSettings.sync_server_url);
-    if (!baseUrl) {
-      return user;
-    }
+    const { baseUrl, hasExplicitConfig } =
+      resolveControlBaseUrlFromSettings(syncSettings);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -389,7 +455,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
     if (user.platformRole) {
       headers["x-platform-role"] = user.platformRole;
     }
-    if (syncSettings.sync_token?.trim()) {
+    if (syncSettings?.sync_token?.trim()) {
       headers.Authorization = `Bearer ${syncSettings.sync_token.trim()}`;
     }
 
@@ -407,7 +473,9 @@ export function useCloudAuth(): UseCloudAuthReturn {
 
       let workspaces = await loadWorkspaces();
       if (!workspaces) {
-        return user;
+        return hasExplicitConfig
+          ? user
+          : hydrateUserFromSelfHostedSubscriptions(user);
       }
 
       if (workspaces.length === 0) {
@@ -423,31 +491,48 @@ export function useCloudAuth(): UseCloudAuthReturn {
       }
 
       if (!workspaces || workspaces.length === 0) {
-        return {
+        const emptyWorkspaceUser: CloudUser = {
           ...user,
           teamRole: undefined,
           workspaceSeeds: [],
         };
+        return hasExplicitConfig
+          ? emptyWorkspaceUser
+          : hydrateUserFromSelfHostedSubscriptions(emptyWorkspaceUser);
       }
 
       const details = await Promise.all(
         workspaces.map(async (workspace) => {
-          const [membersResponse, overviewResponse] = await Promise.all([
-            fetch(`${baseUrl}/v1/control/workspaces/${workspace.id}/members`, {
-              method: "GET",
-              headers,
-            }),
-            fetch(`${baseUrl}/v1/control/workspaces/${workspace.id}/overview`, {
-              method: "GET",
-              headers,
-            }),
-          ]);
+          const [membersResponse, overviewResponse, billingResponse] =
+            await Promise.all([
+              fetch(`${baseUrl}/v1/control/workspaces/${workspace.id}/members`, {
+                method: "GET",
+                headers,
+              }),
+              fetch(
+                `${baseUrl}/v1/control/workspaces/${workspace.id}/overview`,
+                {
+                  method: "GET",
+                  headers,
+                },
+              ),
+              fetch(
+                `${baseUrl}/v1/control/workspaces/${workspace.id}/billing/state`,
+                {
+                  method: "GET",
+                  headers,
+                },
+              ),
+            ]);
 
           const members = membersResponse.ok
             ? ((await membersResponse.json()) as ControlMembership[])
             : [];
           const overview = overviewResponse.ok
             ? ((await overviewResponse.json()) as ControlWorkspaceOverview)
+            : null;
+          const billingState = billingResponse.ok
+            ? ((await billingResponse.json()) as ControlWorkspaceBillingState)
             : null;
           const membership = members.find(
             (member) =>
@@ -458,38 +543,44 @@ export function useCloudAuth(): UseCloudAuthReturn {
             workspace,
             membership,
             overview,
+            billingState,
           };
         }),
       );
 
-      const workspaceSeeds = details.map((item) => ({
-        id: item.workspace.id,
-        name: resolveWorkspaceName({
-          name: item.workspace.name,
-          mode: item.workspace.mode,
-          userEmail: user.email,
-        }),
-        mode: item.workspace.mode,
-        role: item.membership?.role ?? "member",
-        members: item.overview?.members ?? 0,
-        activeInvites: item.overview?.activeInvites ?? 0,
-        activeShareGrants: item.overview?.activeShareGrants ?? 0,
-        entitlementState: item.overview?.entitlementState ?? "active",
-        profileLimit:
-          typeof item.workspace.profileLimit === "number"
-            ? item.workspace.profileLimit
-            : deriveProfileLimitFromPlanLabel(
-                item.workspace.planLabel,
-                item.workspace.mode,
-              ),
-        profilesUsed: 0,
-        planLabel:
+      const workspaceSeeds = details.map((item) => {
+        const billingSubscription = item.billingState?.subscription ?? null;
+        const planLabel =
           item.workspace.planLabel ??
-          (item.workspace.mode === "personal" ? "Free" : "Starter"),
-        expiresAt: item.workspace.expiresAt ?? null,
-      }));
+          billingSubscription?.planLabel ??
+          (item.workspace.mode === "personal" ? "Free" : "Starter");
+        return {
+          id: item.workspace.id,
+          name: resolveWorkspaceName({
+            name: item.workspace.name,
+            mode: item.workspace.mode,
+            userEmail: user.email,
+          }),
+          mode: item.workspace.mode,
+          role: item.membership?.role ?? "member",
+          members: item.overview?.members ?? 0,
+          activeInvites: item.overview?.activeInvites ?? 0,
+          activeShareGrants: item.overview?.activeShareGrants ?? 0,
+          entitlementState: item.overview?.entitlementState ?? "active",
+          profileLimit:
+            typeof item.workspace.profileLimit === "number"
+              ? item.workspace.profileLimit
+              : typeof billingSubscription?.profileLimit === "number"
+                ? billingSubscription.profileLimit
+                : deriveProfileLimitFromPlanLabel(planLabel, item.workspace.mode),
+          profilesUsed: 0,
+          planLabel,
+          expiresAt:
+            item.workspace.expiresAt ?? billingSubscription?.expiresAt ?? null,
+        };
+      });
 
-      const teamWorkspace =
+      const teamDetail =
         details.find(
           (item) =>
             item.workspace.mode === "team" &&
@@ -497,53 +588,67 @@ export function useCloudAuth(): UseCloudAuthReturn {
               item.membership?.role === "admin" ||
               item.membership?.role === "member" ||
               item.membership?.role === "viewer"),
-        )?.workspace ??
-        details.find((item) => item.workspace.mode === "team")?.workspace ??
+        ) ??
+        details.find((item) => item.workspace.mode === "team") ??
         null;
 
       const teamMembership = details.find(
-        (item) => item.workspace.id === teamWorkspace?.id,
+        (item) => item.workspace.id === teamDetail?.workspace.id,
       )?.membership;
       const teamRole = normalizeTeamRole(teamMembership?.role) ?? undefined;
+      const personalDetail =
+        details.find((item) => item.workspace.mode === "personal") ?? null;
+      const primaryDetail = teamDetail ?? personalDetail ?? details[0] ?? null;
       const primaryPlanLabel =
-        teamWorkspace?.planLabel ??
-        workspaces.find((workspace) => workspace.mode === "personal")
-          ?.planLabel ??
+        primaryDetail?.workspace.planLabel ??
+        primaryDetail?.billingState?.subscription.planLabel ??
         "Free";
-      const normalizedPlanId = normalizePlanIdFromLabel(primaryPlanLabel);
+      const primaryPlanPeriod =
+        primaryDetail?.workspace.billingCycle ??
+        primaryDetail?.billingState?.subscription.billingCycle ??
+        null;
+      const primarySubscriptionStatus =
+        primaryDetail?.workspace.subscriptionStatus ??
+        primaryDetail?.billingState?.subscription.status ??
+        "active";
+      const primaryProfileLimit =
+        typeof primaryDetail?.workspace.profileLimit === "number"
+          ? primaryDetail.workspace.profileLimit
+          : typeof primaryDetail?.billingState?.subscription.profileLimit ===
+                "number"
+            ? primaryDetail.billingState.subscription.profileLimit
+            : user.profileLimit;
+      const normalizedPlanId =
+        primaryDetail?.billingState?.subscription.planId ??
+        normalizePlanIdFromLabel(primaryPlanLabel) ??
+        "free";
 
       return {
         ...user,
-        plan: normalizedPlanId ?? "free",
-        planPeriod: teamWorkspace?.billingCycle ?? null,
-        subscriptionStatus: teamWorkspace?.subscriptionStatus ?? "active",
-        profileLimit:
-          typeof teamWorkspace?.profileLimit === "number"
-            ? teamWorkspace.profileLimit
-            : user.profileLimit,
-        teamId: teamWorkspace?.id,
-        teamName: teamWorkspace?.name,
+        plan: normalizedPlanId,
+        planPeriod: primaryPlanPeriod,
+        subscriptionStatus: primarySubscriptionStatus,
+        profileLimit: primaryProfileLimit,
+        teamId: teamDetail?.workspace.id,
+        teamName: teamDetail?.workspace.name,
         teamRole,
         workspaceSeeds,
       };
     } catch {
-      return user;
+      return hasExplicitConfig
+        ? user
+        : hydrateUserFromSelfHostedSubscriptions(user);
     }
   }, []);
 
   const resolveControlBaseUrl = useCallback(async (): Promise<string> => {
-    const syncSettings = await invoke<SyncSettings>("get_sync_settings");
-    const configuredBaseUrl = normalizeBaseUrl(syncSettings.sync_server_url);
-    if (configuredBaseUrl) {
-      return configuredBaseUrl;
+    let syncSettings: SyncSettings | null = null;
+    try {
+      syncSettings = await invoke<SyncSettings>("get_sync_settings");
+    } catch {
+      syncSettings = null;
     }
-    const envBaseUrl = normalizeBaseUrl(
-      process.env.NEXT_PUBLIC_SYNC_SERVER_URL,
-    );
-    if (envBaseUrl) {
-      return envBaseUrl;
-    }
-    return "http://127.0.0.1:3929";
+    return resolveControlBaseUrlFromSettings(syncSettings).baseUrl;
   }, []);
 
   const requestControlPublicAuth = useCallback(
@@ -610,30 +715,16 @@ export function useCloudAuth(): UseCloudAuthReturn {
       updateAuthState(baseState);
 
       const enrichedUser = await enrichUserFromControlPlane(seedUser);
-      const persistedUser = (() => {
-        const persisted = readLocalAuthState();
-        if (!persisted?.user) {
-          return null;
-        }
-        return normalizeEmail(persisted.user.email) === normalizedEmail
-          ? persisted.user
-          : null;
-      })();
-      const resolvedUser =
-        persistedUser &&
-        shouldRestorePersistedSubscriptionSnapshot(enrichedUser, persistedUser)
-          ? restorePersistedSubscriptionSnapshot(enrichedUser, persistedUser)
-          : enrichedUser;
       const finalState: CloudAuthState = {
         ...baseState,
         user: {
-          ...resolvedUser,
+          ...enrichedUser,
           id: publicUser.id,
           email: normalizedEmail,
           platformRole:
             publicUser.platformRole === "platform_admin"
               ? "platform_admin"
-              : resolvedUser.platformRole,
+              : enrichedUser.platformRole,
         },
       };
       updateAuthState(finalState);

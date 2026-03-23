@@ -107,7 +107,6 @@ export function WorkspacePricingPage({
   user,
   teamRole,
   workspaceId = null,
-  workspaceMode = null,
   workspaceName = null,
   workspacePlanLabel = null,
   workspaceCount,
@@ -160,19 +159,11 @@ export function WorkspacePricingPage({
   const hasWorkspacePlanLabel = normalizedWorkspacePlanLabel.length > 0;
 
   const currentPlanId = useMemo(() => {
-    if (workspaceMode === "personal") {
-      return null;
-    }
     if (hasWorkspacePlanLabel) {
       return normalizePlanIdFromLabel(normalizedWorkspacePlanLabel);
     }
     return normalizePlanId(user.plan);
-  }, [
-    hasWorkspacePlanLabel,
-    normalizedWorkspacePlanLabel,
-    user.plan,
-    workspaceMode,
-  ]);
+  }, [hasWorkspacePlanLabel, normalizedWorkspacePlanLabel, user.plan]);
 
   const currentPlanDisplayName = useMemo(() => {
     if (currentPlanId) {

@@ -180,7 +180,6 @@ export function WorkspaceBillingPage({
   user,
   teamRole,
   workspaceId = null,
-  workspaceMode = null,
   workspaceName = null,
   workspacePlanLabel = null,
   workspaceProfileLimit = null,
@@ -292,19 +291,11 @@ export function WorkspaceBillingPage({
   const normalizedWorkspacePlanLabel = workspacePlanLabel?.trim() ?? "";
   const hasWorkspacePlanLabel = normalizedWorkspacePlanLabel.length > 0;
   const currentPlanId = useMemo(() => {
-    if (workspaceMode === "personal") {
-      return null;
-    }
     if (hasWorkspacePlanLabel) {
       return normalizePlanIdFromLabel(normalizedWorkspacePlanLabel);
     }
     return normalizePlanId(user.plan);
-  }, [
-    hasWorkspacePlanLabel,
-    normalizedWorkspacePlanLabel,
-    user.plan,
-    workspaceMode,
-  ]);
+  }, [hasWorkspacePlanLabel, normalizedWorkspacePlanLabel, user.plan]);
   const currentPlan = useMemo(
     () => (currentPlanId ? getPlanById(planDefinitions, currentPlanId) : null),
     [currentPlanId, planDefinitions],
@@ -392,7 +383,7 @@ export function WorkspaceBillingPage({
     currentPlanId,
     user.profileLimit,
     workspaceProfileLimit,
-    normalizedWorkspacePlanLabel.toLowerCase,
+    normalizedWorkspacePlanLabel,
   ]);
 
   const usageLimit = toIntegerOrZero(
@@ -1077,27 +1068,39 @@ export function WorkspaceBillingPage({
               ) : null}
             </div>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={isCheckoutMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("checkout")}
-              >
-                {t("shell.sections.billingCheckout")}
-              </Button>
-              <Button
-                type="button"
-                variant={isCouponMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("coupon")}
-              >
-                {t("shell.sections.billingCoupon")}
-              </Button>
-              <Button
-                type="button"
-                variant={isLicenseMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("license")}
-              >
-                {t("shell.sections.billingLicense")}
-              </Button>
+              {isManagementMode ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onOpenCheckoutPage}
+                >
+                  {t("shell.sections.billingCheckout")}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant={isCheckoutMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("checkout")}
+                  >
+                    {t("shell.sections.billingCheckout")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isCouponMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("coupon")}
+                  >
+                    {t("shell.sections.billingCoupon")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isLicenseMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("license")}
+                  >
+                    {t("shell.sections.billingLicense")}
+                  </Button>
+                </>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -1143,27 +1146,39 @@ export function WorkspaceBillingPage({
             <Button type="button" variant="outline" onClick={onOpenPricingPage}>
               {t("billingPage.openPricingPage")}
             </Button>
-            <Button
-              type="button"
-              variant={isCheckoutMode ? "secondary" : "outline"}
-              onClick={() => setPaymentActionTab("checkout")}
-            >
-              {t("shell.sections.billingCheckout")}
-            </Button>
-            <Button
-              type="button"
-              variant={isCouponMode ? "secondary" : "outline"}
-              onClick={() => setPaymentActionTab("coupon")}
-            >
-              {t("shell.sections.billingCoupon")}
-            </Button>
-            <Button
-              type="button"
-              variant={isLicenseMode ? "secondary" : "outline"}
-              onClick={() => setPaymentActionTab("license")}
-            >
-              {t("shell.sections.billingLicense")}
-            </Button>
+            {isManagementMode ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onOpenCheckoutPage}
+              >
+                {t("shell.sections.billingCheckout")}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant={isCheckoutMode ? "secondary" : "outline"}
+                  onClick={() => setPaymentActionTab("checkout")}
+                >
+                  {t("shell.sections.billingCheckout")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={isCouponMode ? "secondary" : "outline"}
+                  onClick={() => setPaymentActionTab("coupon")}
+                >
+                  {t("shell.sections.billingCoupon")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={isLicenseMode ? "secondary" : "outline"}
+                  onClick={() => setPaymentActionTab("license")}
+                >
+                  {t("shell.sections.billingLicense")}
+                </Button>
+              </>
+            )}
             {showConfigHints ? (
               <Button
                 type="button"
@@ -1359,41 +1374,63 @@ export function WorkspaceBillingPage({
           <CardHeader className="border-b border-border/60 pb-3">
             <CardTitle className="inline-flex items-center gap-2 text-sm font-semibold">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
-              {t("billingPage.paymentActionCenterTitle")}
+              {isManagementMode
+                ? t("shell.sections.billingManagement")
+                : t("billingPage.paymentActionCenterTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-5">
-            <div className="rounded-lg border border-border/60 bg-background/70 p-3">
-              <p className="text-[12px] font-semibold text-foreground">
-                {t("billingPage.paymentActionCenterBodyTitle")}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {t("billingPage.paymentActionCenterBodyDescription")}
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Button
-                type="button"
-                variant={isCheckoutMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("checkout")}
-              >
-                {t("shell.sections.billingCheckout")}
-              </Button>
-              <Button
-                type="button"
-                variant={isCouponMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("coupon")}
-              >
-                {t("shell.sections.billingCoupon")}
-              </Button>
-              <Button
-                type="button"
-                variant={isLicenseMode ? "secondary" : "outline"}
-                onClick={() => setPaymentActionTab("license")}
-              >
-                {t("shell.sections.billingLicense")}
-              </Button>
-            </div>
+            {isManagementMode ? (
+              <div className="space-y-3 rounded-lg border border-border/60 bg-background/70 p-3">
+                <p className="text-[12px] font-semibold text-foreground">
+                  {t("billingPage.paymentActionCenterBodyTitle")}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {t("billingPage.managementDescription")}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onOpenCheckoutPage}
+                >
+                  {t("shell.sections.billingCheckout")}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                  <p className="text-[12px] font-semibold text-foreground">
+                    {t("billingPage.paymentActionCenterBodyTitle")}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("billingPage.paymentActionCenterBodyDescription")}
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Button
+                    type="button"
+                    variant={isCheckoutMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("checkout")}
+                  >
+                    {t("shell.sections.billingCheckout")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isCouponMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("coupon")}
+                  >
+                    {t("shell.sections.billingCoupon")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isLicenseMode ? "secondary" : "outline"}
+                    onClick={() => setPaymentActionTab("license")}
+                  >
+                    {t("shell.sections.billingLicense")}
+                  </Button>
+                </div>
+              </>
+            )}
 
             {isCheckoutMode ? (
               <>
@@ -1409,6 +1446,22 @@ export function WorkspaceBillingPage({
                       : t("billingPage.paymentSelfHostedDescription")}
                   </p>
                 </div>
+                {!hasPendingPlan ? (
+                  <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("billingPage.selectPlanBeforeClaim")}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={onOpenPricingPage}
+                    >
+                      {t("billingPage.openPricingPage")}
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"

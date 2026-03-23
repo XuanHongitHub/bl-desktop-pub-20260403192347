@@ -3217,6 +3217,7 @@ export default function Home() {
               onOpenAdminWorkspace={() => setActiveSection("admin-overview")}
               onOpenSyncConfig={() => setSyncConfigDialogOpen(true)}
               onOpenPricingPage={() => setActiveSection("pricing")}
+              onOpenCheckoutPage={() => setActiveSection("billing-checkout")}
             />
           </WorkspacePageShell>
         );
