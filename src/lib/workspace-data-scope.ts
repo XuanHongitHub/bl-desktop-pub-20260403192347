@@ -350,11 +350,15 @@ export function migrateDataScopeAccount(
     return false;
   }
 
+  const sanitizedPreferredWorkspaceId = preferredWorkspaceId?.trim() || "";
   const fallbackWorkspaceId = sanitizedWorkspaceIds.includes(
-    preferredWorkspaceId?.trim() || "",
+    sanitizedPreferredWorkspaceId,
   )
-    ? preferredWorkspaceId?.trim()
+    ? sanitizedPreferredWorkspaceId
     : sanitizedWorkspaceIds[0];
+  if (!fallbackWorkspaceId) {
+    return false;
+  }
   const allowedWorkspaceSet = new Set(sanitizedWorkspaceIds);
 
   const registry = readRegistry();
@@ -414,11 +418,15 @@ export function normalizeDataScopeWorkspacesForAccount(
     return false;
   }
 
+  const sanitizedPreferredWorkspaceId = preferredWorkspaceId?.trim() || "";
   const fallbackWorkspaceId = sanitizedWorkspaceIds.includes(
-    preferredWorkspaceId?.trim() || "",
+    sanitizedPreferredWorkspaceId,
   )
-    ? preferredWorkspaceId?.trim()
+    ? sanitizedPreferredWorkspaceId
     : sanitizedWorkspaceIds[0];
+  if (!fallbackWorkspaceId) {
+    return false;
+  }
   const allowedWorkspaceSet = new Set(sanitizedWorkspaceIds);
 
   const registry = readRegistry();
