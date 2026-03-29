@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -296,103 +297,100 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/50 overflow-hidden">
-              <div className="bg-muted/30 px-4 py-2 border-b border-border/50">
-                <span className="text-[13px] font-semibold text-foreground">
-                  {t("adminWorkspace.billing.generatedCoupons")}
-                </span>
-              </div>
-              <Table>
-                <TableHeader className="bg-muted/10">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground">
-                      {t("adminWorkspace.billing.couponCode")}
-                    </TableHead>
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground">
-                      {t("adminWorkspace.columns.source")}
-                    </TableHead>
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground">
-                      {t("adminWorkspace.columns.status")}
-                    </TableHead>
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground">
-                      {t("adminWorkspace.columns.usage")}
-                    </TableHead>
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground">
-                      {t("adminWorkspace.ui.expiry")}
-                    </TableHead>
-                    <TableHead className="h-10 text-[12px] font-medium text-muted-foreground text-right">
-                      {t("adminWorkspace.columns.action")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {props.coupons.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-[13px] text-center py-6 text-muted-foreground"
-                      >
-                        {t("adminWorkspace.billing.noCoupons")}
-                      </TableCell>
+            <div className="space-y-2">
+              <p className="px-1 text-[13px] font-medium text-foreground">
+                {t("adminWorkspace.billing.generatedCoupons")}
+              </p>
+              <ScrollArea className="h-[320px] rounded-md border border-border/70">
+                <Table className="min-w-[720px] overflow-visible">
+                  <TableHeader className="overflow-visible">
+                    <TableRow className="overflow-visible">
+                      <TableHead className="text-[12px] text-muted-foreground">
+                        {t("adminWorkspace.billing.couponCode")}
+                      </TableHead>
+                      <TableHead className="text-[12px] text-muted-foreground">
+                        {t("adminWorkspace.columns.source")}
+                      </TableHead>
+                      <TableHead className="text-[12px] text-muted-foreground">
+                        {t("adminWorkspace.columns.status")}
+                      </TableHead>
+                      <TableHead className="text-[12px] text-muted-foreground">
+                        {t("adminWorkspace.columns.usage")}
+                      </TableHead>
+                      <TableHead className="text-[12px] text-muted-foreground">
+                        {t("adminWorkspace.ui.expiry")}
+                      </TableHead>
+                      <TableHead className="text-[12px] text-muted-foreground text-right">
+                        {t("adminWorkspace.columns.action")}
+                      </TableHead>
                     </TableRow>
-                  ) : (
-                    props.coupons.map((coupon) => (
-                      <TableRow key={coupon.id} className="border-b-border/30">
-                        <TableCell className="text-[13px] font-mono font-bold text-foreground">
-                          <Badge
-                            variant="outline"
-                            className="bg-muted/30 border-primary/20"
-                          >
-                            {coupon.code}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-[13px]">
-                          {coupon.source === "internal"
-                            ? t("adminWorkspace.billing.sourceInternal")
-                            : t("adminWorkspace.billing.sourceStripe")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={coupon.revokedAt ? "outline" : "default"}
-                            className={`text-[11px] font-medium ${coupon.revokedAt ? "bg-muted text-muted-foreground" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-none"}`}
-                          >
-                            {coupon.revokedAt
-                              ? t("adminWorkspace.billing.revokedStatus")
-                              : t("adminWorkspace.billing.activeStatus")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-[12px] text-muted-foreground font-mono">
-                          <span className="text-foreground">
-                            {coupon.redeemedCount}
-                          </span>{" "}
-                          /{" "}
-                          {coupon.maxRedemptions === 0
-                            ? "∞"
-                            : coupon.maxRedemptions}
-                        </TableCell>
-                        <TableCell className="text-[12px] text-muted-foreground">
-                          {formatCouponExpiry(coupon.expiresAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {!coupon.revokedAt && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 px-2.5"
-                              onClick={() =>
-                                props.handleRevokeCoupon(coupon.id)
-                              }
-                              disabled={props.isBusy}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
+                  </TableHeader>
+                  <TableBody className="overflow-visible">
+                    {props.coupons.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-[13px] text-center py-6 text-muted-foreground"
+                        >
+                          {t("adminWorkspace.billing.noCoupons")}
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      props.coupons.map((coupon) => (
+                        <TableRow key={coupon.id} className="hover:bg-accent/50">
+                          <TableCell className="text-[13px] font-mono font-bold text-foreground">
+                            <Badge variant="outline">
+                              {coupon.code}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-[13px]">
+                            {coupon.source === "internal"
+                              ? t("adminWorkspace.billing.sourceInternal")
+                              : t("adminWorkspace.billing.sourceStripe")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={coupon.revokedAt ? "outline" : "secondary"}
+                              className="text-[11px] font-medium"
+                            >
+                              {coupon.revokedAt
+                                ? t("adminWorkspace.billing.revokedStatus")
+                                : t("adminWorkspace.billing.activeStatus")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-[12px] text-muted-foreground font-mono">
+                            <span className="text-foreground">
+                              {coupon.redeemedCount}
+                            </span>{" "}
+                            /{" "}
+                            {coupon.maxRedemptions === 0
+                              ? "∞"
+                              : coupon.maxRedemptions}
+                          </TableCell>
+                          <TableCell className="text-[12px] text-muted-foreground">
+                            {formatCouponExpiry(coupon.expiresAt)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!coupon.revokedAt && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2.5"
+                                onClick={() =>
+                                  props.handleRevokeCoupon(coupon.id)
+                                }
+                                disabled={props.isBusy}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
             </div>
           </CardContent>
         </Card>

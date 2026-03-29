@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getBrowserDisplayName,
   getOSDisplayName,
@@ -7,7 +7,11 @@ import {
 import type { BrowserProfile } from "@/types";
 
 /**
- * Hook for managing browser state
+ * Hook for managing browser state.
+ *
+ * All callbacks use refs internally so they stay referentially stable even when
+ * `profiles` / `runningProfiles` / `launchingProfiles` / `stoppingProfiles` change.
+ * This prevents cascading re-creation of every callback on every profile-list update.
  */
 export function useBrowserState(
   profiles: BrowserProfile[],
@@ -22,148 +26,102 @@ export function useBrowserState(
     setIsClient(true);
   }, []);
 
-  /**
-   * Check if a browser type allows only one instance to run at a time
-   */
+  // Stable refs for volatile inputs — all callbacks read from these.
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
+  const runningRef = useRef(runningProfiles);
+  runningRef.current = runningProfiles;
+  const launchingRef = useRef(launchingProfiles);
+  launchingRef.current = launchingProfiles;
+  const stoppingRef = useRef(stoppingProfiles);
+  stoppingRef.current = stoppingProfiles;
+  const isClientRef = useRef(isClient);
+  isClientRef.current = isClient;
+
   const isSingleInstanceBrowser = useCallback(
     (_browserType: string): boolean => {
-      return false; // No browsers currently require single instance
+      return false;
     },
     [],
   );
 
-  /**
-   * Check if any instance of a specific browser type is currently running
-   */
   const isAnyInstanceRunning = useCallback(
     (browserType: string): boolean => {
-      if (!isClient) return false;
-      return profiles.some(
+      if (!isClientRef.current) return false;
+      return profilesRef.current.some(
         (p) =>
           p.browser === browserType &&
-          (runningProfiles.has(p.id) || p.runtime_state === "Running"),
+          (runningRef.current.has(p.id) || p.runtime_state === "Running"),
       );
     },
-    [profiles, runningProfiles, isClient],
+    [],
   );
 
-  /**
-   * Check if a profile can be launched (not disabled by single-instance rules)
-   */
   const canLaunchProfile = useCallback(
     (profile: BrowserProfile): boolean => {
-      if (!isClient) return false;
-
+      if (!isClientRef.current) return false;
       if (isCrossOsProfile(profile)) return false;
 
       const isRunning =
-        runningProfiles.has(profile.id) || profile.runtime_state === "Running";
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
+      const isLaunching = launchingRef.current.has(profile.id);
+      const isStopping = stoppingRef.current.has(profile.id);
 
-      // If the profile is launching or stopping, disable the button
-      if (isLaunching || isStopping) {
-        return false;
-      }
-
-      // If the profile is already running, it can always be stopped
+      if (isLaunching || isStopping) return false;
       if (isRunning) return true;
 
-      // For single-instance browsers, check if any instance is running
       if (isSingleInstanceBrowser(profile.browser)) {
         return !isAnyInstanceRunning(profile.browser);
       }
-
       return true;
     },
-    [
-      runningProfiles,
-      isClient,
-      isSingleInstanceBrowser,
-      isAnyInstanceRunning,
-      launchingProfiles,
-      stoppingProfiles,
-    ],
+    [isSingleInstanceBrowser, isAnyInstanceRunning],
   );
 
-  /**
-   * Check if a profile can be used for opening links
-   * This is more restrictive than canLaunchProfile as it considers running state
-   */
   const canUseProfileForLinks = useCallback(
     (profile: BrowserProfile): boolean => {
-      if (!isClient) return false;
+      if (!isClientRef.current) return false;
 
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+      const isLaunching = launchingRef.current.has(profile.id);
+      const isStopping = stoppingRef.current.has(profile.id);
+      if (isLaunching || isStopping) return false;
 
-      // If this specific browser is launching or stopping, block it
-      if (isLaunching || isStopping) {
-        return false;
-      }
-
-      // For single-instance browsers
       if (isSingleInstanceBrowser(profile.browser)) {
         const isRunning =
-          runningProfiles.has(profile.id) ||
+          runningRef.current.has(profile.id) ||
           profile.runtime_state === "Running";
-        const runningInstancesOfType = profiles.filter(
+        const runningInstancesOfType = profilesRef.current.filter(
           (p) =>
             p.browser === profile.browser &&
-            (runningProfiles.has(p.id) || p.runtime_state === "Running"),
+            (runningRef.current.has(p.id) || p.runtime_state === "Running"),
         );
-
-        // If no instances are running, any profile of this type can be used
-        if (runningInstancesOfType.length === 0) {
-          return true;
-        }
-
-        // If instances are running, only the running ones can be used
+        if (runningInstancesOfType.length === 0) return true;
         return isRunning;
       }
-
-      // For other browsers, any profile can be used
       return true;
     },
-    [
-      profiles,
-      runningProfiles,
-      isClient,
-      isSingleInstanceBrowser,
-      launchingProfiles,
-      stoppingProfiles,
-    ],
+    [isSingleInstanceBrowser],
   );
 
-  /**
-   * Check if a profile can be selected for actions (delete, move group, etc.)
-   */
   const canSelectProfile = useCallback(
     (profile: BrowserProfile): boolean => {
-      if (!isClient) return false;
+      if (!isClientRef.current) return false;
 
       const isRunning =
-        runningProfiles.has(profile.id) || profile.runtime_state === "Running";
+        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
       const isParked = profile.runtime_state === "Parked";
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+      const isLaunching = launchingRef.current.has(profile.id);
+      const isStopping = stoppingRef.current.has(profile.id);
 
-      // If profile is running, launching, or stopping, block selection
-      if (isRunning || isParked || isLaunching || isStopping) {
-        return false;
-      }
-
+      if (isRunning || isParked || isLaunching || isStopping) return false;
       return true;
     },
-    [isClient, runningProfiles, launchingProfiles, stoppingProfiles],
+    [],
   );
 
-  /**
-   * Get tooltip content for a profile's launch button
-   */
   const getLaunchTooltipContent = useCallback(
     (profile: BrowserProfile): string => {
-      if (!isClient) return "Loading...";
+      if (!isClientRef.current) return "Loading...";
 
       if (isCrossOsProfile(profile) && profile.host_os) {
         const osName = getOSDisplayName(profile.host_os);
@@ -171,21 +129,13 @@ export function useBrowserState(
       }
 
       const isRunning =
-        runningProfiles.has(profile.id) || profile.runtime_state === "Running";
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
+      const isLaunching = launchingRef.current.has(profile.id);
+      const isStopping = stoppingRef.current.has(profile.id);
 
-      if (isLaunching) {
-        return "Launching browser...";
-      }
-
-      if (isStopping) {
-        return "Stopping browser...";
-      }
-
-      if (isRunning) {
-        return "";
-      }
+      if (isLaunching) return "Launching browser...";
+      if (isStopping) return "Stopping browser...";
+      if (isRunning) return "";
 
       if (
         isSingleInstanceBrowser(profile.browser) &&
@@ -193,48 +143,30 @@ export function useBrowserState(
       ) {
         return `Only one instance of this browser can run at a time. Stop the running browser first.`;
       }
-
       return "";
     },
-    [
-      runningProfiles,
-      isClient,
-      isSingleInstanceBrowser,
-      canLaunchProfile,
-      launchingProfiles,
-      stoppingProfiles,
-    ],
+    [isSingleInstanceBrowser, canLaunchProfile],
   );
 
-  /**
-   * Get tooltip content for profile selection (for opening links)
-   */
   const getProfileTooltipContent = useCallback(
     (profile: BrowserProfile): string | null => {
-      if (!isClient) return null;
+      if (!isClientRef.current) return null;
 
       const canUseForLinks = canUseProfileForLinks(profile);
-
       if (canUseForLinks) return null;
 
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+      const isLaunching = launchingRef.current.has(profile.id);
+      const isStopping = stoppingRef.current.has(profile.id);
 
-      if (isLaunching) {
-        return "Profile is currently launching. Please wait.";
-      }
-
-      if (isStopping) {
-        return "Profile is currently stopping. Please wait.";
-      }
+      if (isLaunching) return "Profile is currently launching. Please wait.";
+      if (isStopping) return "Profile is currently stopping. Please wait.";
 
       if (isSingleInstanceBrowser(profile.browser)) {
-        const runningInstancesOfType = profiles.filter(
+        const runningInstancesOfType = profilesRef.current.filter(
           (p) =>
             p.browser === profile.browser &&
-            (runningProfiles.has(p.id) || p.runtime_state === "Running"),
+            (runningRef.current.has(p.id) || p.runtime_state === "Running"),
         );
-
         if (runningInstancesOfType.length > 0) {
           const runningProfileNames = runningInstancesOfType
             .map((p) => p.name)
@@ -242,18 +174,9 @@ export function useBrowserState(
           return `${getBrowserDisplayName(profile.browser)} browser is already running (${runningProfileNames}). Only one instance can run at a time.`;
         }
       }
-
       return "This profile cannot be used for opening links right now.";
     },
-    [
-      profiles,
-      runningProfiles,
-      isClient,
-      canUseProfileForLinks,
-      isSingleInstanceBrowser,
-      launchingProfiles,
-      stoppingProfiles,
-    ],
+    [canUseProfileForLinks, isSingleInstanceBrowser],
   );
 
   return {

@@ -1,32 +1,23 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import {
-  BarChart3,
-  CreditCard,
-  FileText,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useControlPlane } from "@/hooks/use-control-plane";
 import { extractRootError } from "@/lib/error-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type {
+  AppSection,
+  BrowserProfile,
+  CloudUser,
   EntitlementSnapshot,
   RuntimeConfigStatus,
+  StoredProxy,
   TeamRole,
 } from "@/types";
-import { AdminAuditTab } from "./admin/admin-audit-tab";
-import { AdminBillingTab } from "./admin/admin-billing-tab";
-
-import { AdminOverviewTab } from "./admin/admin-overview-tab";
-import { AdminSystemTab } from "./admin/admin-system-tab";
-import {
-  AdminWorkspaceTab,
-  type WorkspaceAdminFlow,
-} from "./admin/admin-workspace-tab";
+import type { WorkspaceAdminFlow } from "./admin/admin-workspace-tab";
+import { PageLoader } from "./ui/page-loader";
 import {
   Card,
   CardContent,
@@ -34,28 +25,109 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+
+function AdminPanelLoadingCard() {
+  return (
+    <Card className="border-border/70 shadow-none">
+      <CardContent className="p-6">
+        <PageLoader mode="inline" />
+      </CardContent>
+    </Card>
+  );
+}
+
+const AdminOverviewTab = dynamic(
+  () =>
+    import("./admin/admin-overview-tab").then((mod) => mod.AdminOverviewTab),
+  {
+    ssr: false,
+    loading: () => <AdminPanelLoadingCard />,
+  },
+);
+
+const AdminWorkspaceTab = dynamic(
+  () =>
+    import("./admin/admin-workspace-tab").then((mod) => mod.AdminWorkspaceTab),
+  {
+    ssr: false,
+    loading: () => <AdminPanelLoadingCard />,
+  },
+);
+
+const AdminBillingTab = dynamic(
+  () => import("./admin/admin-billing-tab").then((mod) => mod.AdminBillingTab),
+  {
+    ssr: false,
+    loading: () => <AdminPanelLoadingCard />,
+  },
+);
+
+const AdminTiktokCookiesTab = dynamic(
+  () =>
+    import("./admin/admin-tiktok-cookies-tab").then(
+      (mod) => mod.AdminTiktokCookiesTab,
+    ),
+  {
+    ssr: false,
+    loading: () => <AdminPanelLoadingCard />,
+  },
+);
+
+const AdminAuditTab = dynamic(
+  () => import("./admin/admin-audit-tab").then((mod) => mod.AdminAuditTab),
+  {
+    ssr: false,
+    loading: () => <AdminPanelLoadingCard />,
+  },
+);
 
 interface PlatformAdminWorkspaceProps {
   runtimeConfig: RuntimeConfigStatus | null;
   entitlement: EntitlementSnapshot | null;
+  cloudUser?: CloudUser | null;
   platformRole?: string;
   teamRole?: TeamRole | null;
+  workspaceProfiles: BrowserProfile[];
+  storedProxies: StoredProxy[];
+  isWorkspaceProfilesLoading?: boolean;
+  isStoredProxiesLoading?: boolean;
+  refreshWorkspaceProfiles: () => Promise<void>;
+  refreshStoredProxies: () => Promise<void>;
   sidebarTab?: AdminTab;
   workspaceFlow?: WorkspaceAdminFlow | null;
   showWorkspaceFlowTabs?: boolean;
   workspaceScopedOnly?: boolean;
+  minimalView?: boolean;
   workspaceContextId?: string | null;
   onWorkspaceContextChange?: (workspaceId: string) => void;
+  onNavigateSection?: (section: AppSection) => void;
+  initialPanelPage?: string | null;
 }
 
 type AdminTab =
   | "overview"
   | "workspace"
   | "billing"
-  | "audit"
-  | "system"
-  | "analytics";
+  | "cookies"
+  | "audit";
+
+type PanelScope = "super_admin" | "workspace_owner";
+
+type PanelPageDefinition = {
+  id: string;
+  titleKey: string;
+  descriptionKey: string;
+  tab: AdminTab | "workspace_profiles" | "workspace_billing";
+  flow?: WorkspaceAdminFlow | null;
+  iconTab?: AdminTab;
+  platformOnly?: boolean;
+};
+
+type PanelGroupDefinition = {
+  id: string;
+  titleKey: string;
+  pages: PanelPageDefinition[];
+};
 const INVITABLE_ROLES: TeamRole[] = ["member", "viewer"];
 
 function isValidEmail(email: string): boolean {
@@ -65,14 +137,24 @@ function isValidEmail(email: string): boolean {
 export function PlatformAdminWorkspace({
   runtimeConfig,
   entitlement,
+  cloudUser,
   platformRole,
   teamRole,
+  workspaceProfiles,
+  storedProxies,
+  isWorkspaceProfilesLoading = false,
+  isStoredProxiesLoading = false,
+  refreshWorkspaceProfiles,
+  refreshStoredProxies,
   sidebarTab,
   workspaceFlow,
   showWorkspaceFlowTabs,
   workspaceScopedOnly = false,
+  minimalView = false,
   workspaceContextId,
   onWorkspaceContextChange,
+  onNavigateSection,
+  initialPanelPage = null,
 }: PlatformAdminWorkspaceProps) {
   const { t } = useTranslation();
   const [reason, setReason] = useState("");
@@ -101,12 +183,16 @@ export function PlatformAdminWorkspace({
   const [membershipRoleDrafts, setMembershipRoleDrafts] = useState<
     Record<string, TeamRole>
   >({});
+  const shouldLoadTiktokData =
+    minimalView ||
+    sidebarTab === "cookies" ||
+    initialPanelPage?.includes("cookies") === true;
 
   const {
     runtime,
     isLoading,
-    error,
-    clearError,
+    isTiktokDataBootstrapping,
+    isTiktokDataReady,
     workspaces,
     selectedWorkspaceId,
     selectedWorkspace,
@@ -116,14 +202,20 @@ export function PlatformAdminWorkspace({
     shareGrants,
     coupons,
     auditLogs,
+    tiktokCookies,
     adminOverview,
+    adminWorkspaceHealth,
     serverConfigStatus,
     setSelectedWorkspaceId,
-    refreshRuntime,
-    refreshWorkspaceList,
     refreshWorkspaceDetails,
     refreshAdminData,
-    refreshServerConfigStatus,
+    refreshTiktokCookies,
+    tiktokCookieSources,
+    tiktokAutomationAccounts,
+    tiktokAutomationRuns,
+    refreshTiktokCookieSources,
+    refreshTiktokAutomationAccounts,
+    refreshTiktokAutomationRuns,
     createWorkspace,
     createInvite,
     revokeInvite,
@@ -133,44 +225,225 @@ export function PlatformAdminWorkspace({
     revokeShareGrant,
     createCoupon,
     revokeCoupon,
-  } = useControlPlane();
+    createTiktokCookie,
+    updateTiktokCookie,
+    deleteTiktokCookie,
+    testTiktokCookie,
+    bulkCreateTiktokCookies,
+    replaceTiktokCookieSources,
+    importTiktokAutomationAccounts,
+    createTiktokAutomationRun,
+    getTiktokAutomationRun,
+    startTiktokAutomationRun,
+    pauseTiktokAutomationRun,
+    resumeTiktokAutomationRun,
+    stopTiktokAutomationRun,
+    updateTiktokAutomationRunItem,
+    pollTiktokAutomationRunEvents,
+    adminTiktokState,
+    refreshAdminTiktokState,
+    saveAdminTiktokState,
+  } = useControlPlane({
+    includeAdminData: !minimalView,
+    includeServerConfigStatus: !minimalView,
+    includeWorkspaceDetails: !minimalView,
+    includeTiktokData: shouldLoadTiktokData,
+    actorUser: cloudUser,
+    actorWorkspaceRole: teamRole ?? null,
+    preferredWorkspaceId: workspaceContextId ?? null,
+  });
 
   const isBusy = isLoading || isCreatingWorkspace || isUpdatingEntitlement;
   const isPlatformAdmin = platformRole === "platform_admin";
   const isTeamOperator = teamRole === "owner" || teamRole === "admin";
+  const canAccessBugIdeaTab = isPlatformAdmin;
+  const panelScope: PanelScope = workspaceScopedOnly
+    ? "workspace_owner"
+    : "super_admin";
 
-  const availableTabs = useMemo<AdminTab[]>(() => {
-    if (workspaceScopedOnly) {
-      return ["overview", "workspace"];
-    }
-    if (isPlatformAdmin)
+  const panelGroups = useMemo<PanelGroupDefinition[]>(() => {
+    if (panelScope === "workspace_owner") {
       return [
-        "overview",
-        "workspace",
-        "billing",
-        "system",
-        "audit",
-        "analytics",
+        {
+          id: "owner-group-command",
+          titleKey: "adminWorkspace.panelTree.owner.groupCommand",
+          pages: [
+            {
+              id: "owner-overview",
+              titleKey: "adminWorkspace.panelTree.owner.pages.overview.title",
+              descriptionKey:
+                "adminWorkspace.panelTree.owner.pages.overview.description",
+              tab: "overview",
+              iconTab: "overview",
+            },
+          ],
+        },
+        {
+          id: "owner-group-team-access",
+          titleKey: "adminWorkspace.panelTree.owner.groupTeamAccess",
+          pages: [
+            {
+              id: "owner-members",
+              titleKey: "adminWorkspace.panelTree.owner.pages.members.title",
+              descriptionKey:
+                "adminWorkspace.panelTree.owner.pages.members.description",
+              tab: "workspace",
+              flow: "directory",
+              iconTab: "workspace",
+            },
+            {
+              id: "owner-share-access",
+              titleKey: "adminWorkspace.panelTree.owner.pages.share.title",
+              descriptionKey:
+                "adminWorkspace.panelTree.owner.pages.share.description",
+              tab: "workspace",
+              flow: "permissions",
+              iconTab: "workspace",
+            },
+          ],
+        },
+        {
+          id: "owner-group-assets",
+          titleKey: "adminWorkspace.panelTree.owner.groupAssets",
+          pages: [
+            {
+              id: "owner-profile-governance",
+              titleKey:
+                "adminWorkspace.panelTree.owner.pages.profileGovernance.title",
+              descriptionKey:
+                "adminWorkspace.panelTree.owner.pages.profileGovernance.description",
+              tab: "workspace_profiles",
+              iconTab: "workspace",
+            },
+            {
+              id: "owner-billing-entitlement",
+              titleKey: "adminWorkspace.panelTree.owner.pages.billing.title",
+              descriptionKey:
+                "adminWorkspace.panelTree.owner.pages.billing.description",
+              tab: "workspace",
+              flow: "plan",
+              iconTab: "workspace",
+            },
+          ],
+        },
       ];
-    if (isTeamOperator) return ["overview", "workspace", "analytics"];
-    return ["overview", "workspace", "analytics"];
-  }, [isPlatformAdmin, isTeamOperator, workspaceScopedOnly]);
+    }
 
-  const [internalActiveTab, setInternalActiveTab] =
-    useState<AdminTab>("overview");
-  const showInternalNavigation = !sidebarTab;
+    const superAdminPages: PanelGroupDefinition[] = [
+      {
+        id: "super-group-command",
+        titleKey: "adminWorkspace.panelTree.super.groupCommand",
+        pages: [
+          {
+            id: "super-command-center",
+            titleKey: "adminWorkspace.panelTree.super.pages.command.title",
+            descriptionKey:
+              "adminWorkspace.panelTree.super.pages.command.description",
+            tab: "overview",
+            iconTab: "overview",
+          },
+          {
+            id: "super-workspace-governance",
+            titleKey: "adminWorkspace.panelTree.super.pages.workspace.title",
+            descriptionKey:
+              "adminWorkspace.panelTree.super.pages.workspace.description",
+            tab: "workspace",
+            iconTab: "workspace",
+          },
+        ],
+      },
+      {
+        id: "super-group-revenue",
+        titleKey: "adminWorkspace.panelTree.super.groupRevenue",
+        pages: [
+          {
+            id: "super-revenue-ops",
+            titleKey: "adminWorkspace.panelTree.super.pages.billing.title",
+            descriptionKey:
+              "adminWorkspace.panelTree.super.pages.billing.description",
+            tab: "billing",
+            iconTab: "billing",
+          },
+        ],
+      },
+      {
+        id: "super-group-governance",
+        titleKey: "adminWorkspace.panelTree.super.groupGovernance",
+        pages: [
+          {
+            id: "super-audit-compliance",
+            titleKey: "adminWorkspace.panelTree.super.pages.audit.title",
+            descriptionKey:
+              "adminWorkspace.panelTree.super.pages.audit.description",
+            tab: "audit",
+            iconTab: "audit",
+          },
+          {
+            id: "super-bugidea-ops",
+            titleKey: "adminWorkspace.panelTree.super.pages.cookies.title",
+            descriptionKey:
+              "adminWorkspace.panelTree.super.pages.cookies.description",
+            tab: "cookies",
+            iconTab: "cookies",
+            platformOnly: true,
+          },
+        ],
+      },
+    ];
 
-  const activeTab = useMemo<AdminTab>(() => {
-    if (sidebarTab && availableTabs.includes(sidebarTab)) return sidebarTab;
-    if (availableTabs.includes(internalActiveTab)) return internalActiveTab;
-    return availableTabs[0];
-  }, [availableTabs, internalActiveTab, sidebarTab]);
+    return superAdminPages
+      .map((group) => ({
+        ...group,
+        pages: group.pages.filter(
+          (page) => !page.platformOnly || canAccessBugIdeaTab,
+        ),
+      }))
+      .filter((group) => group.pages.length > 0);
+  }, [canAccessBugIdeaTab, panelScope]);
 
-  useEffect(() => {
-    if (!showInternalNavigation) return;
-    if (!availableTabs.includes(internalActiveTab))
-      setInternalActiveTab(availableTabs[0]);
-  }, [availableTabs, internalActiveTab, showInternalNavigation]);
+  const panelPages = useMemo(
+    () => panelGroups.flatMap((group) => group.pages),
+    [panelGroups],
+  );
+
+  const sidebarDrivenPageId = useMemo(() => {
+    if (!sidebarTab) {
+      return null;
+    }
+    if (panelScope === "workspace_owner") {
+      if (sidebarTab === "workspace" && workspaceFlow === "overview")
+        return "owner-overview";
+      if (sidebarTab === "overview") return "owner-overview";
+      if (sidebarTab === "workspace" && workspaceFlow === "plan")
+        return "owner-billing-entitlement";
+      if (sidebarTab === "workspace" && workspaceFlow === "permissions")
+        return "owner-share-access";
+      if (sidebarTab === "workspace") return "owner-members";
+      return "owner-overview";
+    }
+
+    if (sidebarTab === "overview") return "super-command-center";
+    if (sidebarTab === "workspace") return "super-workspace-governance";
+    if (sidebarTab === "billing") return "super-revenue-ops";
+    if (sidebarTab === "audit") return "super-audit-compliance";
+    if (sidebarTab === "cookies") return "super-bugidea-ops";
+    return "super-command-center";
+  }, [panelScope, sidebarTab, workspaceFlow]);
+
+  const activePageId = sidebarDrivenPageId ?? initialPanelPage ?? null;
+  const activePanelPage = useMemo(() => {
+    return (
+      panelPages.find((page) => page.id === activePageId) ?? panelPages[0] ?? null
+    );
+  }, [activePageId, panelPages]);
+
+  const activeTab = useMemo<AdminTab | "workspace_profiles" | "workspace_billing">(
+    () => activePanelPage?.tab ?? "overview",
+    [activePanelPage],
+  );
+
+  const resolvedWorkspaceFlow =
+    activePanelPage?.flow ?? workspaceFlow ?? undefined;
 
   useEffect(() => {
     if (INVITABLE_ROLES.includes(inviteRole)) {
@@ -276,23 +549,6 @@ export function PlatformAdminWorkspace({
   const authReady = runtimeConfig?.auth === "ready";
   const stripeReady = runtimeConfig?.stripe === "ready";
   const syncReady = runtimeConfig?.s3_sync === "ready";
-  const panelTitle = isPlatformAdmin
-    ? t("adminWorkspace.panel.platformTitle")
-    : t("adminWorkspace.panel.workspaceTitle");
-  const panelDescription = isPlatformAdmin
-    ? t("adminWorkspace.subtitle")
-    : t("adminWorkspace.workspaceSubtitle");
-  const workspaceGovernanceScope = isPlatformAdmin
-    ? t("adminWorkspace.ui.scopePlatform")
-    : isTeamOperator
-      ? t("adminWorkspace.ui.scopeTeam")
-      : t("adminWorkspace.ui.scopeReadOnly");
-  const contextPanelTitle = workspaceScopedOnly
-    ? t("shell.sections.workspaceGovernance")
-    : t("shell.sections.adminPanel");
-  const contextPanelDescription = workspaceScopedOnly
-    ? t("adminWorkspace.ui.workspaceOpsDescription")
-    : t("adminWorkspace.ui.workspaceDirectoryOpsDescription");
 
   /* Handlers */
   const handleSetEntitlement = async (
@@ -531,323 +787,369 @@ export function PlatformAdminWorkspace({
     }
   };
 
-  return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => {
-        if (showInternalNavigation) setInternalActiveTab(value as AdminTab);
-      }}
-      className={
-        showInternalNavigation
-          ? "grid gap-6 xl:grid-cols-[200px_minmax(0,1fr)] max-w-[1400px] mx-auto"
-          : "space-y-4 max-w-[1400px] mx-auto"
-      }
-    >
-      {showInternalNavigation && (
-        <div className="flex flex-col gap-6 sticky top-6">
-          <div className="px-2">
-            <h2 className="text-[16px] font-semibold tracking-tight">
-              {panelTitle}
-            </h2>
-            <p className="text-[12px] text-muted-foreground mt-1">
-              {panelDescription}
-            </p>
-          </div>
-
-          <TabsList className="flex flex-col h-auto w-full gap-1.5 bg-transparent p-0">
-            {availableTabs.includes("overview") && (
-              <TabsTrigger
-                value="overview"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <BarChart3 className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.overview")}
-              </TabsTrigger>
-            )}
-            {availableTabs.includes("workspace") && (
-              <TabsTrigger
-                value="workspace"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <Users className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.workspace")}
-              </TabsTrigger>
-            )}
-            {availableTabs.includes("billing") && (
-              <TabsTrigger
-                value="billing"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <CreditCard className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.billing")}
-              </TabsTrigger>
-            )}
-            {availableTabs.includes("system") && (
-              <TabsTrigger
-                value="system"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <ShieldCheck className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.system")}
-              </TabsTrigger>
-            )}
-            {availableTabs.includes("audit") && (
-              <TabsTrigger
-                value="audit"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <FileText className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.audit")}
-              </TabsTrigger>
-            )}
-            {availableTabs.includes("analytics") && (
-              <TabsTrigger
-                value="analytics"
-                className="justify-start gap-3 px-3.5 py-2.5 h-10 text-[13px] w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:shadow-none border border-transparent data-[state=active]:border-primary/20"
-              >
-                <BarChart3 className="w-4 h-4 opacity-70" />
-                {t("adminWorkspace.tabs.analytics")}
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          <Card className="shadow-none border-border/40 bg-card rounded-xl overflow-hidden mt-4">
-            <div className="h-1 w-full bg-gradient-to-r from-primary/40 to-primary" />
-            <CardContent className="p-4 bg-muted/10">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                {t("adminWorkspace.ui.currentWorkspace")}
-              </p>
-              <p className="mt-1.5 text-[14px] font-semibold text-foreground line-clamp-1">
-                {selectedWorkspace?.name ??
-                  t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-              </p>
-            </CardContent>
-          </Card>
+  if (minimalView) {
+    if (!canAccessBugIdeaTab) {
+      return (
+        <div className="rounded-md border border-dashed border-border bg-muted/20 p-5 text-[13px] text-muted-foreground">
+          {t("adminWorkspace.bugideaDevOnlyDescription")}
         </div>
-      )}
+      );
+    }
+    return (
+      <AdminTiktokCookiesTab
+        isPlatformAdmin={isPlatformAdmin}
+        isBusy={isBusy}
+        isTiktokDataBootstrapping={isTiktokDataBootstrapping}
+        isTiktokDataReady={isTiktokDataReady}
+        workspaceId={selectedWorkspaceId}
+        adminTiktokState={adminTiktokState}
+        tiktokCookies={tiktokCookies}
+        tiktokCookieSources={tiktokCookieSources}
+        tiktokAutomationAccounts={tiktokAutomationAccounts}
+        tiktokAutomationRuns={tiktokAutomationRuns}
+        workspaceProfiles={workspaceProfiles}
+        storedProxies={storedProxies}
+        isWorkspaceProfilesLoading={isWorkspaceProfilesLoading}
+        isStoredProxiesLoading={isStoredProxiesLoading}
+        refreshWorkspaceProfiles={refreshWorkspaceProfiles}
+        refreshStoredProxies={refreshStoredProxies}
+        refreshTiktokCookies={refreshTiktokCookies}
+        refreshTiktokCookieSources={refreshTiktokCookieSources}
+        refreshTiktokAutomationAccounts={refreshTiktokAutomationAccounts}
+        refreshTiktokAutomationRuns={refreshTiktokAutomationRuns}
+        refreshAdminTiktokState={refreshAdminTiktokState}
+        saveAdminTiktokState={saveAdminTiktokState}
+        createTiktokCookie={createTiktokCookie}
+        updateTiktokCookie={updateTiktokCookie}
+        deleteTiktokCookie={deleteTiktokCookie}
+        testTiktokCookie={testTiktokCookie}
+        bulkCreateTiktokCookies={bulkCreateTiktokCookies}
+        replaceTiktokCookieSources={replaceTiktokCookieSources}
+        importTiktokAutomationAccounts={importTiktokAutomationAccounts}
+        createTiktokAutomationRun={createTiktokAutomationRun}
+        getTiktokAutomationRun={getTiktokAutomationRun}
+        startTiktokAutomationRun={startTiktokAutomationRun}
+        pauseTiktokAutomationRun={pauseTiktokAutomationRun}
+        resumeTiktokAutomationRun={resumeTiktokAutomationRun}
+        stopTiktokAutomationRun={stopTiktokAutomationRun}
+        updateTiktokAutomationRunItem={updateTiktokAutomationRunItem}
+        pollTiktokAutomationRunEvents={pollTiktokAutomationRunEvents}
+      />
+    );
+  }
 
-      <div className="space-y-4 pt-1 pb-10 min-w-0">
-        {!showInternalNavigation && (
-          <Card className="border-border/70 shadow-none">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground">
-                    {contextPanelTitle}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {contextPanelDescription}
-                  </p>
-                  <p className="text-[14px] font-semibold text-foreground">
-                    {selectedWorkspace?.name ??
-                      t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <TabsList className="h-6 rounded-md bg-muted/30 px-1 text-[10px]">
-                    <TabsTrigger
-                      value={activeTab}
-                      className="h-5 cursor-default px-2 py-0 text-[10px] data-[state=active]:bg-background"
-                      disabled
-                    >
-                      {t(`adminWorkspace.tabs.${activeTab}`)}
-                    </TabsTrigger>
-                  </TabsList>
-                  <span className="rounded-md border border-border/60 bg-muted/20 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {workspaceGovernanceScope}
-                  </span>
-                </div>
-              </div>
-              <div className="grid gap-2 md:grid-cols-3">
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {t("adminWorkspace.ui.currentWorkspace")}
-                  </p>
-                  <p className="mt-1 text-[12px] font-semibold text-foreground">
-                    {selectedWorkspace?.name ??
-                      t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {t("adminWorkspace.ui.workspaceId")}
-                  </p>
-                  <p className="mt-1 truncate font-mono text-[11px] text-foreground">
-                    {selectedWorkspaceId ?? "-"}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {t("adminWorkspace.ui.snapshotEntitlement")}
-                  </p>
-                  <p className="mt-1 text-[12px] font-semibold text-foreground">
-                    {entitlementLabel}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        <TabsContent value="overview" className="mt-0 outline-none">
-          <AdminOverviewTab
-            isPlatformAdmin={isPlatformAdmin}
-            workspaceScopedOnly={workspaceScopedOnly}
-            configSummary={configSummary}
-            entitlementLabel={entitlementLabel}
-            controlPlaneStatus={controlPlaneStatus}
-            controlSecuritySummary={controlSecuritySummary}
-            selectedWorkspace={selectedWorkspace}
-            adminOverview={adminOverview}
-            auditLogs={auditLogs}
-            workspaces={workspaces}
-            memberships={memberships}
-            invites={invites}
-            shareGrants={shareGrants}
-            overview={overview}
-            authReady={authReady}
-            stripeReady={stripeReady}
-            syncReady={syncReady}
-          />
-        </TabsContent>
+  const totalProfiles = workspaceProfiles.length;
+  const runningProfiles = workspaceProfiles.filter(
+    (profile) => profile.runtime_state === "Running",
+  ).length;
+  const archivedProfiles = workspaceProfiles.filter(
+    (profile) => profile.runtime_state === "Parked",
+  ).length;
+  const stoppedProfiles = workspaceProfiles.filter(
+    (profile) => profile.runtime_state === "Stopped",
+  ).length;
 
-        <TabsContent value="workspace" className="mt-0 outline-none">
-          <AdminWorkspaceTab
-            isBusy={isBusy}
-            runtimeBaseUrl={runtime.baseUrl}
-            isPlatformAdmin={isPlatformAdmin}
-            isTeamOperator={isTeamOperator}
-            workspaces={workspaces}
-            selectedWorkspaceId={selectedWorkspaceId}
-            selectedWorkspace={selectedWorkspace}
-            overview={overview}
-            memberships={memberships}
-            invites={invites}
-            shareGrants={shareGrants}
-            workspaceName={workspaceName}
-            setWorkspaceName={setWorkspaceName}
-            workspaceMode={workspaceMode}
-            setWorkspaceMode={setWorkspaceMode}
-            inviteEmail={inviteEmail}
-            setInviteEmail={setInviteEmail}
-            inviteRole={inviteRole}
-            setInviteRole={setInviteRole}
-            shareResourceType={shareResourceType}
-            setShareResourceType={setShareResourceType}
-            shareResourceId={shareResourceId}
-            setShareResourceId={setShareResourceId}
-            shareRecipientEmail={shareRecipientEmail}
-            setShareRecipientEmail={setShareRecipientEmail}
-            handleCreateWorkspace={handleCreateWorkspace}
-            setSelectedWorkspaceId={handleWorkspaceSelectionChange}
-            handleCreateInvite={handleCreateInvite}
-            handleRevokeInvite={handleRevokeInvite}
-            membershipRoleDrafts={membershipRoleDrafts}
-            setMembershipRoleDrafts={setMembershipRoleDrafts}
-            handleUpdateRole={handleUpdateRole}
-            handleRemoveMember={handleRemoveMember}
-            handleCreateShare={handleCreateShare}
-            handleRevokeShare={handleRevokeShare}
-            workspaceScopedOnly={workspaceScopedOnly}
-            forcedFlow={workspaceFlow ?? undefined}
-            showFlowTabs={showWorkspaceFlowTabs ?? true}
-          />
-        </TabsContent>
+  const renderMainPanelContent = () => {
+    if (activeTab === "overview") {
+      return (
+        <AdminOverviewTab
+          isPlatformAdmin={isPlatformAdmin}
+          workspaceScopedOnly={workspaceScopedOnly}
+          configSummary={configSummary}
+          entitlementLabel={entitlementLabel}
+          controlPlaneStatus={controlPlaneStatus}
+          controlSecuritySummary={controlSecuritySummary}
+          selectedWorkspace={selectedWorkspace}
+          adminOverview={adminOverview}
+          auditLogs={auditLogs}
+          workspaces={workspaces}
+          memberships={memberships}
+          invites={invites}
+          shareGrants={shareGrants}
+          overview={overview}
+          adminWorkspaceHealth={adminWorkspaceHealth}
+          authReady={authReady}
+          stripeReady={stripeReady}
+          syncReady={syncReady}
+        />
+      );
+    }
 
-        <TabsContent value="billing" className="mt-0 outline-none">
-          <AdminBillingTab
-            isPlatformAdmin={isPlatformAdmin}
-            isBusy={isBusy}
-            reason={reason}
-            setReason={setReason}
-            couponCode={couponCode}
-            setCouponCode={setCouponCode}
-            couponSource={couponSource}
-            setCouponSource={setCouponSource}
-            couponDiscount={couponDiscount}
-            setCouponDiscount={setCouponDiscount}
-            couponMaxRedemptions={couponMaxRedemptions}
-            setCouponMaxRedemptions={setCouponMaxRedemptions}
-            couponExpiresAt={couponExpiresAt}
-            setCouponExpiresAt={setCouponExpiresAt}
-            couponAllowlist={couponAllowlist}
-            setCouponAllowlist={setCouponAllowlist}
-            couponDenylist={couponDenylist}
-            setCouponDenylist={setCouponDenylist}
-            handleCreateCoupon={handleCreateCoupon}
-            handleRevokeCoupon={handleRevokeCoupon}
-            handleSetEntitlement={handleSetEntitlement}
-            refreshAdminData={refreshAdminData}
-            coupons={coupons}
-          />
-        </TabsContent>
+    if (activeTab === "workspace") {
+      return (
+        <AdminWorkspaceTab
+          isBusy={isBusy}
+          runtimeBaseUrl={runtime.baseUrl}
+          isPlatformAdmin={isPlatformAdmin}
+          isTeamOperator={isTeamOperator}
+          workspaceRole={teamRole}
+          workspaces={workspaces}
+          selectedWorkspaceId={selectedWorkspaceId}
+          selectedWorkspace={selectedWorkspace}
+          overview={overview}
+          memberships={memberships}
+          invites={invites}
+          shareGrants={shareGrants}
+          workspaceName={workspaceName}
+          setWorkspaceName={setWorkspaceName}
+          workspaceMode={workspaceMode}
+          setWorkspaceMode={setWorkspaceMode}
+          inviteEmail={inviteEmail}
+          setInviteEmail={setInviteEmail}
+          inviteRole={inviteRole}
+          setInviteRole={setInviteRole}
+          shareResourceType={shareResourceType}
+          setShareResourceType={setShareResourceType}
+          shareResourceId={shareResourceId}
+          setShareResourceId={setShareResourceId}
+          shareRecipientEmail={shareRecipientEmail}
+          setShareRecipientEmail={setShareRecipientEmail}
+          handleCreateWorkspace={handleCreateWorkspace}
+          setSelectedWorkspaceId={handleWorkspaceSelectionChange}
+          handleCreateInvite={handleCreateInvite}
+          handleRevokeInvite={handleRevokeInvite}
+          membershipRoleDrafts={membershipRoleDrafts}
+          setMembershipRoleDrafts={setMembershipRoleDrafts}
+          handleUpdateRole={handleUpdateRole}
+          handleRemoveMember={handleRemoveMember}
+          handleCreateShare={handleCreateShare}
+          handleRevokeShare={handleRevokeShare}
+          currentUserEmail={cloudUser?.email ?? null}
+          currentUserId={cloudUser?.id ?? null}
+          workspaceScopedOnly={workspaceScopedOnly}
+          forcedFlow={resolvedWorkspaceFlow}
+          showFlowTabs={showWorkspaceFlowTabs ?? resolvedWorkspaceFlow == null}
+        />
+      );
+    }
 
-        <TabsContent value="system" className="mt-0 outline-none">
-          <AdminSystemTab
-            isPlatformAdmin={isPlatformAdmin}
-            isBusy={isBusy}
-            refreshServerConfigStatus={refreshServerConfigStatus}
-            authReady={authReady}
-            stripeReady={stripeReady}
-            syncReady={syncReady}
-          />
-        </TabsContent>
+    if (activeTab === "billing") {
+      return (
+        <AdminBillingTab
+          isPlatformAdmin={isPlatformAdmin}
+          isBusy={isBusy}
+          reason={reason}
+          setReason={setReason}
+          couponCode={couponCode}
+          setCouponCode={setCouponCode}
+          couponSource={couponSource}
+          setCouponSource={setCouponSource}
+          couponDiscount={couponDiscount}
+          setCouponDiscount={setCouponDiscount}
+          couponMaxRedemptions={couponMaxRedemptions}
+          setCouponMaxRedemptions={setCouponMaxRedemptions}
+          couponExpiresAt={couponExpiresAt}
+          setCouponExpiresAt={setCouponExpiresAt}
+          couponAllowlist={couponAllowlist}
+          setCouponAllowlist={setCouponAllowlist}
+          couponDenylist={couponDenylist}
+          setCouponDenylist={setCouponDenylist}
+          handleCreateCoupon={handleCreateCoupon}
+          handleRevokeCoupon={handleRevokeCoupon}
+          handleSetEntitlement={handleSetEntitlement}
+          refreshAdminData={refreshAdminData}
+          coupons={coupons}
+        />
+      );
+    }
 
-        <TabsContent value="audit" className="mt-0 outline-none">
-          <AdminAuditTab
-            isPlatformAdmin={isPlatformAdmin}
-            isBusy={isBusy}
-            refreshAdminData={refreshAdminData}
-            auditLogs={auditLogs}
-          />
-        </TabsContent>
+    if (activeTab === "cookies") {
+      return (
+        <AdminTiktokCookiesTab
+          isPlatformAdmin={isPlatformAdmin}
+          isBusy={isBusy}
+          isTiktokDataBootstrapping={isTiktokDataBootstrapping}
+          isTiktokDataReady={isTiktokDataReady}
+          workspaceId={selectedWorkspaceId}
+          adminTiktokState={adminTiktokState}
+          tiktokCookies={tiktokCookies}
+          tiktokCookieSources={tiktokCookieSources}
+          tiktokAutomationAccounts={tiktokAutomationAccounts}
+          tiktokAutomationRuns={tiktokAutomationRuns}
+          workspaceProfiles={workspaceProfiles}
+          storedProxies={storedProxies}
+          isWorkspaceProfilesLoading={isWorkspaceProfilesLoading}
+          isStoredProxiesLoading={isStoredProxiesLoading}
+          refreshWorkspaceProfiles={refreshWorkspaceProfiles}
+          refreshStoredProxies={refreshStoredProxies}
+          refreshTiktokCookies={refreshTiktokCookies}
+          refreshTiktokCookieSources={refreshTiktokCookieSources}
+          refreshTiktokAutomationAccounts={refreshTiktokAutomationAccounts}
+          refreshTiktokAutomationRuns={refreshTiktokAutomationRuns}
+          refreshAdminTiktokState={refreshAdminTiktokState}
+          saveAdminTiktokState={saveAdminTiktokState}
+          createTiktokCookie={createTiktokCookie}
+          updateTiktokCookie={updateTiktokCookie}
+          deleteTiktokCookie={deleteTiktokCookie}
+          testTiktokCookie={testTiktokCookie}
+          bulkCreateTiktokCookies={bulkCreateTiktokCookies}
+          replaceTiktokCookieSources={replaceTiktokCookieSources}
+          importTiktokAutomationAccounts={importTiktokAutomationAccounts}
+          createTiktokAutomationRun={createTiktokAutomationRun}
+          getTiktokAutomationRun={getTiktokAutomationRun}
+          startTiktokAutomationRun={startTiktokAutomationRun}
+          pauseTiktokAutomationRun={pauseTiktokAutomationRun}
+          resumeTiktokAutomationRun={resumeTiktokAutomationRun}
+          stopTiktokAutomationRun={stopTiktokAutomationRun}
+          updateTiktokAutomationRunItem={updateTiktokAutomationRunItem}
+          pollTiktokAutomationRunEvents={pollTiktokAutomationRunEvents}
+        />
+      );
+    }
 
-        <TabsContent value="analytics" className="mt-0 outline-none">
-          <Card className="border-border shadow-none">
-            <CardHeader>
-              <CardTitle className="text-[14px] font-semibold">
-                {t("adminWorkspace.modules.analytics.title")}
-              </CardTitle>
-              <CardDescription className="text-[12px]">
-                {t("adminWorkspace.modules.analytics.description")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-[12px] text-muted-foreground">
-                  {t("adminWorkspace.metrics.workspaces")}
+    if (activeTab === "workspace_billing") {
+      return (
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] font-semibold">
+              {t("adminWorkspace.panelTree.owner.billingCardTitle")}
+            </CardTitle>
+            <CardDescription className="text-[12px]">
+              {t("adminWorkspace.panelTree.owner.billingCardDescription")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("adminWorkspace.ui.planLabel")}
                 </p>
-                <p className="mt-1 text-[18px] font-semibold text-foreground">
-                  {adminOverview?.workspaces ?? workspaces.length}
+                <p className="mt-1 text-[13px] font-semibold text-foreground">
+                  {selectedWorkspace?.planLabel ?? t("adminWorkspace.ui.noPlanLabel")}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-[12px] text-muted-foreground">
-                  {t("adminWorkspace.metrics.members")}
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("adminWorkspace.ui.snapshotEntitlement")}
                 </p>
-                <p className="mt-1 text-[18px] font-semibold text-foreground">
-                  {adminOverview?.members ?? memberships.length}
-                </p>
-              </div>
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-[12px] text-muted-foreground">
-                  {t("adminWorkspace.metrics.invites")}
-                </p>
-                <p className="mt-1 text-[18px] font-semibold text-foreground">
-                  {adminOverview?.activeInvites ?? invites.length}
+                <p className="mt-1 text-[13px] font-semibold text-foreground">
+                  {entitlementLabel}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-[12px] text-muted-foreground">
-                  {t("adminWorkspace.metrics.audits24h")}
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("pricingPage.heroStatProfiles")}
                 </p>
-                <p className="mt-1 text-[18px] font-semibold text-foreground">
-                  {adminOverview?.auditsLast24h ?? auditLogs.length}
+                <p className="mt-1 text-[13px] font-semibold text-foreground">
+                  {selectedWorkspace?.profileLimit ?? "-"}
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </div>
-    </Tabs>
-  );
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("shell.workspaceSwitcher.expiresOn", {
+                    date: selectedWorkspace?.expiresAt ?? "-",
+                  })}
+                </p>
+                <p className="mt-1 text-[13px] font-semibold text-foreground">
+                  {selectedWorkspace?.expiresAt ?? "-"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onNavigateSection?.("billing")}
+                className="rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted/60"
+              >
+                {t("shell.sections.billingManagement")}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateSection?.("pricing")}
+                className="rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted/60"
+              >
+                {t("shell.sections.pricing")}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (activeTab === "workspace_profiles") {
+      return (
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] font-semibold">
+              {t("adminWorkspace.panelTree.owner.profileCardTitle")}
+            </CardTitle>
+            <CardDescription className="text-[12px]">
+              {t("adminWorkspace.panelTree.owner.profileCardDescription")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("profiles.totalProfiles")}
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-foreground">
+                  {totalProfiles}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("profiles.status.running")}
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-foreground">
+                  {runningProfiles}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("profiles.status.stopped")}
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-foreground">
+                  {stoppedProfiles}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t("shell.proxyPage.proxyCount")}
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-foreground">
+                  {storedProxies.length}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">
+                {t("adminWorkspace.panelTree.owner.profileRuntimeHint", {
+                  running: runningProfiles,
+                  parked: archivedProfiles,
+                })}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onNavigateSection?.("profiles")}
+                className="rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted/60"
+              >
+                {t("shell.sections.profiles")}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateSection?.("proxies")}
+                className="rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted/60"
+              >
+                {t("shell.sections.proxies")}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <AdminAuditTab
+        isPlatformAdmin={isPlatformAdmin}
+        isBusy={isBusy}
+        refreshAdminData={refreshAdminData}
+        auditLogs={auditLogs}
+      />
+    );
+  };
+
+  return <div className="space-y-4 pb-10">{renderMainPanelContent()}</div>;
 }

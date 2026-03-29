@@ -3,9 +3,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  CheckCircle2,
   Eye,
   EyeOff,
-  KeyRound,
   Mail,
   MonitorCog,
   Moon,
@@ -33,15 +33,19 @@ import {
 } from "@/lib/themes";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { RuntimeConfigStatus } from "@/types";
+import { Logo } from "./icons/logo";
 import { LoadingButton } from "./loading-button";
-import { Badge } from "./ui/badge";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { ScrollArea } from "./ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { cn } from "@/lib/utils";
 
 type AuthView = "login" | "register" | "forgot";
+type GoogleAuthUiState = "idle" | "browser_opened";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -65,26 +69,39 @@ interface AppSettings {
 }
 
 const REMEMBER_EMAIL_STORAGE_KEY = "buglogin.auth.remember-email.v1";
-const LOCAL_DEV_DEFAULT_PASSWORD = "buglogin123";
-const LOCAL_DEV_QUICK_CREDENTIALS = [
-  {
-    id: "platform_admin",
-    labelKey: "authDialog.quickPresetPlatformAdmin",
-    email: "platform.admin@buglogin.local",
-  },
-  {
-    id: "owner",
-    labelKey: "authDialog.quickPresetOwner",
-    email: "owner.preview@buglogin.local",
-  },
-  {
-    id: "admin",
-    labelKey: "authDialog.quickPresetAdmin",
-    email: "admin.preview@buglogin.local",
-  },
-] as const;
+const LANGUAGE_FLAG_CLASS: Record<string, string> = {
+  vi: "fi fi-vn",
+  en: "fi fi-us",
+};
 
-export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
+function resolveAuthErrorMessage(
+  message: string,
+  t: (key: string) => string,
+): {
+  title: string;
+  description?: string;
+} {
+  if (message.includes("invalid_credentials")) {
+    return {
+      title: t("authLanding.invalidCredentialsTitle"),
+      description: t("authLanding.invalidCredentialsDescription"),
+    };
+  }
+  if (message.includes("email_already_registered")) {
+    return {
+      title: t("authLanding.emailAlreadyRegisteredTitle"),
+      description: t("authLanding.emailAlreadyRegisteredDescription"),
+    };
+  }
+  return {
+    title: t("authDialog.loginFailed"),
+    description: message,
+  };
+}
+
+export function AuthPricingWorkspace({
+  runtimeConfig,
+}: AuthPricingWorkspaceProps = {}) {
   const { t } = useTranslation();
   const { loginWithEmail, refreshProfile, requestOtp, registerWithEmail } =
     useCloudAuth();
@@ -114,6 +131,8 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
     useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleAuthState, setGoogleAuthState] =
+    useState<GoogleAuthUiState>("idle");
 
   const handleGoogleLogin = async () => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -123,15 +142,21 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
     }
     try {
       setIsSubmitting(true);
-      const redirectUri = "http://localhost:12341/oauth-callback";
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Math.random().toString(36).substring(2)}`;
+      setGoogleAuthState("idle");
+      const redirectUri =
+        (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "").trim() ||
+        `${window.location.origin}/oauth-callback`;
+      const nonce = Math.random().toString(36).substring(2);
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token%20id_token&scope=${encodeURIComponent("openid email profile")}&nonce=${encodeURIComponent(nonce)}&prompt=select_account`;
       await openUrl(authUrl);
+      setGoogleAuthState("browser_opened");
       showSuccessToast(t("authLanding.googleOpenBrowserTitle"), {
         description: t("authLanding.googleOpenBrowserDescription"),
       });
-    } catch (e) {
+    } catch (error) {
+      setGoogleAuthState("idle");
       showErrorToast(t("authLanding.googleOpenBrowserFailed"), {
-        description: extractRootError(e),
+        description: extractRootError(error),
       });
     } finally {
       setIsSubmitting(false);
@@ -257,14 +282,18 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
       showSuccessToast(t("authDialog.loginSuccess"));
     } catch (error) {
       const message = extractRootError(error);
-      if (message.includes("control_auth_unreachable")) {
+      if (
+        message.includes("control_auth_unreachable") ||
+        message.includes("control_auth_not_configured")
+      ) {
         showErrorToast(t("authLanding.controlAuthUnavailableTitle"), {
           description: t("authLanding.controlAuthUnavailableDescription"),
         });
         return;
       }
-      showErrorToast(t("authDialog.loginFailed"), {
-        description: message,
+      const friendlyError = resolveAuthErrorMessage(message, t);
+      showErrorToast(friendlyError.title, {
+        description: friendlyError.description,
       });
     } finally {
       setIsSubmitting(false);
@@ -307,9 +336,18 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
       });
     } catch (error) {
       const message = extractRootError(error);
-      if (message.includes("control_auth_unreachable")) {
+      if (
+        message.includes("control_auth_unreachable") ||
+        message.includes("control_auth_not_configured")
+      ) {
         showErrorToast(t("authLanding.controlAuthUnavailableTitle"), {
           description: t("authLanding.controlAuthUnavailableDescription"),
+        });
+        return;
+      }
+      if (message.includes("email_already_registered")) {
+        showErrorToast(t("authLanding.emailAlreadyRegisteredTitle"), {
+          description: t("authLanding.emailAlreadyRegisteredDescription"),
         });
         return;
       }
@@ -319,19 +357,6 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleApplyQuickCredential = (email: string) => {
-    setAuthView("login");
-    setLoginEmail(email);
-    setLoginPassword(LOCAL_DEV_DEFAULT_PASSWORD);
-    setRememberMe(true);
-  };
-
-  const handleApplyRegisterPreset = (email: string) => {
-    setRegisterEmail(email);
-    setRegisterPassword(LOCAL_DEV_DEFAULT_PASSWORD);
-    setRegisterConfirmPassword(LOCAL_DEV_DEFAULT_PASSWORD);
   };
 
   const handleForgotPassword = async () => {
@@ -418,202 +443,149 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
     }
   };
 
+  const activeViewDescription =
+    authView === "forgot" ? t("authLanding.forgotHint") : "";
+
   return (
-    <div className="absolute inset-0 flex h-full w-full overflow-hidden bg-background text-foreground antialiased">
-      <div className="relative hidden overflow-hidden border-r border-border bg-muted/20 lg:flex lg:w-[47%] xl:w-[50%]">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-background via-muted/35 to-card" />
-        <div className="pointer-events-none absolute -right-24 top-0 h-96 w-96 rounded-full bg-primary/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-24 bottom-0 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-
-        <div className="relative z-10 flex h-full w-full flex-col p-8 xl:p-10">
-          <div className="flex items-center justify-between gap-3">
-            <img
-              src="/buglogin-logo.webp"
-              alt={t("authLanding.title")}
-              className="h-9 w-auto object-contain"
-            />
-            <Badge
-              variant="secondary"
-              className="text-[10px] uppercase tracking-[0.08em]"
-            >
-              {t("proxyExportDialog.labels.preview")}
-            </Badge>
-          </div>
-
-          <div className="mt-6 grid min-h-0 flex-1 grid-cols-12 gap-3">
-            <div className="col-span-8 overflow-hidden rounded-[24px] border border-border/80 bg-card shadow-2xl">
-              <img
-                src="/tauri-nextjs-template-2_screenshot.png"
+    <div className="absolute inset-0 flex h-full w-full min-h-0 overflow-hidden bg-background text-foreground antialiased">
+      <div className="flex h-full w-full min-h-0 bg-background">
+        <ScrollArea className="h-full w-full">
+          <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col px-4 pb-5 pt-[calc(var(--window-titlebar-height)+0.45rem)] sm:max-w-[500px] sm:justify-center sm:px-6 sm:pb-6 xl:max-w-[500px] xl:px-8 xl:pb-8">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <Logo
                 alt={t("authLanding.title")}
-                className="h-full w-full object-cover object-top"
+                className="h-7 w-auto object-contain sm:h-8"
               />
-            </div>
-            <div className="col-span-4 grid grid-rows-2 gap-3">
-              <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xl">
-                <img
-                  src="/tauri-nextjs-template-2_screenshot.png"
-                  alt={t("authLanding.title")}
-                  className="h-full w-full object-cover object-left-top"
-                />
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xl">
-                <img
-                  src="/tauri-nextjs-template-2_screenshot.png"
-                  alt={t("authLanding.title")}
-                  className="h-full w-full object-cover object-right-bottom"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            {[0, 1, 2].map((index) => (
-              <div
-                key={`auth-gallery-${index}`}
-                className="overflow-hidden rounded-xl border border-border/80 bg-card"
-              >
-                <img
-                  src="/tauri-nextjs-template-2_screenshot.png"
-                  alt={t("authLanding.title")}
-                  className={`h-20 w-full object-cover ${
-                    index === 0
-                      ? "object-left-bottom"
-                      : index === 1
-                        ? "object-center"
-                        : "object-right-top"
-                  }`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex h-full w-full items-center bg-background lg:w-[53%] xl:w-[50%]">
-        <div className="mx-auto w-full max-w-[430px] px-6 py-5 sm:px-8 lg:px-10">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <img
-              src="/buglogin-logo.webp"
-              alt={t("authLanding.title")}
-              className="h-8 w-auto object-contain lg:hidden"
-            />
-            <div className="ml-auto inline-flex items-center gap-2 rounded-xl border border-border bg-card/80 p-1.5 shadow-sm">
-              <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-1 py-0.5">
-                {supportedLanguages.map((language) => {
-                  const isSelected = currentLanguage === language.code;
-                  const compactLabel = language.code.toUpperCase();
-                  return (
-                    <button
-                      key={language.code}
-                      type="button"
-                      aria-label={language.nativeName}
-                      title={language.nativeName}
-                      disabled={isSubmitting || isLanguageLoading}
-                      onClick={() => {
-                        if (currentLanguage === language.code) {
-                          return;
-                        }
-                        void handleLanguageChange(language.code);
-                      }}
-                      className={`h-7 min-w-8 rounded-md px-2 text-[11px] font-semibold transition-colors ${
-                        isSelected
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      {compactLabel}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="h-5 w-px bg-border" />
-
-              <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
-                {[
-                  {
-                    value: "light" as const,
-                    label: t("settings.appearance.light"),
-                    icon: Sun,
-                  },
-                  {
-                    value: "dark" as const,
-                    label: t("settings.appearance.dark"),
-                    icon: Moon,
-                  },
-                  {
-                    value: "system" as const,
-                    label: t("settings.appearance.system"),
-                    icon: MonitorCog,
-                  },
-                  {
-                    value: "custom" as const,
-                    label: t("settings.appearance.customColors"),
-                    icon: Palette,
-                  },
-                ].map((option) => {
-                  const isSelected = themeMode === option.value;
-                  const Icon = option.icon;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-label={option.label}
-                      title={option.label}
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        if (themeMode === option.value) {
-                          return;
-                        }
-                        void handleThemeModeChange(option.value);
-                      }}
-                      className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                        isSelected
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                    </button>
-                  );
-                })}
+              <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-background p-1.5 shadow-sm">
+                <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-1 py-0.5">
+                  {supportedLanguages.map((language) => {
+                    const isSelected = currentLanguage === language.code;
+                    const compactLabel = language.code.toUpperCase();
+                    const flagClass = LANGUAGE_FLAG_CLASS[language.code] ?? "fi";
+                    return (
+                      <button
+                        key={language.code}
+                        type="button"
+                        aria-label={language.nativeName}
+                        title={language.nativeName}
+                        disabled={isSubmitting || isLanguageLoading}
+                        onClick={() => {
+                          if (currentLanguage === language.code) {
+                            return;
+                          }
+                          void handleLanguageChange(language.code);
+                        }}
+                        className={cn(
+                          "inline-flex h-7 min-w-[52px] items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-semibold transition-colors",
+                          isSelected
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <span
+                          className={`${flagClass} rounded-[2px] text-[11px]`}
+                          aria-hidden="true"
+                        />
+                        <span>{compactLabel}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="h-5 w-px bg-border" />
+                <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
+                  {[
+                    {
+                      value: "light" as const,
+                      label: t("settings.appearance.light"),
+                      icon: Sun,
+                    },
+                    {
+                      value: "dark" as const,
+                      label: t("settings.appearance.dark"),
+                      icon: Moon,
+                    },
+                    {
+                      value: "system" as const,
+                      label: t("settings.appearance.system"),
+                      icon: MonitorCog,
+                    },
+                    {
+                      value: "custom" as const,
+                      label: t("settings.appearance.customColors"),
+                      icon: Palette,
+                    },
+                  ].map((option) => {
+                    const isSelected = themeMode === option.value;
+                    const Icon = option.icon;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-label={option.label}
+                        title={option.label}
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          if (themeMode === option.value) {
+                            return;
+                          }
+                          void handleThemeModeChange(option.value);
+                        }}
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                          isSelected
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mb-3 space-y-1">
-            <h1 className="text-[25px] font-semibold leading-tight tracking-tight">
-              {t("authLanding.signInTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("authLanding.signInDescription")}
-            </p>
-          </div>
+            <div className="mb-4 space-y-1.5">
+              <div className="space-y-1">
+                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">
+                  {t("authLanding.signInTitle")}
+                </h1>
+                {activeViewDescription ? (
+                  <p className="max-w-[48ch] text-sm leading-6 text-muted-foreground">
+                    {activeViewDescription}
+                  </p>
+                ) : null}
+              </div>
+            </div>
 
-          {authView !== "forgot" && (
-            <Tabs
-              value={authView}
-              onValueChange={(value) => setAuthView(value as AuthView)}
-              className="mb-3 w-full"
-            >
-              <TabsList className="grid h-10 w-full grid-cols-2 rounded-lg bg-muted/40 p-1">
-                <TabsTrigger
-                  value="login"
-                  className="rounded-md text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                >
-                  <Mail className="mr-1.5 h-3.5 w-3.5" />
-                  {t("authLanding.tabs.login")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="register"
-                  className="rounded-md text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                >
-                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                  {t("authLanding.tabs.register")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+            <Card className="gap-0 overflow-hidden border-border/70 shadow-lg">
+              <CardHeader className="space-y-3 border-b border-border/70 pb-4">
+                {authView !== "forgot" && (
+                  <Tabs
+                    value={authView}
+                    onValueChange={(value) => setAuthView(value as AuthView)}
+                    className="w-full"
+                  >
+                    <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-muted/45 p-1">
+                      <TabsTrigger
+                        value="login"
+                        className="rounded-lg text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      >
+                        <Mail className="mr-1.5 h-3.5 w-3.5" />
+                        {t("authLanding.tabs.login")}
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="register"
+                        className="rounded-lg text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      >
+                        <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                        {t("authLanding.tabs.register")}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4 pt-5">
 
           {authView === "login" && (
             <div className="space-y-2.5 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
@@ -677,7 +649,7 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-0.5">
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
                 <label
                   htmlFor="auth-pricing-remember-me"
                   className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
@@ -696,17 +668,17 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                 <button
                   type="button"
                   onClick={() => setAuthView("forgot")}
-                  className="rounded-sm text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:underline"
+                  className="ml-auto rounded-sm text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:underline"
                   disabled={isSubmitting}
                 >
                   {t("authLanding.tabs.forgot")}
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 pt-1">
-                <LoadingButton
-                  type="button"
-                  className="h-10 w-full shadow-sm font-medium"
+	              <div className="grid grid-cols-1 gap-2 pt-1">
+	                <LoadingButton
+	                  type="button"
+	                  className="h-10 w-full shadow-sm font-medium"
                   onClick={handleSignIn}
                   isLoading={isSubmitting}
                   disabled={isSubmitting}
@@ -714,66 +686,61 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                   {t("authDialog.signInWithEmail")}
                 </LoadingButton>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 w-full shadow-sm font-medium"
-                  disabled={isSubmitting}
-                  onClick={() => handleGoogleLogin()}
-                >
-                  <FaGoogle
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border/70" />
+                  </div>
+                  <span className="relative mx-auto block w-fit bg-background px-2 text-[11px] text-muted-foreground xl:bg-card">
+                    {t("authLanding.orContinueWith")}
+                  </span>
+                </div>
+
+	                <Button
+	                  type="button"
+	                  variant="outline"
+	                  className="h-10 w-full shadow-sm font-medium"
+	                  disabled={isSubmitting}
+	                  onClick={() => handleGoogleLogin()}
+	                >
+	                  <FaGoogle
                     className="mr-2.5 h-3.5 w-3.5 text-muted-foreground"
                     aria-hidden="true"
                   />
-                  {t("authLanding.googleButton")}
-                </Button>
-              </div>
+	                  {t("authLanding.googleButton")}
+	                </Button>
+	              </div>
 
-              <div className="rounded-lg border border-border/70 bg-muted/25 p-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                  {t("authLanding.localDevQuickTitle")}
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  {t("authLanding.localDevQuickDescription", {
-                    password: LOCAL_DEV_DEFAULT_PASSWORD,
-                  })}
-                </p>
-                <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
-                  {LOCAL_DEV_QUICK_CREDENTIALS.map((credential) => (
-                    <Button
-                      key={credential.id}
-                      type="button"
-                      variant="outline"
-                      className="h-auto flex-col items-start gap-0.5 px-2.5 py-2 text-left"
-                      onClick={() =>
-                        handleApplyQuickCredential(credential.email)
-                      }
-                      disabled={isSubmitting}
-                    >
-                      <span className="text-[11px] font-semibold leading-none">
-                        {t(credential.labelKey)}
-                      </span>
-                      <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
-                        {credential.email}
-                      </span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
+	              {googleAuthState === "browser_opened" && (
+	                <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-3 text-sm">
+	                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+	                  <div className="space-y-1">
+	                    <p className="font-medium text-foreground">
+	                      {t("authLanding.googleOpenBrowserTitle")}
+	                    </p>
+	                    <p className="text-muted-foreground">
+	                      {t("authLanding.googleInlineHint")}
+	                    </p>
+	                  </div>
+	                </div>
+	              )}
+
+	              <p className="pt-1.5 text-center text-xs text-muted-foreground">
+	                {t("authLanding.noAccountPrompt")}{" "}
+	                <button
+                  type="button"
+                  onClick={() => setAuthView("register")}
+                  className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
+                  disabled={isSubmitting}
+                >
+                  {t("authLanding.signUpCta")}
+                </button>
+              </p>
+
             </div>
           )}
 
           {authView === "register" && (
-            <div className="space-y-2.5 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
-              <div className="rounded-lg border border-border/70 bg-muted/25 p-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                  {t("authLanding.registerFlowTitle")}
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  {t("authLanding.registerHint")}
-                </p>
-              </div>
-
+	            <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
               <div className="space-y-1.5">
                 <Label
                   htmlFor="auth-pricing-register-name"
@@ -914,25 +881,11 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                 {t("authLanding.registerAction")}
               </LoadingButton>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full justify-start gap-2 text-[12px] text-muted-foreground"
-                onClick={() =>
-                  handleApplyRegisterPreset(
-                    LOCAL_DEV_QUICK_CREDENTIALS[0].email,
-                  )
-                }
-                disabled={isSubmitting}
-              >
-                <KeyRound className="h-4 w-4" />
-                {t("authLanding.useLocalDevPreset")}
-              </Button>
             </div>
           )}
 
           {authView === "forgot" && (
-            <div className="space-y-2.5 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
+	            <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
               <div className="space-y-1.5">
                 <Label
                   htmlFor="auth-pricing-forgot-email"
@@ -951,9 +904,9 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                 />
               </div>
 
-              <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                {t("authLanding.forgotHint")}
-              </p>
+	              <p className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+	                {t("authLanding.forgotHint")}
+	              </p>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <LoadingButton
@@ -975,12 +928,15 @@ export function AuthPricingWorkspace(_props: AuthPricingWorkspaceProps = {}) {
                   disabled={isSubmitting}
                 >
                   {t("authDialog.back")}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+	                </Button>
+	              </div>
+	            </div>
+	          )}
+	              </CardContent>
+	            </Card>
+	          </div>
+	        </ScrollArea>
+	      </div>
+	    </div>
   );
 }

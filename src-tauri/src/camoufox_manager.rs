@@ -3,7 +3,7 @@ use crate::camoufox::{CamoufoxConfigBuilder, GeoIPOption, ScreenConstraints};
 use crate::profile::BrowserProfile;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use tauri::AppHandle;
@@ -90,6 +90,31 @@ impl CamoufoxManager {
 
   pub fn get_profiles_dir(&self) -> PathBuf {
     crate::app_dirs::profiles_dir()
+  }
+
+  fn build_launch_args(profile_path: &str, url: Option<&str>, headless: bool) -> Vec<String> {
+    let canonical_profile_path = Path::new(profile_path)
+      .canonicalize()
+      .unwrap_or_else(|_| Path::new(profile_path).to_path_buf())
+      .to_string_lossy()
+      .to_string();
+
+    let mut args = vec![
+      "-profile".to_string(),
+      canonical_profile_path,
+      "-no-remote".to_string(),
+    ];
+
+    if let Some(url) = url {
+      args.push("-new-tab".to_string());
+      args.push(url.to_string());
+    }
+
+    if headless {
+      args.push("--headless".to_string());
+    }
+
+    args
   }
 
   /// Generate Camoufox fingerprint configuration during profile creation
@@ -425,29 +450,14 @@ impl CamoufoxManager {
     let env_vars = crate::camoufox::env_vars::config_to_env_vars(&fingerprint_config)
       .map_err(|e| format!("Failed to convert config to env vars: {e}"))?;
 
-    // Build command arguments
-    // Note: We intentionally do NOT use -no-remote to allow opening URLs in existing instances
-    // via Firefox's remote messaging mechanism. This enables "open in new tab" functionality
-    // when Donut is set as the default browser.
-    let mut args = vec![
-      "-profile".to_string(),
-      std::path::Path::new(profile_path)
-        .canonicalize()
-        .unwrap_or_else(|_| std::path::Path::new(profile_path).to_path_buf())
-        .to_string_lossy()
-        .to_string(),
-    ];
-
-    // Add URL if provided
-    if let Some(url) = url {
-      args.push("-new-tab".to_string());
-      args.push(url.to_string());
-    }
-
-    // Add headless flag for tests
-    if std::env::var("CAMOUFOX_HEADLESS").is_ok() {
-      args.push("--headless".to_string());
-    }
+    // New profile launches must always use -no-remote so Firefox-family remote
+    // messaging cannot hijack another running instance. Opening a URL in an
+    // already-running profile is handled separately by browser_runner.
+    let args = Self::build_launch_args(
+      profile_path,
+      url,
+      std::env::var("CAMOUFOX_HEADLESS").is_ok(),
+    );
 
     log::info!(
       "Launching Camoufox: {:?} with args: {:?}",
@@ -1069,6 +1079,34 @@ mod tests {
     assert_eq!(config.screen_max_width, None);
     assert_eq!(config.screen_min_height, None);
     assert_eq!(config.screen_max_height, None);
+  }
+
+  #[test]
+  fn test_build_launch_args_uses_no_remote_for_isolated_launch() {
+    let args = CamoufoxManager::build_launch_args("/path/to/profile", None, false);
+
+    assert_eq!(args, vec!["-profile", "/path/to/profile", "-no-remote"]);
+  }
+
+  #[test]
+  fn test_build_launch_args_with_url_and_headless() {
+    let args = CamoufoxManager::build_launch_args(
+      "/path/to/profile",
+      Some("https://example.com"),
+      true,
+    );
+
+    assert_eq!(
+      args,
+      vec![
+        "-profile",
+        "/path/to/profile",
+        "-no-remote",
+        "-new-tab",
+        "https://example.com",
+        "--headless",
+      ]
+    );
   }
 }
 

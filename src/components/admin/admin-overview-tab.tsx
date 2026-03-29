@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  Database,
   LayoutDashboard,
   MailOpen,
   Server,
@@ -31,6 +30,7 @@ import {
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import type {
   ControlAdminOverview,
+  ControlAdminWorkspaceHealthRow,
   ControlAuditLog,
   ControlInvite,
   ControlMembership,
@@ -54,6 +54,7 @@ interface AdminOverviewTabProps {
   invites: ControlInvite[];
   shareGrants: ControlShareGrant[];
   overview: ControlWorkspaceOverview | null;
+  adminWorkspaceHealth: ControlAdminWorkspaceHealthRow[];
   authReady: boolean;
   stripeReady: boolean;
   syncReady: boolean;
@@ -82,11 +83,14 @@ export function AdminOverviewTab({
   invites,
   shareGrants,
   overview,
+  adminWorkspaceHealth,
   authReady,
   stripeReady,
   syncReady,
 }: AdminOverviewTabProps) {
   const { t } = useTranslation();
+  const canViewOwnerInsights =
+    isPlatformAdmin || selectedWorkspace?.actorRole === "owner";
 
   const metricRows = useMemo(
     () => [
@@ -95,32 +99,24 @@ export function AdminOverviewTab({
         label: t("adminWorkspace.metrics.workspaces"),
         value: adminOverview?.workspaces ?? workspaces.length,
         icon: LayoutDashboard,
-        color: "text-blue-500 dark:text-blue-400",
-        bg: "bg-blue-500/10",
       },
       {
         key: "members",
         label: t("adminWorkspace.metrics.members"),
         value: adminOverview?.members ?? memberships.length,
         icon: Users,
-        color: "text-emerald-500 dark:text-emerald-400",
-        bg: "bg-emerald-500/10",
       },
       {
         key: "invites",
         label: t("adminWorkspace.metrics.invites"),
         value: adminOverview?.activeInvites ?? invites.length,
         icon: MailOpen,
-        color: "text-orange-500 dark:text-orange-400",
-        bg: "bg-orange-500/10",
       },
       {
         key: "audits",
         label: t("adminWorkspace.metrics.audits24h"),
         value: adminOverview?.auditsLast24h ?? auditLogs.length,
         icon: Activity,
-        color: "text-purple-500 dark:text-purple-400",
-        bg: "bg-purple-500/10",
       },
     ],
     [
@@ -138,16 +134,19 @@ export function AdminOverviewTab({
       key: "auth",
       label: t("adminWorkspace.ui.serviceAuth"),
       isReady: authReady,
+      icon: Shield,
     },
     {
       key: "stripe",
       label: t("adminWorkspace.ui.serviceStripe"),
       isReady: stripeReady,
+      icon: Zap,
     },
     {
       key: "sync",
       label: t("adminWorkspace.ui.serviceSync"),
       isReady: syncReady,
+      icon: Activity,
     },
   ];
 
@@ -160,237 +159,184 @@ export function AdminOverviewTab({
     };
   }, [memberships]);
 
+  const operationalQueue = useMemo(() => {
+    if (!isPlatformAdmin) {
+      return [];
+    }
+
+    const priorityRank = {
+      high_risk: 0,
+      past_due: 1,
+      capacity: 2,
+      review: 3,
+    } as const;
+
+    return adminWorkspaceHealth
+      .map((row: ControlAdminWorkspaceHealthRow) => {
+        const isPastDue = row.subscriptionStatus === "past_due";
+        const isHighRisk = row.riskLevel === "high";
+        const isNearCapacity =
+          row.storagePercent >= 85 || row.proxyBandwidthPercent >= 85;
+
+        let priority: keyof typeof priorityRank = "review";
+        let actionKey = "actionReviewAccess";
+        let reasonKey = "reasonShareAndInvite";
+
+        if (isHighRisk) {
+          priority = "high_risk";
+          actionKey = "actionStabilizeSync";
+          reasonKey = "reasonHighRisk";
+        } else if (isPastDue) {
+          priority = "past_due";
+          actionKey = "actionRecoverBilling";
+          reasonKey = "reasonPastDue";
+        } else if (isNearCapacity) {
+          priority = "capacity";
+          actionKey = "actionReviewCapacity";
+          reasonKey = "reasonCapacity";
+        }
+
+        return {
+          row,
+          priority,
+          actionLabel: t(`adminWorkspace.ui.${actionKey}`),
+          reasonLabel: t(`adminWorkspace.ui.${reasonKey}`),
+        };
+      })
+      .sort((left, right) => {
+        if (priorityRank[left.priority] !== priorityRank[right.priority]) {
+          return priorityRank[left.priority] - priorityRank[right.priority];
+        }
+        if (left.row.riskLevel !== right.row.riskLevel) {
+          const riskScore = { high: 0, medium: 1, low: 2 } as const;
+          return riskScore[left.row.riskLevel] - riskScore[right.row.riskLevel];
+        }
+        return left.row.workspaceName.localeCompare(right.row.workspaceName);
+      })
+      .slice(0, 8);
+  }, [adminWorkspaceHealth, isPlatformAdmin, t]);
+
   if (workspaceScopedOnly) {
     return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="border-border/50 shadow-sm bg-card rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                {t("adminWorkspace.ui.currentWorkspace")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-[16px] font-bold tracking-tight text-foreground line-clamp-1">
-                {selectedWorkspace?.name ??
-                  t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50 shadow-sm bg-card rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                {t("adminWorkspace.metrics.members")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.members ?? memberships.length}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50 shadow-sm bg-card rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                {t("adminWorkspace.metrics.invites")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.activeInvites ?? invites.length}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50 shadow-sm bg-card rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                {t("adminWorkspace.share.title")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.activeShareGrants ?? shareGrants.length}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/50 shadow-sm rounded-xl overflow-hidden">
-          <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-            <CardTitle className="text-[15px] font-semibold">
-              {t("adminWorkspace.ui.userPermissionOverviewTitle")}
+      <div className="space-y-4">
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] font-semibold">
+              {t("adminWorkspace.ui.workspaceOpsTitle")}
             </CardTitle>
-            <CardDescription className="text-[13px]">
-              {t("adminWorkspace.ui.userPermissionOverviewDescription")}
+            <CardDescription className="text-[12px]">
+              {t("adminWorkspace.ui.workspaceOpsDescription")}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-4 bg-card">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 md:grid-cols-4">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
                 <p className="text-[11px] text-muted-foreground">
-                  {t("adminWorkspace.roles.owner")}
+                  {t("adminWorkspace.ui.currentWorkspace")}
                 </p>
-                <p className="mt-0.5 text-[16px] font-semibold text-foreground">
-                  {roleDistribution.owner}
+                <p className="mt-1 text-[13px] font-semibold text-foreground line-clamp-1">
+                  {selectedWorkspace?.name ??
+                    t("adminWorkspace.controlPlane.noWorkspaceSelected")}
                 </p>
               </div>
-              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
                 <p className="text-[11px] text-muted-foreground">
-                  {t("adminWorkspace.roles.admin")}
+                  {t("adminWorkspace.metrics.members")}
                 </p>
-                <p className="mt-0.5 text-[16px] font-semibold text-foreground">
-                  {roleDistribution.admin}
+                <p className="mt-1 text-[16px] font-semibold text-foreground">
+                  {overview?.members ?? memberships.length}
                 </p>
               </div>
-              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
                 <p className="text-[11px] text-muted-foreground">
-                  {t("adminWorkspace.roles.member")}
-                </p>
-                <p className="mt-0.5 text-[16px] font-semibold text-foreground">
-                  {roleDistribution.member}
-                </p>
-              </div>
-              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">
-                  {t("adminWorkspace.roles.viewer")}
-                </p>
-                <p className="mt-0.5 text-[16px] font-semibold text-foreground">
-                  {roleDistribution.viewer}
-                </p>
-              </div>
-            </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-[12px] font-medium text-foreground">
-                {t("adminWorkspace.ui.userPermissionGuidanceTitle")}
-              </p>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                {t("adminWorkspace.ui.userPermissionGuidanceDescription")}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!isPlatformAdmin) {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                  {t("adminWorkspace.controlPlane.workspaceDetails")}
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <LayoutDashboard className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-[16px] font-bold tracking-tight text-foreground line-clamp-1">
-                {selectedWorkspace?.name ??
-                  t("adminWorkspace.controlPlane.noWorkspaceSelected")}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                  {t("adminWorkspace.members.title")}
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Users className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.members ?? memberships.length}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
                   {t("adminWorkspace.metrics.invites")}
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-orange-500/10">
-                  <MailOpen className="w-4 h-4 text-orange-500 dark:text-orange-400" />
-                </div>
+                </p>
+                <p className="mt-1 text-[16px] font-semibold text-foreground">
+                  {overview?.activeInvites ?? invites.length}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.activeInvites ?? invites.length}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 shadow-sm bg-card hover:shadow-md transition-shadow relative overflow-hidden rounded-xl">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
                   {t("adminWorkspace.share.title")}
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Activity className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {overview?.activeShareGrants ?? shareGrants.length}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/50 shadow-sm rounded-xl overflow-hidden">
-          <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-            <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-              <Server className="w-4 h-4 text-primary" />
-              {t("adminWorkspace.panel.workspaceOverviewTitle")}
-            </CardTitle>
-            <CardDescription className="text-[13px]">
-              {t("adminWorkspace.panel.workspaceOverviewDescription")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4 bg-card">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-                <p className="text-[12px] font-medium text-muted-foreground mb-1">
-                  {t("adminWorkspace.overview.configStatus")}
                 </p>
-                <p className="text-[13px] font-semibold text-foreground">
-                  {configSummary}
+                <p className="mt-1 text-[16px] font-semibold text-foreground">
+                  {overview?.activeShareGrants ?? shareGrants.length}
                 </p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-                <p className="text-[12px] font-medium text-muted-foreground mb-1">
-                  {t("adminWorkspace.overview.controlPlane")}
-                </p>
-                <p className="text-[13px] font-semibold text-foreground">
-                  {controlPlaneStatus}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-                <p className="text-[12px] font-medium text-muted-foreground mb-1">
-                  {t("adminWorkspace.overview.entitlement")}
-                </p>
-                <Badge
-                  variant="outline"
-                  className="text-[13px] font-bold py-0.5 px-2 border-primary/30 bg-primary/5 text-primary"
-                >
-                  {entitlementLabel}
-                </Badge>
               </div>
             </div>
+
+            {canViewOwnerInsights ? (
+              <>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.roles.owner")}
+                    </p>
+                    <p className="mt-1 text-[14px] font-semibold text-foreground">
+                      {roleDistribution.owner}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.roles.admin")}
+                    </p>
+                    <p className="mt-1 text-[14px] font-semibold text-foreground">
+                      {roleDistribution.admin}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.roles.member")}
+                    </p>
+                    <p className="mt-1 text-[14px] font-semibold text-foreground">
+                      {roleDistribution.member}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.roles.viewer")}
+                    </p>
+                    <p className="mt-1 text-[14px] font-semibold text-foreground">
+                      {roleDistribution.viewer}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.ui.planLabel")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-foreground">
+                      {selectedWorkspace?.planLabel ?? t("adminWorkspace.ui.noPlanLabel")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("pricingPage.heroStatProfiles")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-foreground">
+                      {selectedWorkspace?.profileLimit ?? "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("webBilling.fieldCycle")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-foreground">
+                      {selectedWorkspace?.billingCycle ?? "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("adminWorkspace.ui.expiry")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold text-foreground">
+                      {selectedWorkspace?.expiresAt ?? "-"}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -398,140 +344,108 @@ export function AdminOverviewTab({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {metricRows.map((metric) => (
-          <Card
-            key={metric.key}
-            className="border-border/50 shadow-sm hover:shadow-md transition-shadow bg-card relative overflow-hidden rounded-xl group"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
-              <metric.icon className={`w-24 h-24 ${metric.color}`} />
-            </div>
-            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                  {metric.label}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${metric.bg}`}>
-                  <metric.icon className={`w-4 h-4 ${metric.color}`} />
-                </div>
+          <Card key={metric.key} className="border-border/70 shadow-none">
+            <CardContent className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-[11px] text-muted-foreground">{metric.label}</p>
+                <p className="mt-1 text-[20px] font-semibold text-foreground">
+                  {metric.value}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5 relative z-10">
-              <p className="text-3xl font-bold tracking-tight text-foreground">
-                {metric.value}
-              </p>
+              <div className="rounded-md border border-border/70 bg-muted/30 p-1.5">
+                <metric.icon className="h-4 w-4 text-muted-foreground" />
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="border-border/50 shadow-sm rounded-xl xl:col-span-2 overflow-hidden flex flex-col">
-          <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-            <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-              <Server className="w-4 h-4 text-primary" />
+      <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-[14px] font-semibold">
+              <Server className="h-4 w-4 text-muted-foreground" />
               {t("adminWorkspace.ui.healthTitle")}
             </CardTitle>
-            <CardDescription className="text-[13px]">
+            <CardDescription className="text-[12px]">
               {t("adminWorkspace.ui.healthDescription")}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-6 flex-1 bg-card">
-            <div className="rounded-xl border border-border/50 bg-gradient-to-br from-muted/50 to-transparent p-4 relative overflow-hidden">
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
-              <div className="flex items-start gap-3 relative z-10">
-                <div className="p-2 bg-primary/10 rounded-lg shrink-0 mt-0.5">
-                  <Zap className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <h4 className="text-[13px] font-semibold text-foreground">
-                    {t("adminWorkspace.overview.controlPlane")}
-                  </h4>
-                  <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
-                    {t("common.labels.status")}:{" "}
-                    <span className="font-medium text-foreground">
-                      {controlPlaneStatus}
-                    </span>
-                    . {controlSecuritySummary}
-                  </p>
-                </div>
-              </div>
+          <CardContent className="space-y-3">
+            <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+              <p className="text-[11px] text-muted-foreground">
+                {t("adminWorkspace.overview.controlPlane")}
+              </p>
+              <p className="mt-1 text-[13px] font-medium text-foreground">
+                {controlPlaneStatus}
+              </p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                {controlSecuritySummary}
+              </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              {serviceRows.map((service) => (
-                <div
-                  key={service.key}
-                  className="rounded-xl border border-border/50 bg-card p-4 hover:border-primary/30 transition-colors shadow-sm"
-                >
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                      {service.key === "auth" && (
-                        <Shield className="w-4 h-4 text-emerald-500" />
-                      )}
-                      {service.key === "stripe" && (
-                        <Database className="w-4 h-4 text-blue-500" />
-                      )}
-                      {service.key === "sync" && (
-                        <Activity className="w-4 h-4 text-purple-500" />
-                      )}
+            <div className="grid gap-2 sm:grid-cols-3">
+              {serviceRows.map((service) => {
+                const Icon = service.icon;
+                return (
+                  <div
+                    key={service.key}
+                    className="rounded-md border border-border/70 bg-background p-3"
+                  >
+                    <p className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       {service.label}
                     </p>
+                    <Badge
+                      variant={service.isReady ? "secondary" : "outline"}
+                      className="mt-2 h-5 px-2 text-[10px]"
+                    >
+                      {service.isReady
+                        ? t("adminWorkspace.modules.statusReady")
+                        : t("common.status.pending")}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={service.isReady ? "default" : "secondary"}
-                    className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${service.isReady ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 border-emerald-500/20" : ""}`}
-                  >
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full mr-1.5 ${service.isReady ? "bg-emerald-500" : "bg-muted-foreground"}`}
-                    />
-                    {service.isReady
-                      ? t("adminWorkspace.modules.statusReady")
-                      : t("common.status.pending")}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-              <p className="text-[13px] font-semibold text-foreground mb-1">
+            <div className="rounded-md border border-border/70 bg-background p-3">
+              <p className="text-[11px] text-muted-foreground">
                 {t("adminWorkspace.overview.configStatus")}
               </p>
-              <p className="text-[13px] text-muted-foreground leading-relaxed">
-                {configSummary}
-              </p>
+              <p className="mt-1 text-[12px] text-foreground">{configSummary}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 shadow-sm rounded-xl flex flex-col">
-          <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-            <CardTitle className="text-[15px] font-semibold">
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-[14px] font-semibold">
               {t("adminWorkspace.ui.entitlementTitle")}
             </CardTitle>
-            <CardDescription className="text-[13px]">
-              {t("adminWorkspace.ui.entitlementDescription")}
+            <CardDescription className="text-[12px]">
+              {isPlatformAdmin
+                ? t("adminWorkspace.ui.entitlementDescription")
+                : t("adminWorkspace.workspaceSubtitle")}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-4 flex-1 bg-card">
-            <div className="rounded-xl border border-border/50 bg-background p-4 shadow-sm">
-              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          <CardContent className="space-y-3">
+            <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+              <p className="text-[11px] text-muted-foreground">
                 {t("adminWorkspace.overview.entitlement")}
               </p>
-              <Badge
-                variant="outline"
-                className="text-[14px] font-bold py-1 px-3 border-primary/30 bg-primary/5 text-primary"
-              >
+              <Badge variant="secondary" className="mt-2 h-6 px-2.5 text-[11px]">
                 {entitlementLabel}
               </Badge>
             </div>
-            <div className="rounded-xl border border-border/50 bg-background p-4 shadow-sm">
-              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+              <p className="text-[11px] text-muted-foreground">
                 {t("adminWorkspace.overview.auditRetention")}
               </p>
-              <p className="text-[14px] font-semibold text-foreground">
+              <p className="mt-1 text-[13px] font-medium text-foreground">
                 {t("adminWorkspace.overview.auditRetentionValue")}
               </p>
             </div>
@@ -539,12 +453,90 @@ export function AdminOverviewTab({
         </Card>
       </div>
 
-      <Card className="border-border/50 shadow-sm rounded-xl overflow-hidden">
-        <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-          <CardTitle className="text-[15px] font-semibold">
+      <Card className="border-border/70 shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[14px] font-semibold">
+            {t("adminWorkspace.ui.operationQueueTitle")}
+          </CardTitle>
+          <CardDescription className="text-[12px]">
+            {t("adminWorkspace.ui.operationQueueDescription")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {operationalQueue.length === 0 ? (
+            <div className="px-4 pb-4 text-[12px] text-muted-foreground">
+              {t("adminWorkspace.ui.operationQueueEmpty")}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("adminWorkspace.analytics.columns.workspace")}</TableHead>
+                  <TableHead>{t("adminWorkspace.analytics.columns.plan")}</TableHead>
+                  <TableHead>{t("adminWorkspace.analytics.columns.risk")}</TableHead>
+                  <TableHead>{t("adminWorkspace.columns.action")}</TableHead>
+                  <TableHead>{t("adminWorkspace.columns.reason")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {operationalQueue.map((queueItem) => (
+                  <TableRow key={queueItem.row.workspaceId}>
+                    <TableCell className="text-[12px] font-medium">
+                      {queueItem.row.workspaceName}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[12px]">{queueItem.row.planLabel}</span>
+                        <Badge
+                          variant={
+                            queueItem.row.subscriptionStatus === "past_due"
+                              ? "destructive"
+                              : queueItem.row.subscriptionStatus === "canceled"
+                                ? "secondary"
+                                : "outline"
+                          }
+                          className="text-[10px]"
+                        >
+                          {t(
+                            `adminWorkspace.analytics.subscription.${queueItem.row.subscriptionStatus}`,
+                          )}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          queueItem.row.riskLevel === "high"
+                            ? "destructive"
+                            : queueItem.row.riskLevel === "medium"
+                              ? "secondary"
+                              : "outline"
+                        }
+                        className="text-[10px]"
+                      >
+                        {t(`adminWorkspace.analytics.risk.${queueItem.row.riskLevel}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-[12px] font-medium">
+                      {queueItem.actionLabel}
+                    </TableCell>
+                    <TableCell className="text-[12px] text-muted-foreground">
+                      {queueItem.reasonLabel}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/70 shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[14px] font-semibold">
             {t("adminWorkspace.ui.latestAuditTitle")}
           </CardTitle>
-          <CardDescription className="text-[13px]">
+          <CardDescription className="text-[12px]">
             {t("adminWorkspace.ui.latestAuditDescription")}
           </CardDescription>
         </CardHeader>

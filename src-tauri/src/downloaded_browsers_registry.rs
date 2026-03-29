@@ -816,11 +816,6 @@ impl DownloadedBrowsersRegistry {
 
       let binaries_dir = crate::app_dirs::binaries_dir();
 
-      log::info!(
-        "binaries_dir: {binaries_dir:?} for profile: {}",
-        profile.name
-      );
-
       // Check if the version is downloaded
       if !browser.is_version_downloaded(&profile.version, &binaries_dir) {
         missing_binaries.push((profile.name, profile.browser, profile.version));

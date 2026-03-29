@@ -113,6 +113,7 @@ pub struct ProxyGeoInfo {
   pub country_code: Option<String>,
   pub zip: Option<String>,
   pub timezone: Option<String>,
+  pub utc_offset_seconds: Option<i32>,
   pub latitude: Option<f64>,
   pub longitude: Option<f64>,
   pub isp: Option<String>,
@@ -299,7 +300,7 @@ impl ProxyManager {
   pub async fn get_ip_geolocation(ip: &str) -> Result<ProxyGeoInfo, String> {
     // Use ip-api.com (free, no API key required)
     let url = format!(
-      "http://ip-api.com/json/{}?fields=status,message,country,countryCode,city,regionName,zip,timezone,lat,lon,isp,org,as,mobile",
+      "http://ip-api.com/json/{}?fields=status,message,country,countryCode,city,regionName,zip,timezone,offset,lat,lon,isp,org,as,mobile",
       ip
     );
 
@@ -335,6 +336,10 @@ impl ProxyManager {
                     .get("timezone")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
+                  utc_offset_seconds: json
+                    .get("offset")
+                    .and_then(|v| v.as_i64())
+                    .and_then(|v| i32::try_from(v).ok()),
                   latitude: json.get("lat").and_then(|v| v.as_f64()),
                   longitude: json.get("lon").and_then(|v| v.as_f64()),
                   isp: json
@@ -1082,6 +1087,20 @@ impl ProxyManager {
   // Get cached proxy check result
   pub fn get_cached_proxy_check(&self, proxy_id: &str) -> Option<ProxyCheckResult> {
     self.load_proxy_check_cache(proxy_id)
+  }
+
+  // Get cached proxy check results in bulk
+  pub fn get_cached_proxy_checks(
+    &self,
+    proxy_ids: &[String],
+  ) -> HashMap<String, ProxyCheckResult> {
+    let mut results = HashMap::new();
+    for proxy_id in proxy_ids {
+      if let Some(cached) = self.load_proxy_check_cache(proxy_id) {
+        results.insert(proxy_id.clone(), cached);
+      }
+    }
+    results
   }
 
   // Export all proxies as JSON

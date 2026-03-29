@@ -1,5 +1,4 @@
 const config = {
-  map: false,
   plugins: {
     "@tailwindcss/postcss": {},
   },

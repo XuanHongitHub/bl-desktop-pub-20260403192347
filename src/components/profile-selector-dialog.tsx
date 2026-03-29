@@ -50,12 +50,14 @@ export function ProfileSelectorDialog({
 }: ProfileSelectorDialogProps) {
   const { t } = useTranslation();
   // Use the centralized profile events hook
-  const { profiles, runningProfiles: hookRunningProfiles } = useProfileEvents();
+  const { profiles, runningProfiles: hookRunningProfiles } = useProfileEvents({
+    enabled: isOpen,
+  });
 
   // Use external runningProfiles if provided, otherwise use hook's runningProfiles
   const runningProfiles = externalRunningProfiles || hookRunningProfiles;
 
-  const { storedProxies } = useProxyEvents();
+  const { storedProxies } = useProxyEvents({ enabled: isOpen });
 
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);

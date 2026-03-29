@@ -84,18 +84,16 @@ export function ProxyAssignmentDialog({
         return;
       }
 
-      for (const profileId of validProfiles) {
-        if (selectionType === "vpn") {
-          await invoke("update_profile_vpn", {
-            profileId,
-            vpnId: selectedId,
-          });
-        } else {
-          await invoke("update_profile_proxy", {
-            profileId,
-            proxyId: selectionType === "proxy" ? selectedId : null,
-          });
-        }
+      if (selectionType === "vpn") {
+        await invoke("update_profiles_vpn", {
+          profileIds: validProfiles,
+          vpnId: selectedId,
+        });
+      } else {
+        await invoke("update_profiles_proxy", {
+          profileIds: validProfiles,
+          proxyId: selectionType === "proxy" ? selectedId : null,
+        });
       }
 
       await emit("profile-updated");

@@ -68,6 +68,12 @@
       "minutes": "minutes",
       "seconds": "seconds",
       "remaining": "remaining"
+    },
+    "pagination": {
+      "page": "Page",
+      "rowsPerPage": "Rows per page",
+      "previous": "Previous",
+      "next": "Next"
     }
   },
   "settings": {
@@ -182,6 +188,30 @@
         "pricingBilling": "Pricing & Billing",
         "syncIntegrations": "Integrations + Sync",
         "systemControls": "Integrations / Runtime"
+      },
+      "runtime": {
+        "live": "Live data",
+        "runtimeTitle": "Runtime status",
+        "openModule": "Open module",
+        "target": "Target",
+        "proxyCount": "Stored proxies",
+        "vpnCount": "Stored VPN profiles",
+        "syncStatus": "Sync connection",
+        "syncEndpoint": "Sync endpoint",
+        "apiStatus": "API server",
+        "mcpStatus": "MCP server",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "running": "Running",
+        "stopped": "Stopped",
+        "ready": "Ready",
+        "notReady": "Not ready",
+        "stripeStatus": "Stripe runtime",
+        "sectionDescription": "{{section}} is managed in {{target}} and reflects live runtime status.",
+        "targets": {
+          "settings": "Settings Page",
+          "sync": "Sync Config"
+        }
       }
     },
     "language": {
@@ -189,6 +219,20 @@
       "description": "Choose your preferred language for the application interface.",
       "systemDefault": "System Default",
       "selectLanguage": "Select language"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Manage system notification permission for BugLogin.",
+      "permissionLabel": "Notification permission",
+      "statusGranted": "Granted",
+      "statusDenied": "Denied",
+      "statusPrompt": "Ask every time",
+      "statusUnsupported": "Unsupported",
+      "actionTitle": "Actions",
+      "actionHint": "If notifications are blocked at OS/browser level, re-enable them from system settings.",
+      "requestPermission": "Request notification permission",
+      "permissionGranted": "System notifications enabled",
+      "permissionDenied": "System notifications were denied"
     },
     "defaultBrowser": {
       "title": "Default Browser",
@@ -662,12 +706,18 @@
   },
   "profiles": {
     "title": "Profiles",
+    "totalProfiles": "Total profiles",
+    "status": {
+      "running": "Running",
+      "stopped": "Stopped"
+    },
     "empty": "No profiles yet",
     "emptyDescription": "Create your first browser profile to get started.",
     "createFirst": "Create Profile",
     "noResults": "No profiles found",
     "noResultsDescription": "No profiles match your search criteria.",
     "filteredStateHint": "{{visible}}/{{total}} profiles are visible. {{hidden}} profile(s) are hidden by current filters.",
+    "filteredStateHintHiddenOnly": "{{hidden}} profile(s) are hidden by current filters.",
     "resetFilters": "Reset filters",
     "filterResetSuccess": "Profile filters reset",
     "table": {
@@ -709,6 +759,9 @@
       "syncDisabledLastSync": "Sync disabled, last sync {{time}}",
       "deleteProfileTitle": "Delete Profile",
       "deleteProfileDescription": "This action cannot be undone. This will permanently delete the profile \"{{name}}\" and all its associated data.",
+      "paginationSummary": "Showing {{from}}-{{to}} of {{total}} profiles",
+      "previousPage": "Previous",
+      "nextPage": "Next",
       "assignProxy": "Assign Proxy",
       "assignExtensionGroup": "Assign Extension Group",
       "assignExtensionGroupPro": "Assign Extension Group (Pro)"
@@ -934,6 +987,8 @@
     "title": "Groups",
     "all": "All",
     "management": "Group Management",
+    "shareCopied": "Copied share link for {{group}}.",
+    "shareFailed": "Failed to copy group share link.",
     "add": "Add Group",
     "edit": "Edit Group",
     "delete": "Delete Group",
@@ -946,6 +1001,11 @@
     "profileCount": "{{count}} profile",
     "profileCount_plural": "{{count}} profiles",
     "assignProfiles": "Assign Profiles",
+    "actions": {
+      "menu": "Open group actions",
+      "filter": "Filter by this group",
+      "share": "Share group"
+    },
     "sync": {
       "enabled": "Sync Enabled",
       "disabled": "Sync Disabled"
@@ -1199,6 +1259,9 @@
     },
     "error": {
       "profileCreateFailed": "Failed to create profile",
+      "profileLimitReached": "Profile limit reached: {{used}}/{{limit}} profiles are already in this workspace.",
+      "profileCreateSyncServerMissing": "Sync server URL is not configured. Open Sync settings to update it.",
+      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting requires a paid plan and wayfernToken. Use the current OS or configure wayfernToken.",
       "profileDeleteFailed": "Failed to delete profile",
       "profileUpdateFailed": "Failed to update profile",
       "profileLaunchFailed": "Failed to launch profile",
@@ -1703,7 +1766,7 @@
     "hidePassword": "Hide password",
     "quickPresetTitle": "Quick role preview accounts",
     "quickPresetHint": "Seed accounts load workspace-scoped data for local role checks. For production permissioning, keep using invite flow.",
-    "quickPresetPlatformAdmin": "Platform Admin",
+    "quickPresetPlatformAdmin": "Super Admin",
     "quickPresetOwner": "Owner Preview",
     "quickPresetAdmin": "Admin Preview",
     "quickPresetMember": "Member Preview",
@@ -1783,7 +1846,20 @@
     "runtimeAuthLabel": "Authentication",
     "runtimeSyncLabel": "Cloud Sync",
     "signInTitle": "Sign in to continue",
-    "signInDescription": "Use your email and password to sign in to the workspace.",
+    "signInDescription": "",
+    "heroBadge": "BugLogin workspace security",
+    "heroTitle": "",
+    "heroDescription": "",
+    "heroImagePrimaryTitle": "Protected profile operations",
+    "heroImagePrimarySubtitle": "",
+    "heroImageOpsAlt": "Operations dashboard preview",
+    "heroImageNetworkAlt": "Network and sync infrastructure preview",
+    "heroChipSecurity": "Security-first access",
+    "heroChipSync": "Cloud sync ready",
+    "heroChipTeam": "Team workspace controls",
+    "benefitSecurity": "",
+    "benefitSync": "",
+    "benefitTeam": "",
     "syncReady": "Sync service is configured.",
     "syncPending": "Sync service is pending setup. Configure it to unlock full backup and restore.",
     "openSyncConfig": "Open Sync Config",
@@ -1810,12 +1886,17 @@
       "register": "Register",
       "forgot": "Forgot"
     },
+    "noAccountPrompt": "Don't have an account?",
+    "signUpCta": "Sign up",
+    "orContinueWith": "Or continue with",
     "authReady": "Auth service is ready.",
     "authPending": "Auth service is pending configuration.",
+    "loginCardTitle": "",
     "googleButton": "Continue with Google",
     "googleSoon": "Google OAuth will be enabled once backend auth is configured.",
     "googleOpenBrowserTitle": "Opening Google login in browser...",
     "googleOpenBrowserDescription": "Complete sign-in and allow the app to open again.",
+    "googleInlineHint": "Finish sign-in in your browser. BugLogin will pick up the session and return you to the workspace automatically.",
     "googleOpenBrowserFailed": "Unable to open browser for Google login",
     "googleLoginErrorTitle": "Google login error",
     "googleErrorInvalidCallback": "Google callback payload is invalid. Please try again.",
@@ -1824,17 +1905,21 @@
     "googleErrorAuthCodeUnsupported": "Authorization code OAuth flow is not supported in this app yet.",
     "googleErrorMissingTokens": "Google callback did not include required auth tokens.",
     "googleErrorAccessDenied": "Google access was denied by the user.",
+    "invalidCredentialsTitle": "Email or password is incorrect.",
+    "invalidCredentialsDescription": "Use the password you registered for this local account. `Password123!` is only a test value in specs, not a runtime default.",
+    "emailAlreadyRegisteredTitle": "This email is already registered.",
+    "emailAlreadyRegisteredDescription": "Sign in with the existing password, or use Forgot Password if you need to recover access.",
     "controlAuthUnavailableTitle": "Authentication service unreachable",
-    "controlAuthUnavailableDescription": "Control auth server is not reachable. Local dev accounts (@buglogin.local) can still use fallback login. For real accounts, configure Sync server URL and enable control API.",
+    "controlAuthUnavailableDescription": "Control auth server is not reachable or not configured. Configure Sync server URL and token to continue.",
     "localDevQuickTitle": "Quick credentials for local dev",
     "localDevQuickDescription": "Click to fill test emails instantly. Default password: {{password}}.",
-    "registerFlowTitle": "Create workspace account",
+    "registerFlowTitle": "",
     "optionalLabel": "optional",
     "registerNamePlaceholder": "Display name in workspace",
     "confirmPasswordLabel": "Confirm password",
     "confirmPasswordPlaceholder": "Re-enter password",
     "useLocalDevPreset": "Use local dev preset",
-    "registerHint": "Register with the invited email. After email verification, workspace permissions will be applied automatically.",
+    "registerHint": "",
     "registerAction": "Submit registration request",
     "registerQueued": "Registration completed in self-host mode.",
     "registerQueuedDescription": "Email verification can be enabled later. You can sign in now with the invited email.",
@@ -1845,33 +1930,112 @@
     "resetQueued": "Recovery flow is available in self-host mode.",
     "resetQueuedDescription": "You can continue using invited-email sign-in while full reset backend is being connected.",
     "resetFailed": "Failed to send recovery instructions.",
-    "preferenceSaveFailed": "Failed to update appearance or language."
+    "preferenceSaveFailed": "Failed to update appearance or language.",
+    "footerTrust": "Desktop-first sign-in with explicit access and callback handoff.",
+    "footerDesktop": "Ready to reopen BugLogin",
+    "oauthCallbackTitle": "Finishing Google sign-in",
+    "oauthCallbackDescription": "This page is only used to hand the authenticated session back to BugLogin safely.",
+    "oauthCallbackResolving": "Normalizing account identity and returning control to the app.",
+    "oauthCallbackAutoClosing": "Returning to BugLogin. This tab will close automatically.",
+    "oauthCallbackSecondary": "You can close this tab after BugLogin reopens. If nothing happens, use the manual open button below.",
+    "oauthCallbackManualHint": "If BugLogin does not reopen automatically, use the button below.",
+    "oauthCallbackStepBrowser": "Google sign-in completed in browser",
+    "oauthCallbackStepToken": "Reading token and account profile",
+    "oauthCallbackStepReturn": "Returning session to BugLogin",
+    "oauthCallbackOpenManually": "Open BugLogin manually",
+    "oauthCallbackInitializing": "Initializing authentication session..."
   },
   "adminWorkspace": {
-    "subtitle": "Platform governance for billing, entitlements, and operational controls.",
-    "workspaceSubtitle": "Workspace administration for members, sharing, and operational health.",
+    "subtitle": "Run BugLogin platform operations: workspace lifecycle, revenue, incident posture, and governance actions.",
+    "workspaceSubtitle": "Manage the active workspace with compact owner operations: members, access, and billing-safe controls.",
     "panel": {
-      "platformTitle": "Platform Admin Panel",
+      "platformTitle": "Super Admin Panel",
       "workspaceTitle": "Workspace Admin Panel",
-      "platformBadge": "Platform Admin",
+      "platformBadge": "Super Admin",
       "workspaceBadge": "Workspace Admin",
       "workspaceOverviewTitle": "Workspace Operations Overview",
       "workspaceOverviewDescription": "Track member lifecycle, invite throughput, and sharing posture for the selected workspace."
+    },
+    "panelTree": {
+      "searchPlaceholder": "Search panel page...",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "owner": {
+        "groupCommand": "Owner Command",
+        "groupTeamAccess": "Team & Access",
+        "groupAssets": "Assets & Billing",
+        "pages": {
+          "overview": {
+            "title": "Owner Overview",
+            "description": "Snapshot of workspace health, entitlement posture, and governance readiness."
+          },
+          "members": {
+            "title": "Members & Invites",
+            "description": "Manage member lifecycle, role assignment, and invite pipeline."
+          },
+          "share": {
+            "title": "Sharing Access",
+            "description": "Control share grants, recipient access, and revoke flow."
+          },
+          "profileGovernance": {
+            "title": "Profile Governance",
+            "description": "Review profile runtime posture and jump to profile/proxy operations."
+          },
+          "billing": {
+            "title": "Billing & Entitlement",
+            "description": "Inspect current plan, limit posture, and billing entry points."
+          }
+        },
+        "billingCardTitle": "Workspace billing posture",
+        "billingCardDescription": "Read current plan and entitlement before opening billing actions.",
+        "profileCardTitle": "Workspace profile posture",
+        "profileCardDescription": "Monitor profile runtime and network inventory for this workspace.",
+        "profileRuntimeHint": "Running: {{running}} • Parked: {{parked}}"
+      },
+      "super": {
+        "groupCommand": "Command Center",
+        "groupRevenue": "Revenue Operations",
+        "groupGovernance": "Governance & Compliance",
+        "pages": {
+          "command": {
+            "title": "Platform Command Center",
+            "description": "High-level operational posture across BugLogin."
+          },
+          "workspace": {
+            "title": "Workspace Governance",
+            "description": "Cross-workspace lifecycle, membership, and access governance."
+          },
+          "billing": {
+            "title": "Revenue Control",
+            "description": "Coupons, entitlement operations, and billing controls."
+          },
+          "audit": {
+            "title": "Audit & Compliance",
+            "description": "Review sensitive actions and compliance traceability."
+          },
+          "cookies": {
+            "title": "BugIdea Operations",
+            "description": "BugIdea cookie synchronization and automation operations."
+          }
+        }
+      }
     },
     "reasonRequired": "Reason is required for this action.",
     "reasonLabel": "Reason",
     "reasonPlaceholder": "Explain why this operation is needed (required)",
     "noAccessTitle": "You do not have access to Admin Workspace",
     "noAccessDescription": "Only owner/admin roles or platform admins can access this management area.",
+    "bugideaDevOnlyDescription": "BugIdea tools are available only to platform admins.",
     "ownerOnlyGovernance": "Only workspace owner/admin or platform admin can access Workspace Governance.",
     "signInRequired": "Please sign in first to access Admin Workspace and control-plane operations.",
     "entitlementUpdated": "Entitlement state updated.",
     "entitlementUpdateFailed": "Failed to update entitlement state.",
     "tabs": {
-      "workspace": "Workspace Directory",
-      "billing": "Billing",
-      "audit": "Audit",
-      "overview": "Overview",
+      "workspace": "Workspace Control",
+      "billing": "Revenue Control",
+      "cookies": "BugIdea Ops",
+      "audit": "Governance",
+      "overview": "Operations Control",
       "system": "System",
       "analytics": "Analytics"
     },
@@ -1880,6 +2044,53 @@
       "members": "Members",
       "invites": "Open invites",
       "audits24h": "Audit events (24h)"
+    },
+    "analytics": {
+      "title": "Operational Workspace Health",
+      "description": "Track workspace-level risk, storage footprint, and subscription pressure in one table.",
+      "platformAdminHint": "Workspace health data requires platform admin scope.",
+      "kpis": {
+        "workspaces": "Tracked workspaces",
+        "membersFallback": "{{count}} members total",
+        "highRisk": "High risk workspaces",
+        "mediumRisk": "{{count}} medium risk",
+        "storage": "Storage usage",
+        "averageUsage": "Average usage {{percent}}",
+        "pastDue": "Past due subscriptions",
+        "invitesAndAudits": "{{invites}} open invites, {{audits}} audits/24h"
+      },
+      "table": {
+        "title": "Workspace Health Matrix",
+        "description": "Prioritize unstable tenants before they become support incidents."
+      },
+      "columns": {
+        "workspace": "Workspace",
+        "plan": "Plan & billing",
+        "access": "Entitlement",
+        "members": "Members",
+        "storage": "Storage",
+        "proxy": "Proxy bandwidth",
+        "risk": "Risk",
+        "updatedAt": "Usage updated"
+      },
+      "subscription": {
+        "active": "Active",
+        "past_due": "Past due",
+        "canceled": "Canceled"
+      },
+      "entitlement": {
+        "active": "Active",
+        "grace_active": "Grace",
+        "read_only": "Read-only"
+      },
+      "risk": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "membersMeta": "{{invites}} invites, {{shares}} shares",
+      "invoiceAt": "Invoice: {{at}}",
+      "empty": "No workspace health data yet."
     },
     "columns": {
       "email": "Email",
@@ -1946,6 +2157,7 @@
       "inviteEmailInvalid": "Invite email is invalid.",
       "inviteRoleRestricted": "Invites can only use Member or Viewer role.",
       "inviteRoleRestrictedHint": "For security, invite as Member/Viewer first, then upgrade role after onboarding.",
+      "rolePresetMappingHint": "New Roles are presets and map to core roles (Admin/Member/Viewer) for current runtime compatibility.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Invite created successfully.",
       "inviteCreateFailed": "Failed to create invite.",
@@ -1962,14 +2174,20 @@
       "revokeInvite": "Revoke invite"
     },
     "roles": {
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "owner": "Workspace Owner",
+      "admin": "Management",
+      "member": "User",
+      "viewer": "Viewer",
+      "seller": "Seller",
+      "management": "Management",
+      "automation_operator": "Automation Operator",
+      "billing_operator": "Billing Operator",
+      "audit_viewer": "Audit Viewer"
     },
     "permissions": {
       "ownerLockedHint": "Owner role is full-control and cannot be disabled.",
       "editorHint": "Toggle capabilities for this role based on your workspace operating model.",
+      "newRolesHint": "You can use New Roles as operational presets; the system currently maps them to core execution roles.",
       "items": {
         "profiles_manage": {
           "title": "Manage profiles",
@@ -2077,6 +2295,284 @@
       "activeStatus": "active",
       "revokedStatus": "revoked"
     },
+    "tiktokCookies": {
+      "bearerTitle": "BugIdea bearer key",
+      "bearerDescription": "Provide bearer key so cookie push operations can be sent to BugIdea.",
+      "bearerPlaceholder": "Bearer key...",
+      "bearerSave": "Save key",
+      "bearerRequired": "Bearer key is required before push/test cookie actions.",
+      "bearerSaved": "BugIdea bearer key saved.",
+      "workflow": {
+        "title": "TikTok Shop Automation",
+        "description": "Admin flow to create/import automation profiles, run signup or cookie-update flows, and sync data back to BugIdea.",
+        "basicConfig": "Basic Config",
+        "advancedConfig": "Advanced Config (rarely changed)",
+        "flowMode": "Flow mode",
+        "flowSingle": "Single profile",
+        "flowMulti": "Multi profile",
+        "phoneSource": "Phone source",
+        "phoneSourceManual": "Manual input",
+        "phoneSourceList": "Phone list",
+        "phoneSourceFile": "CSV/TSV/TXT (Excel export)",
+        "phoneSourceApi": "API phone",
+        "profilePrefix": "Profile name prefix",
+        "profilePrefixPlaceholder": "e.g. ttshop",
+        "profilePrefixRequired": "Profile prefix is required.",
+        "browser": "Browser",
+        "proxyKeyword": "Proxy keyword",
+        "proxyKeywordPlaceholder": "e.g. 5p",
+        "proxyCandidates": "Proxy list (optional)",
+        "proxyCandidatesPlaceholder": "proxy id or name, comma separated",
+        "phoneCountry": "Phone country",
+        "phoneCountryUs": "United States",
+        "phoneNumber": "Phone number",
+        "phoneNumberPlaceholder": "e.g. 2025550123",
+        "phoneListTitle": "Phone list",
+        "phoneListPlaceholder": "One phone per line or comma-separated values",
+        "phoneFileTitle": "Phone file import",
+        "phoneFileHint": "{{count}} phones loaded from CSV/TXT file (Excel-exported).",
+        "phoneFileImported": "Imported {{count}} phones from file.",
+        "phoneFileFailed": "Failed to read phone file.",
+        "phoneFileExcelUnsupported": "Direct .xlsx/.xls import is not supported yet. Export to CSV/TSV/TXT and import again.",
+        "phoneListEmpty": "Phone list is empty.",
+        "apiPhoneEndpoint": "API phone endpoint",
+        "apiPhoneEndpointPlaceholder": "https://.../phones",
+        "apiPhoneEndpointRequired": "API phone endpoint is required.",
+        "apiPhoneFailed": "Failed to fetch phone list from API.",
+        "rotationLink": "Rotation link (optional)",
+        "rotationLinkPlaceholder": "https://... (optional)",
+        "rotationInterval": "Rotation interval (minutes, optional - default 5)",
+        "rotationIntervalInvalid": "Rotation interval is invalid.",
+        "phoneRequired": "Phone number is required.",
+        "phoneInvalidUs": "US phone number must contain 10 digits.",
+        "phoneSummary": "{{country}} • {{phone}}",
+        "eligibleProxyCount": "Eligible proxies",
+        "nextProxy": "Next rotation proxy",
+        "noProxy": "No proxy matched",
+        "rotationCursor": "Rotation batch",
+        "instructions": "Batch creates profiles using single/multi mode and rotates proxies across available items. Start opens the login tab. After manual actions and profile close, click Sync (2-way). Empty rotation interval falls back to 5 minutes.",
+        "refreshProxy": "Reload proxies",
+        "createBatch": "Create profile batch",
+        "pullBugIdea": "Reset & pull from BugIdea",
+        "pullBugIdeaEmpty": "There are no BugIdea cookies to pull into profiles.",
+        "pullBugIdeaSuccess": "Pulled {{count}} BugIdea cookies into profiles.",
+        "pullBugIdeaPartial": "Pulled part of the BugIdea cookies into profiles.",
+        "pullBugIdeaFailed": "Failed to pull BugIdea cookies into profiles.",
+        "cookieSourceFailed": "Failed to read the cookie source workbook used to complete profiles.",
+        "tableTitle": "Automation profile table",
+        "tableDescription": "Primary profile data table: phone/api phone, status, TikTok cookie, and sync/run actions.",
+        "bulkSelected": "{{count}} profiles selected",
+        "bulkStart": "Run selected sequentially",
+        "bulkStop": "Stop sequential run",
+        "bulkDonePush": "Done & Push selected",
+        "bulkSync": "Sync selected (2-way)",
+        "bulkRemove": "Remove selected",
+        "bulkNoRunnable": "No runnable profile in selection (all are disabled).",
+        "searchPlaceholder": "Search profile, phone, API phone, proxy, or cookie...",
+        "empty": "No semi-auto profile tasks yet.",
+        "filters": {
+          "allStatuses": "All statuses",
+          "empty": "No profiles match the current filter."
+        },
+        "phoneLabel": "Phone",
+        "apiPhoneLabel": "API Phone",
+        "phoneCopied": "Phone copied.",
+        "apiPhoneCopied": "API Phone copied.",
+        "profileIdCopied": "Profile ID copied.",
+        "cookieCopied": "Cookie copied.",
+        "usernameCopied": "Username copied.",
+        "passwordCopied": "Password copied.",
+        "paginationSummary": "Showing {{from}}-{{to}} of {{total}} profiles",
+        "columns": {
+          "profile": "Profile",
+          "phone": "Phone / API Phone",
+          "credentials": "Username / Password",
+          "status": "Status",
+          "stepError": "Step / Error",
+          "runtime": "Browser / Proxy",
+          "cookie": "TikTok cookie",
+          "updated": "Updated",
+          "more": "More"
+        },
+        "more": {
+          "open": "Open more details",
+          "browser": "Browser: {{value}}",
+          "proxy": "Proxy: {{value}}",
+          "apiPhone": "API Phone: {{value}}",
+          "bugideaId": "BugIdea ID: {{value}}"
+        },
+        "actions": {
+          "open": "Open profile",
+          "start": "Start",
+          "sync": "Sync (2-way)",
+          "editBrowser": "Edit browser",
+          "openApiPhone": "Open API Phone URL",
+          "fetchOtp": "Fetch OTP code",
+          "disable": "Disable profile",
+          "enable": "Enable profile",
+          "donePush": "Done & Push",
+          "remove": "Remove"
+        },
+        "runCenter": {
+          "title": "Automation Run Center",
+          "description": "Import account sources, start runs, and monitor progress without losing state after reload.",
+          "accounts": "Accounts",
+          "runs": "Runs",
+          "latestStatus": "Latest status",
+          "flowType": "Flow type",
+          "flowSignup": "Signup",
+          "flowUpdateCookie": "Update",
+          "mode": "Run mode",
+          "activeRun": "Active run",
+          "noRunSelected": "No run selected",
+          "import": "Import sources",
+          "forceImport": "Force import",
+          "syncAll": "Sync All",
+          "runNow": "Create & start run",
+          "pause": "Pause",
+          "resume": "Resume",
+          "progress": "Progress {{done}} / {{total}}",
+          "currentProfile": "Current profile: {{profile}}",
+          "statsOutcome": "Outcomes",
+          "statsPerformance": "Performance",
+          "statsAccounts": "Accounts",
+          "statsDone": "Done",
+          "statsFailed": "Errors",
+          "statsStarted": "Running",
+          "statsSuccessRate": "Success rate",
+          "statsRuns": "Runs",
+          "statsLatestStatus": "Latest status",
+          "statsRunProgress": "Run progress"
+        },
+        "progress": {
+          "summary": "{{processed}}/{{total}} · ok {{success}} · fail {{failed}} · skip {{skipped}}",
+          "status": {
+            "idle": "Idle",
+            "running": "Running",
+            "success": "Completed",
+            "partial": "Completed with warnings",
+            "error": "Failed",
+            "interrupted": "Interrupted"
+          }
+        },
+        "status": {
+          "created": "Created",
+          "started": "Started",
+          "cookie_ready": "Cookie ready",
+          "cookie_missing": "Cookie missing",
+          "push_failed": "Sync failed",
+          "done": "Done"
+        },
+        "syncStatus": {
+          "needs_sync": "Needs sync",
+          "synced": "Synced",
+          "missing_cookie": "Missing cookie",
+          "conflict": "Conflict",
+          "sync_error": "Sync error",
+          "disabled": "Disabled"
+        },
+        "syncStatusWithAge": "{{status}} · {{age}}",
+        "syncAgeMinutes": "{{value}}m ago",
+        "syncAgeHours": "{{value}}h ago",
+        "syncAgeDays": "{{value}}d ago",
+        "syncAgeUnknown": "age unknown",
+        "rowState": {
+          "opening": "Opening",
+          "syncing": "Syncing",
+          "awaitingClose": "Waiting close"
+        },
+        "proxyLoadFailed": "Failed to load stored proxies.",
+        "proxyNotAvailable": "No proxy matched the keyword. Add proxy or change keyword.",
+        "browserVersionRequired": "No downloaded browser version found for the selected browser.",
+        "browserUpdated": "Updated browser preference to {{browser}} for profile {{profile}}.",
+        "apiPhoneMissing": "API Phone URL is missing for this profile.",
+        "createBatchSuccess": "Created {{count}} profiles with proxy {{proxy}}.",
+        "createBatchFailed": "Failed to create profile batch.",
+        "startProfileSuccess": "Opened browser profile {{profile}}.",
+        "startProfileFailed": "Failed to start browser profile.",
+        "signupCredentialReady": "Credentials for {{profile}}: {{username}} / {{password}}",
+        "openApiPhoneSuccess": "Opened API Phone URL for profile {{profile}}.",
+        "openApiPhoneFailed": "Failed to open API Phone URL for this profile.",
+        "otpDetectedCopied": "OTP for profile {{profile}} copied: {{code}}",
+        "otpNotFound": "OTP code not found yet.",
+        "otpNotFoundDescription": "The API Phone endpoint has not returned a valid TikTok 6-digit code.",
+        "autoRunStarted": "Started sequential run for {{count}} profiles.",
+        "autoRunFinished": "Finished sequential run for {{count}} profiles.",
+        "autoRunStopped": "Sequential run stopped.",
+        "autoRunCookieReady": "Profile {{profile}} now has a fresh TikTok cookie.",
+        "autoRunStoppedNoCookie": "Profile {{profile}} does not have a fresh TikTok cookie yet. The run was stopped.",
+        "autoRunProgress": "Sequential run {{current}} / {{total}}",
+        "autoRunDoneCount": "Done {{count}}",
+        "autoRunRemainingCount": "Remaining {{count}}",
+        "autoRunCurrent": "Opening: {{profile}}",
+        "autoRunLaunching": "Opening the next profile...",
+        "autoRunOpeningProfile": "Waiting for browser profile response...",
+        "autoRunCapturingCookie": "Capturing cookie after profile close...",
+        "autoRunWaiting": "Close the current browser window to move to the next profile.",
+        "monitorRunning": "Automation is running",
+        "monitorStalled": "Likely stalled",
+        "monitorProfile": "Profile: {{profile}}",
+        "monitorHeartbeat": "Heartbeat: {{seconds}}s ago",
+        "monitorRuntime": "Current run time: {{seconds}}s",
+        "autoRunActiveRow": "Running",
+        "syncAllSuccess": "Synced {{count}} profiles.",
+        "syncAllPartial": "Sync All completed: {{synced}} synced, {{missing}} missing cookie, {{failed}} failed.",
+        "syncAllFailed": "Failed to Sync All profiles.",
+        "cookieMissing": "No usable TikTok Shop cookie found in this profile.",
+        "pushNotes": "source=buglogin_semi_auto profile_id={{profileId}} proxy={{proxy}} matched_domains={{domains}} matched_cookies={{cookies}}",
+        "donePushSuccess": "Profile {{profile}} cookie pushed to BugIdea.",
+        "donePushFailed": "Failed to push/test cookie for this profile.",
+        "syncPushSuccess": "Synced cookie from BugLogin to BugIdea for profile {{profile}}.",
+        "syncPullSuccess": "Synced cookie from BugIdea to BugLogin for profile {{profile}}.",
+        "syncSuccess": "Synced cookie in both directions for profile {{profile}}.",
+        "syncNetworkWarning": "Destination network is unstable (SSL/TLS). Cookie sync succeeded, but verify may be incomplete.",
+        "syncTimeoutWarning": "Verify request timed out. Cookie sync succeeded; retry verification later.",
+        "syncFailed": "Failed to sync cookies for this profile."
+      },
+      "createTitle": "Create TikTok cookie",
+      "createDescription": "Push one cookie record to BugIdea.",
+      "listTitle": "TikTok cookie inventory",
+      "listDescription": "Manage cookie records used by BugIdea automation.",
+      "bulkTitle": "Bulk push",
+      "bulkDescription": "Send multiple cookies in one request. One line = one cookie value.",
+      "label": "Label",
+      "cookie": "Cookie",
+      "notes": "Notes",
+      "status": "Status",
+      "testedAt": "Last tested",
+      "prefix": "Prefix (optional)",
+      "bulkCookies": "Cookie lines",
+      "cookiePreview": "Cookie preview",
+      "labelPlaceholder": "e.g. tk_session_main",
+      "cookiePlaceholder": "Paste raw TikTok cookie string",
+      "notesPlaceholder": "Optional note for operators",
+      "statusPlaceholder": "e.g. active / inactive",
+      "prefixPlaceholder": "e.g. tiktok_prod",
+      "bulkCookiesPlaceholder": "cookie=value; ... (one cookie string per line)",
+      "createAction": "Push cookie",
+      "updateAction": "Update",
+      "checkCookieAction": "Check Cookie",
+      "deleteAction": "Delete",
+      "bulkAction": "Push bulk cookies",
+      "editTitle": "Edit TikTok cookie",
+      "editDescription": "Update label, cookie, status, or notes.",
+      "empty": "No TikTok cookies found.",
+      "createFieldsRequired": "Label and cookie are required.",
+      "updateFieldsRequired": "Enter at least one field to update.",
+      "bulkFieldsRequired": "Enter at least one cookie line.",
+      "refreshSuccess": "TikTok cookies refreshed.",
+      "refreshFailed": "Failed to refresh TikTok cookies.",
+      "createSuccess": "TikTok cookie pushed.",
+      "createFailed": "Failed to push TikTok cookie.",
+      "updateSuccess": "TikTok cookie updated.",
+      "updateFailed": "Failed to update TikTok cookie.",
+      "deleteSuccess": "TikTok cookie deleted.",
+      "deleteFailed": "Failed to delete TikTok cookie.",
+      "testSuccess": "TikTok cookie test request sent.",
+      "testFailed": "Failed to test TikTok cookie.",
+      "bulkSuccess": "Bulk push completed for {{count}} cookies.",
+      "bulkFailed": "Failed to bulk push TikTok cookies."
+    },
     "audit": {
       "none": "No audit entries found."
     },
@@ -2100,10 +2596,10 @@
     },
     "ui": {
       "workspaceOpsTitle": "Workspace Operations Center",
-      "workspaceOpsDescription": "Manage workspaces, membership, and sharing in one contextual governance flow with explicit role boundaries.",
+      "workspaceOpsDescription": "Operate the active workspace in one compact flow: team lifecycle, invites, sharing, and owner guardrails.",
       "workspaceDirectoryTitle": "Workspace Directory & Provisioning",
-      "workspaceDirectoryOpsDescription": "Manage all workspaces globally from this admin scope. Membership and access policy actions are handled in the Workspace Governance panel for the active workspace.",
-      "scopePlatform": "Scope: Platform Admin",
+      "workspaceDirectoryOpsDescription": "Manage team lifecycle and access policy directly in the active workspace without switching between fragmented pages.",
+      "scopePlatform": "Scope: Super Admin",
       "scopeTeam": "Scope: Workspace Owner/Admin",
       "scopeReadOnly": "Scope: Read-only",
       "workspaceDirectoryDescription": "Switch workspace context to inspect and operate the correct governance data.",
@@ -2129,6 +2625,17 @@
       "memberAccessDescription": "Manage role lifecycle, revoke access, and monitor invite throughput for the active workspace.",
       "memberList": "Member list",
       "inviteList": "Invite list",
+      "searchMembersPlaceholder": "Search by email or user ID...",
+      "searchInvitesPlaceholder": "Search invite email...",
+      "searchSharesPlaceholder": "Search resource ID or recipient email...",
+      "filterAllRoles": "All roles",
+      "filterAllStatuses": "All statuses",
+      "filterPending": "Pending",
+      "filterUsed": "Used",
+      "filterActive": "Active",
+      "filterRevoked": "Revoked",
+      "rowSummary": "{{shown}} / {{total}} rows",
+      "noRowsInPage": "No rows on this page. Change filters or page.",
       "shareControlTitle": "Resource sharing policy",
       "policyChecklistTitle": "Access policy checklist",
       "policyChecklistDescription": "Apply these controls before sharing resources across operators or partner workspaces.",
@@ -2152,6 +2659,17 @@
       "entitlementDescription": "Monitor effective runtime limits and retention policies.",
       "latestAuditTitle": "Recent audit activity",
       "latestAuditDescription": "Latest sensitive actions captured by the control-plane.",
+      "operationQueueTitle": "Priority operation queue",
+      "operationQueueDescription": "Action-first queue for risky, overdue, or near-capacity workspaces requiring operator intervention.",
+      "operationQueueEmpty": "No workspace currently requires urgent intervention.",
+      "actionStabilizeSync": "Stabilize sync pipeline",
+      "actionRecoverBilling": "Run payment recovery",
+      "actionReviewCapacity": "Review storage/proxy capacity",
+      "actionReviewAccess": "Review access policy",
+      "reasonHighRisk": "Risk posture is high and needs immediate triage.",
+      "reasonPastDue": "Subscription is past due and may impact entitlement.",
+      "reasonCapacity": "Storage or proxy usage is nearing configured limits.",
+      "reasonShareAndInvite": "Review sharing and invite posture before scale-up.",
       "currentWorkspace": "Current workspace",
       "createWorkspaceDescription": "Provision a new isolated workspace and start governance immediately.",
       "shareDescription": "Grant access to workspace resources with explicit revoke control.",
@@ -2178,6 +2696,10 @@
       "coupon": {
         "title": "Coupon Governance",
         "description": "Control internal discounts with allowlist, expiry, and redemption caps."
+      },
+      "tiktokCookies": {
+        "title": "TikTok Cookie Operations",
+        "description": "Push and maintain TikTok cookies for BugIdea endpoints."
       },
       "audit": {
         "title": "Audit Logs",
@@ -2209,18 +2731,26 @@
     "sections": {
       "profiles": "Profiles",
       "automation": "Automation",
+      "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy Center",
       "pricing": "Pricing",
       "settings": "Settings",
       "integrations": "Integrations",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
+      "superAdminPanel": "Super Admin Panel",
       "billing": "Pricing & Billing",
       "billingCheckout": "Checkout",
       "billingCoupon": "Coupon",
       "billingLicense": "License",
       "billingManagement": "Billing Management",
       "workspaceGovernance": "Workspace Governance",
+      "workspaceOwnerPanel": "Workspace Owner Panel",
+      "workspaceOwnerOverview": "Owner Command",
+      "workspaceOwnerDirectory": "Team & Access",
+      "workspaceOwnerPermissions": "Team & Access",
+      "workspaceOwnerPlanManagement": "Plan Management",
+      "workspaceOwnerUserPermissions": "User Permissions",
       "workspaceAdminOverview": "Overview",
       "workspaceAdminDirectory": "Current Workspace",
       "workspaceAdminPermissions": "User Permissions",
@@ -2277,12 +2807,14 @@
       "openAutomation": "Open automation workspace"
     },
     "roles": {
-      "platform_admin": "Platform Admin",
-      "platform_admin_short": "Platform",
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
+      "platform_admin": "Super Admin",
+      "platform_admin_short": "Super",
+      "owner": "Workspace Owner",
+      "admin": "Management",
+      "member": "User",
       "viewer": "Viewer",
+      "seller": "Seller",
+      "management": "Management",
       "guest": "Guest"
     },
     "workspaceSwitcher": {
@@ -2308,14 +2840,26 @@
       }
     },
     "panelSwitch": {
-      "toAdmin": "Go to Admin Panel",
+      "toAdmin": "Open Super Admin Panel",
       "toWorkspace": "Back to Workspace App",
-      "toWorkspaceGovernance": "Open Workspace Governance Panel"
+      "toWorkspaceGovernance": "Open Workspace Owner Panel"
     },
     "accountMenu": {
       "workspaces": "Workspaces",
       "addWorkspace": "Add workspace",
       "panels": "Governance panels"
+    },
+    "webPortal": {
+      "movedDescription": "This function is now managed on the web portal. Desktop remains focused on runtime operations.",
+      "superAdminDescription": "Platform governance has moved to the web Super Admin Portal.",
+      "workspaceOwnerDescription": "Workspace governance has moved to the web Workspace Owner Portal.",
+      "billingDescription": "Billing management is now web-first and handled in the portal.",
+      "pricingDescription": "Pricing and checkout are now handled on the web portal.",
+      "openSuperAdmin": "Open Super Admin Web Portal",
+      "openWorkspaceOwner": "Open Workspace Owner Web Portal",
+      "openBilling": "Open Billing Web Portal",
+      "openPricing": "Open Pricing Web Portal",
+      "opening": "Opening web portal..."
     },
     "topbar": {
       "languageSystem": "Use system language",
@@ -2330,8 +2874,8 @@
       "autoUpdateInProgress": "Auto-update in progress",
       "userMenu": "Account menu",
       "openSettings": "Open settings",
-      "goAdminPanel": "Go to Admin Panel",
-      "goWorkspaceGovernance": "Open Workspace Governance",
+      "goAdminPanel": "Open Super Admin Panel",
+      "goWorkspaceGovernance": "Open Workspace Owner Panel",
       "backWorkspace": "Back to Workspace App",
       "preferenceSaveFailed": "Failed to save appearance preferences",
       "notificationTitle": "{{browser}} has a new update",
@@ -2341,7 +2885,9 @@
       "bootTitle": "Initializing BugLogin",
       "bootDescription": "Preparing workspace shell and account context...",
       "postLoginTitle": "Sign-in successful",
-      "postLoginDescription": "Loading workspace data and access context..."
+      "postLoginDescription": "Loading workspace data and access context...",
+      "sectionSwitchTitle": "Loading section",
+      "sectionSwitchDescription": "Preparing data and interface for this workspace page..."
     }
   },
   "pricingPage": {
@@ -2362,7 +2908,7 @@
     "planSelected": "Plan selected",
     "addonTitle": "Add-ons",
     "addonMembers": "Extra members",
-    "addonProfiles": "Extra profiles (+100 each)",
+    "addonProfiles": "Extra profiles",
     "addonApplied": "from add-ons",
     "planFootnote": "Tax and local regulations may apply.",
     "planTierOnly": "Annual only",
@@ -2397,17 +2943,17 @@
     "faq3Q": "Do I need Stripe ready before selecting a plan?",
     "faq3A": "No. You can pre-select plans now and activate full checkout as soon as Stripe is configured.",
     "currentPlanBadge": "Manage",
+    "pendingPlanShortBadge": "Pending",
     "freePlanLabel": "Free",
     "customPlanBadge": "Internal custom",
     "ctaBadge": "Recommended flow",
     "ctaTitle": "Need help choosing the right plan?",
     "ctaDescription": "Start with a recommended plan, then complete payment through dedicated Checkout/Coupon/License pages.",
-    "paymentFlowLabel": "Payment flow",
     "paymentFlowStripe": "Stripe checkout + coupon/license on dedicated payment pages",
     "paymentFlowSelfHost": "Self-host checkout + coupon/license on dedicated payment pages",
     "currentPlanHint": "Current active plan: {{plan}}",
     "ctaPrimary": "Choose this plan",
-    "ctaSecondary": "Open Payment Center",
+    "ctaSecondary": "Open Checkout",
     "trialBadge": "Trial active",
     "managePlanCta": "Manage plan",
     "currentWorkspacePlanHint": "Workspace {{workspace}} is on {{plan}}",
@@ -2426,7 +2972,7 @@
     "downgradeDisabled": "This account has multiple workspaces, so only upgrades are self-serve. Downgrades require manual handling.",
     "downgradeDisabledHint": "This account has multiple workspaces, so self-service only supports upgrades. Downgrades are handled manually in Billing.",
     "downgradeTo": "Downgrade to {{plan}}",
-    "pendingPlanCta": "Ready on payment pages",
+    "pendingPlanCta": "Continue Checkout",
     "planActionTitle": "Choose checkout flow",
     "planActionDescription": "You selected {{plan}}. Choose where to apply this plan.",
     "planActionDescriptionFallback": "Choose where to apply this plan before checkout.",
@@ -2447,7 +2993,7 @@
     "title": "Pricing & Billing",
     "description": "Manage plans, usage, coupons, and payment posture with business-grade operational visibility.",
     "managementPageDescription": "Track billing runtime, usage, and invoices, then route payment actions to dedicated pages.",
-    "checkoutPageDescription": "Stripe checkout page for the current workspace. Use only for checkout/confirm actions.",
+    "checkoutPageDescription": "Payment page for the current workspace plan.",
     "couponPageDescription": "Coupon page for the current workspace after selecting a plan from Pricing.",
     "licensePageDescription": "License claim page for the current workspace after selecting a plan from Pricing.",
     "planFallback": "Self-hosted",
@@ -2487,25 +3033,28 @@
     "couponQueuedDescription": "Stripe is not configured, so this coupon is applied through internal self-host billing.",
     "couponApplied": "Coupon applied.",
     "couponAppliedDescription": "Discount has been attached to the current billing flow.",
-    "couponValidationUnavailable": "Unable to validate coupon from billing server.",
+    "couponValidationUnavailable": "Sync server or token is not ready for coupon validation.",
     "couponNotEligible": "Coupon is invalid or not eligible for this workspace.",
     "couponLocalOnly": "In local mode, only FREE100/LOCAL100/BUG100 are supported for checkout simulation.",
     "workspaceRequiredForBilling": "Select a workspace before changing plans.",
     "pendingPlanBadge": "Pending activation",
     "pendingPlanTitle": "Selected plan: {{plan}}",
-    "pendingPlanStripeReady": "Stripe is ready. Confirm payment to activate this plan.",
+    "pendingPlanStripeReady": "Stripe is ready.",
+    "pendingPlanStripeConfigIncomplete": "Stripe setup is incomplete. Finish publishable key and billing URL to continue checkout.",
     "pendingPlanCouponApplied": "Coupon applied. You can confirm and activate this plan.",
     "pendingPlanSelfHostedReady": "Self-host checkout is ready. Pay now, or apply coupon/license to activate.",
+    "pendingPlanDirectActivationReady": "A 100% coupon or valid license activates directly.",
     "pendingProrationCredit": "Applied ${{amount}} credit from {{days}} remaining days on the current plan.",
     "pendingAmountDue": "Amount due: ${{amount}}.",
     "pendingPlanNeedsPayment": "Stripe payment or a valid coupon is required before activation.",
-    "confirmPlanActivation": "Confirm plan activation",
-    "startStripeCheckout": "Open Stripe checkout",
+    "startStripeCheckout": "Pay with Stripe",
     "selfHostedPayNow": "Pay now (Self-host)",
-    "checkoutOpened": "Stripe checkout opened in browser.",
+    "checkoutOpened": "Stripe Checkout opened in browser.",
     "checkoutUrlMissing": "Stripe billing URL is missing in app settings.",
-    "checkoutStartRequired": "Open Stripe checkout first, then confirm after payment.",
+    "checkoutStartRequired": "Open Stripe Checkout first, then verify after payment.",
     "stripeConfigRequired": "Stripe setup required",
+    "stripeConfigIncomplete": "Stripe is not fully configured.",
+    "stripeConfigIncompleteDescription": "A Stripe key or billing URL is present, but both values are required. Complete the setup to avoid self-host bypass.",
     "stripeRequiredForCheckout": "Stripe is not ready. Direct paid checkout is blocked until Stripe is configured.",
     "stripeRequiredForPaidCoupon": "Coupon is valid but cannot activate yet.",
     "stripeRequiredForPaidCouponDescription": "Coupon discount is below 100%. Configure Stripe to pay the remaining amount.",
@@ -2518,13 +3067,85 @@
     "openAdminWorkspace": "Open Admin Workspace",
     "managementBadge": "Billing Management",
     "managementTitle": "Manage subscription, usage, and invoices",
-    "managementDescription": "Use Pricing to choose a plan, complete payment on dedicated pages, then monitor billing operations here.",
     "openPricingPage": "Open Pricing Page",
     "openCheckoutPage": "Open Checkout Page",
     "openCouponPage": "Open Coupon Page",
     "openLicensePage": "Open License Page",
     "openBillingManagementPage": "Back to Billing Management",
+    "backToPricing": "Back to Pricing",
+    "checkoutMethodTitle": "Choose payment method",
+    "checkoutMethodSubtitle": "",
+    "checkoutSectionSelfHostHint": "Self-host mode is active. You can pay now directly, or move through coupon/license.",
+    "checkoutTrustSecure": "Secure payments",
+    "checkoutStatusTitle": "Payment status",
+    "checkoutStatusIdle": "Ready",
+    "checkoutStatusLoading": "Processing",
+    "checkoutStatusSuccess": "Completed",
+    "checkoutStatusError": "Payment error",
+    "checkoutActionOpening": "Opening Stripe Checkout...",
+    "checkoutActionProcessing": "Processing payment...",
+    "checkoutActionApplyingCoupon": "Applying coupon...",
+    "checkoutActionClaimingLicense": "Checking license...",
+    "stripeProviderButtonCaption": "Hosted checkout for this workspace",
+    "amountDueLabel": "Amount due",
+    "couponInlineHint": "Apply a coupon code and update the amount due immediately.",
+    "licenseInlineHint": "Use a valid license to activate directly without Stripe Checkout.",
+    "licenseDisclosureClosed": "Have a license key? Expand this section to activate directly.",
+    "checkoutSummaryPlan": "Plan",
+    "checkoutSummaryCycle": "Billing cycle",
+    "checkoutSummaryWorkspace": "Workspace",
+    "checkoutFlowIdle": "Ready.",
+    "checkoutFlowCancelled": "Pending checkout flow was cancelled.",
+    "checkoutFlowCouponLoading": "Applying coupon to pending plan...",
+    "checkoutFlowCouponApplied": "Coupon applied. Continue to checkout confirmation.",
+    "checkoutFlowPaymentLoading": "Processing payment activation...",
+    "checkoutFlowSelfHostedSuccess": "Self-host payment completed and plan activation requested.",
+    "checkoutFlowLicenseLoading": "Validating and claiming license...",
+    "checkoutFlowLicenseSuccess": "License accepted. Plan activation completed.",
+    "checkoutFlowStripeLoading": "Creating Stripe Checkout session...",
+    "checkoutFlowStripeOpened": "Stripe Checkout opened. Complete payment and return to verify.",
+    "checkoutFlowConfirmLoading": "Verifying payment and activating plan...",
+    "checkoutFlowActivated": "Payment verified. Workspace plan activated.",
+    "checkoutReturnOpened": "Returned to BugLogin.",
+    "checkoutCancelledTitle": "Stripe Checkout was canceled.",
+    "checkoutCancelledDescription": "You can return to pricing or open checkout again.",
+    "checkoutReturnSuccessTitle": "Payment completed",
+    "checkoutReturnSuccessDescription": "BugLogin will reopen to verify the payment and activate the plan.",
+    "checkoutReturnCancelTitle": "Checkout canceled",
+    "checkoutReturnCancelDescription": "BugLogin will reopen so you can continue with pricing or retry checkout.",
+    "checkoutReturnResolving": "Preparing to return to BugLogin...",
+    "checkoutReturnRedirecting": "Reopening BugLogin...",
+    "checkoutReturnSecondary": "If the app does not open automatically, use the button below.",
+    "checkoutReturnSuccessStep": "Payment success was received.",
+    "checkoutReturnCancelStep": "Checkout cancellation was received.",
+    "checkoutReturnOpenApp": "Open BugLogin",
+    "checkoutSessionFailed": "Unable to create Stripe checkout.",
+    "checkoutLaunchFailed": "Unable to open Stripe checkout.",
+    "checkoutConfirmFailed": "Unable to verify Stripe checkout.",
+    "checkoutActivationFailed": "Unable to complete activation.",
+    "controlServerUnavailable": "Unable to reach the billing server.",
+    "controlServerUnavailableDescription": "Check `sync_server_url`, the service port, and the buglogin-sync process status.",
+    "workspaceCheckoutContextExpired": "This billing workspace no longer exists. Return to Pricing and choose the plan again from the current workspace.",
     "nextInvoiceHint": "Next invoice in 30 days",
+    "nextRenewalAt": "Next renewal: {{date}}",
+    "nextRenewalUnknown": "Next renewal date is not available yet.",
+    "subscriptionAccessUntil": "Access continues until: {{date}}",
+    "autoRenewalStripe": "Auto-renew is enabled via Stripe.",
+    "autoRenewalSelfHosted": "Auto-renew depends on current self-host configuration.",
+    "autoRenewalDisabledAtPeriodEnd": "Auto-renew is off. The plan will end at the close of the current cycle.",
+    "subscriptionLifecycleTitle": "Subscription lifecycle",
+    "subscriptionLifecycleDescription": "You can stop renewal at period end or end the paid plan immediately.",
+    "subscriptionScheduledSummary": "This plan will end at the close of the current cycle: {{date}}.",
+    "subscriptionCancelAtPeriodEnd": "Cancel at period end",
+    "subscriptionCancelImmediately": "Cancel immediately",
+    "subscriptionReactivate": "Turn renewal back on",
+    "subscriptionCancelScheduled": "Cancellation scheduled.",
+    "subscriptionCancelScheduledDescription": "The workspace keeps the current plan until the expiry date.",
+    "subscriptionCancelledImmediately": "Plan canceled immediately.",
+    "subscriptionCancelledImmediatelyDescription": "The workspace has been moved back to the default plan now.",
+    "subscriptionReactivated": "Renewal re-enabled.",
+    "subscriptionReactivatedDescription": "The current plan will renew as normal again.",
+    "subscriptionUpdateFailed": "Unable to update the subscription state.",
     "paymentRoute": "Payment route",
     "paymentRouteStripe": "Stripe checkout",
     "paymentRouteSelfHosted": "Self-host checkout",
@@ -2540,9 +3161,17 @@
     "metricFailedCharges": "Failed charges this quarter",
     "metricExportTime": "Average export completion",
     "paymentMethodTitle": "Payment Method",
-    "paymentActionCenterTitle": "Payment Action Center",
-    "paymentActionCenterBodyTitle": "Centralized payment actions",
-    "paymentActionCenterBodyDescription": "Use Checkout, Coupon, and License tabs directly on this page to complete payment flow.",
+    "paymentCheckoutInformation": "Payment Information",
+    "paymentMethodStripe": "Stripe checkout",
+    "paymentMethodSelfHosted": "Self-host checkout",
+    "paymentMethodDirect": "Direct activation",
+    "paymentOrderSummaryTitle": "Order Summary",
+    "paymentOrderSummaryCycle": "Cycle: {{cycle}}",
+    "paymentOrderSummarySubtotal": "Subtotal",
+    "paymentOrderSummaryCoupon": "Coupon",
+    "paymentOrderSummaryProrationCredit": "Proration credit",
+    "paymentOrderSummaryTotal": "Total",
+    "paymentOrderSummaryNoPlan": "No selected plan to proceed with checkout.",
     "paymentActionCenterSelfHostTitle": "Self-host checkout is currently active",
     "tabs": {
       "checkout": "Checkout",
@@ -2550,12 +3179,12 @@
       "license": "License"
     },
     "paymentConnectedTitle": "Stripe checkout is configured",
-    "paymentConnectedDescription": "Plan changes will be verified through Stripe payment and webhook reconciliation.",
-    "paymentClaimDescription": "Stripe is not configured. Select a plan first, then claim it for this workspace via coupon or license key.",
-    "paymentSelfHostedDescription": "Self-host checkout is active. Select a pending plan and pay now, or apply coupon/license for this workspace.",
+    "paymentConnectedDescription": "",
+    "paymentClaimDescription": "Select a plan first, then claim it for this workspace via coupon or license key.",
+    "paymentSelfHostedDescription": "Self-host checkout is active. Select a pending plan and pay now, or activate with a coupon/license.",
     "noPaymentMethod": "No payment method connected yet.",
     "selectPlanBeforeClaim": "Select a plan from Pricing before applying coupon or license.",
-    "licenseTitle": "License claim",
+    "licenseTitle": "License",
     "licensePlaceholder": "Enter workspace license key",
     "claimLicense": "Claim plan",
     "licenseHint": "Use an admin-issued license key for plan {{code}}.",
@@ -2565,7 +3194,7 @@
     "licenseClaimed": "License claimed successfully.",
     "licenseClaimFailed": "Failed to claim license.",
     "licenseValidationUnavailable": "Unable to validate license from control-plane server.",
-    "licenseStripeEnabled": "Stripe is already configured. Complete checkout via Stripe instead of license claim.",
+    "licenseStripeEnabled": "License activates directly and does not depend on Stripe checkout.",
     "storageUsage": "Cloud sync storage",
     "bandwidthUsage": "Proxy bandwidth",
     "viewFullHistory": "View full billing history",
@@ -2574,11 +3203,14 @@
       "description": "Track latest billing periods and collection statuses.",
       "historyTitle": "Full invoice history",
       "exportCsv": "Export CSV",
+      "searchPlaceholder": "Search by plan, method, amount, or date...",
       "empty": "No invoice data yet. Invoices will appear after the first successful plan activation.",
+      "noResults": "No invoices match the current filters.",
       "pendingSyncDescription": "Invoice feed is waiting for Stripe webhook sync. This section will populate after first successful charge event.",
       "filter3": "Last 3",
       "filter6": "Last 6",
       "filterAll": "All",
+      "paginationSummary": "Showing {{from}}-{{to}} of {{total}} invoices",
       "colDate": "Date",
       "colPlan": "Plan",
       "colMethod": "Method",
@@ -2601,5 +3233,666 @@
     "ownerOnlyDescription": "Only workspace owner/admin or platform admin can manage payment methods and invoices.",
     "workspaceContext": "Managing workspace {{workspace}} · account {{email}}",
     "workspaceRoleContext": "Role in this workspace: {{role}}"
+  },
+  "webBilling": {
+    "brand": "BugLogin Billing Web",
+    "tagline": "Web billing portal for workspace teams",
+    "navLanding": "Landing",
+    "navPricing": "Pricing",
+    "navPlans": "Plans",
+    "navManagement": "Management",
+    "landingTitle": "Billing for every workspace",
+    "landingDescription": "Pick a plan on web, pay with Stripe, and sync entitlement back to desktop instantly.",
+    "tilePricingTitle": "Open pricing",
+    "tilePricingDescription": "Choose workspace plan and start Stripe checkout on web.",
+    "tilePlansTitle": "Plan comparison",
+    "tilePlansDescription": "Review profiles, members, storage, and cycle prices by plan.",
+    "tileManagementTitle": "Subscription management",
+    "tileManagementDescription": "Track current subscription, invoices, and renewal controls.",
+    "openSection": "Open section",
+    "plansTitle": "Plans and Limits",
+    "plansDescription": "Reference table for plan limits and public list prices.",
+    "pricingTitle": "Pick a plan and checkout",
+    "pricingDescription": "Step 1 connect Control API. Step 2 choose workspace and billing cycle. Step 3 continue to Stripe checkout.",
+    "managementTitle": "Billing Management",
+    "managementDescription": "Monitor subscription status, invoices, and cancellation controls after checkout.",
+    "connectionTitle": "Control API connection",
+    "connectionDescription": "Enter Control API credentials from your workspace so this portal can load team billing data.",
+    "connectionStatusReady": "Connection ready",
+    "connectionStatusMissing": "Step 1 required: connect Control API",
+    "fieldControlBaseUrl": "Control base URL",
+    "fieldControlToken": "Control token",
+    "fieldUserId": "User ID",
+    "fieldUserEmail": "User email",
+    "fieldPlan": "Plan",
+    "fieldStatus": "Status",
+    "fieldCycle": "Cycle",
+    "fieldExpires": "Expires at",
+    "placeholderControlBaseUrl": "https://sync.example.com",
+    "placeholderControlToken": "control token",
+    "placeholderUserId": "usr_xxx",
+    "placeholderUserEmail": "owner@example.com",
+    "workspaceSelectionTitle": "Workspace selection",
+    "workspaceSelectionDescription": "Select the workspace to bill, then continue with checkout or subscription actions.",
+    "workspacePlaceholder": "Select workspace",
+    "workspaceCurrentPlan": "Current: {{plan}}",
+    "workspaceRequired": "Workspace is required for this action.",
+    "startCheckout": "Continue to Stripe checkout",
+    "creatingCheckout": "Creating checkout...",
+    "checkoutImmediateActivated": "Workspace was activated immediately.",
+    "checkoutCreateFailed": "Unable to create checkout.",
+    "loadWorkspaceFailed": "Unable to load workspace list.",
+    "loadBillingFailed": "Unable to load billing state.",
+    "currentSubscriptionTitle": "Current subscription",
+    "noSubscription": "No active paid subscription yet.",
+    "invoiceTitle": "Recent invoices",
+    "noInvoices": "No invoice data found.",
+    "cancelAtPeriodEnd": "Cancel at period end",
+    "cancelImmediately": "Cancel immediately",
+    "reactivate": "Reactivate",
+    "actionSuccess": "Subscription action completed.",
+    "actionFailed": "Unable to update subscription.",
+    "genericError": "Unexpected error. Please try again.",
+    "notAvailable": "Not available",
+    "tablePlan": "Plan",
+    "tableMonthly": "Monthly",
+    "tableYearly": "Yearly",
+    "tableProfiles": "Profiles",
+    "tableMembers": "Members",
+    "tableStorage": "Storage",
+    "tableCycle": "Cycle",
+    "tableAmount": "Amount",
+    "tableMethod": "Method",
+    "tableCreatedAt": "Created at",
+    "faqTitle": "Frequently asked questions",
+    "faq1Q": "Will desktop billing still work?",
+    "faq1A": "No. Desktop checkout has been fully replaced by this web billing portal.",
+    "faq2Q": "Why is Control API required?",
+    "faq2A": "The portal uses Control API credentials to load your workspace and apply actions securely.",
+    "faq3Q": "When does entitlement update in desktop?",
+    "faq3A": "After successful checkout, open desktop billing and sync entitlement from web.",
+    "desktopPricingTitle": "Pricing moved to web portal",
+    "desktopPricingDescription": "Select pricing and start purchase from web. Desktop now syncs entitlement after checkout.",
+    "desktopManagementTitle": "Billing management moved to web portal",
+    "desktopManagementDescription": "Subscription updates, cancellation, and invoice tracking are now web-only.",
+    "desktopMigrationTitle": "New billing flow",
+    "desktopMigrationDescription": "In-app checkout flow has been replaced by web billing to reduce local attack surface.",
+    "desktopManagementMigrationDescription": "Use web management for all billing actions, then click sync to refresh desktop entitlement.",
+    "desktopOpenPricing": "Open web pricing",
+    "desktopOpenPlans": "Open web plans",
+    "desktopOpenManagement": "Open web management",
+    "desktopPortalOpened": "Opened billing portal.",
+    "desktopPortalOpenFailed": "Unable to open billing portal.",
+    "desktopPortalMissing": "Billing portal URL is not configured.",
+    "desktopContextMissing": "Missing sync context. Check sync server URL/token and account info.",
+    "desktopWorkspace": "Workspace: {{workspace}}",
+    "desktopPlan": "Plan: {{plan}}",
+    "desktopWorkspaceCount": "{{count}} workspaces",
+    "desktopExpiresAt": "Expires: {{date}}",
+    "desktopProfileUsage": "Profile usage",
+    "desktopProfileUsageValue": "{{used}} / {{limit}} profiles",
+    "desktopSyncButton": "Sync entitlement from web",
+    "desktopSyncSuccess": "Entitlement synced from web.",
+    "desktopSyncFailed": "Unable to sync entitlement.",
+    "desktopCheckoutReturnSuccess": "Checkout callback received. Open Billing to sync latest entitlement.",
+    "desktopCheckoutReturnCancelled": "Checkout was cancelled."
+  },
+  "portalSite": {
+    "nav": {
+      "home": "Home",
+      "product": "Product",
+      "teams": "Teams",
+      "resources": "Resources",
+      "community": "Community",
+      "support": "Support",
+      "enterprise": "Enterprise",
+      "dashboard": "Dashboard",
+      "pricing": "Pricing",
+      "auth": "Auth",
+      "help": "Help",
+      "billing": "Billing",
+      "admin": "Super Admin",
+      "brand": "Antidetect Browser Control",
+      "download": "Download App",
+      "signIn": "Sign In",
+      "signUp": "Sign up",
+      "signOut": "Sign Out",
+      "superAdmin": "Super Admin",
+      "openMenu": "Open menu"
+    },
+    "footer": {
+      "title": "BugLogin Portal",
+      "description": "The website layer that owns BugLogin marketing, authentication, checkout, account billing, and internal admin operations.",
+      "cta": "View pricing",
+      "product": "Product",
+      "resources": "Resources",
+      "operations": "Operations",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "refund": "Refund"
+    },
+    "home": {
+      "reportLabel": "State of Sites ’26",
+      "reportCta": "Unlock the report now",
+      "eyebrow": "Antidetect browser for serious operators",
+      "linearTitleLine1": "The antidetect browser",
+      "linearTitleLine2": "system for teams and operators",
+      "linearSubtitle": "Purpose-built for profile isolation, workspace controls, and billing operations.",
+      "title": "Run browser, workspace, and billing operations from one control surface.",
+      "description": "BugLogin combines a desktop antidetect browser with a web control layer for pricing, authentication, checkout, account billing, and super admin workflows without turning the browser app into a billing shell.",
+      "primaryCta": "Download desktop app",
+      "secondaryCta": "View pricing",
+      "metrics": {
+        "profiles": {
+          "value": "1,000+",
+          "label": "profiles on scale workspaces"
+        },
+        "teams": {
+          "value": "25",
+          "label": "seats on custom plans"
+        },
+        "ops": {
+          "value": "24/7",
+          "label": "web billing and admin visibility"
+        }
+      },
+      "mockup": {
+        "windowLabel": "Portal",
+        "windowTitle": "BugLogin control plane",
+        "status": "Live",
+        "sidebar": {
+          "team": "Tracked workspaces",
+          "active": "Active profiles",
+          "seats": "Seats in use"
+        },
+        "cards": {
+          "stealth": "Stealth runtime",
+          "workspace": "Workspace controls",
+          "billing": "Stripe billing"
+        },
+        "stats": {
+          "queue": {
+            "label": "Ops queue",
+            "value": "08"
+          },
+          "risk": {
+            "label": "High-risk workspaces",
+            "value": "03"
+          },
+          "revenue": {
+            "label": "Active subscriptions",
+            "value": "128"
+          }
+        },
+        "rows": {
+          "1": {
+            "title": "Growth workspace due for renewal",
+            "subtitle": "Stripe checkout session ready",
+            "badge": "Billing"
+          },
+          "2": {
+            "title": "Google OAuth callback healthy",
+            "subtitle": "Portal and desktop share the same authority",
+            "badge": "Auth"
+          },
+          "3": {
+            "title": "Admin audit synchronized",
+            "subtitle": "Control API reflects live state",
+            "badge": "Ops"
+          }
+        }
+      },
+      "surface": {
+        "runtime": "Runtime",
+        "signals": "Signals",
+        "liveLayer": "Live layer",
+        "accountBilling": "Account billing",
+        "superAdmin": "Super admin",
+        "scaleWorkspace": "Scale workspace",
+        "accountBillingDescription": "Usage, invoices, checkout retries, and entitlement state stay visible on web.",
+        "featureBadges": {
+          "stealth": "Stealth",
+          "workspace": "Workspace",
+          "billing": "Billing"
+        }
+      },
+      "capabilitiesEyebrow": "Core capabilities",
+      "capabilitiesTitle": "A sales website that still behaves like a real product surface.",
+      "capabilitiesDescription": "Landing, pricing, auth, checkout, account billing, and super admin all sit on top of the same contract used by the desktop product.",
+      "features": {
+        "stealth": {
+          "title": "The antidetect browser stays at the center",
+          "description": "Home, pricing, and auth all sell the actual product instead of collapsing the website into a generic billing microsite."
+        },
+        "workspace": {
+          "title": "The portal connects to real workspaces",
+          "description": "Plans, invoices, and entitlement states are pulled from the same Control API and database already serving the desktop app."
+        },
+        "billing": {
+          "title": "Stripe checkout and account billing stay clean",
+          "description": "Users handle purchasing, invoices, renewals, and subscription state on web without bloating the desktop runtime."
+        }
+      },
+      "steps": {
+        "signin": {
+          "title": "Authenticate through one auth hub",
+          "description": "Email/password, OTP, Google OAuth, and invite acceptance all converge into a single auth entry point."
+        },
+        "checkout": {
+          "title": "Choose a workspace before checkout",
+          "description": "The website binds plans to real workspaces before creating Stripe sessions so entitlement never drifts."
+        },
+        "operate": {
+          "title": "Operate on web, work in the app",
+          "description": "Users return to desktop for runtime work while account billing and super admin remain on the website."
+        }
+      },
+      "splitEyebrow": "Dual-tone product",
+      "splitTitle": "Public pages stay soft. Logged-in surfaces get denser.",
+      "splitDescription": "The overall brand stays premium and restrained, but logged-in routes shift into a sharper, operations-first app rhythm.",
+      "splitCards": {
+        "account": {
+          "title": "Real account billing for users",
+          "description": "Users can inspect plans, usage, invoices, and restart checkout when needed."
+        },
+        "admin": {
+          "title": "Super admin for internal operations",
+          "description": "Platform admins can monitor workspace health, revenue signals, audit logs, and system readiness from the same website."
+        }
+      },
+      "faqTitle": "Frequently asked questions",
+      "faq": {
+        "security": {
+          "q": "Is the web portal detached from desktop data?",
+          "a": "No. The portal only reads and writes against the same authority already used by the desktop product, so plan and billing state stay consistent."
+        },
+        "billing": {
+          "q": "Where is payment handled?",
+          "a": "Public payments run through Stripe checkout. After completion, the portal returns users to account billing to read the updated state."
+        },
+        "desktop": {
+          "q": "Do users work on web or desktop after login?",
+          "a": "Desktop remains the main product. The website owns marketing, auth, checkout, billing, and super admin surfaces."
+        }
+      }
+    },
+  "pricing": {
+    "eyebrow": "Public pricing",
+    "title": "Public pricing that is clear on workspace limits and strong enough to convert directly.",
+    "description": "The new pricing page sells BugLogin as it is: an antidetect browser for individual operators and teams, paired with cloud sync, billing, and web-based admin control.",
+    "perMonthBilledYearly": "/ month, billed yearly",
+    "perMonthBilledMonthly": "/ month, billed monthly",
+    "saveBadge": "Save 25%",
+    "getStarted": "Get started",
+    "selectPlan": "Choose plan",
+    "contactSales": "Contact sales",
+    "compareTitle": "Compare plan limits",
+    "compareHeading": "See what each BugLogin plan actually unlocks.",
+    "compareDescription": "Review workspace limits, members, storage, proxy quota, and support before sending the user into checkout.",
+    "linearSubtitle": "Pick the workspace tier that matches team scale and runtime needs.",
+    "trustedBy": "Trusted by product, growth, and anti-detect teams.",
+    "mostPopular": "Most popular",
+    "customPriceLabel": "custom quote",
+    "supportLabel": "Support",
+    "finalCtaEyebrow": "Checkout-ready pricing",
+    "finalCtaTitle": "Start with a workspace tier that can actually carry daily browser operations.",
+    "finalCtaDescription": "Use the public checkout flow for Starter or Scale, then manage billing, invoices, and plan state from the web portal without going back into the desktop app.",
+    "plans": {
+      "free": {
+        "name": "Free",
+        "audience": "Solo testing and initial profile setup"
+      },
+      "starter": {
+        "name": "Starter",
+        "audience": "Small operator teams running a shared workspace"
+      },
+      "growth": {
+        "name": "Growth",
+        "audience": "Growing teams that need more profiles, seats, and storage headroom"
+      },
+      "scale": {
+        "name": "Scale",
+        "audience": "Production operations with higher concurrency and cloud sync"
+      },
+      "custom": {
+        "name": "Custom",
+        "audience": "Advanced teams with custom quota, storage, and billing needs"
+      }
+    },
+    "support": {
+      "community": "Community support",
+      "email": "Email support",
+        "priority": "Priority support",
+        "dedicated": "Dedicated support"
+      },
+      "table": {
+        "feature": "Feature",
+        "profiles": "Profiles",
+        "members": "Members",
+        "storage": "Storage",
+        "proxy": "Proxy"
+      },
+      "tableDescriptions": {
+        "profiles": "Maximum isolated browser profiles available in the workspace.",
+        "members": "Team seats that can share billing and workspace access.",
+        "storage": "Cloud storage reserved for profiles, sessions, and sync data.",
+        "proxy": "Included proxy bandwidth quota available inside the plan.",
+        "support": "Support channel and response level included with the tier."
+      }
+    },
+    "auth": {
+      "eyebrow": "Auth hub",
+      "title": "One login surface for the BugLogin portal.",
+      "description": "This flow brings password auth, OTP, Google OAuth, and invite acceptance into a single entry point before checkout or account billing.",
+      "hub": "Portal auth",
+      "login": "Login",
+      "register": "Register",
+      "otp": "OTP",
+      "invite": "Invite",
+      "requestOtp": "Request OTP",
+      "inviteToken": "Invite token",
+      "invitePlaceholder": "Enter the issued token",
+      "acceptAfterLogin": "Login and accept invite",
+      "google": "Continue with Google",
+      "googleConfigMissing": "Google OAuth is not configured for the portal.",
+      "googleFailed": "Unable to complete Google OAuth.",
+      "success": "Authentication completed.",
+      "error": "Unable to authenticate.",
+      "legalHint": "By continuing you agree to the",
+      "and": "and",
+      "oauthReturn": "Returning you to the portal auth hub.",
+      "returnToAuth": "Return to auth",
+      "highlights": {
+        "browser": {
+          "title": "Authentication serves the actual product",
+          "description": "The website is designed to route users into the desktop antidetect browser instead of pretending web is the runtime surface."
+        },
+        "billing": {
+          "title": "Checkout can follow immediately after login",
+          "description": "Pricing and checkout can move directly into a real workspace as soon as the user authenticates."
+        },
+        "admin": {
+          "title": "Super admin does not need a detached flow",
+          "description": "Platform admins share the same auth authority and only diverge by post-auth destination and permissions."
+        }
+      }
+    },
+    "checkout": {
+      "eyebrow": "Stripe checkout",
+      "title": "Checkout that binds directly to a real workspace.",
+      "description": "Users select a plan, billing cycle, and workspace, then the website creates a Stripe session against the same authority shared with desktop.",
+      "loading": "Preparing checkout...",
+      "loadWorkspacesFailed": "Unable to load workspaces for checkout.",
+      "workspaceRequired": "A workspace must be selected before continuing.",
+      "createFailed": "Unable to create checkout.",
+      "immediateActivated": "Workspace was activated immediately.",
+      "planTitle": "Choose a plan",
+      "planDescription": "The price points and quotas here are shared with the public pricing page and desktop product.",
+      "summaryTitle": "Order summary",
+      "summaryDescription": "The portal only creates a Stripe session after the plan is attached to a real workspace.",
+      "workspace": "Workspace",
+      "workspacePlaceholder": "Select workspace",
+      "workspaceEmpty": "No workspace selected",
+      "coupon": "Coupon code",
+      "couponPlaceholder": "Enter coupon if available",
+      "cycle": "Cycle",
+      "cycleMonthly": "Monthly",
+      "cycleYearly": "Yearly",
+      "profiles": "Profiles",
+      "members": "Members",
+      "continue": "Continue to Stripe",
+      "successTitle": "Payment completed",
+      "successDescription": "The portal is returning you to billing so you can review the latest subscription state.",
+      "cancelTitle": "Checkout was cancelled",
+      "cancelDescription": "You can return to pricing or relaunch checkout at any time.",
+      "returning": "Returning to billing portal.",
+      "openBilling": "Open billing"
+    },
+    "account": {
+      "eyebrow": "Account billing",
+      "title": "Manage subscriptions, invoices, and usage per workspace.",
+      "description": "The account area keeps plan and payment operations on web while the desktop product stays focused on runtime and profile execution.",
+      "dashboardTitle": "Account overview",
+      "dashboardDescription": "A compact control panel for workspace billing, invoice history, and account-level settings.",
+      "loading": "Loading billing account...",
+      "loadWorkspacesFailed": "Unable to load workspace list.",
+      "loadBillingFailed": "Unable to load billing state.",
+      "refresh": "Refresh",
+      "refreshed": "Billing data refreshed.",
+      "workspace": "Workspace",
+      "workspaceHint": "Select the workspace whose billing state you want to inspect.",
+      "workspacePlaceholder": "Select workspace",
+      "workspaceStatus": "Workspace status",
+      "workspaceMeta": "Mode: {{mode}} · Billing: {{status}}",
+      "workspaceEmpty": "No workspace is available in the current portal session.",
+      "quickActions": "Quick actions",
+      "membersLabel": "Workspace limit",
+      "membersDetail": "Profile capacity visible to the current billing seat.",
+      "settingsDescription": "Account preferences, workspace-facing defaults, and safety controls stay on web instead of bloating the desktop runtime.",
+      "profileTitle": "Profile",
+      "securityTitle": "Security and access",
+      "securityDescription": "Billing access, payment actions, and workspace administration are limited by the current portal role.",
+      "languageTitle": "Language",
+      "languageDescription": "Website language follows the portal preference so account and admin pages stay consistent with the public web shell.",
+      "notificationsTitle": "Notifications",
+      "notificationsDescription": "Billing and invoice updates should stay on web, while the desktop app remains focused on runtime work.",
+      "nav": {
+        "overview": "Overview",
+        "billing": "Billing",
+        "invoices": "Invoices",
+        "settings": "Settings"
+      },
+      "plan": "Plan",
+      "status": "Status",
+      "cycle": "Cycle",
+      "renewal": "Renewal / expiry",
+      "notAvailable": "Not available",
+      "noPlan": "No paid plan yet",
+      "changePlan": "View pricing",
+      "subscriptionTitle": "Current subscription",
+      "subscriptionDescription": "The portal lets users change plans, relaunch checkout, and control the subscription state of the selected workspace.",
+      "managePayment": "Open secure checkout",
+      "upgrade": "Upgrade / pay again",
+      "storageUsage": "Storage usage",
+      "proxyUsage": "Proxy usage",
+      "cancelAtPeriodEnd": "Cancel at period end",
+      "cancelNow": "Cancel now",
+      "reactivate": "Reactivate",
+      "actionSuccess": "Subscription updated.",
+      "actionFailed": "Unable to update subscription.",
+      "invoiceTitle": "Invoices and billing history",
+      "invoiceDescription": "Recent invoices are rendered directly from the existing billing state endpoints.",
+      "invoiceDate": "Date",
+      "invoicePlan": "Plan",
+      "invoiceAmount": "Amount",
+      "invoiceMethod": "Method",
+      "invoiceStatus": "Status",
+      "invoiceEmpty": "No invoices were found for this workspace.",
+      "paymentMethodTitle": "Payment method",
+      "paymentMethodDescription": "Funding sources are managed through Stripe-hosted checkout. When users need to update payment details, the portal launches a secure checkout flow for the active workspace.",
+      "checkoutSuccessTitle": "Payment completed",
+      "checkoutSuccessDescription": "The portal has returned to billing. If the webhook has finished processing, the updated plan should already be visible here.",
+      "checkoutCancelTitle": "Checkout was cancelled",
+      "checkoutCancelDescription": "The current plan was not changed. You can relaunch checkout at any time."
+    },
+    "admin": {
+      "eyebrow": "Super admin control",
+      "loading": "Loading super admin panel...",
+      "refresh": "Refresh",
+      "overview": {
+        "title": "Platform overview",
+        "description": "One control surface for workspace risk, revenue motion, and service readiness across the platform.",
+        "workspacesDescription": "Total workspaces currently visible through the control plane.",
+        "activeDescription": "Subscriptions in an active state and available for production runtime.",
+        "riskDescription": "Workspaces that require operator attention because billing is degraded.",
+        "auditDescription": "High-touch workspaces that currently rely on custom or manually managed plans."
+      },
+      "nav": {
+        "overview": "Overview",
+        "commandCenter": "Command Center",
+        "workspaces": "Workspaces",
+        "revenue": "Revenue",
+        "audit": "Audit",
+        "auditLog": "Audit log",
+        "system": "System"
+      },
+      "metrics": {
+        "workspaces": "Workspaces",
+        "audits": "Audits 24h",
+        "activeRevenue": "Active subscriptions",
+        "highRisk": "High-risk workspaces"
+      },
+      "columns": {
+        "workspace": "Workspace",
+        "plan": "Plan",
+        "risk": "Risk",
+        "status": "Status",
+        "members": "Members",
+        "storage": "Storage",
+        "proxy": "Proxy",
+        "latestInvoice": "Latest invoice",
+        "time": "Time",
+        "action": "Action",
+        "actor": "Actor",
+        "reason": "Reason"
+      },
+      "risk": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "commandCenter": {
+        "title": "Command center for the full control plane.",
+        "description": "A high-level cockpit for platform admins to read workspace state, operational queue pressure, and service readiness at a glance.",
+        "queueTitle": "Priority queue",
+        "queueDescription": "Workspaces that need attention are grouped by risk, billing, and subscription status signals.",
+        "systemTitle": "Platform readiness",
+        "systemDescription": "A concise read on auth, Stripe, and sync availability."
+      },
+      "workspaces": {
+        "title": "Workspaces across the system.",
+        "description": "This view gives platform admins a fast way to inspect workspace health, limits, and usage in one place.",
+        "tableTitle": "Workspace health",
+        "tableDescription": "Data is pulled directly from the existing admin workspace health endpoint."
+      },
+      "revenue": {
+        "title": "Revenue signals and entitlement state.",
+        "description": "The website exposes the revenue-facing signals that already exist on the control plane without forcing that reporting into the desktop app.",
+        "activeSubscriptions": "Active subscriptions",
+        "coupons": "Coupons",
+        "entitlementActive": "Active entitlement",
+        "pastDue": "Past-due workspaces",
+        "latestTitle": "Latest billing activity",
+        "latestDescription": "A quick list of workspaces with the freshest invoice timestamps to track renewal cadence and revenue motion."
+      },
+      "audit": {
+        "title": "Audit trail for platform actions.",
+        "description": "Critical admin actions can be reviewed directly on the website instead of forcing operators through disconnected internal tooling.",
+        "tableTitle": "Audit log",
+        "tableDescription": "Recent records from the control plane are rendered directly in-table."
+      },
+      "system": {
+        "title": "System readiness and runtime configuration.",
+        "description": "This route focuses on control plane connectivity, token readiness, and the health of the core services the portal depends on.",
+        "runtimeTitle": "Current runtime",
+        "runtimeDescription": "The portal shares the same runtime contract as desktop, but reads it in a website-specific context.",
+        "operationsTitle": "Operational checklist",
+        "operationsDescription": "Short reminders for checking auth, billing, and sync when state appears inconsistent.",
+        "baseUrl": "Control base URL",
+        "controlToken": "Control token",
+        "auth": "Auth service",
+        "stripe": "Stripe service",
+        "sync": "Sync service",
+        "ready": "Ready",
+        "pending": "Pending",
+        "hintAuthTitle": "Check public auth routes",
+        "hintAuthDescription": "If login or registration breaks, validate the public auth endpoints and token configuration on the sync runtime first.",
+        "hintStripeTitle": "Check Stripe secret and webhook",
+        "hintStripeDescription": "Public checkout should only be exposed when both the Stripe secret and webhook are fully ready.",
+        "hintSyncTitle": "Check S3 and control state",
+        "hintSyncDescription": "If usage or entitlement appears out of sync, verify the sync storage and control state pipeline first."
+      }
+    },
+    "help": {
+      "title": "Fast support for the new BugLogin website",
+      "description": "This page explains where the website fits in the product and when users should return to the desktop app.",
+      "items": {
+        "download": {
+          "title": "Download and run the desktop app",
+          "description": "The website handles conversion and billing, but the desktop application remains the main place where browser profiles and workspace operations run."
+        },
+        "billing": {
+          "title": "Billing is now fully web-based",
+          "description": "Plan purchases, checkout relaunches, invoices, and subscription state management all happen in the new portal."
+        },
+        "admin": {
+          "title": "Super Admin now lives on the website",
+          "description": "Platform admins can open command center, workspace health, revenue, and audit routes directly on the single-domain portal."
+        },
+        "security": {
+          "title": "The website shares the same authority as desktop",
+          "description": "The portal does not create a parallel database or API. It reads and writes against the same authority used for auth, billing, and workspace control."
+      }
+    },
+    "settingsShell": {
+      "workspace": "Current workspace"
+    }
+  },
+    "legal": {
+      "terms": {
+        "title": "Terms of service",
+        "description": "The new BugLogin website is the front door for conversion, billing, and admin operations, so the terms focus on workspace access, governance, and acceptable use.",
+        "sections": {
+          "1": {
+            "title": "Usage scope",
+            "body": "BugLogin accounts are provisioned for individuals or teams that have registered for the service. Every billing, auth, and admin action on the portal is tied back to a workspace and audit trail."
+          },
+          "2": {
+            "title": "Governance and access",
+            "body": "Platform admins, workspace owners, and workspace admins may only perform actions that are explicitly allowed by the active control plane permissions."
+          },
+          "3": {
+            "title": "Payment compliance",
+            "body": "Public purchases are processed through Stripe. Final payment state is determined by the billing authority and valid webhook processing."
+          }
+        }
+      },
+      "privacy": {
+        "title": "Privacy policy",
+        "description": "The new portal only collects and renders the data necessary for authentication, billing, and admin operations.",
+        "sections": {
+          "1": {
+            "title": "Account data",
+            "body": "Email, user identifiers, avatars, and platform roles are used to authenticate users and route access correctly across the website."
+          },
+          "2": {
+            "title": "Billing data",
+            "body": "Workspaces, subscriptions, invoices, and usage metrics are synchronized from the billing and control plane systems into account billing and super admin."
+          },
+          "3": {
+            "title": "Operational logs",
+            "body": "Administrative actions may appear in audit logs to maintain traceability and operational safety for the platform."
+          }
+        }
+      },
+      "refund": {
+        "title": "Refund policy",
+        "description": "Refunds are handled according to the active subscription state and the payment rules currently enforced by BugLogin.",
+        "sections": {
+          "1": {
+            "title": "Refund requests",
+            "body": "Each request should be tied to a valid workspace, invoice, or checkout session so the team can verify the billing state accurately."
+          },
+          "2": {
+            "title": "Processing window",
+            "body": "The portal exposes invoice history and current plan state, while final refund handling follows the billing workflow defined by the system."
+          },
+          "3": {
+            "title": "Impact on entitlement",
+            "body": "After a refund or plan cancellation, the workspace entitlement may move according to the active, grace, or read-only policy."
+          }
+        }
+      }
+    }
   }
 }

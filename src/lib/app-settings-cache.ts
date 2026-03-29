@@ -4,14 +4,21 @@ export interface CachedAppSettings {
   custom_theme?: Record<string, string>;
   api_enabled?: boolean;
   api_port?: number;
-  api_token?: string;
+  api_token?: string | null;
   language?: string | null;
+  sync_server_url?: string | null;
+  mcp_enabled?: boolean;
+  mcp_port?: number | null;
+  mcp_token?: string | null;
+  stripe_publishable_key?: string | null;
+  stripe_billing_url?: string | null;
   [key: string]: unknown;
 }
 
 const APP_SETTINGS_CACHE_KEY = "buglogin.appSettings.cache.v1";
 export const APP_SETTINGS_CACHE_UPDATED_EVENT =
   "buglogin:app-settings-cache-updated";
+let appSettingsLoadInFlight: Promise<CachedAppSettings | null> | null = null;
 
 function canUseStorage(): boolean {
   return (
@@ -65,8 +72,32 @@ function sanitizeSettings(raw: unknown): CachedAppSettings | null {
   if (typeof raw.api_port === "number") {
     next.api_port = raw.api_port;
   }
-  if (typeof raw.api_token === "string") {
+  if (typeof raw.api_token === "string" || raw.api_token === null) {
     next.api_token = raw.api_token;
+  }
+  if (typeof raw.sync_server_url === "string" || raw.sync_server_url === null) {
+    next.sync_server_url = raw.sync_server_url;
+  }
+  if (typeof raw.mcp_enabled === "boolean") {
+    next.mcp_enabled = raw.mcp_enabled;
+  }
+  if (typeof raw.mcp_port === "number" || raw.mcp_port === null) {
+    next.mcp_port = raw.mcp_port;
+  }
+  if (typeof raw.mcp_token === "string" || raw.mcp_token === null) {
+    next.mcp_token = raw.mcp_token;
+  }
+  if (
+    typeof raw.stripe_publishable_key === "string" ||
+    raw.stripe_publishable_key === null
+  ) {
+    next.stripe_publishable_key = raw.stripe_publishable_key;
+  }
+  if (
+    typeof raw.stripe_billing_url === "string" ||
+    raw.stripe_billing_url === null
+  ) {
+    next.stripe_billing_url = raw.stripe_billing_url;
   }
   const customTheme = sanitizeCustomTheme(raw.custom_theme);
   if (customTheme) {
@@ -144,4 +175,29 @@ export function mergeAppSettingsCache(
 
   writeAppSettingsCache(merged);
   return merged;
+}
+
+export async function loadAppSettingsCache(): Promise<CachedAppSettings | null> {
+  const cached = readAppSettingsCache();
+  if (cached) {
+    return cached;
+  }
+
+  if (appSettingsLoadInFlight) {
+    return appSettingsLoadInFlight;
+  }
+
+  appSettingsLoadInFlight = (async () => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const loaded = await invoke<CachedAppSettings>("get_app_settings");
+      return mergeAppSettingsCache(loaded);
+    } catch {
+      return readAppSettingsCache();
+    } finally {
+      appSettingsLoadInFlight = null;
+    }
+  })();
+
+  return appSettingsLoadInFlight;
 }

@@ -775,7 +775,11 @@ impl Browser for FirefoxBrowser {
     remote_debugging_port: Option<u16>,
     headless: bool,
   ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let mut args = vec!["-profile".to_string(), profile_path.to_string()];
+    let mut args = vec![
+      "-profile".to_string(),
+      profile_path.to_string(),
+      "-no-remote".to_string(),
+    ];
 
     // Add remote debugging if requested
     if let Some(port) = remote_debugging_port {
@@ -786,11 +790,6 @@ impl Browser for FirefoxBrowser {
     // Add headless mode if requested
     if headless {
       args.push("--headless".to_string());
-    }
-
-    // Use -no-remote when remote debugging to avoid conflicts with existing instances
-    if remote_debugging_port.is_some() {
-      args.push("-no-remote".to_string());
     }
 
     // Firefox-based browsers use profile directory and user.js for proxy configuration
@@ -882,6 +881,7 @@ impl Browser for ChromiumBrowser {
   ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut args = vec![
       format!("--user-data-dir={}", profile_path),
+      "--lang=en-US".to_string(),
       "--no-default-browser-check".to_string(),
       "--disable-background-mode".to_string(),
       "--disable-component-update".to_string(),
@@ -1091,6 +1091,7 @@ impl Browser for WayfernBrowser {
     // Wayfern uses Chromium-style arguments
     let mut args = vec![
       format!("--user-data-dir={}", profile_path),
+      "--lang=en-US".to_string(),
       "--no-default-browser-check".to_string(),
       "--disable-background-mode".to_string(),
       "--disable-component-update".to_string(),
@@ -1332,15 +1333,16 @@ mod tests {
 
   #[test]
   fn test_firefox_launch_args() {
-    // Test regular Firefox (should not use -no-remote for normal launch)
+    // Test regular Firefox (must use -no-remote so different profiles never attach
+    // to the same Firefox-family instance).
     let browser = FirefoxBrowser::new(BrowserType::Firefox);
     let args = browser
       .create_launch_args("/path/to/profile", None, None, None, false)
       .expect("Failed to create launch args for Firefox");
-    assert_eq!(args, vec!["-profile", "/path/to/profile"]);
+    assert_eq!(args, vec!["-profile", "/path/to/profile", "-no-remote"]);
     assert!(
-      !args.contains(&"-no-remote".to_string()),
-      "Firefox should not use -no-remote for normal launch"
+      args.contains(&"-no-remote".to_string()),
+      "Firefox should use -no-remote for isolated profile launch"
     );
 
     let args = browser
@@ -1354,7 +1356,12 @@ mod tests {
       .expect("Failed to create launch args for Firefox with URL");
     assert_eq!(
       args,
-      vec!["-profile", "/path/to/profile", "https://example.com"]
+      vec![
+        "-profile",
+        "/path/to/profile",
+        "-no-remote",
+        "https://example.com"
+      ]
     );
 
     // Test Firefox with remote debugging (should use -no-remote)
@@ -1379,7 +1386,7 @@ mod tests {
     let args = browser
       .create_launch_args("/path/to/profile", None, None, None, false)
       .expect("Failed to create launch args for Zen Browser");
-    assert_eq!(args, vec!["-profile", "/path/to/profile"]);
+    assert_eq!(args, vec!["-profile", "/path/to/profile", "-no-remote"]);
 
     // Test headless mode
     let args = browser

@@ -1,33 +1,22 @@
 "use client";
 
 import {
-  BarChart3,
   Building2,
   Check,
-  CreditCard,
   ChevronRight,
   ChevronsUpDown,
-  Crown,
-  FileText,
-  Globe,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
-  Receipt,
-  Settings2,
-  Shield,
-  SquareTerminal,
   UserRound,
   Users,
-  Wrench,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getSectionIcon } from "@/lib/app-icon-registry";
 import { getPlanBadgeStyle } from "@/lib/plan-tier";
 import { cn } from "@/lib/utils";
 import type { AppSection, TeamRole } from "@/types";
@@ -61,40 +50,62 @@ type NavGroupItem = {
 
 type NavEntry = NavLeafItem | NavGroupItem;
 type NavGroupId = NavGroupItem["id"];
+const PENDING_SECTION_RESET_DELAY_MS = 220;
+const SIDEBAR_NAV_ITEM_CLASS =
+  "group flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-semibold leading-[1.25] tracking-normal transition-colors";
+const SIDEBAR_NAV_CHILD_ITEM_CLASS =
+  "group flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-[12px] font-semibold tracking-normal transition-colors";
+const SIDEBAR_NAV_ICON_CLASS = "h-4 w-4 shrink-0";
+const SIDEBAR_ACCOUNT_TITLE_CLASS =
+  "truncate text-[12px] leading-[1.3] font-semibold tracking-normal text-foreground";
+const SIDEBAR_ACCOUNT_META_CLASS =
+  "truncate text-[10px] leading-[1.3] font-medium tracking-normal text-muted-foreground";
+const SIDEBAR_ACCOUNT_ACTION_CLASS =
+  "rounded-md px-2 py-2 text-[12px] leading-[1.25] font-semibold [&_svg:not([class*='size-'])]:size-4";
+const SIDEBAR_WORKSPACE_ITEM_CLASS = "rounded-md px-2 py-2";
+const SIDEBAR_TRIGGER_CLASS =
+  "group flex w-full items-center gap-2 rounded-md px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-muted/50 data-[state=open]:bg-muted/50 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-70";
 
 const PROFILES_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "profiles",
   labelKey: "shell.sections.profiles",
-  icon: SquareTerminal,
+  icon: getSectionIcon("profiles"),
+};
+
+const BUGIDEA_AUTOMATION_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "bugidea-automation",
+  labelKey: "shell.sections.bugideaAutomation",
+  icon: getSectionIcon("bugidea-automation"),
 };
 
 const PROXIES_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "proxies",
   labelKey: "shell.sections.proxies",
-  icon: Globe,
+  icon: getSectionIcon("proxies"),
 };
 
 const PRICING_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "pricing",
   labelKey: "shell.sections.pricing",
-  icon: Crown,
+  icon: getSectionIcon("pricing"),
 };
 
 const INTEGRATIONS_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "integrations",
   labelKey: "shell.sections.integrations",
-  icon: Shield,
+  icon: getSectionIcon("integrations"),
 };
 
 const SETTINGS_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "settings",
   labelKey: "shell.sections.settings",
-  icon: Settings2,
+  icon: getSectionIcon("settings"),
 };
 
 const WORKSPACE_NAV_BASE_ITEMS: NavLeafItem[] = [
@@ -108,100 +119,90 @@ const BILLING_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "billing",
   labelKey: "shell.sections.billingManagement",
-  icon: Receipt,
-};
-
-const BILLING_CHECKOUT_NAV_ITEM: NavLeafItem = {
-  type: "item",
-  id: "billing-checkout",
-  labelKey: "shell.sections.billingCheckout",
-  icon: CreditCard,
+  icon: getSectionIcon("billing"),
 };
 
 const WORKSPACE_BILLING_NAV_GROUP: NavGroupItem = {
   type: "group",
   id: "workspace-billing",
   labelKey: "shell.sections.billing",
-  icon: Receipt,
-  children: [PRICING_NAV_ITEM, BILLING_CHECKOUT_NAV_ITEM, BILLING_NAV_ITEM],
+  icon: getSectionIcon("billing"),
+  children: [PRICING_NAV_ITEM, BILLING_NAV_ITEM],
 };
 
-const WORKSPACE_ADMIN_OVERVIEW_NAV_ITEM: NavLeafItem = {
-  type: "item",
-  id: "workspace-admin-overview",
-  labelKey: "shell.sections.workspaceAdminOverview",
-  icon: LayoutDashboard,
-};
-
-const WORKSPACE_ADMIN_DIRECTORY_NAV_ITEM: NavLeafItem = {
-  type: "item",
-  id: "workspace-admin-directory",
-  labelKey: "shell.sections.workspaceAdminDirectory",
-  icon: Building2,
-};
-
-const WORKSPACE_ADMIN_PERMISSIONS_NAV_ITEM: NavLeafItem = {
-  type: "item",
-  id: "workspace-admin-permissions",
-  labelKey: "shell.sections.workspaceAdminPermissions",
-  icon: Shield,
-};
-
-const WORKSPACE_GOVERNANCE_PANEL_BASE_ITEMS: NavLeafItem[] = [
-  WORKSPACE_ADMIN_OVERVIEW_NAV_ITEM,
-  WORKSPACE_ADMIN_DIRECTORY_NAV_ITEM,
-  WORKSPACE_ADMIN_PERMISSIONS_NAV_ITEM,
-];
-
-const ADMIN_PANEL_NAV_ITEMS: NavLeafItem[] = [
+const WORKSPACE_OWNER_PANEL_NAV_ITEMS: NavLeafItem[] = [
   {
     type: "item",
-    id: "admin-overview",
-    labelKey: "adminWorkspace.tabs.overview",
-    icon: LayoutDashboard,
+    id: "workspace-owner-overview",
+    labelKey: "shell.sections.workspaceAdminOverview",
+    icon: getSectionIcon("workspace-owner-overview"),
   },
   {
     type: "item",
-    id: "admin-workspace",
-    labelKey: "adminWorkspace.tabs.workspace",
-    icon: Users,
+    id: "workspace-admin-members",
+    labelKey: "shell.sections.workspaceAdminMembers",
+    icon: getSectionIcon("workspace-admin-members"),
   },
   {
     type: "item",
-    id: "admin-billing",
-    labelKey: "adminWorkspace.tabs.billing",
-    icon: Receipt,
+    id: "workspace-admin-workspace",
+    labelKey: "shell.sections.workspaceOwnerPlanManagement",
+    icon: getSectionIcon("workspace-admin-workspace"),
   },
   {
     type: "item",
-    id: "admin-audit",
-    labelKey: "adminWorkspace.tabs.audit",
-    icon: FileText,
-  },
-  {
-    type: "item",
-    id: "admin-system",
-    labelKey: "adminWorkspace.tabs.system",
-    icon: Wrench,
-  },
-  {
-    type: "item",
-    id: "admin-analytics",
-    labelKey: "adminWorkspace.tabs.analytics",
-    icon: BarChart3,
+    id: "workspace-admin-access",
+    labelKey: "shell.sections.workspaceOwnerUserPermissions",
+    icon: getSectionIcon("workspace-admin-access"),
   },
 ];
 
-function isAdminPanelSection(section: AppSection): boolean {
-  return section.startsWith("admin-");
+const SUPER_ADMIN_PANEL_NAV_ITEMS: NavLeafItem[] = [
+  {
+    type: "item",
+    id: "super-admin-overview",
+    labelKey: "adminWorkspace.panelTree.super.pages.command.title",
+    icon: getSectionIcon("super-admin-overview"),
+  },
+  {
+    type: "item",
+    id: "super-admin-workspace",
+    labelKey: "adminWorkspace.panelTree.super.pages.workspace.title",
+    icon: getSectionIcon("super-admin-workspace"),
+  },
+  {
+    type: "item",
+    id: "super-admin-billing",
+    labelKey: "adminWorkspace.panelTree.super.pages.billing.title",
+    icon: getSectionIcon("super-admin-billing"),
+  },
+  {
+    type: "item",
+    id: "super-admin-audit",
+    labelKey: "adminWorkspace.panelTree.super.pages.audit.title",
+    icon: getSectionIcon("super-admin-audit"),
+  },
+  {
+    type: "item",
+    id: "super-admin-cookies",
+    labelKey: "adminWorkspace.panelTree.super.pages.cookies.title",
+    icon: getSectionIcon("super-admin-cookies"),
+  },
+];
+
+function isSuperAdminPanelSection(section: AppSection): boolean {
+  return section.startsWith("super-admin-") || section.startsWith("admin-");
 }
 
-type PanelMode = "workspace" | "workspace-governance" | "admin";
+type PanelMode = "workspace" | "workspace-owner" | "super-admin";
 
 type NavBuildInput = {
   panelMode: PanelMode;
   isAuthenticated: boolean;
   isPlatformAdmin: boolean;
+  isDeveloperBuild: boolean;
+  canAccessBugIdeaWorkspace: boolean;
+  canAccessWorkspaceGovernance: boolean;
   isTeamOperator: boolean;
   canManageWorkspaceBilling: boolean;
   canManageWorkspaceGovernance: boolean;
@@ -209,40 +210,29 @@ type NavBuildInput = {
 };
 
 function buildNavItems(input: NavBuildInput): NavEntry[] {
-  if (input.panelMode === "admin") {
-    if (input.isPlatformAdmin) {
-      return [...ADMIN_PANEL_NAV_ITEMS];
-    }
-    if (input.isTeamOperator) {
-      return ADMIN_PANEL_NAV_ITEMS.filter(
-        (item) =>
-          item.id === "admin-overview" ||
-          item.id === "admin-workspace" ||
-          item.id === "admin-system" ||
-          item.id === "admin-analytics",
-      );
-    }
-    return ADMIN_PANEL_NAV_ITEMS.filter(
-      (item) => item.id === "admin-overview" || item.id === "admin-workspace",
+  if (input.panelMode === "super-admin") {
+    return SUPER_ADMIN_PANEL_NAV_ITEMS.filter(
+      (item) =>
+        item.id !== "super-admin-cookies" || input.canAccessBugIdeaWorkspace,
     );
   }
 
-  if (input.panelMode === "workspace-governance") {
-    if (!input.isAuthenticated || !input.canManageWorkspaceGovernance) {
-      return [...WORKSPACE_NAV_BASE_ITEMS];
-    }
-    return [...WORKSPACE_GOVERNANCE_PANEL_BASE_ITEMS];
+  if (input.panelMode === "workspace-owner") {
+    return WORKSPACE_OWNER_PANEL_NAV_ITEMS.filter((item) => {
+      if (item.id === "workspace-admin-access") {
+        return input.canManageWorkspaceGovernance;
+      }
+      return input.canAccessWorkspaceGovernance;
+    });
   }
 
   const base: NavEntry[] = [...WORKSPACE_NAV_BASE_ITEMS];
-  const proxiesIndex = base.findIndex(
-    (item) => item.type === "item" && item.id === "proxies",
-  );
-  const billingInsertIndex = proxiesIndex >= 0 ? proxiesIndex + 1 : 2;
-  if (input.isAuthenticated && input.canManageWorkspaceBilling) {
-    base.splice(billingInsertIndex, 0, WORKSPACE_BILLING_NAV_GROUP);
-  } else {
-    base.splice(billingInsertIndex, 0, PRICING_NAV_ITEM);
+  if (input.canAccessBugIdeaWorkspace) {
+    const profileIndex = base.findIndex(
+      (item) => item.type === "item" && item.id === "profiles",
+    );
+    const bugIdeaInsertIndex = profileIndex >= 0 ? profileIndex + 1 : 0;
+    base.splice(bugIdeaInsertIndex, 0, BUGIDEA_AUTOMATION_NAV_ITEM);
   }
   if (input.teamRole !== "viewer") {
     return base;
@@ -278,6 +268,7 @@ type Props = {
   teamRole?: TeamRole | null;
   currentWorkspaceRole?: TeamRole | null;
   platformRole?: string | null;
+  isDeveloperBuild?: boolean;
   workspaceOptions?: Array<{
     id: string;
     label: string;
@@ -297,7 +288,7 @@ type Props = {
   onSignOut?: () => void;
 };
 
-export function AppSidebar({
+function AppSidebarComponent({
   activeSection,
   collapsed,
   onSectionChange,
@@ -306,6 +297,7 @@ export function AppSidebar({
   teamRole = null,
   currentWorkspaceRole = null,
   platformRole = null,
+  isDeveloperBuild = false,
   workspaceOptions = [],
   currentWorkspaceId = null,
   onWorkspaceChange,
@@ -328,26 +320,96 @@ export function AppSidebar({
     isPlatformAdmin ||
     effectiveWorkspaceRole === "owner" ||
     effectiveWorkspaceRole === "admin";
-  const inAdminPanel = isAdminPanelSection(activeSection);
-  const inWorkspaceGovernancePanel =
+  const canAccessWorkspaceGovernance =
+    canManageWorkspaceGovernance;
+  const inSuperAdminPanel = isSuperAdminPanelSection(activeSection);
+  const inWorkspaceOwnerPanel =
+    activeSection.startsWith("workspace-owner-") ||
     activeSection === "workspace-governance" ||
     activeSection.startsWith("workspace-admin-");
-  const panelMode: PanelMode = inAdminPanel
-    ? "admin"
-    : inWorkspaceGovernancePanel
-      ? "workspace-governance"
+  const panelMode: PanelMode = inSuperAdminPanel
+    ? "super-admin"
+    : inWorkspaceOwnerPanel
+      ? "workspace-owner"
       : "workspace";
+  const [pendingSection, setPendingSection] = useState<AppSection | null>(null);
+  const pendingSectionResetTimerRef = useRef<number | null>(null);
+  const effectiveActiveSection = pendingSection ?? activeSection;
   const roleLabel = isPlatformAdmin
     ? t("shell.roles.platform_admin")
     : effectiveWorkspaceRole
       ? t(`shell.roles.${effectiveWorkspaceRole}`)
       : t("shell.roles.guest");
 
+  useEffect(() => {
+    if (!pendingSection) {
+      return;
+    }
+    if (pendingSection !== activeSection) {
+      return;
+    }
+    setPendingSection(null);
+    if (
+      typeof window !== "undefined" &&
+      pendingSectionResetTimerRef.current !== null
+    ) {
+      window.clearTimeout(pendingSectionResetTimerRef.current);
+      pendingSectionResetTimerRef.current = null;
+    }
+  }, [activeSection, pendingSection]);
+
+  useEffect(() => {
+    return () => {
+      if (
+        typeof window !== "undefined" &&
+        pendingSectionResetTimerRef.current !== null
+      ) {
+        window.clearTimeout(pendingSectionResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleSectionChange = useCallback(
+    (nextSection: AppSection) => {
+      if (isWorkspaceSwitching) {
+        return;
+      }
+
+      if (nextSection === activeSection) {
+        setPendingSection(null);
+        onSectionChange(nextSection);
+        return;
+      }
+
+      setPendingSection(nextSection);
+
+      if (typeof window === "undefined") {
+        onSectionChange(nextSection);
+        return;
+      }
+
+      if (pendingSectionResetTimerRef.current !== null) {
+        window.clearTimeout(pendingSectionResetTimerRef.current);
+      }
+      pendingSectionResetTimerRef.current = window.setTimeout(() => {
+        setPendingSection((current) =>
+          current === nextSection ? null : current,
+        );
+        pendingSectionResetTimerRef.current = null;
+      }, PENDING_SECTION_RESET_DELAY_MS);
+      onSectionChange(nextSection);
+    },
+    [activeSection, isWorkspaceSwitching, onSectionChange],
+  );
+
   const navItems = useMemo(() => {
     return buildNavItems({
       panelMode,
       isAuthenticated,
       isPlatformAdmin,
+      isDeveloperBuild,
+      canAccessBugIdeaWorkspace: isPlatformAdmin,
+      canAccessWorkspaceGovernance,
       isTeamOperator,
       canManageWorkspaceBilling,
       canManageWorkspaceGovernance,
@@ -355,9 +417,11 @@ export function AppSidebar({
     });
   }, [
     canManageWorkspaceBilling,
+    canAccessWorkspaceGovernance,
     canManageWorkspaceGovernance,
     effectiveWorkspaceRole,
     isAuthenticated,
+    isDeveloperBuild,
     isPlatformAdmin,
     isTeamOperator,
     panelMode,
@@ -368,10 +432,7 @@ export function AppSidebar({
   >(() => ({
     "workspace-billing":
       activeSection === "pricing" ||
-      activeSection === "billing" ||
-      activeSection === "billing-checkout" ||
-      activeSection === "billing-coupon" ||
-      activeSection === "billing-license",
+      activeSection === "billing",
   }));
 
   useEffect(() => {
@@ -380,10 +441,7 @@ export function AppSidebar({
     }
     if (
       activeSection !== "pricing" &&
-      activeSection !== "billing" &&
-      activeSection !== "billing-checkout" &&
-      activeSection !== "billing-coupon" &&
-      activeSection !== "billing-license"
+      activeSection !== "billing"
     ) {
       return;
     }
@@ -436,68 +494,107 @@ export function AppSidebar({
   const selectedWorkspacePlanBadge = getPlanBadgeStyle(
     selectedWorkspacePlanLabel,
   );
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isWorkspaceSwitching) {
-      return;
-    }
-    setAccountMenuOpen(false);
-  }, [isWorkspaceSwitching]);
-
-  const handleAccountMenuOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (isWorkspaceSwitching && nextOpen) {
-        return;
-      }
-      setAccountMenuOpen(nextOpen);
-    },
-    [isWorkspaceSwitching],
-  );
 
   const handleWorkspaceMenuItemSelect = useCallback(
     (workspaceId: string) => {
       if (isWorkspaceSwitching) {
         return;
       }
-      flushSync(() => {
-        setAccountMenuOpen(false);
-      });
       if (workspaceId === selectedWorkspaceId) {
         return;
       }
-      window.requestAnimationFrame(() => {
-        onWorkspaceChange?.(workspaceId);
-      });
+      onWorkspaceChange?.(workspaceId);
     },
     [isWorkspaceSwitching, onWorkspaceChange, selectedWorkspaceId],
   );
 
+  const handleWorkspaceSectionMenuItemSelect = useCallback(
+    (workspaceId: string, section: AppSection) => {
+      if (isWorkspaceSwitching) {
+        return;
+      }
+      if (workspaceId !== selectedWorkspaceId) {
+        onWorkspaceChange?.(workspaceId);
+      }
+      scheduleSectionChange(section);
+    },
+    [
+      isWorkspaceSwitching,
+      onWorkspaceChange,
+      scheduleSectionChange,
+      selectedWorkspaceId,
+    ],
+  );
+
   const renderAccountMenuContent = () => {
-    const canOpenWorkspaceGovernance =
-      canManageWorkspaceGovernance && panelMode === "workspace";
-    const canOpenAdminPanel = showAdminSection && panelMode !== "admin";
-    const canBackToWorkspace =
-      panelMode === "admin" || panelMode === "workspace-governance";
-    const hasPanelActions =
-      canOpenWorkspaceGovernance || canOpenAdminPanel || canBackToWorkspace;
+    const canOpenWorkspaceOwnerPanel =
+      canAccessWorkspaceGovernance && panelMode === "workspace";
+    const canOpenSuperAdminPanel = isPlatformAdmin && panelMode === "workspace";
+    const canBackToWorkspace = panelMode !== "workspace";
+    const menuWorkspaceId = selectedWorkspaceId;
 
     return (
       <>
-        <DropdownMenuLabel className="space-y-1">
-          <p className="truncate text-sm font-semibold text-foreground">
+        <DropdownMenuLabel className="space-y-1 px-3 pt-2.5 pb-2">
+          <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>
             {authEmail ?? t("shell.auth.loggedOut")}
           </p>
-          <p className="truncate text-xs font-medium text-muted-foreground">
+          <p className={SIDEBAR_ACCOUNT_META_CLASS}>
             {workspaceContextLabel}
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {canOpenSuperAdminPanel && (
+          <DropdownMenuItem
+            onSelect={() => {
+              handleWorkspaceSectionMenuItemSelect(
+                menuWorkspaceId,
+                "super-admin-overview",
+              );
+            }}
+            disabled={isWorkspaceSwitching}
+            className={SIDEBAR_ACCOUNT_ACTION_CLASS}
+          >
+            <LayoutDashboard className={SIDEBAR_NAV_ICON_CLASS} />
+            {t("shell.panelSwitch.toAdmin")}
+          </DropdownMenuItem>
+        )}
+        {canOpenWorkspaceOwnerPanel && (
+          <DropdownMenuItem
+            onSelect={() => {
+              handleWorkspaceSectionMenuItemSelect(
+                menuWorkspaceId,
+                "workspace-owner-overview",
+              );
+            }}
+            disabled={isWorkspaceSwitching}
+            className={SIDEBAR_ACCOUNT_ACTION_CLASS}
+          >
+            <Users className={SIDEBAR_NAV_ICON_CLASS} />
+            {t("shell.panelSwitch.toWorkspaceGovernance")}
+          </DropdownMenuItem>
+        )}
+        {canBackToWorkspace && (
+          <DropdownMenuItem
+            onSelect={() => {
+              handleWorkspaceSectionMenuItemSelect(menuWorkspaceId, "profiles");
+            }}
+            disabled={isWorkspaceSwitching}
+            className={SIDEBAR_ACCOUNT_ACTION_CLASS}
+          >
+            <LifeBuoy className={SIDEBAR_NAV_ICON_CLASS} />
+            {t("shell.panelSwitch.toWorkspace")}
+          </DropdownMenuItem>
+        )}
+        {(canOpenSuperAdminPanel ||
+          canOpenWorkspaceOwnerPanel ||
+          canBackToWorkspace) && <DropdownMenuSeparator />}
         <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">
           {t("shell.accountMenu.workspaces")}
         </DropdownMenuLabel>
         {workspaceOptions.map((workspace) => {
           const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
+          const canSwitchToThisWorkspace = canSwitchWorkspace && !isCurrentWorkspace;
           const workspacePlanLabel = resolveWorkspacePlanLabel(
             workspace.planLabel,
           );
@@ -505,37 +602,34 @@ export function AppSidebar({
           return (
             <DropdownMenuItem
               key={workspace.id}
-              onSelect={(event) => {
-                event.preventDefault();
+              onSelect={() => {
                 handleWorkspaceMenuItemSelect(workspace.id);
               }}
-              disabled={!canSwitchWorkspace || isWorkspaceSwitching}
+              disabled={!canSwitchToThisWorkspace || isWorkspaceSwitching}
               className={cn(
-                "rounded-md px-2 py-2",
+                SIDEBAR_WORKSPACE_ITEM_CLASS,
                 isCurrentWorkspace && "bg-muted",
               )}
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <Building2 className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <p className="truncate text-[12px] font-semibold text-foreground">
-                    {workspace.label}
+                <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>{workspace.label}</p>
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                  <p className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}>
+                    {workspace.details ??
+                      (isCurrentWorkspace
+                        ? t("shell.workspaceSwitcher.current")
+                        : t("shell.workspaceSwitcher.switchTo"))}
                   </p>
                   <Badge
                     variant={workspacePlanBadge.variant}
-                    className={workspacePlanBadge.className}
+                    className={cn("h-5 shrink-0 px-1.5 text-[10px]", workspacePlanBadge.className)}
                   >
                     {workspacePlanLabel}
                   </Badge>
                 </div>
-                <p className="truncate text-[10px] font-medium text-muted-foreground">
-                  {workspace.details ??
-                    (isCurrentWorkspace
-                      ? t("shell.workspaceSwitcher.current")
-                      : t("shell.workspaceSwitcher.switchTo"))}
-                </p>
                 {workspace.status && (
                   <p className="truncate text-[10px] text-muted-foreground/80">
                     {workspace.status}
@@ -548,68 +642,13 @@ export function AppSidebar({
             </DropdownMenuItem>
           );
         })}
-        {showAdminSection && (
-          <DropdownMenuItem
-            onClick={() => onSectionChange("admin-workspace")}
-            className="rounded-md px-2 py-2"
-          >
-            <Plus className="h-4 w-4" />
-            {t("shell.accountMenu.addWorkspace")}
-          </DropdownMenuItem>
-        )}
-        {hasPanelActions && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-              {t("shell.accountMenu.panels")}
-            </DropdownMenuLabel>
-          </>
-        )}
-        {canOpenWorkspaceGovernance && (
-          <DropdownMenuItem
-            onClick={() => onSectionChange("workspace-admin-overview")}
-            className="rounded-md px-2 py-2"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-[12px] font-semibold text-foreground">
-              {t("shell.panelSwitch.toWorkspaceGovernance")}
-            </p>
-          </DropdownMenuItem>
-        )}
-        {canOpenAdminPanel && (
-          <DropdownMenuItem
-            onClick={() => onSectionChange("admin-overview")}
-            className="rounded-md px-2 py-2"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-              <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-[12px] font-semibold text-foreground">
-              {t("shell.panelSwitch.toAdmin")}
-            </p>
-          </DropdownMenuItem>
-        )}
-        {canBackToWorkspace && (
-          <DropdownMenuItem
-            onClick={() => onSectionChange("profiles")}
-            className="rounded-md px-2 py-2"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-              <LifeBuoy className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-[12px] font-semibold text-foreground">
-              {t("shell.panelSwitch.toWorkspace")}
-            </p>
-          </DropdownMenuItem>
-        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={onSignOut}
           disabled={isAuthBusy || !onSignOut}
+          className={SIDEBAR_ACCOUNT_ACTION_CLASS}
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className={SIDEBAR_NAV_ICON_CLASS} />
           {t("shell.auth.signOut")}
         </DropdownMenuItem>
       </>
@@ -618,14 +657,14 @@ export function AppSidebar({
 
   const renderNavItem = (item: NavLeafItem) => {
     const Icon = item.icon;
-    const isActive = activeSection === item.id;
+    const isActive = effectiveActiveSection === item.id;
 
     const button = (
       <button
         type="button"
-        onClick={() => onSectionChange(item.id)}
+        onClick={() => scheduleSectionChange(item.id)}
         className={cn(
-          "group flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-semibold leading-[1.25] transition-colors",
+          SIDEBAR_NAV_ITEM_CLASS,
           isActive
             ? "bg-muted text-foreground"
             : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -634,7 +673,7 @@ export function AppSidebar({
       >
         <Icon
           className={cn(
-            "h-4 w-4 shrink-0",
+            SIDEBAR_NAV_ICON_CLASS,
             isActive
               ? "text-foreground"
               : "text-muted-foreground group-hover:text-foreground",
@@ -642,9 +681,9 @@ export function AppSidebar({
         />
         {!collapsed && (
           <>
-            <span className="min-w-0">{t(item.labelKey)}</span>
+            <span className="min-w-0 truncate">{t(item.labelKey)}</span>
             {isActive && (
-              <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronRight className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
             )}
           </>
         )}
@@ -665,13 +704,13 @@ export function AppSidebar({
 
   const renderNavChildItem = (item: NavLeafItem) => {
     const Icon = item.icon;
-    const isActive = activeSection === item.id;
+    const isActive = effectiveActiveSection === item.id;
     return (
       <button
         type="button"
-        onClick={() => onSectionChange(item.id)}
+        onClick={() => scheduleSectionChange(item.id)}
         className={cn(
-          "group flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-[12px] font-semibold transition-colors",
+          SIDEBAR_NAV_CHILD_ITEM_CLASS,
           isActive
             ? "bg-muted text-foreground"
             : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -679,7 +718,7 @@ export function AppSidebar({
       >
         <Icon
           className={cn(
-            "h-3.5 w-3.5 shrink-0",
+            SIDEBAR_NAV_ICON_CLASS,
             isActive
               ? "text-foreground"
               : "text-muted-foreground group-hover:text-foreground",
@@ -692,7 +731,9 @@ export function AppSidebar({
 
   const renderNavGroup = (item: NavGroupItem) => {
     const Icon = item.icon;
-    const isActive = item.children.some((child) => child.id === activeSection);
+    const isActive = item.children.some(
+      (child) => child.id === effectiveActiveSection,
+    );
     const isExpanded = expandedNavGroups[item.id] ?? false;
 
     if (collapsed) {
@@ -700,7 +741,7 @@ export function AppSidebar({
         <button
           type="button"
           className={cn(
-            "group flex h-10 w-full items-center justify-center rounded-md text-left text-[13px] font-semibold leading-[1.25] transition-colors",
+            "group flex h-10 w-full items-center justify-center rounded-md text-left text-[13px] font-semibold leading-[1.25] tracking-normal transition-colors",
             isActive
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -708,7 +749,7 @@ export function AppSidebar({
         >
           <Icon
             className={cn(
-              "h-4 w-4 shrink-0",
+              SIDEBAR_NAV_ICON_CLASS,
               isActive
                 ? "text-foreground"
                 : "text-muted-foreground group-hover:text-foreground",
@@ -733,22 +774,22 @@ export function AppSidebar({
           >
             {item.children.map((child) => {
               const ChildIcon = child.icon;
-              const isChildActive = activeSection === child.id;
+              const isChildActive = effectiveActiveSection === child.id;
               return (
                 <DropdownMenuItem
                   key={child.id}
-                  onClick={() => onSectionChange(child.id)}
+                  onClick={() => scheduleSectionChange(child.id)}
                   className={cn(
-                    "rounded-md px-2 py-2",
+                    SIDEBAR_WORKSPACE_ITEM_CLASS,
                     isChildActive && "bg-muted",
                   )}
                 >
-                  <ChildIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-[12px] font-semibold text-foreground">
+                  <ChildIcon className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
+                  <span className="text-[10.5px] leading-[1.25] font-[600] tracking-normal text-foreground">
                     {t(child.labelKey)}
                   </span>
                   {isChildActive && (
-                    <Check className="ml-auto h-4 w-4 shrink-0 text-foreground" />
+                    <Check className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-foreground`} />
                   )}
                 </DropdownMenuItem>
               );
@@ -764,24 +805,24 @@ export function AppSidebar({
           type="button"
           onClick={() => toggleNavGroup(item.id)}
           className={cn(
-            "group flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-semibold leading-[1.25] transition-colors",
+            SIDEBAR_NAV_ITEM_CLASS,
             isActive
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
           )}
         >
-          <Icon
-            className={cn(
-              "h-4 w-4 shrink-0",
-              isActive
-                ? "text-foreground"
-                : "text-muted-foreground group-hover:text-foreground",
+        <Icon
+          className={cn(
+            SIDEBAR_NAV_ICON_CLASS,
+            isActive
+              ? "text-foreground"
+              : "text-muted-foreground group-hover:text-foreground",
             )}
           />
           <span className="min-w-0">{t(item.labelKey)}</span>
           <ChevronRight
             className={cn(
-              "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+              `ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground transition-transform duration-200`,
               isExpanded && "rotate-90",
             )}
           />
@@ -807,8 +848,8 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "app-shell-sidebar app-sidebar-font relative flex h-screen flex-col border-r border-border bg-background text-foreground tracking-normal transition-all duration-200",
-        collapsed ? "w-[80px]" : "w-[258px]",
+        "app-shell-sidebar app-sidebar-font relative flex h-screen shrink-0 flex-col border-r border-border bg-background text-foreground tracking-normal transition-all duration-200",
+        collapsed ? "w-[80px] basis-[80px]" : "w-[258px] basis-[258px]",
       )}
     >
       <div
@@ -830,8 +871,8 @@ export function AppSidebar({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => onSectionChange("profiles")}
-                    className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted/60"
+                    onClick={() => scheduleSectionChange("profiles")}
+                    className="flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-muted/60"
                   >
                     <Logo variant="icon" className="h-8 w-8 rounded-md" />
                   </button>
@@ -862,7 +903,7 @@ export function AppSidebar({
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
-                  onClick={() => onSectionChange("profiles")}
+                  onClick={() => scheduleSectionChange("profiles")}
                   className="flex h-8 w-full items-center rounded-md px-1.5 transition-colors hover:bg-muted/60"
                 >
                   <Logo
@@ -889,61 +930,6 @@ export function AppSidebar({
 
       {/* ── Navigation ── */}
       <ScrollArea className="flex-1 px-2 pb-3 pt-1">
-        {canManageWorkspaceGovernance && (
-          <div className="mb-2">
-            {collapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSectionChange(
-                        panelMode === "workspace-governance"
-                          ? "profiles"
-                          : "workspace-admin-overview",
-                      )
-                    }
-                    className="flex h-9 w-full items-center justify-center rounded-md border border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                  >
-                    {panelMode === "workspace-governance" ? (
-                      <LifeBuoy className="h-4 w-4" />
-                    ) : (
-                      <Users className="h-4 w-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {panelMode === "workspace-governance"
-                    ? t("shell.panelSwitch.toWorkspace")
-                    : t("shell.panelSwitch.toWorkspaceGovernance")}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  onSectionChange(
-                    panelMode === "workspace-governance"
-                      ? "profiles"
-                      : "workspace-admin-overview",
-                  )
-                }
-                className="group flex h-10 w-full items-center gap-2.5 rounded-md border border-border bg-muted/20 px-2.5 text-left text-[12px] font-semibold text-foreground transition-colors hover:bg-muted/50"
-              >
-                {panelMode === "workspace-governance" ? (
-                  <LifeBuoy className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
-                ) : (
-                  <Users className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
-                )}
-                <span className="min-w-0 truncate">
-                  {panelMode === "workspace-governance"
-                    ? t("shell.panelSwitch.toWorkspace")
-                    : t("shell.panelSwitch.toWorkspaceGovernance")}
-                </span>
-              </button>
-            )}
-          </div>
-        )}
         <div className="space-y-0.5 pb-2">
           {navItems.map((item) => (
             <div key={item.id}>
@@ -960,8 +946,8 @@ export function AppSidebar({
         {collapsed ? (
           isAuthenticated ? (
             <DropdownMenu
-              open={accountMenuOpen}
-              onOpenChange={handleAccountMenuOpenChange}
+              modal={false}
+              key={`${selectedWorkspaceId}:${isWorkspaceSwitching ? "busy" : "idle"}:collapsed`}
             >
               <DropdownMenuTrigger asChild disabled={isWorkspaceSwitching}>
                 <button
@@ -983,7 +969,8 @@ export function AppSidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-[292px] data-[state=closed]:animate-none"
+                forceMount
+                className="w-[292px] will-change-[opacity,transform] data-[state=open]:duration-100 data-[state=closed]:animate-none"
               >
                 {renderAccountMenuContent()}
               </DropdownMenuContent>
@@ -1007,16 +994,16 @@ export function AppSidebar({
           )
         ) : isAuthenticated ? (
           <DropdownMenu
-            open={accountMenuOpen}
-            onOpenChange={handleAccountMenuOpenChange}
+            modal={false}
+            key={`${selectedWorkspaceId}:${isWorkspaceSwitching ? "busy" : "idle"}`}
           >
             <DropdownMenuTrigger asChild disabled={isWorkspaceSwitching}>
               <button
                 type="button"
                 disabled={isWorkspaceSwitching}
-                className="group flex w-full items-center gap-2 rounded-md px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-muted/50 data-[state=open]:bg-muted/50 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-70"
+                className={SIDEBAR_TRIGGER_CLASS}
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground overflow-hidden">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground">
                   {authAvatar ? (
                     <img
                       src={authAvatar}
@@ -1028,37 +1015,36 @@ export function AppSidebar({
                     <UserRound className="h-4 w-4" />
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <p className="truncate text-[12px] font-semibold text-foreground">
-                      {selectedWorkspace?.label ??
-                        t("shell.workspaceSwitcher.placeholder")}
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className={`min-w-0 ${SIDEBAR_ACCOUNT_TITLE_CLASS}`}>
+                    {selectedWorkspace?.label ??
+                      t("shell.workspaceSwitcher.placeholder")}
+                  </p>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <p className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}>
+                      {selectedWorkspaceSubLabel}
                     </p>
                     {selectedWorkspace && (
                       <Badge
                         variant={selectedWorkspacePlanBadge.variant}
-                        className={selectedWorkspacePlanBadge.className}
+                        className={cn(
+                          "h-4 shrink-0 px-1 text-[9px]",
+                          selectedWorkspacePlanBadge.className,
+                        )}
                       >
                         {selectedWorkspacePlanLabel}
                       </Badge>
                     )}
                   </div>
-                  <p className="truncate text-[11px] font-medium text-muted-foreground">
-                    {selectedWorkspaceSubLabel}
-                  </p>
                 </div>
-                {(showAdminSection || canManageWorkspaceGovernance) && (
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/70">
-                    <Shield className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                )}
-                <ChevronsUpDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
               sideOffset={8}
-              className="w-[276px] max-w-[calc(100vw-24px)] data-[state=closed]:animate-none"
+              forceMount
+              className="w-[276px] max-w-[calc(100vw-24px)] will-change-[opacity,transform] data-[state=open]:duration-100 data-[state=closed]:animate-none"
             >
               {renderAccountMenuContent()}
             </DropdownMenuContent>
@@ -1069,10 +1055,10 @@ export function AppSidebar({
               <UserRound className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-foreground">
+              <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>
                 {t("shell.auth.loggedOut")}
               </p>
-              <p className="truncate text-[11px] font-medium text-muted-foreground">
+              <p className={SIDEBAR_ACCOUNT_META_CLASS}>
                 {t("shell.auth.disconnected")}
               </p>
             </div>
@@ -1080,7 +1066,7 @@ export function AppSidebar({
               type="button"
               onClick={onSignIn}
               disabled={isAuthBusy || !onSignIn}
-              className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
+              className="type-ui-sm rounded-md border border-border px-2 py-1 text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("shell.auth.signIn")}
             </button>
@@ -1090,3 +1076,5 @@ export function AppSidebar({
     </aside>
   );
 }
+
+export const AppSidebar = memo(AppSidebarComponent);

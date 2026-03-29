@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  InternalServerErrorException,
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleInit,
   OnModuleDestroy,
@@ -8,9 +10,6 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import {
   createHash,
   randomBytes,
@@ -22,6 +21,7 @@ import { Pool } from "pg";
 import type {
   AuthUserRecord,
   AuditLogRecord,
+  BillingCancellationMode,
   BillingInvoiceRecord,
   BillingPaymentMethod,
   BillingSource,
@@ -36,18 +36,32 @@ import type {
   LicenseRedemptionRecord,
   MembershipRecord,
   PlatformAdminOverview,
+  PlatformAdminWorkspaceHealthRow,
+  PlatformAdminEmailRecord,
   StripeCheckoutConfirmResult,
   StripeCheckoutCreateResult,
   StripeCheckoutRecord,
   ShareGrantRecord,
+  TiktokCookieRecord,
+  TiktokAutomationAccountRecord,
+  TiktokAutomationFlowType,
+  TiktokAutomationRunItemRecord,
+  TiktokAutomationRunMode,
+  TiktokAutomationRunRecord,
+  TiktokAutomationRunStatus,
+  TiktokAutomationItemStatus,
+  WorkspaceTiktokCookieSourceRecord,
   WorkspaceBillingState,
+  WorkspaceBillingUsage,
   WorkspaceListItem,
   WorkspaceMode,
   WorkspaceOverview,
   WorkspaceRecord,
   WorkspaceRole,
   WorkspaceSubscriptionRecord,
+  WorkspaceAdminTiktokStateRecord,
 } from "./control.types.js";
+import { SyncService } from "../sync/sync.service.js";
 
 type RequestActor = {
   userId: string;
@@ -58,6 +72,11 @@ type RequestActor = {
 interface PersistedControlState {
   authUsers: AuthUserRecord[];
   workspaces: WorkspaceRecord[];
+  workspaceAdminTiktokStates: WorkspaceAdminTiktokStateRecord[];
+  workspaceTiktokCookieSources: WorkspaceTiktokCookieSourceRecord[];
+  tiktokAutomationAccounts: TiktokAutomationAccountRecord[];
+  tiktokAutomationRuns: TiktokAutomationRunRecord[];
+  tiktokAutomationRunItems: TiktokAutomationRunItemRecord[];
   memberships: MembershipRecord[];
   entitlements: EntitlementRecord[];
   invites: InviteRecord[];
@@ -67,6 +86,7 @@ interface PersistedControlState {
   subscriptions: WorkspaceSubscriptionRecord[];
   invoices: BillingInvoiceRecord[];
   stripeCheckouts: StripeCheckoutRecord[];
+  tiktokCookies: TiktokCookieRecord[];
   auditLogs: AuditLogRecord[];
 }
 
@@ -80,8 +100,30 @@ interface LicenseCatalogEntry {
 
 @Injectable()
 export class ControlService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(ControlService.name);
   private readonly authUsers = new Map<string, AuthUserRecord>();
+  private readonly platformAdminEmails = new Set<string>();
   private readonly workspaces = new Map<string, WorkspaceRecord>();
+  private readonly workspaceAdminTiktokStates = new Map<
+    string,
+    WorkspaceAdminTiktokStateRecord
+  >();
+  private readonly workspaceTiktokCookieSources = new Map<
+    string,
+    WorkspaceTiktokCookieSourceRecord[]
+  >();
+  private readonly workspaceTiktokAutomationAccounts = new Map<
+    string,
+    TiktokAutomationAccountRecord[]
+  >();
+  private readonly workspaceTiktokAutomationRuns = new Map<
+    string,
+    TiktokAutomationRunRecord[]
+  >();
+  private readonly tiktokAutomationRunItems = new Map<
+    string,
+    TiktokAutomationRunItemRecord[]
+  >();
   private readonly memberships = new Map<string, MembershipRecord[]>();
   private readonly entitlements = new Map<string, EntitlementRecord>();
   private readonly invites = new Map<string, InviteRecord>();
@@ -91,87 +133,62 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private readonly subscriptions = new Map<string, WorkspaceSubscriptionRecord>();
   private readonly invoices = new Map<string, BillingInvoiceRecord>();
   private readonly stripeCheckouts = new Map<string, StripeCheckoutRecord>();
+  private readonly tiktokCookies = new Map<string, TiktokCookieRecord>();
   private readonly auditLogs: AuditLogRecord[] = [];
-  private readonly stateFilePath: string | null;
   private readonly databaseUrl: string | null;
   private readonly postgresPool: Pool | null;
-  private readonly sqliteDatabase: DatabaseSync | null;
   private persistPostgresQueue: Promise<void> = Promise.resolve();
+  private readonly workspaceUsageSnapshots = new Map<
+    string,
+    { storageUsedBytes: number; proxyBandwidthUsedMb: number; updatedAt: string | null }
+  >();
+  private readonly usageRefreshInFlight = new Set<string>();
+  private readonly usageSnapshotTtlMs = 30_000;
 
-  constructor(@Optional() private readonly configService?: ConfigService) {
+  constructor(
+    @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly syncService?: SyncService,
+  ) {
     const isTestEnv = process.env.NODE_ENV === "test";
-    this.databaseUrl = isTestEnv
-      ? null
-      : this.configService?.get<string>("DATABASE_URL")?.trim() ||
-        process.env.DATABASE_URL?.trim() ||
-        null;
+    const embeddedLocalDatabaseUrl =
+      process.env.BUGLOGIN_EMBEDDED_LOCAL_CONTROL === "1"
+        ? "postgres://postgres:postgres@127.0.0.1:5432/buglogin"
+        : null;
+    this.databaseUrl =
+      this.configService?.get<string>("DATABASE_URL")?.trim() ||
+      process.env.DATABASE_URL?.trim() ||
+      embeddedLocalDatabaseUrl ||
+      null;
+
+    if (!isTestEnv && !this.databaseUrl) {
+      throw new Error("database_url_required_for_control_plane");
+    }
+
     this.postgresPool = this.databaseUrl
       ? new Pool({
           connectionString: this.databaseUrl,
         })
       : null;
-
-    const defaultStatePath = resolve(process.cwd(), ".data", "control-state.json");
-    const configuredStatePath =
-      this.configService?.get<string>("CONTROL_STATE_FILE")?.trim() ||
-      process.env.CONTROL_STATE_FILE?.trim();
-    const defaultSqlitePath = resolve(process.cwd(), ".data", "control-state.sqlite");
-    const configuredSqlitePath =
-      this.configService?.get<string>("CONTROL_SQLITE_FILE")?.trim() ||
-      process.env.CONTROL_SQLITE_FILE?.trim();
-
-    if (isTestEnv) {
-      this.stateFilePath = null;
-      this.sqliteDatabase = null;
-      return;
-    }
-
-    if (this.postgresPool) {
-      this.stateFilePath = null;
-      this.sqliteDatabase = null;
-      return;
-    }
-
-    this.stateFilePath = configuredStatePath || defaultStatePath;
-    const sqliteFilePath = configuredSqlitePath || defaultSqlitePath;
-    mkdirSync(dirname(sqliteFilePath), { recursive: true });
-    this.sqliteDatabase = new DatabaseSync(sqliteFilePath);
-    this.sqliteDatabase.exec("pragma foreign_keys = on;");
   }
 
   async onModuleInit() {
-    if (this.postgresPool) {
-      await this.loadStateFromPostgres();
+    if (!this.postgresPool) {
+      this.refreshWorkspaceUsageSnapshots();
       return;
     }
-    if (this.sqliteDatabase) {
-      const loadedFromSqlite = this.loadStateFromSqlite();
-      if (!loadedFromSqlite && this.loadStateFromDisk() && this.hasInMemoryState()) {
-        this.persistStateToSqlite();
-      }
-      return;
-    }
-    this.loadStateFromDisk();
+    await this.loadStateFromPostgres();
+    this.refreshWorkspaceUsageSnapshots();
   }
 
   async onModuleDestroy() {
-    if (this.postgresPool) {
-      try {
-        await this.persistPostgresQueue;
-        await this.postgresPool.end();
-      } catch {
-        // Ignore shutdown errors.
-      }
+    if (!this.postgresPool) {
       return;
     }
-
-    if (this.sqliteDatabase) {
-      try {
-        this.persistStateToSqlite();
-        this.sqliteDatabase.close();
-      } catch {
-        // Ignore shutdown errors.
-      }
+    try {
+      await this.persistPostgresQueue;
+      await this.postgresPool.end();
+    } catch {
+      // Ignore shutdown errors.
     }
   }
 
@@ -199,6 +216,76 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return billingCycle === "monthly" ? 49 : 39;
     }
     return billingCycle === "monthly" ? 99 : 79;
+  }
+
+  private getPlanStorageLimitMb(planId: BillingPlanId | null): number {
+    if (planId === "starter") return 2 * 1024;
+    if (planId === "growth") return 10 * 1024;
+    if (planId === "scale") return 30 * 1024;
+    if (planId === "custom") return 80 * 1024;
+    return 0;
+  }
+
+  private getPlanProxyBandwidthLimitMb(planId: BillingPlanId | null): number {
+    if (planId === "starter") return 2 * 1024;
+    if (planId === "growth") return 2 * 1024;
+    if (planId === "scale") return 2 * 1024;
+    if (planId === "custom") return 2 * 1024;
+    return 0;
+  }
+
+  private getWorkspaceBillingUsage(
+    workspaceId: string,
+    subscription: WorkspaceSubscriptionRecord,
+  ): WorkspaceBillingUsage {
+    const snapshot = this.workspaceUsageSnapshots.get(workspaceId);
+    return {
+      storageUsedBytes: snapshot?.storageUsedBytes ?? 0,
+      storageLimitMb: this.getPlanStorageLimitMb(subscription.planId),
+      proxyBandwidthUsedMb: snapshot?.proxyBandwidthUsedMb ?? 0,
+      proxyBandwidthLimitMb: this.getPlanProxyBandwidthLimitMb(subscription.planId),
+      updatedAt: snapshot?.updatedAt ?? null,
+    };
+  }
+
+  private refreshWorkspaceUsageSnapshots(): void {
+    for (const workspaceId of this.workspaces.keys()) {
+      this.refreshWorkspaceUsageSnapshot(workspaceId);
+    }
+  }
+
+  private refreshWorkspaceUsageSnapshot(workspaceId: string): void {
+    if (!this.syncService) {
+      return;
+    }
+    if (this.usageRefreshInFlight.has(workspaceId)) {
+      return;
+    }
+
+    this.usageRefreshInFlight.add(workspaceId);
+    void this.syncService
+      .getWorkspaceStorageUsageBytes(workspaceId)
+      .then((storageUsedBytes) => {
+        if (storageUsedBytes === null) {
+          return;
+        }
+        const existing = this.workspaceUsageSnapshots.get(workspaceId);
+        this.workspaceUsageSnapshots.set(workspaceId, {
+          storageUsedBytes,
+          proxyBandwidthUsedMb: existing?.proxyBandwidthUsedMb ?? 0,
+          updatedAt: new Date().toISOString(),
+        });
+      })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Failed to refresh workspace usage for ${workspaceId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      })
+      .finally(() => {
+        this.usageRefreshInFlight.delete(workspaceId);
+      });
   }
 
   private getPlanLabel(planId: BillingPlanId): string {
@@ -235,12 +322,32 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return this.workspaces.size;
     }
     const workspaceIds = new Set(
-      Array.from(this.memberships.values())
-        .flat()
-        .filter((membership) => membership.userId === actor.userId)
+      this.getActorMembershipEntries(actor)
         .map((membership) => membership.workspaceId),
     );
     return workspaceIds.size;
+  }
+
+  private isMembershipForActor(
+    membership: MembershipRecord,
+    actor: RequestActor,
+  ): boolean {
+    if (membership.userId !== actor.userId) {
+      return false;
+    }
+    const normalizedMembershipEmail = this.normalizeEmail(membership.email);
+    if (!normalizedMembershipEmail || normalizedMembershipEmail.endsWith("@local")) {
+      return true;
+    }
+    return (
+      normalizedMembershipEmail === actor.email
+    );
+  }
+
+  private getActorMembershipEntries(actor: RequestActor): MembershipRecord[] {
+    return Array.from(this.memberships.values())
+      .flat()
+      .filter((membership) => this.isMembershipForActor(membership, actor));
   }
 
   private assertPlanChangeAllowed(
@@ -353,14 +460,49 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       source: "internal",
       startedAt: nowIso,
       expiresAt: null,
+      cancelAtPeriodEnd: false,
+      cancelAt: null,
       updatedAt: nowIso,
     };
+  }
+
+  private getSubscriptionCancelAt(
+    subscription: WorkspaceSubscriptionRecord,
+  ): string | null {
+    return subscription.cancelAt ?? subscription.expiresAt ?? null;
+  }
+
+  private resolveWorkspaceSubscriptionLifecycle(
+    workspaceId: string,
+    existing: WorkspaceSubscriptionRecord,
+  ): WorkspaceSubscriptionRecord {
+    if (!existing.cancelAtPeriodEnd) {
+      return existing;
+    }
+    const cancelAt = this.getSubscriptionCancelAt(existing);
+    if (!cancelAt) {
+      return existing;
+    }
+    const cancelAtMs = new Date(cancelAt).getTime();
+    if (!Number.isFinite(cancelAtMs) || cancelAtMs > Date.now()) {
+      return existing;
+    }
+
+    const workspace = this.workspaces.get(workspaceId);
+    const nowIso = new Date().toISOString();
+    const fallback = this.getDefaultSubscriptionForWorkspace(
+      workspaceId,
+      workspace?.mode ?? "team",
+      nowIso,
+    );
+    this.subscriptions.set(workspaceId, fallback);
+    return fallback;
   }
 
   private getSubscriptionForWorkspace(workspaceId: string): WorkspaceSubscriptionRecord {
     const existing = this.subscriptions.get(workspaceId);
     if (existing) {
-      return existing;
+      return this.resolveWorkspaceSubscriptionLifecycle(workspaceId, existing);
     }
     const workspace = this.workspaces.get(workspaceId);
     const nowIso = new Date().toISOString();
@@ -379,6 +521,20 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     const membership = this.getWorkspaceMembership(workspaceId, actor);
     return membership.role === "owner" || membership.role === "admin";
+  }
+
+  private isWorkspaceOperator(actor: RequestActor, workspaceId: string): boolean {
+    if (actor.platformRole === "platform_admin") {
+      return true;
+    }
+    const membership = this.getWorkspaceMembership(workspaceId, actor);
+    return membership.role === "owner" || membership.role === "admin";
+  }
+
+  private ensureWorkspaceOperator(actor: RequestActor, workspaceId: string) {
+    if (!this.isWorkspaceOperator(actor, workspaceId)) {
+      throw new UnauthorizedException("permission_denied");
+    }
   }
 
   private ensureWorkspaceBillingManager(actor: RequestActor, workspaceId: string) {
@@ -420,6 +576,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       source: input.source,
       startedAt: now,
       expiresAt,
+      cancelAtPeriodEnd: false,
+      cancelAt: null,
       updatedAt: now,
     };
     this.subscriptions.set(input.workspaceId, next);
@@ -552,11 +710,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       process.env.CONTROL_LICENSE_KEYS?.trim() ||
       "";
 
-    const source =
-      configuredRaw ||
-      (process.env.NODE_ENV === "production"
-        ? ""
-        : "BUG-STARTER-CLAIM:starter:100:monthly,BUG-GROWTH-CLAIM:growth:300:monthly,BUG-SCALE-CLAIM:scale:1000:monthly,BUG-CUSTOM-CLAIM:custom:2000:monthly");
+    const source = configuredRaw;
     if (!source) {
       return [];
     }
@@ -753,10 +907,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     const stableUserId = this.deriveStableUserId(normalizedEmail);
+    let needsPersist = false;
     if (record.userId !== stableUserId) {
       this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
       record.userId = stableUserId;
       record.updatedAt = new Date().toISOString();
+      needsPersist = true;
+    }
+    if (this.platformAdminEmails.has(normalizedEmail) && record.platformRole !== "platform_admin") {
+      record.platformRole = "platform_admin";
+      record.updatedAt = new Date().toISOString();
+      needsPersist = true;
+    }
+    if (needsPersist) {
       this.authUsers.set(normalizedEmail, record);
       this.persistState();
     }
@@ -771,7 +934,81 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  loginOrRegisterGoogleAuthUser(email: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      throw new BadRequestException("invalid_email");
+    }
+
+    const now = new Date().toISOString();
+    let record = this.authUsers.get(normalizedEmail);
+    let shouldPersist = false;
+
+    if (!record) {
+      const stableUserId = this.deriveStableUserId(normalizedEmail);
+      const existingMembership = this.findMembershipByEmail(normalizedEmail);
+      if (existingMembership && existingMembership.userId !== stableUserId) {
+        this.migrateAuthUserId(
+          existingMembership.userId,
+          stableUserId,
+          normalizedEmail,
+        );
+      }
+      const generatedPassword = randomBytes(32).toString("hex");
+      const { salt, hash } = this.hashPassword(generatedPassword);
+      record = {
+        userId: stableUserId,
+        email: normalizedEmail,
+        passwordSalt: salt,
+        passwordHash: hash,
+        platformRole: this.resolvePlatformRoleForRegistration(normalizedEmail),
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.authUsers.set(normalizedEmail, record);
+      this.audit("auth.google_registered", normalizedEmail, undefined, stableUserId);
+      shouldPersist = true;
+    } else {
+      const stableUserId = this.deriveStableUserId(normalizedEmail);
+      if (record.userId !== stableUserId) {
+        this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
+        record.userId = stableUserId;
+        record.updatedAt = now;
+        shouldPersist = true;
+      }
+      if (this.platformAdminEmails.has(normalizedEmail) && record.platformRole !== "platform_admin") {
+        record.platformRole = "platform_admin";
+        record.updatedAt = now;
+        shouldPersist = true;
+      }
+      if (shouldPersist) {
+        this.authUsers.set(normalizedEmail, record);
+      }
+    }
+
+    this.audit("auth.google_logged_in", normalizedEmail, undefined, record.userId);
+    if (shouldPersist) {
+      this.persistState();
+    }
+
+    return {
+      user: {
+        id: record.userId,
+        email: record.email,
+        platformRole: record.platformRole,
+      },
+    };
+  }
+
   createWorkspace(actor: RequestActor, name: string, mode: WorkspaceMode) {
+    if (mode === "personal") {
+      const existingPersonalWorkspace = this.getPrimaryPersonalWorkspaceForActor(actor);
+      if (existingPersonalWorkspace) {
+        this.ensurePersonalWorkspaceOwnership(existingPersonalWorkspace, actor);
+        return existingPersonalWorkspace;
+      }
+    }
+
     const normalizedName = this.normalizeWorkspaceName(name);
     const workspaceId = randomUUID();
     const now = new Date().toISOString();
@@ -809,37 +1046,78 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return workspace;
   }
 
-  listWorkspaces(actor: RequestActor): WorkspaceListItem[] {
-    const toListItem = (workspace: WorkspaceRecord): WorkspaceListItem => {
+  listWorkspaces(
+    actor: RequestActor,
+    scope: "member" | "all" = "member",
+  ): WorkspaceListItem[] {
+    const toListItem = (
+      workspace: WorkspaceRecord,
+      actorRole: WorkspaceRole,
+    ): WorkspaceListItem => {
       const subscription = this.getSubscriptionForWorkspace(workspace.id);
       return {
         ...workspace,
+        actorRole,
         planLabel: subscription.planLabel,
         profileLimit: subscription.profileLimit,
         billingCycle: subscription.billingCycle,
         subscriptionStatus: subscription.status,
         subscriptionSource: subscription.source,
         expiresAt: subscription.expiresAt,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        cancelAt: subscription.cancelAt,
       };
     };
 
-    if (actor.platformRole === "platform_admin") {
+    if (actor.platformRole === "platform_admin" && scope === "all") {
       return Array.from(this.workspaces.values())
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-        .map((workspace) => toListItem(workspace));
+        .map((workspace) => toListItem(workspace, "admin"));
     }
 
-    const ownedMemberships = Array.from(this.memberships.values()).flat();
-    const workspaceIds = new Set(
-      ownedMemberships
-        .filter((membership) => membership.userId === actor.userId)
-        .map((membership) => membership.workspaceId),
-    );
+    const actorMembershipByWorkspaceId = new Map<string, MembershipRecord>();
+    for (const membership of this.getActorMembershipEntries(actor)) {
+      const current = actorMembershipByWorkspaceId.get(membership.workspaceId);
+      if (!current) {
+        actorMembershipByWorkspaceId.set(membership.workspaceId, membership);
+        continue;
+      }
+      const currentRank = this.getWorkspaceRoleRank(current.role);
+      const candidateRank = this.getWorkspaceRoleRank(membership.role);
+      if (candidateRank > currentRank) {
+        actorMembershipByWorkspaceId.set(membership.workspaceId, membership);
+      }
+    }
+
+    const primaryPersonalWorkspaceId =
+      this.getPrimaryPersonalWorkspaceForActor(actor)?.id ?? null;
 
     return Array.from(this.workspaces.values())
-      .filter((workspace) => workspaceIds.has(workspace.id))
+      .filter((workspace) => {
+        const membership = actorMembershipByWorkspaceId.get(workspace.id);
+        if (!membership) {
+          return false;
+        }
+        if (workspace.mode === "personal" && workspace.createdBy !== actor.userId) {
+          return false;
+        }
+        if (
+          workspace.mode === "personal" &&
+          primaryPersonalWorkspaceId &&
+          workspace.id !== primaryPersonalWorkspaceId
+        ) {
+          return false;
+        }
+        return true;
+      })
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .map((workspace) => toListItem(workspace));
+      .map((workspace) => {
+        const membership = actorMembershipByWorkspaceId.get(workspace.id);
+        if (!membership) {
+          throw new UnauthorizedException("permission_denied");
+        }
+        return toListItem(workspace, membership.role);
+      });
   }
 
   getWorkspaceMembership(workspaceId: string, actor: RequestActor): MembershipRecord {
@@ -855,8 +1133,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     const members = this.memberships.get(workspaceId) || [];
-    const membership = members.find((item) => item.userId === actor.userId);
+    const membership = members.find((item) =>
+      this.isMembershipForActor(item, actor),
+    );
     if (!membership) {
+      throw new UnauthorizedException("permission_denied");
+    }
+    const workspace = this.workspaces.get(workspaceId);
+    if (workspace?.mode === "personal" && workspace.createdBy !== actor.userId) {
       throw new UnauthorizedException("permission_denied");
     }
     return membership;
@@ -1050,7 +1334,38 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   listMemberships(workspaceId: string, actor: RequestActor): MembershipRecord[] {
     this.assertWorkspaceAccess(workspaceId, actor);
-    return [...(this.memberships.get(workspaceId) || [])];
+    const members = [...(this.memberships.get(workspaceId) || [])];
+    const authEmailByUserId = new Map<string, string>();
+    for (const authUser of this.authUsers.values()) {
+      if (authUser.userId?.trim() && authUser.email?.trim()) {
+        authEmailByUserId.set(authUser.userId.trim(), authUser.email.trim().toLowerCase());
+      }
+    }
+    return members.map((member) => {
+      const normalizedEmail = member.email?.trim().toLowerCase() || "";
+      const emailLooksValid =
+        normalizedEmail.includes("@") && !normalizedEmail.endsWith("@local");
+      if (emailLooksValid) {
+        return member;
+      }
+      const resolvedAuthEmail = authEmailByUserId.get(member.userId);
+      if (resolvedAuthEmail) {
+        return {
+          ...member,
+          email: resolvedAuthEmail,
+        };
+      }
+      if (member.userId === actor.userId) {
+        return {
+          ...member,
+          email: actor.email,
+        };
+      }
+      return {
+        ...member,
+        email: member.userId,
+      };
+    });
   }
 
   removeMembership(
@@ -1109,7 +1424,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const now = new Date().toISOString();
     const members = this.memberships.get(invite.workspaceId) || [];
-    const existing = members.find((member) => member.userId === actor.userId);
+    const existing = members.find((member) =>
+      this.isMembershipForActor(member, actor),
+    );
 
     if (existing) {
       existing.role = invite.role;
@@ -1135,7 +1452,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.persistState();
 
     return (
-      members.find((member) => member.userId === actor.userId) || {
+      members.find((member) => this.isMembershipForActor(member, actor)) || {
         workspaceId: invite.workspaceId,
         userId: actor.userId,
         email: normalizedActorEmail,
@@ -1264,11 +1581,105 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       .filter((invoice) => invoice.workspaceId === workspaceId)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, 30);
+    const usage = this.getWorkspaceBillingUsage(workspaceId, subscription);
+    const usageUpdatedAtMs = usage.updatedAt ? Date.parse(usage.updatedAt) : 0;
+    if (
+      !usage.updatedAt ||
+      Number.isNaN(usageUpdatedAtMs) ||
+      Date.now() - usageUpdatedAtMs > this.usageSnapshotTtlMs
+    ) {
+      this.refreshWorkspaceUsageSnapshot(workspaceId);
+    }
     return {
       workspaceId,
       subscription,
       recentInvoices,
+      usage,
     };
+  }
+
+  cancelWorkspaceSubscription(
+    actor: RequestActor,
+    workspaceId: string,
+    input: { mode: BillingCancellationMode },
+  ): WorkspaceBillingState {
+    this.assertWorkspaceAccess(workspaceId, actor);
+    this.ensureWorkspaceBillingManager(actor, workspaceId);
+
+    const current = this.getSubscriptionForWorkspace(workspaceId);
+    if (!current.planId) {
+      throw new BadRequestException("billing_subscription_not_cancelable");
+    }
+
+    const mode = input.mode === "immediate" ? "immediate" : "period_end";
+    const nowIso = new Date().toISOString();
+
+    if (mode === "immediate") {
+      const workspace = this.workspaces.get(workspaceId);
+      const fallback = this.getDefaultSubscriptionForWorkspace(
+        workspaceId,
+        workspace?.mode ?? "team",
+        nowIso,
+      );
+      this.subscriptions.set(workspaceId, fallback);
+      this.audit(
+        "billing.subscription.canceled_immediately",
+        actor.email,
+        workspaceId,
+        workspaceId,
+      );
+      this.persistState();
+      return this.getWorkspaceBillingState(workspaceId, actor);
+    }
+
+    if (!current.expiresAt) {
+      throw new BadRequestException("billing_subscription_missing_expiry");
+    }
+
+    const next: WorkspaceSubscriptionRecord = {
+      ...current,
+      cancelAtPeriodEnd: true,
+      cancelAt: current.expiresAt,
+      updatedAt: nowIso,
+    };
+    this.subscriptions.set(workspaceId, next);
+    this.audit(
+      "billing.subscription.cancel_at_period_end",
+      actor.email,
+      workspaceId,
+      workspaceId,
+    );
+    this.persistState();
+    return this.getWorkspaceBillingState(workspaceId, actor);
+  }
+
+  reactivateWorkspaceSubscription(
+    actor: RequestActor,
+    workspaceId: string,
+  ): WorkspaceBillingState {
+    this.assertWorkspaceAccess(workspaceId, actor);
+    this.ensureWorkspaceBillingManager(actor, workspaceId);
+
+    const current = this.getSubscriptionForWorkspace(workspaceId);
+    if (!current.planId) {
+      throw new BadRequestException("billing_subscription_not_reactivatable");
+    }
+
+    const next: WorkspaceSubscriptionRecord = {
+      ...current,
+      cancelAtPeriodEnd: false,
+      cancelAt: null,
+      updatedAt: new Date().toISOString(),
+    };
+    this.subscriptions.set(workspaceId, next);
+    this.audit(
+      "billing.subscription.reactivated",
+      actor.email,
+      workspaceId,
+      workspaceId,
+    );
+    this.persistState();
+    return this.getWorkspaceBillingState(workspaceId, actor);
   }
 
   activateWorkspacePlanInternal(
@@ -1652,6 +2063,88 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  getPlatformWorkspaceHealth(actor: RequestActor): PlatformAdminWorkspaceHealthRow[] {
+    this.assertPlatformAdmin(actor);
+
+    return Array.from(this.workspaces.values())
+      .map((workspace) => {
+        const subscription = this.getSubscriptionForWorkspace(workspace.id);
+        const entitlement = this.entitlements.get(workspace.id);
+        const members = this.memberships.get(workspace.id) || [];
+        const activeInvites = Array.from(this.invites.values()).filter(
+          (invite) => invite.workspaceId === workspace.id && invite.consumedAt === null,
+        );
+        const activeShareGrants = Array.from(this.shareGrants.values()).filter(
+          (grant) => grant.workspaceId === workspace.id && grant.revokedAt === null,
+        );
+        const latestInvoice = Array.from(this.invoices.values())
+          .filter((invoice) => invoice.workspaceId === workspace.id)
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+
+        const usage = this.getWorkspaceBillingUsage(workspace.id, subscription);
+        const storagePercent =
+          usage.storageLimitMb > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
+                ),
+              )
+            : 0;
+        const proxyBandwidthPercent =
+          usage.proxyBandwidthLimitMb > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  (usage.proxyBandwidthUsedMb / usage.proxyBandwidthLimitMb) * 100,
+                ),
+              )
+            : 0;
+
+        const riskLevel: "low" | "medium" | "high" =
+          subscription.status === "past_due" ||
+          entitlement?.state === "read_only" ||
+          storagePercent >= 90 ||
+          proxyBandwidthPercent >= 90
+            ? "high"
+            : subscription.cancelAtPeriodEnd ||
+                entitlement?.state === "grace_active" ||
+                storagePercent >= 75 ||
+                proxyBandwidthPercent >= 75
+              ? "medium"
+              : "low";
+
+        return {
+          workspaceId: workspace.id,
+          workspaceName: workspace.name,
+          mode: workspace.mode,
+          planLabel: subscription.planLabel,
+          subscriptionStatus: subscription.status,
+          entitlementState: entitlement?.state ?? "active",
+          profileLimit: subscription.profileLimit,
+          members: members.length,
+          activeInvites: activeInvites.length,
+          activeShareGrants: activeShareGrants.length,
+          storageUsedBytes: usage.storageUsedBytes,
+          storageLimitMb: usage.storageLimitMb,
+          storagePercent,
+          proxyBandwidthUsedMb: usage.proxyBandwidthUsedMb,
+          proxyBandwidthLimitMb: usage.proxyBandwidthLimitMb,
+          proxyBandwidthPercent,
+          latestInvoiceAt: latestInvoice?.createdAt ?? null,
+          usageUpdatedAt: usage.updatedAt,
+          riskLevel,
+        } satisfies PlatformAdminWorkspaceHealthRow;
+      })
+      .sort((left, right) => {
+        if (left.riskLevel !== right.riskLevel) {
+          const rank = { high: 3, medium: 2, low: 1 } as const;
+          return rank[right.riskLevel] - rank[left.riskLevel];
+        }
+        return left.workspaceName.localeCompare(right.workspaceName);
+      });
+  }
+
   getAuditLogs(actor: RequestActor, limit = 200): AuditLogRecord[] {
     this.assertPlatformAdmin(actor);
     const normalizedLimit = Number.isFinite(limit)
@@ -1853,51 +2346,59 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const now = new Date().toISOString();
 
-    for (const [email, authUser] of this.authUsers.entries()) {
-      if (authUser.userId !== previous) {
-        continue;
-      }
-      this.authUsers.set(email, {
-        ...authUser,
+    // Security hardening: only migrate the authenticated email record.
+    // Never fan out to all auth records sharing the same legacy user-id,
+    // because that can merge unrelated accounts/workspaces.
+    const currentAuthRecord = this.authUsers.get(normalizedEmail);
+    if (currentAuthRecord && currentAuthRecord.userId === previous) {
+      this.authUsers.set(normalizedEmail, {
+        ...currentAuthRecord,
         userId: next,
         updatedAt: now,
       });
     }
 
-    for (const workspace of this.workspaces.values()) {
-      if (workspace.createdBy === previous) {
-        workspace.createdBy = next;
-      }
-    }
-
+    // Conservatively migrate memberships only when both user-id and email match.
+    // This avoids cross-account contamination in legacy datasets.
     for (const [workspaceId, members] of this.memberships.entries()) {
-      const deduped = new Map<string, MembershipRecord>();
-      for (const member of members) {
-        const migratedUserId = member.userId === previous ? next : member.userId;
-        const candidate: MembershipRecord = {
+      let changed = false;
+      const nextMembers = members.map((member) => {
+        if (
+          member.userId !== previous ||
+          this.normalizeEmail(member.email) !== normalizedEmail
+        ) {
+          return member;
+        }
+        changed = true;
+        return {
           ...member,
-          userId: migratedUserId,
-          email: migratedUserId === next ? normalizedEmail : member.email,
+          userId: next,
+          email: normalizedEmail,
         };
-        const existing = deduped.get(migratedUserId);
+      });
+      if (!changed) {
+        continue;
+      }
+      const deduped = new Map<string, MembershipRecord>();
+      for (const member of nextMembers) {
+        const existing = deduped.get(member.userId);
         if (!existing) {
-          deduped.set(migratedUserId, candidate);
+          deduped.set(member.userId, member);
           continue;
         }
         const existingRank = this.getWorkspaceRoleRank(existing.role);
-        const candidateRank = this.getWorkspaceRoleRank(candidate.role);
+        const candidateRank = this.getWorkspaceRoleRank(member.role);
         const keepCandidate =
           candidateRank > existingRank ||
           (candidateRank === existingRank &&
-            candidate.createdAt < existing.createdAt);
-        const preferred = keepCandidate ? candidate : existing;
-        deduped.set(migratedUserId, {
+            member.createdAt < existing.createdAt);
+        const preferred = keepCandidate ? member : existing;
+        deduped.set(member.userId, {
           ...preferred,
-          email: migratedUserId === next ? normalizedEmail : preferred.email,
           createdAt:
-            existing.createdAt < candidate.createdAt
+            existing.createdAt < member.createdAt
               ? existing.createdAt
-              : candidate.createdAt,
+              : member.createdAt,
         });
       }
       this.memberships.set(
@@ -1906,42 +2407,6 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           left.createdAt.localeCompare(right.createdAt),
         ),
       );
-    }
-
-    for (const invite of this.invites.values()) {
-      if (invite.createdBy === previous) {
-        invite.createdBy = next;
-      }
-    }
-
-    for (const shareGrant of this.shareGrants.values()) {
-      if (shareGrant.createdBy === previous) {
-        shareGrant.createdBy = next;
-      }
-    }
-
-    for (const coupon of this.coupons.values()) {
-      if (coupon.createdBy === previous) {
-        coupon.createdBy = next;
-      }
-    }
-
-    for (const redemption of this.licenseRedemptions.values()) {
-      if (redemption.redeemedBy === previous) {
-        redemption.redeemedBy = next;
-      }
-    }
-
-    for (const invoice of this.invoices.values()) {
-      if (invoice.actorUserId === previous) {
-        invoice.actorUserId = next;
-      }
-    }
-
-    for (const checkout of this.stripeCheckouts.values()) {
-      if (checkout.actorUserId === previous) {
-        checkout.actorUserId = next;
-      }
     }
   }
 
@@ -1960,9 +2425,74 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return members.filter((member) => member.role === "owner").length;
   }
 
+  private getPrimaryPersonalWorkspaceForActor(
+    actor: RequestActor,
+  ): WorkspaceRecord | null {
+    return (
+      Array.from(this.workspaces.values())
+        .filter(
+          (workspace) =>
+            workspace.mode === "personal" && workspace.createdBy === actor.userId,
+        )
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ??
+      null
+    );
+  }
+
+  private ensurePersonalWorkspaceOwnership(
+    workspace: WorkspaceRecord,
+    actor: RequestActor,
+  ) {
+    const members = this.memberships.get(workspace.id) || [];
+    const alreadyOwner = members.some(
+      (member) => this.isMembershipForActor(member, actor) && member.role === "owner",
+    );
+    const now = new Date().toISOString();
+    let shouldPersist = false;
+
+    if (!alreadyOwner) {
+      members.unshift({
+        workspaceId: workspace.id,
+        userId: actor.userId,
+        email: actor.email,
+        role: "owner",
+        createdAt: now,
+      });
+      this.memberships.set(workspace.id, members);
+      shouldPersist = true;
+    }
+
+    if (!this.entitlements.has(workspace.id)) {
+      this.entitlements.set(workspace.id, {
+        workspaceId: workspace.id,
+        state: "active",
+        graceEndsAt: null,
+        updatedAt: now,
+      });
+      shouldPersist = true;
+    }
+
+    if (!this.subscriptions.has(workspace.id)) {
+      this.subscriptions.set(
+        workspace.id,
+        this.getDefaultSubscriptionForWorkspace(workspace.id, workspace.mode, now),
+      );
+      shouldPersist = true;
+    }
+
+    if (shouldPersist) {
+      this.persistState();
+    }
+  }
+
   private clearInMemoryState() {
     this.authUsers.clear();
     this.workspaces.clear();
+    this.workspaceAdminTiktokStates.clear();
+    this.workspaceTiktokCookieSources.clear();
+    this.workspaceTiktokAutomationAccounts.clear();
+    this.workspaceTiktokAutomationRuns.clear();
+    this.tiktokAutomationRunItems.clear();
     this.memberships.clear();
     this.entitlements.clear();
     this.invites.clear();
@@ -1972,6 +2502,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.subscriptions.clear();
     this.invoices.clear();
     this.stripeCheckouts.clear();
+    this.tiktokCookies.clear();
     this.auditLogs.splice(0, this.auditLogs.length);
   }
 
@@ -1979,6 +2510,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return {
       authUsers: Array.from(this.authUsers.values()),
       workspaces: Array.from(this.workspaces.values()),
+      workspaceAdminTiktokStates: Array.from(this.workspaceAdminTiktokStates.values()),
+      workspaceTiktokCookieSources: Array.from(this.workspaceTiktokCookieSources.values()).flat(),
+      tiktokAutomationAccounts: Array.from(
+        this.workspaceTiktokAutomationAccounts.values(),
+      ).flat(),
+      tiktokAutomationRuns: Array.from(this.workspaceTiktokAutomationRuns.values()).flat(),
+      tiktokAutomationRunItems: Array.from(this.tiktokAutomationRunItems.values()).flat(),
       memberships: Array.from(this.memberships.values()).flat(),
       entitlements: Array.from(this.entitlements.values()),
       invites: Array.from(this.invites.values()),
@@ -1988,6 +2526,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       subscriptions: Array.from(this.subscriptions.values()),
       invoices: Array.from(this.invoices.values()),
       stripeCheckouts: Array.from(this.stripeCheckouts.values()),
+      tiktokCookies: Array.from(this.tiktokCookies.values()),
       auditLogs: [...this.auditLogs],
     };
   }
@@ -2008,6 +2547,42 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     for (const workspace of parsed.workspaces || []) {
       this.workspaces.set(workspace.id, workspace);
+    }
+
+    for (const state of parsed.workspaceAdminTiktokStates || []) {
+      this.workspaceAdminTiktokStates.set(state.workspaceId, {
+        workspaceId: state.workspaceId,
+        bearerKey: state.bearerKey ?? "",
+        workflowRows: Array.isArray(state.workflowRows) ? state.workflowRows : [],
+        rotationCursor: Number(state.rotationCursor) || 0,
+        autoWorkflowRun: state.autoWorkflowRun ?? null,
+        updatedAt: state.updatedAt ?? new Date().toISOString(),
+      });
+    }
+
+    for (const sourceRecord of parsed.workspaceTiktokCookieSources || []) {
+      const current = this.workspaceTiktokCookieSources.get(sourceRecord.workspaceId) || [];
+      current.push(sourceRecord);
+      this.workspaceTiktokCookieSources.set(sourceRecord.workspaceId, current);
+    }
+
+    for (const account of parsed.tiktokAutomationAccounts || []) {
+      const current =
+        this.workspaceTiktokAutomationAccounts.get(account.workspaceId) || [];
+      current.push(account);
+      this.workspaceTiktokAutomationAccounts.set(account.workspaceId, current);
+    }
+
+    for (const run of parsed.tiktokAutomationRuns || []) {
+      const current = this.workspaceTiktokAutomationRuns.get(run.workspaceId) || [];
+      current.push(run);
+      this.workspaceTiktokAutomationRuns.set(run.workspaceId, current);
+    }
+
+    for (const item of parsed.tiktokAutomationRunItems || []) {
+      const current = this.tiktokAutomationRunItems.get(item.runId) || [];
+      current.push(item);
+      this.tiktokAutomationRunItems.set(item.runId, current);
     }
 
     for (const membership of parsed.memberships || []) {
@@ -2037,7 +2612,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const subscription of parsed.subscriptions || []) {
-      this.subscriptions.set(subscription.workspaceId, subscription);
+      this.subscriptions.set(subscription.workspaceId, {
+        ...subscription,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
+        cancelAt: subscription.cancelAt ?? null,
+      });
     }
 
     for (const invoice of parsed.invoices || []) {
@@ -2046,6 +2625,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     for (const checkout of parsed.stripeCheckouts || []) {
       this.stripeCheckouts.set(checkout.stripeSessionId, checkout);
+    }
+
+    for (const record of parsed.tiktokCookies || []) {
+      this.tiktokCookies.set(record.id, {
+        id: record.id,
+        label: record.label,
+        cookie: record.cookie,
+        status: record.status ?? "untested",
+        notes: record.notes ?? null,
+        testedAt: record.testedAt ?? null,
+        createdAt: record.createdAt ?? new Date().toISOString(),
+        updatedAt: record.updatedAt ?? new Date().toISOString(),
+      });
     }
 
     for (const workspace of this.workspaces.values()) {
@@ -2071,7 +2663,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    await this.postgresPool.query(`
+    // Prevent concurrent service instances from running DDL at the same time.
+    const schemaLockId = 8_613_420_017;
+    await this.postgresPool.query("select pg_advisory_lock($1)", [schemaLockId]);
+    try {
+      await this.postgresPool.query(`
       create table if not exists users (
         id text primary key,
         email text not null unique,
@@ -2093,6 +2689,105 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         mode text not null check (mode in ('personal', 'team')),
         created_by text not null references users(id),
         created_at timestamptz not null default now()
+      );
+
+      create table if not exists platform_admin_emails (
+        email text primary key,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists workspace_admin_tiktok_state (
+        workspace_id text primary key references workspaces(id) on delete cascade,
+        bearer_key text not null default '',
+        workflow_rows jsonb not null default '[]'::jsonb,
+        auto_workflow_run jsonb null,
+        operation_progress jsonb null,
+        rotation_cursor integer not null default 0,
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists workspace_tiktok_cookie_sources (
+        id text primary key,
+        workspace_id text not null references workspaces(id) on delete cascade,
+        phone text not null default '',
+        api_phone text not null default '',
+        cookie text not null,
+        source text not null default 'excel_import' check (source in ('excel_import')),
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists workspace_tiktok_automation_accounts (
+        id text primary key,
+        workspace_id text not null references workspaces(id) on delete cascade,
+        phone text not null default '',
+        api_phone text not null default '',
+        cookie text not null default '',
+        username text not null default '',
+        password text not null default '',
+        profile_id text null,
+        profile_name text null,
+        status text not null default 'queued',
+        last_step text null,
+        last_error text null,
+        source text not null default 'excel_import',
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists workspace_tiktok_automation_runs (
+        id text primary key,
+        workspace_id text not null references workspaces(id) on delete cascade,
+        flow_type text not null check (flow_type in ('signup', 'update_cookie')),
+        mode text not null check (mode in ('auto', 'semi')),
+        status text not null check (status in ('queued', 'running', 'paused', 'stopped', 'completed', 'failed')),
+        account_ids jsonb not null default '[]'::jsonb,
+        current_index integer not null default 0,
+        active_item_id text null,
+        total_count integer not null default 0,
+        done_count integer not null default 0,
+        failed_count integer not null default 0,
+        blocked_count integer not null default 0,
+        created_by text not null references users(id),
+        started_at timestamptz null,
+        finished_at timestamptz null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists workspace_tiktok_automation_run_items (
+        id text primary key,
+        run_id text not null references workspace_tiktok_automation_runs(id) on delete cascade,
+        workspace_id text not null references workspaces(id) on delete cascade,
+        account_id text not null,
+        phone text not null default '',
+        api_phone text not null default '',
+        profile_id text null,
+        profile_name text null,
+        status text not null default 'queued',
+        step text not null default 'queued',
+        attempt integer not null default 0,
+        username text not null default '',
+        password text not null default '',
+        cookie_preview text null,
+        error_code text null,
+        error_message text null,
+        started_at timestamptz null,
+        finished_at timestamptz null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists tiktok_cookie_records (
+        id text primary key,
+        label text not null,
+        cookie text not null,
+        status text not null default 'untested',
+        notes text null,
+        tested_at timestamptz null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
       );
 
       create table if not exists workspace_memberships (
@@ -2170,6 +2865,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         source text not null check (source in ('internal', 'license', 'stripe')),
         started_at timestamptz not null,
         expires_at timestamptz null,
+        cancel_at_period_end boolean not null default false,
+        cancel_at timestamptz null,
         updated_at timestamptz not null
       );
 
@@ -2221,6 +2918,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       );
 
       create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
+      create index if not exists idx_workspace_tiktok_cookie_sources_workspace on workspace_tiktok_cookie_sources(workspace_id, updated_at desc);
+      create index if not exists idx_workspace_tiktok_automation_accounts_workspace on workspace_tiktok_automation_accounts(workspace_id, updated_at desc);
+      create index if not exists idx_workspace_tiktok_automation_runs_workspace on workspace_tiktok_automation_runs(workspace_id, updated_at desc);
+      create index if not exists idx_workspace_tiktok_automation_run_items_run on workspace_tiktok_automation_run_items(run_id, updated_at desc);
       create index if not exists idx_user_credentials_platform_role on user_credentials(platform_role);
       create index if not exists idx_invites_workspace on invites(workspace_id);
       create index if not exists idx_share_grants_workspace on share_grants(workspace_id);
@@ -2231,6 +2932,25 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       create index if not exists idx_audit_logs_workspace_created on audit_logs(workspace_id, created_at desc);
       create unique index if not exists idx_coupons_code_active on coupons(code) where revoked_at is null;
     `);
+
+      await this.postgresPool.query(`
+      alter table workspace_admin_tiktok_state
+      add column if not exists auto_workflow_run jsonb null;
+
+      alter table workspace_admin_tiktok_state
+      add column if not exists operation_progress jsonb null;
+
+      alter table workspace_subscriptions
+      add column if not exists cancel_at_period_end boolean not null default false;
+
+      alter table workspace_subscriptions
+      add column if not exists cancel_at timestamptz null;
+    `);
+    } finally {
+      await this.postgresPool
+        .query("select pg_advisory_unlock($1)", [schemaLockId])
+        .catch(() => undefined);
+    }
   }
 
   private async loadStateFromPostgres() {
@@ -2244,7 +2964,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       const [
         usersResult,
         authUsersResult,
+        platformAdminEmailsResult,
         workspacesResult,
+        workspaceAdminTiktokStateResult,
+        workspaceTiktokCookieSourcesResult,
+        workspaceTiktokAutomationAccountsResult,
+        workspaceTiktokAutomationRunsResult,
+        workspaceTiktokAutomationRunItemsResult,
         membershipsResult,
         entitlementsResult,
         invitesResult,
@@ -2254,6 +2980,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         subscriptionsResult,
         invoicesResult,
         stripeCheckoutsResult,
+        tiktokCookiesResult,
         auditLogsResult,
       ] = await Promise.all([
         this.postgresPool.query<{
@@ -2270,8 +2997,26 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         }>(
           "select user_id, password_salt, password_hash, platform_role, created_at, updated_at from user_credentials",
         ),
+        this.postgresPool.query<{
+          email: string;
+        }>("select email from platform_admin_emails"),
         this.postgresPool.query(
           "select id, name, mode, created_by, created_at from workspaces",
+        ),
+        this.postgresPool.query(
+          "select workspace_id, bearer_key, workflow_rows, auto_workflow_run, operation_progress, rotation_cursor, updated_at from workspace_admin_tiktok_state",
+        ),
+        this.postgresPool.query(
+          "select id, workspace_id, phone, api_phone, cookie, source, created_at, updated_at from workspace_tiktok_cookie_sources order by updated_at desc",
+        ),
+        this.postgresPool.query(
+          "select id, workspace_id, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at from workspace_tiktok_automation_accounts order by updated_at desc",
+        ),
+        this.postgresPool.query(
+          "select id, workspace_id, flow_type, mode, status, account_ids, current_index, active_item_id, total_count, done_count, failed_count, blocked_count, created_by, started_at, finished_at, created_at, updated_at from workspace_tiktok_automation_runs order by updated_at desc",
+        ),
+        this.postgresPool.query(
+          "select id, run_id, workspace_id, account_id, phone, api_phone, profile_id, profile_name, status, step, attempt, username, password, cookie_preview, error_code, error_message, started_at, finished_at, created_at, updated_at from workspace_tiktok_automation_run_items order by updated_at desc",
         ),
         this.postgresPool.query(
           "select workspace_id, user_id, role, created_at from workspace_memberships",
@@ -2292,13 +3037,16 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           "select code, workspace_id, plan_id, plan_label, profile_limit, billing_cycle, redeemed_at, redeemed_by from license_redemptions",
         ),
         this.postgresPool.query(
-          "select workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, updated_at from workspace_subscriptions",
+          "select workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at from workspace_subscriptions",
         ),
         this.postgresPool.query(
           "select id, workspace_id, plan_id, plan_label, billing_cycle, base_amount_usd, amount_usd, discount_percent, method, source, coupon_code, status, created_at, paid_at, actor_user_id, stripe_session_id from billing_invoices",
         ),
         this.postgresPool.query(
           "select stripe_session_id, id, workspace_id, plan_id, plan_label, billing_cycle, profile_limit, base_amount_usd, amount_usd, discount_percent, coupon_code, checkout_url, created_at, completed_at, actor_user_id from stripe_checkout_sessions",
+        ),
+        this.postgresPool.query(
+          "select id, label, cookie, status, notes, tested_at, created_at, updated_at from tiktok_cookie_records",
         ),
         this.postgresPool.query(
           "select id, action, actor, workspace_id, target_id, reason, created_at from audit_logs order by created_at asc",
@@ -2308,6 +3056,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       const userEmailById = new Map<string, string>();
       for (const row of usersResult.rows) {
         userEmailById.set(row.id, row.email.toLowerCase());
+      }
+
+      this.platformAdminEmails.clear();
+      for (const row of platformAdminEmailsResult.rows) {
+        const normalized = this.normalizeEmail(row.email);
+        if (normalized) {
+          this.platformAdminEmails.add(normalized);
+        }
       }
 
       const snapshot: PersistedControlState = {
@@ -2336,12 +3092,114 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           createdAt: new Date(row.created_at as string).toISOString(),
           createdBy: row.created_by as string,
         })),
+        workspaceAdminTiktokStates: workspaceAdminTiktokStateResult.rows.map(
+          (row) => ({
+            workspaceId: row.workspace_id as string,
+            bearerKey: (row.bearer_key as string) ?? "",
+            workflowRows: Array.isArray(row.workflow_rows)
+              ? (row.workflow_rows as unknown[])
+              : [],
+            autoWorkflowRun: row.auto_workflow_run ?? null,
+            operationProgress: row.operation_progress ?? null,
+            rotationCursor: Number(row.rotation_cursor) || 0,
+            updatedAt: new Date(row.updated_at as string).toISOString(),
+          }),
+        ),
+        workspaceTiktokCookieSources: workspaceTiktokCookieSourcesResult.rows.map(
+          (row) => ({
+            id: row.id as string,
+            workspaceId: row.workspace_id as string,
+            phone: (row.phone as string) ?? "",
+            apiPhone: (row.api_phone as string) ?? "",
+            cookie: row.cookie as string,
+            source: (row.source as "excel_import") ?? "excel_import",
+            createdAt: new Date(row.created_at as string).toISOString(),
+            updatedAt: new Date(row.updated_at as string).toISOString(),
+          }),
+        ),
+        tiktokAutomationAccounts: workspaceTiktokAutomationAccountsResult.rows.map(
+          (row) => ({
+            id: row.id as string,
+            workspaceId: row.workspace_id as string,
+            phone: (row.phone as string) ?? "",
+            apiPhone: (row.api_phone as string) ?? "",
+            cookie: (row.cookie as string) ?? "",
+            username: (row.username as string) ?? "",
+            password: (row.password as string) ?? "",
+            profileId: (row.profile_id as string | null) ?? null,
+            profileName: (row.profile_name as string | null) ?? null,
+            status: ((row.status as string) ?? "queued") as TiktokAutomationItemStatus,
+            lastStep: (row.last_step as string | null) ?? null,
+            lastError: (row.last_error as string | null) ?? null,
+            source: ((row.source as string) ?? "excel_import") as
+              | "excel_import"
+              | "manual"
+              | "bugidea_pull",
+            createdAt: new Date(row.created_at as string).toISOString(),
+            updatedAt: new Date(row.updated_at as string).toISOString(),
+          }),
+        ),
+        tiktokAutomationRuns: workspaceTiktokAutomationRunsResult.rows.map((row) => ({
+          id: row.id as string,
+          workspaceId: row.workspace_id as string,
+          flowType: ((row.flow_type as string) ?? "signup") as TiktokAutomationFlowType,
+          mode: ((row.mode as string) ?? "semi") as TiktokAutomationRunMode,
+          status: ((row.status as string) ?? "queued") as TiktokAutomationRunStatus,
+          accountIds: Array.isArray(row.account_ids)
+            ? (row.account_ids as string[])
+            : [],
+          currentIndex: Number(row.current_index) || 0,
+          activeItemId: (row.active_item_id as string | null) ?? null,
+          totalCount: Number(row.total_count) || 0,
+          doneCount: Number(row.done_count) || 0,
+          failedCount: Number(row.failed_count) || 0,
+          blockedCount: Number(row.blocked_count) || 0,
+          createdBy: (row.created_by as string) ?? "control-user",
+          startedAt: row.started_at
+            ? new Date(row.started_at as string).toISOString()
+            : null,
+          finishedAt: row.finished_at
+            ? new Date(row.finished_at as string).toISOString()
+            : null,
+          createdAt: new Date(row.created_at as string).toISOString(),
+          updatedAt: new Date(row.updated_at as string).toISOString(),
+        })),
+        tiktokAutomationRunItems:
+          workspaceTiktokAutomationRunItemsResult.rows.map((row) => ({
+            id: row.id as string,
+            runId: row.run_id as string,
+            workspaceId: row.workspace_id as string,
+            accountId: row.account_id as string,
+            phone: (row.phone as string) ?? "",
+            apiPhone: (row.api_phone as string) ?? "",
+            profileId: (row.profile_id as string | null) ?? null,
+            profileName: (row.profile_name as string | null) ?? null,
+            status: ((row.status as string) ?? "queued") as TiktokAutomationItemStatus,
+            step: (row.step as string) ?? "queued",
+            attempt: Number(row.attempt) || 0,
+            username: (row.username as string) ?? "",
+            password: (row.password as string) ?? "",
+            cookiePreview: (row.cookie_preview as string | null) ?? null,
+            errorCode: (row.error_code as string | null) ?? null,
+            errorMessage: (row.error_message as string | null) ?? null,
+            startedAt: row.started_at
+              ? new Date(row.started_at as string).toISOString()
+              : null,
+            finishedAt: row.finished_at
+              ? new Date(row.finished_at as string).toISOString()
+              : null,
+            createdAt: new Date(row.created_at as string).toISOString(),
+            updatedAt: new Date(row.updated_at as string).toISOString(),
+          })),
         memberships: membershipsResult.rows.map((row) => {
           const userId = row.user_id as string;
+          const resolvedEmail = userEmailById.get(userId);
           return {
             workspaceId: row.workspace_id as string,
             userId,
-            email: userEmailById.get(userId) ?? `${userId}@local`,
+            email: resolvedEmail && !resolvedEmail.endsWith("@local")
+              ? resolvedEmail
+              : userId,
             role: row.role as WorkspaceRole,
             createdAt: new Date(row.created_at as string).toISOString(),
           };
@@ -2422,6 +3280,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           expiresAt: row.expires_at
             ? new Date(row.expires_at as string).toISOString()
             : null,
+          cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
+          cancelAt: row.cancel_at
+            ? new Date(row.cancel_at as string).toISOString()
+            : null,
           updatedAt: new Date(row.updated_at as string).toISOString(),
         })),
         invoices: invoicesResult.rows.map((row) => ({
@@ -2460,6 +3322,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             ? new Date(row.completed_at as string).toISOString()
             : null,
           actorUserId: row.actor_user_id as string,
+        })),
+        tiktokCookies: tiktokCookiesResult.rows.map((row) => ({
+          id: row.id as string,
+          label: row.label as string,
+          cookie: row.cookie as string,
+          status: (row.status as string) ?? "untested",
+          notes: (row.notes as string | null) ?? null,
+          testedAt: row.tested_at
+            ? new Date(row.tested_at as string).toISOString()
+            : null,
+          createdAt: new Date(row.created_at as string).toISOString(),
+          updatedAt: new Date(row.updated_at as string).toISOString(),
         })),
         auditLogs: auditLogsResult.rows.map((row) => ({
           id: row.id as string,
@@ -2500,13 +3374,23 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const client = await this.postgresPool.connect();
 
     const usersById = new Map<string, string>();
+    const isPlaceholderLocalEmail = (value?: string | null) =>
+      typeof value === "string" &&
+      value.trim().toLowerCase().endsWith("@local");
     const registerUser = (id: string, email?: string) => {
       const normalizedId = id.trim();
       if (!normalizedId) {
         return;
       }
       const normalizedEmail = email?.trim().toLowerCase() || `${normalizedId}@local`;
-      usersById.set(normalizedId, normalizedEmail);
+      const current = usersById.get(normalizedId);
+      if (!current) {
+        usersById.set(normalizedId, normalizedEmail);
+        return;
+      }
+      if (isPlaceholderLocalEmail(current) && !isPlaceholderLocalEmail(normalizedEmail)) {
+        usersById.set(normalizedId, normalizedEmail);
+      }
     };
 
     for (const authUser of snapshot.authUsers) {
@@ -2542,6 +3426,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       await client.query(`
         truncate table
           audit_logs,
+          tiktok_cookie_records,
+          workspace_tiktok_automation_run_items,
+          workspace_tiktok_automation_runs,
+          workspace_tiktok_automation_accounts,
+          workspace_tiktok_cookie_sources,
           stripe_checkout_sessions,
           billing_invoices,
           workspace_subscriptions,
@@ -2551,6 +3440,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           invites,
           entitlements,
           workspace_memberships,
+          workspace_admin_tiktok_state,
           workspaces,
           user_credentials,
           users
@@ -2604,6 +3494,135 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             workspace.mode,
             workspace.createdBy,
             workspace.createdAt,
+          ],
+        );
+      }
+
+      for (const state of snapshot.workspaceAdminTiktokStates) {
+        await client.query(
+          `
+            insert into workspace_admin_tiktok_state
+              (workspace_id, bearer_key, workflow_rows, auto_workflow_run, operation_progress, rotation_cursor, updated_at)
+            values ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, $7)
+          `,
+          [
+            state.workspaceId,
+            state.bearerKey,
+            JSON.stringify(state.workflowRows ?? []),
+            state.autoWorkflowRun ? JSON.stringify(state.autoWorkflowRun) : null,
+            state.operationProgress
+              ? JSON.stringify(state.operationProgress)
+              : null,
+            state.rotationCursor,
+            state.updatedAt,
+          ],
+        );
+      }
+
+      for (const sourceRecord of snapshot.workspaceTiktokCookieSources) {
+        await client.query(
+          `
+            insert into workspace_tiktok_cookie_sources
+              (id, workspace_id, phone, api_phone, cookie, source, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
+          `,
+          [
+            sourceRecord.id,
+            sourceRecord.workspaceId,
+            sourceRecord.phone,
+            sourceRecord.apiPhone,
+            sourceRecord.cookie,
+            sourceRecord.source,
+            sourceRecord.createdAt,
+            sourceRecord.updatedAt,
+          ],
+        );
+      }
+
+      for (const account of snapshot.tiktokAutomationAccounts) {
+        await client.query(
+          `
+            insert into workspace_tiktok_automation_accounts
+              (id, workspace_id, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          `,
+          [
+            account.id,
+            account.workspaceId,
+            account.phone,
+            account.apiPhone,
+            account.cookie,
+            account.username,
+            account.password,
+            account.profileId,
+            account.profileName,
+            account.status,
+            account.lastStep,
+            account.lastError,
+            account.source,
+            account.createdAt,
+            account.updatedAt,
+          ],
+        );
+      }
+
+      for (const run of snapshot.tiktokAutomationRuns) {
+        await client.query(
+          `
+            insert into workspace_tiktok_automation_runs
+              (id, workspace_id, flow_type, mode, status, account_ids, current_index, active_item_id, total_count, done_count, failed_count, blocked_count, created_by, started_at, finished_at, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          `,
+          [
+            run.id,
+            run.workspaceId,
+            run.flowType,
+            run.mode,
+            run.status,
+            JSON.stringify(run.accountIds ?? []),
+            run.currentIndex,
+            run.activeItemId,
+            run.totalCount,
+            run.doneCount,
+            run.failedCount,
+            run.blockedCount,
+            run.createdBy,
+            run.startedAt,
+            run.finishedAt,
+            run.createdAt,
+            run.updatedAt,
+          ],
+        );
+      }
+
+      for (const item of snapshot.tiktokAutomationRunItems) {
+        await client.query(
+          `
+            insert into workspace_tiktok_automation_run_items
+              (id, run_id, workspace_id, account_id, phone, api_phone, profile_id, profile_name, status, step, attempt, username, password, cookie_preview, error_code, error_message, started_at, finished_at, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+          `,
+          [
+            item.id,
+            item.runId,
+            item.workspaceId,
+            item.accountId,
+            item.phone,
+            item.apiPhone,
+            item.profileId,
+            item.profileName,
+            item.status,
+            item.step,
+            item.attempt,
+            item.username,
+            item.password,
+            item.cookiePreview,
+            item.errorCode,
+            item.errorMessage,
+            item.startedAt,
+            item.finishedAt,
+            item.createdAt,
+            item.updatedAt,
           ],
         );
       }
@@ -2728,8 +3747,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into workspace_subscriptions
-              (workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, updated_at)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              (workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
           `,
           [
             subscription.workspaceId,
@@ -2741,6 +3760,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             subscription.source,
             subscription.startedAt,
             subscription.expiresAt,
+            subscription.cancelAtPeriodEnd,
+            subscription.cancelAt,
             subscription.updatedAt,
           ],
         );
@@ -2801,6 +3822,26 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
+      for (const record of snapshot.tiktokCookies) {
+        await client.query(
+          `
+            insert into tiktok_cookie_records
+              (id, label, cookie, status, notes, tested_at, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
+          `,
+          [
+            record.id,
+            record.label,
+            record.cookie,
+            record.status,
+            record.notes,
+            record.testedAt,
+            record.createdAt,
+            record.updatedAt,
+          ],
+        );
+      }
+
       for (const auditLog of snapshot.auditLogs) {
         await client.query(
           `
@@ -2828,166 +3869,890 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private hasInMemoryState(): boolean {
-    return (
-      this.authUsers.size > 0 ||
-      this.workspaces.size > 0 ||
-      this.memberships.size > 0 ||
-      this.entitlements.size > 0 ||
-      this.invites.size > 0 ||
-      this.shareGrants.size > 0 ||
-      this.coupons.size > 0 ||
-      this.licenseRedemptions.size > 0 ||
-      this.subscriptions.size > 0 ||
-      this.invoices.size > 0 ||
-      this.stripeCheckouts.size > 0 ||
-      this.auditLogs.length > 0
-    );
-  }
-
-  private ensureSqliteSchema() {
-    if (!this.sqliteDatabase) {
-      return;
-    }
-    this.sqliteDatabase.exec(`
-      create table if not exists control_state_snapshot (
-        id integer primary key check (id = 1),
-        payload text not null,
-        updated_at text not null
-      );
-    `);
-  }
-
-  private loadStateFromSqlite(): boolean {
-    if (!this.sqliteDatabase) {
-      return false;
-    }
-    this.ensureSqliteSchema();
-
-    try {
-      const row = this.sqliteDatabase
-        .prepare(
-          "select payload from control_state_snapshot where id = 1 limit 1",
-        )
-        .get() as { payload: string } | undefined;
-      if (!row?.payload) {
-        return false;
-      }
-      const parsed = JSON.parse(row.payload) as PersistedControlState;
-      this.applySnapshot(parsed);
-      return true;
-    } catch (error) {
-      console.warn("[control-state] Failed to load persisted SQLite state:", error);
-      this.clearInMemoryState();
-      return false;
-    }
-  }
-
-  private persistStateToSqlite() {
-    if (!this.sqliteDatabase) {
-      return;
-    }
-    this.ensureSqliteSchema();
-    const snapshot = this.getSnapshot();
-    const payload = JSON.stringify(snapshot);
-    const nowIso = new Date().toISOString();
-    try {
-      this.sqliteDatabase.exec("begin immediate");
-      this.sqliteDatabase
-        .prepare(
-          `
-            insert into control_state_snapshot (id, payload, updated_at)
-            values (1, ?, ?)
-            on conflict(id)
-            do update set
-              payload = excluded.payload,
-              updated_at = excluded.updated_at
-          `,
-        )
-        .run(payload, nowIso);
-      this.sqliteDatabase.exec("commit");
-    } catch (error) {
-      try {
-        this.sqliteDatabase.exec("rollback");
-      } catch {
-        // Ignore rollback errors.
-      }
-      console.warn("[control-state] Failed to persist SQLite state:", error);
-    }
-  }
-
-  private loadStateFromDisk(): boolean {
-    if (!this.stateFilePath) {
-      return false;
-    }
-
-    try {
-      const raw = readFileSync(this.stateFilePath, "utf-8");
-      const parsed = JSON.parse(raw) as PersistedControlState;
-      this.applySnapshot(parsed);
-      return true;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return false;
-      }
-      console.warn("[control-state] Failed to load persisted control-plane state:", error);
-      return false;
-    }
-  }
-
   private persistState() {
     if (this.postgresPool) {
       this.queuePersistStateToPostgres();
-      return;
-    }
-    if (this.sqliteDatabase) {
-      this.persistStateToSqlite();
-      return;
-    }
-    this.persistStateToDisk();
-  }
-
-  private persistStateToDisk() {
-    if (!this.stateFilePath) {
-      return;
-    }
-
-    const snapshot = this.getSnapshot();
-
-    try {
-      mkdirSync(dirname(this.stateFilePath), { recursive: true });
-      writeFileSync(this.stateFilePath, JSON.stringify(snapshot, null, 2));
-    } catch (error) {
-      console.warn("[control-state] Failed to persist control-plane state:", error);
     }
   }
 
   private resolvePlatformRoleForRegistration(
     normalizedEmail: string,
   ): "platform_admin" | null {
-    const configuredEmails = new Set<string>();
-    const fromConfig = this.configService
-      ?.get<string>("CONTROL_PLATFORM_ADMIN_EMAILS")
-      ?.trim();
-    const fromEnv = process.env.CONTROL_PLATFORM_ADMIN_EMAILS?.trim();
-    const source = fromConfig || fromEnv || "";
-    for (const entry of source.split(",")) {
-      const candidate = this.normalizeEmail(entry);
-      if (candidate) {
-        configuredEmails.add(candidate);
-      }
-    }
-    if (configuredEmails.has(normalizedEmail)) {
-      return "platform_admin";
-    }
-
-    const hasExistingPlatformAdmin = Array.from(this.authUsers.values()).some(
-      (record) => record.platformRole === "platform_admin",
-    );
-    if (!hasExistingPlatformAdmin && this.authUsers.size === 0) {
+    if (this.platformAdminEmails.has(normalizedEmail)) {
       return "platform_admin";
     }
     return null;
+  }
+
+  resolveEffectivePlatformRole(
+    email: string,
+    _hintedRole?: string | null,
+  ): "platform_admin" | null {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      return null;
+    }
+    if (this.platformAdminEmails.has(normalizedEmail)) {
+      return "platform_admin";
+    }
+    if (this.authUsers.get(normalizedEmail)?.platformRole === "platform_admin") {
+      return "platform_admin";
+    }
+    return null;
+  }
+
+  resolveRequestActor(input: {
+    userId?: string | null;
+    email?: string | null;
+    hintedRole?: string | null;
+  }): RequestActor {
+    const providedUserId = input.userId?.trim();
+    const normalizedEmail = this.normalizeEmail(input.email ?? "");
+    if (!providedUserId || !normalizedEmail) {
+      throw new BadRequestException("missing_actor_headers");
+    }
+
+    const record = this.authUsers.get(normalizedEmail);
+    if (!record) {
+      throw new UnauthorizedException("actor_not_authenticated");
+    }
+
+    const stableUserId = this.deriveStableUserId(normalizedEmail);
+    if (record.userId !== stableUserId) {
+      this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
+      record.userId = stableUserId;
+      record.updatedAt = new Date().toISOString();
+      this.authUsers.set(normalizedEmail, record);
+      this.persistState();
+    }
+
+    if (providedUserId !== record.userId) {
+      throw new UnauthorizedException("actor_identity_mismatch");
+    }
+
+    return {
+      userId: record.userId,
+      email: normalizedEmail,
+      platformRole: this.resolveEffectivePlatformRole(
+        normalizedEmail,
+        input.hintedRole ?? null,
+      ),
+    };
+  }
+
+  getAuthActorProfile(actor: RequestActor) {
+    return {
+      id: actor.userId,
+      email: actor.email,
+      platformRole: actor.platformRole === "platform_admin" ? "platform_admin" : null,
+    };
+  }
+
+  getAuthActorProfileByEmail(input: {
+    userId: string;
+    email: string;
+    hintedRole?: string | null;
+  }) {
+    return this.getAuthActorProfile(this.resolveRequestActor(input));
+  }
+
+  async getWorkspaceAdminTiktokState(workspaceId: string, actor: RequestActor) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    return (
+      this.workspaceAdminTiktokStates.get(normalizedWorkspaceId) ?? {
+        workspaceId: normalizedWorkspaceId,
+        bearerKey: "",
+        workflowRows: [],
+        rotationCursor: 0,
+        autoWorkflowRun: null,
+        operationProgress: null,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+  }
+
+  async saveWorkspaceAdminTiktokState(
+    workspaceId: string,
+    actor: RequestActor,
+    input: {
+      bearerKey: string;
+      workflowRows: unknown[];
+      rotationCursor: number;
+      autoWorkflowRun?: unknown | null;
+      operationProgress?: unknown | null;
+    },
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    const now = new Date().toISOString();
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const nextState: WorkspaceAdminTiktokStateRecord = {
+      workspaceId: normalizedWorkspaceId,
+      bearerKey: input.bearerKey,
+      workflowRows: input.workflowRows ?? [],
+      rotationCursor: Number.isFinite(input.rotationCursor) ? input.rotationCursor : 0,
+      autoWorkflowRun: input.autoWorkflowRun ?? null,
+      operationProgress: input.operationProgress ?? null,
+      updatedAt: now,
+    };
+    this.workspaceAdminTiktokStates.set(normalizedWorkspaceId, nextState);
+    this.persistState();
+    return nextState;
+  }
+
+  async getWorkspaceTiktokCookieSources(workspaceId: string, actor: RequestActor) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    return [
+      ...(this.workspaceTiktokCookieSources.get(normalizedWorkspaceId) ?? []),
+    ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async replaceWorkspaceTiktokCookieSources(
+    workspaceId: string,
+    actor: RequestActor,
+    input: {
+      rows: Array<{
+        phone?: string;
+        apiPhone?: string;
+        cookie?: string;
+      }>;
+    },
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const now = new Date().toISOString();
+    const nextRows: WorkspaceTiktokCookieSourceRecord[] = [];
+    for (const row of input.rows ?? []) {
+        const cookie = row.cookie?.trim() ?? "";
+        if (!cookie) {
+          continue;
+        }
+        nextRows.push({
+          id: randomUUID(),
+          workspaceId: normalizedWorkspaceId,
+          phone: row.phone?.trim() ?? "",
+          apiPhone: row.apiPhone?.trim() ?? "",
+          cookie,
+          source: "excel_import" as const,
+          createdAt: now,
+          updatedAt: now,
+        });
+    }
+
+    this.workspaceTiktokCookieSources.set(normalizedWorkspaceId, nextRows);
+    this.persistState();
+    return nextRows;
+  }
+
+  private normalizeAutomationPhone(value?: string): string {
+    const raw = value?.trim() ?? "";
+    if (!raw) {
+      return "";
+    }
+    const digits = raw.replace(/\D/g, "");
+    return digits || raw;
+  }
+
+  private resolveAutomationUsername(phone: string, fallback?: string | null): string {
+    const direct = fallback?.trim();
+    if (direct) {
+      return direct;
+    }
+    const normalizedPhone = this.normalizeAutomationPhone(phone);
+    if (!normalizedPhone) {
+      return "";
+    }
+    return `${normalizedPhone}.bug`;
+  }
+
+  private resolveAutomationPassword(phone: string, fallback?: string | null): string {
+    const direct = fallback?.trim();
+    if (direct) {
+      return direct;
+    }
+    const normalizedPhone = this.normalizeAutomationPhone(phone);
+    if (!normalizedPhone) {
+      return "";
+    }
+    return `${normalizedPhone}bug!`;
+  }
+
+  private sortAutomationAccounts(
+    rows: TiktokAutomationAccountRecord[],
+  ): TiktokAutomationAccountRecord[] {
+    return [...rows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  private sortAutomationRuns(
+    rows: TiktokAutomationRunRecord[],
+  ): TiktokAutomationRunRecord[] {
+    return [...rows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  private isAutomationItemTerminal(status: TiktokAutomationItemStatus): boolean {
+    return (
+      status === "done" ||
+      status === "blocked" ||
+      status === "step_failed" ||
+      status === "skipped" ||
+      status === "cancelled"
+    );
+  }
+
+  private recalcAutomationRunProgress(
+    run: TiktokAutomationRunRecord,
+    items: TiktokAutomationRunItemRecord[],
+  ): TiktokAutomationRunRecord {
+    const doneCount = items.filter((item) => item.status === "done").length;
+    const failedCount = items.filter((item) => item.status === "step_failed").length;
+    const blockedCount = items.filter((item) => item.status === "blocked").length;
+    const allTerminal = items.length > 0 && items.every((item) => this.isAutomationItemTerminal(item.status));
+    const now = new Date().toISOString();
+    return {
+      ...run,
+      doneCount,
+      failedCount,
+      blockedCount,
+      totalCount: items.length,
+      status:
+        run.status === "stopped"
+          ? "stopped"
+          : allTerminal
+            ? failedCount > 0 || blockedCount > 0
+              ? "failed"
+              : "completed"
+            : run.status,
+      finishedAt:
+        allTerminal && run.status !== "running" && run.status !== "paused"
+          ? run.finishedAt
+          : allTerminal
+            ? now
+            : run.finishedAt,
+      updatedAt: now,
+    };
+  }
+
+  private ensureWorkspaceAutomationAccounts(workspaceId: string) {
+    if (!this.workspaceTiktokAutomationAccounts.has(workspaceId)) {
+      this.workspaceTiktokAutomationAccounts.set(workspaceId, []);
+    }
+    return this.workspaceTiktokAutomationAccounts.get(workspaceId) || [];
+  }
+
+  private ensureWorkspaceAutomationRuns(workspaceId: string) {
+    if (!this.workspaceTiktokAutomationRuns.has(workspaceId)) {
+      this.workspaceTiktokAutomationRuns.set(workspaceId, []);
+    }
+    return this.workspaceTiktokAutomationRuns.get(workspaceId) || [];
+  }
+
+  async getWorkspaceTiktokAutomationAccounts(workspaceId: string, actor: RequestActor) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+    const rows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    return this.sortAutomationAccounts(rows);
+  }
+
+  async importWorkspaceTiktokAutomationAccounts(
+    workspaceId: string,
+    actor: RequestActor,
+    input: {
+      rows: Array<{
+        phone?: string;
+        apiPhone?: string;
+        cookie?: string;
+        username?: string;
+        password?: string;
+        profileId?: string | null;
+        profileName?: string | null;
+        source?: "excel_import" | "manual" | "bugidea_pull";
+      }>;
+      force?: boolean;
+    },
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const now = new Date().toISOString();
+    const currentRows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const nextRows = [...currentRows];
+    const force = Boolean(input.force);
+
+    const findExistingIndex = (phone: string, apiPhone: string) =>
+      nextRows.findIndex(
+        (row) =>
+          this.normalizeAutomationPhone(row.phone) === this.normalizeAutomationPhone(phone) &&
+          row.apiPhone.trim() === apiPhone.trim(),
+      );
+
+    for (const row of input.rows ?? []) {
+      const phone = this.normalizeAutomationPhone(row.phone);
+      const apiPhone = row.apiPhone?.trim() ?? "";
+      const cookie = row.cookie?.trim() ?? "";
+
+      if (!phone && !apiPhone && !cookie) {
+        continue;
+      }
+
+      const index = findExistingIndex(phone, apiPhone);
+      const existing = index >= 0 ? nextRows[index] : null;
+      if (
+        existing &&
+        !force &&
+        (existing.status === "running" ||
+          existing.status === "manual_pending" ||
+          existing.status === "done")
+      ) {
+        continue;
+      }
+
+      const next: TiktokAutomationAccountRecord = {
+        id: existing?.id ?? randomUUID(),
+        workspaceId: normalizedWorkspaceId,
+        phone: phone || existing?.phone || "",
+        apiPhone: apiPhone || existing?.apiPhone || "",
+        cookie: cookie || existing?.cookie || "",
+        username: this.resolveAutomationUsername(
+          phone || existing?.phone || "",
+          row.username ?? existing?.username ?? null,
+        ),
+        password: this.resolveAutomationPassword(
+          phone || existing?.phone || "",
+          row.password ?? existing?.password ?? null,
+        ),
+        profileId:
+          row.profileId !== undefined
+            ? row.profileId
+            : existing?.profileId ?? null,
+        profileName:
+          row.profileName !== undefined
+            ? row.profileName
+            : existing?.profileName ?? null,
+        status: existing?.status ?? "queued",
+        lastStep: existing?.lastStep ?? null,
+        lastError: existing?.lastError ?? null,
+        source: row.source ?? existing?.source ?? "excel_import",
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      if (index >= 0) {
+        nextRows[index] = next;
+      } else {
+        nextRows.push(next);
+      }
+    }
+
+    this.workspaceTiktokAutomationAccounts.set(normalizedWorkspaceId, nextRows);
+    this.persistState();
+    return this.sortAutomationAccounts(nextRows);
+  }
+
+  async getWorkspaceTiktokAutomationRuns(workspaceId: string, actor: RequestActor) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+    return this.sortAutomationRuns(this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId));
+  }
+
+  async getWorkspaceTiktokAutomationRun(
+    workspaceId: string,
+    runId: string,
+    actor: RequestActor,
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedRunId = runId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    if (!normalizedRunId) {
+      throw new BadRequestException("run_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const run = this
+      .ensureWorkspaceAutomationRuns(normalizedWorkspaceId)
+      .find((row) => row.id === normalizedRunId);
+    if (!run) {
+      throw new NotFoundException("run_not_found");
+    }
+    const items = [...(this.tiktokAutomationRunItems.get(run.id) ?? [])].sort(
+      (left, right) => left.createdAt.localeCompare(right.createdAt),
+    );
+    return { run, items };
+  }
+
+  async createWorkspaceTiktokAutomationRun(
+    workspaceId: string,
+    actor: RequestActor,
+    input: {
+      flowType: TiktokAutomationFlowType;
+      mode: TiktokAutomationRunMode;
+      accountIds: string[];
+    },
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const requestedIds = Array.from(
+      new Set(
+        (input.accountIds ?? [])
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    );
+    const accountRows =
+      requestedIds.length > 0
+        ? accounts.filter((account) => requestedIds.includes(account.id))
+        : accounts;
+    if (accountRows.length === 0) {
+      throw new BadRequestException("automation_accounts_required");
+    }
+
+    const now = new Date().toISOString();
+    const run: TiktokAutomationRunRecord = {
+      id: randomUUID(),
+      workspaceId: normalizedWorkspaceId,
+      flowType: input.flowType,
+      mode: input.mode,
+      status: "queued",
+      accountIds: accountRows.map((account) => account.id),
+      currentIndex: 0,
+      activeItemId: null,
+      totalCount: accountRows.length,
+      doneCount: 0,
+      failedCount: 0,
+      blockedCount: 0,
+      createdBy: actor.userId,
+      startedAt: null,
+      finishedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const runItems: TiktokAutomationRunItemRecord[] = accountRows.map(
+      (account, index) => ({
+        id: randomUUID(),
+        runId: run.id,
+        workspaceId: normalizedWorkspaceId,
+        accountId: account.id,
+        phone: account.phone,
+        apiPhone: account.apiPhone,
+        profileId: account.profileId,
+        profileName: account.profileName,
+        status: index === 0 ? "queued" : "queued",
+        step: "queued",
+        attempt: 0,
+        username: account.username,
+        password: account.password,
+        cookiePreview: account.cookie || null,
+        errorCode: null,
+        errorMessage: null,
+        startedAt: null,
+        finishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
+
+    const runs = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
+    runs.unshift(run);
+    this.workspaceTiktokAutomationRuns.set(normalizedWorkspaceId, runs);
+    this.tiktokAutomationRunItems.set(run.id, runItems);
+    this.persistState();
+    return { run, items: runItems };
+  }
+
+  async updateWorkspaceTiktokAutomationRunStatus(
+    workspaceId: string,
+    runId: string,
+    actor: RequestActor,
+    action: "start" | "pause" | "resume" | "stop",
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedRunId = runId.trim();
+    if (!normalizedWorkspaceId || !normalizedRunId) {
+      throw new BadRequestException("workspace_and_run_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const runs = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
+    const runIndex = runs.findIndex((row) => row.id === normalizedRunId);
+    if (runIndex < 0) {
+      throw new NotFoundException("run_not_found");
+    }
+    const now = new Date().toISOString();
+    const items = this.tiktokAutomationRunItems.get(normalizedRunId) ?? [];
+    const run = { ...runs[runIndex] };
+
+    if (action === "start" || action === "resume") {
+      run.status = "running";
+      run.startedAt = run.startedAt ?? now;
+      const activeItem =
+        items.find((item) => item.id === run.activeItemId) ??
+        items.find((item) => item.status === "queued");
+      if (activeItem) {
+        const activeIndex = items.findIndex((item) => item.id === activeItem.id);
+        items[activeIndex] = {
+          ...activeItem,
+          status: "running",
+          step: activeItem.step === "queued" ? "launch_profile" : activeItem.step,
+          startedAt: activeItem.startedAt ?? now,
+          updatedAt: now,
+        };
+        run.activeItemId = activeItem.id;
+        run.currentIndex = Math.max(0, activeIndex);
+      }
+    } else if (action === "pause") {
+      run.status = "paused";
+    } else if (action === "stop") {
+      run.status = "stopped";
+      run.finishedAt = now;
+      for (let index = 0; index < items.length; index += 1) {
+        if (this.isAutomationItemTerminal(items[index].status)) {
+          continue;
+        }
+        items[index] = {
+          ...items[index],
+          status: "cancelled",
+          step: "cancelled",
+          finishedAt: now,
+          updatedAt: now,
+        };
+      }
+      run.activeItemId = null;
+    }
+
+    this.tiktokAutomationRunItems.set(normalizedRunId, items);
+    runs[runIndex] = this.recalcAutomationRunProgress(
+      {
+        ...run,
+        updatedAt: now,
+      },
+      items,
+    );
+    this.workspaceTiktokAutomationRuns.set(normalizedWorkspaceId, runs);
+    this.persistState();
+    return { run: runs[runIndex], items };
+  }
+
+  async updateWorkspaceTiktokAutomationRunItem(
+    workspaceId: string,
+    runId: string,
+    itemId: string,
+    actor: RequestActor,
+    input: {
+      status?: TiktokAutomationItemStatus;
+      step?: string;
+      attempt?: number;
+      profileId?: string | null;
+      profileName?: string | null;
+      cookiePreview?: string | null;
+      errorCode?: string | null;
+      errorMessage?: string | null;
+    },
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedRunId = runId.trim();
+    const normalizedItemId = itemId.trim();
+    if (!normalizedWorkspaceId || !normalizedRunId || !normalizedItemId) {
+      throw new BadRequestException("workspace_run_item_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const runs = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
+    const runIndex = runs.findIndex((row) => row.id === normalizedRunId);
+    if (runIndex < 0) {
+      throw new NotFoundException("run_not_found");
+    }
+
+    const items = this.tiktokAutomationRunItems.get(normalizedRunId) ?? [];
+    const itemIndex = items.findIndex((row) => row.id === normalizedItemId);
+    if (itemIndex < 0) {
+      throw new NotFoundException("run_item_not_found");
+    }
+
+    const now = new Date().toISOString();
+    const currentItem = items[itemIndex];
+    const nextStatus = input.status ?? currentItem.status;
+    const nextStep = input.step?.trim() || currentItem.step;
+    const nextAttempt =
+      Number.isFinite(input.attempt) && input.attempt !== undefined
+        ? Math.max(0, Number(input.attempt))
+        : currentItem.attempt;
+    const updatedItem: TiktokAutomationRunItemRecord = {
+      ...currentItem,
+      status: nextStatus,
+      step: nextStep,
+      attempt: nextAttempt,
+      profileId:
+        input.profileId !== undefined ? input.profileId : currentItem.profileId,
+      profileName:
+        input.profileName !== undefined
+          ? input.profileName
+          : currentItem.profileName,
+      cookiePreview:
+        input.cookiePreview !== undefined
+          ? input.cookiePreview
+          : currentItem.cookiePreview,
+      errorCode:
+        input.errorCode !== undefined ? input.errorCode : currentItem.errorCode,
+      errorMessage:
+        input.errorMessage !== undefined
+          ? input.errorMessage
+          : currentItem.errorMessage,
+      startedAt:
+        nextStatus === "running"
+          ? currentItem.startedAt ?? now
+          : currentItem.startedAt,
+      finishedAt: this.isAutomationItemTerminal(nextStatus)
+        ? now
+        : currentItem.finishedAt,
+      updatedAt: now,
+    };
+    items[itemIndex] = updatedItem;
+
+    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const accountIndex = accounts.findIndex((row) => row.id === updatedItem.accountId);
+    if (accountIndex >= 0) {
+      accounts[accountIndex] = {
+        ...accounts[accountIndex],
+        status: updatedItem.status,
+        lastStep: updatedItem.step,
+        lastError: updatedItem.errorMessage,
+        cookie: updatedItem.cookiePreview ?? accounts[accountIndex].cookie,
+        profileId: updatedItem.profileId,
+        profileName: updatedItem.profileName,
+        updatedAt: now,
+      };
+      this.workspaceTiktokAutomationAccounts.set(normalizedWorkspaceId, accounts);
+    }
+
+    const run = { ...runs[runIndex] };
+    if (run.status === "running" && this.isAutomationItemTerminal(updatedItem.status)) {
+      const nextQueued = items.find((item) => item.status === "queued");
+      if (nextQueued) {
+        const nextQueuedIndex = items.findIndex((item) => item.id === nextQueued.id);
+        items[nextQueuedIndex] = {
+          ...nextQueued,
+          status: "running",
+          step: nextQueued.step === "queued" ? "launch_profile" : nextQueued.step,
+          startedAt: nextQueued.startedAt ?? now,
+          updatedAt: now,
+        };
+        run.activeItemId = nextQueued.id;
+        run.currentIndex = nextQueuedIndex;
+      } else {
+        run.activeItemId = null;
+      }
+    } else if (updatedItem.status === "running") {
+      run.activeItemId = updatedItem.id;
+      run.currentIndex = itemIndex;
+    }
+
+    this.tiktokAutomationRunItems.set(normalizedRunId, items);
+    runs[runIndex] = this.recalcAutomationRunProgress(
+      {
+        ...run,
+        updatedAt: now,
+      },
+      items,
+    );
+    this.workspaceTiktokAutomationRuns.set(normalizedWorkspaceId, runs);
+    this.persistState();
+
+    return { run: runs[runIndex], item: updatedItem, items };
+  }
+
+  async getWorkspaceTiktokAutomationRunEvents(
+    workspaceId: string,
+    runId: string,
+    actor: RequestActor,
+    input: {
+      since?: string | null;
+    },
+  ) {
+    const payload = await this.getWorkspaceTiktokAutomationRun(workspaceId, runId, actor);
+    const since = input.since ? Date.parse(input.since) : NaN;
+    if (!Number.isFinite(since)) {
+      return payload;
+    }
+    return {
+      run: payload.run,
+      items: payload.items.filter(
+        (row) => Date.parse(row.updatedAt) > since,
+      ),
+    };
+  }
+
+  private getBugIdeaBaseUrl(): string {
+    const configured =
+      this.configService?.get<string>("BUGIDEA_BASE_URL")?.trim() ||
+      process.env.BUGIDEA_BASE_URL?.trim() ||
+      "https://bugidea.com";
+    return configured.replace(/\/$/, "");
+  }
+
+  private async proxyBugIdeaRequest<T>(
+    actor: RequestActor,
+    bearerToken: string,
+    path: string,
+    init?: {
+      method?: "GET" | "POST" | "PUT" | "DELETE";
+      body?: unknown;
+    },
+  ): Promise<T> {
+    this.assertPlatformAdmin(actor);
+    const token = bearerToken.trim();
+    if (!token) {
+      throw new UnauthorizedException("bugidea_bearer_required");
+    }
+
+    const response = await fetch(`${this.getBugIdeaBaseUrl()}${path}`, {
+      method: init?.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+    }).catch((error) => {
+      throw new InternalServerErrorException(
+        `bugidea_request_failed:${(error as Error).message}`,
+      );
+    });
+
+    const rawBody = await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new BadRequestException(
+        `bugidea_${response.status}:${rawBody || response.statusText}`,
+      );
+    }
+
+    if (!rawBody) {
+      return undefined as T;
+    }
+
+    try {
+      return JSON.parse(rawBody) as T;
+    } catch {
+      return rawBody as T;
+    }
+  }
+
+  listTiktokCookies(actor: RequestActor, bearerToken: string) {
+    return this.proxyBugIdeaRequest<unknown[]>(
+      actor,
+      bearerToken,
+      "/api/tiktok-cookies",
+      { method: "GET" },
+    );
+  }
+
+  createTiktokCookie(
+    actor: RequestActor,
+    bearerToken: string,
+    input: { label: string; cookie: string; notes?: string | null },
+  ) {
+    return this.proxyBugIdeaRequest(
+      actor,
+      bearerToken,
+      "/api/tiktok-cookies",
+      {
+        method: "POST",
+        body: {
+          label: input.label,
+          cookie: input.cookie,
+          notes: input.notes ?? undefined,
+        },
+      },
+    );
+  }
+
+  updateTiktokCookie(
+    id: string,
+    actor: RequestActor,
+    bearerToken: string,
+    input: {
+      label?: string;
+      cookie?: string;
+      status?: string;
+      notes?: string | null;
+    },
+  ) {
+    return this.proxyBugIdeaRequest(
+      actor,
+      bearerToken,
+      `/api/tiktok-cookies/${id}`,
+      {
+        method: "PUT",
+        body: input,
+      },
+    );
+  }
+
+  deleteTiktokCookie(id: string, actor: RequestActor, bearerToken: string) {
+    return this.proxyBugIdeaRequest<void>(
+      actor,
+      bearerToken,
+      `/api/tiktok-cookies/${id}`,
+      { method: "DELETE" },
+    );
+  }
+
+  testTiktokCookie(id: string, actor: RequestActor, bearerToken: string) {
+    return this.proxyBugIdeaRequest(
+      actor,
+      bearerToken,
+      `/api/tiktok-cookies/${id}/test`,
+      { method: "POST" },
+    );
+  }
+
+  bulkCreateTiktokCookies(
+    actor: RequestActor,
+    bearerToken: string,
+    input: { cookies: string[]; prefix?: string | null },
+  ) {
+    return this.proxyBugIdeaRequest(
+      actor,
+      bearerToken,
+      "/api/tiktok-cookies/bulk",
+      {
+        method: "POST",
+        body: {
+          cookies: input.cookies,
+          prefix: input.prefix ?? undefined,
+        },
+      },
+    );
   }
 
   private validatePassword(password: string): string {

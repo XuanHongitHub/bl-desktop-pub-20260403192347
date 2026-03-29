@@ -68,6 +68,12 @@
       "minutes": "phút",
       "seconds": "giây",
       "remaining": "còn lại"
+    },
+    "pagination": {
+      "page": "Trang",
+      "rowsPerPage": "Số dòng mỗi trang",
+      "previous": "Trước",
+      "next": "Sau"
     }
   },
   "settings": {
@@ -182,6 +188,30 @@
         "pricingBilling": "Pricing & Billing",
         "syncIntegrations": "Tích hợp + Sync",
         "systemControls": "Tích hợp / Runtime"
+      },
+      "runtime": {
+        "live": "Dữ liệu thật",
+        "runtimeTitle": "Trạng thái runtime",
+        "openModule": "Mở module",
+        "target": "Điều hướng",
+        "proxyCount": "Số proxy đã lưu",
+        "vpnCount": "Số VPN đã lưu",
+        "syncStatus": "Kết nối sync",
+        "syncEndpoint": "Sync endpoint",
+        "apiStatus": "API server",
+        "mcpStatus": "MCP server",
+        "connected": "Đã kết nối",
+        "disconnected": "Chưa kết nối",
+        "running": "Đang chạy",
+        "stopped": "Đã dừng",
+        "ready": "Sẵn sàng",
+        "notReady": "Chưa sẵn sàng",
+        "stripeStatus": "Stripe runtime",
+        "sectionDescription": "{{section}} được vận hành tại {{target}} và đồng bộ theo trạng thái runtime hiện tại.",
+        "targets": {
+          "settings": "Trang Cài đặt",
+          "sync": "Sync Config"
+        }
       }
     },
     "language": {
@@ -189,6 +219,20 @@
       "description": "Chọn ngôn ngữ bạn muốn dùng cho giao diện ứng dụng.",
       "systemDefault": "Mặc định hệ thống",
       "selectLanguage": "Chọn ngôn ngữ"
+    },
+    "notifications": {
+      "title": "Thông báo",
+      "description": "Quản lý quyền thông báo hệ thống cho BugLogin.",
+      "permissionLabel": "Quyền thông báo",
+      "statusGranted": "Đã cấp quyền",
+      "statusDenied": "Đã từ chối",
+      "statusPrompt": "Chưa quyết định",
+      "statusUnsupported": "Không hỗ trợ",
+      "actionTitle": "Thao tác",
+      "actionHint": "Nếu bạn chặn thông báo ở mức hệ thống, hãy bật lại trong cài đặt OS/browser.",
+      "requestPermission": "Yêu cầu quyền thông báo",
+      "permissionGranted": "Đã bật thông báo hệ thống",
+      "permissionDenied": "Bạn đã chặn thông báo hệ thống"
     },
     "defaultBrowser": {
       "title": "Trình duyệt mặc định",
@@ -662,12 +706,18 @@
   },
   "profiles": {
     "title": "Profiles",
+    "totalProfiles": "Tổng profile",
+    "status": {
+      "running": "Đang chạy",
+      "stopped": "Đã dừng"
+    },
     "empty": "Chưa có profile nào",
     "emptyDescription": "Tạo profile trình duyệt đầu tiên để bắt đầu.",
     "createFirst": "Tạo profile",
     "noResults": "Không tìm thấy profile",
     "noResultsDescription": "Không có profile nào khớp với bộ lọc hiện tại.",
     "filteredStateHint": "Đang hiển thị {{visible}}/{{total}} profile. Có {{hidden}} profile bị ẩn bởi bộ lọc hiện tại.",
+    "filteredStateHintHiddenOnly": "Có {{hidden}} profile bị ẩn bởi bộ lọc hiện tại.",
     "resetFilters": "Đặt lại bộ lọc",
     "filterResetSuccess": "Đã đặt lại bộ lọc profile",
     "table": {
@@ -709,6 +759,9 @@
       "syncDisabledLastSync": "Đã tắt đồng bộ, lần gần nhất {{time}}",
       "deleteProfileTitle": "Xóa profile",
       "deleteProfileDescription": "Hành động này không thể hoàn tác. Profile \"{{name}}\" và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn.",
+      "paginationSummary": "Hiển thị {{from}}-{{to}} trên tổng {{total}} profile",
+      "previousPage": "Trước",
+      "nextPage": "Sau",
       "assignProxy": "Gán Proxy",
       "assignExtensionGroup": "Gán nhóm tiện ích",
       "assignExtensionGroupPro": "Gán nhóm tiện ích (Pro)"
@@ -933,7 +986,9 @@
   "groups": {
     "title": "Nhóm",
     "all": "Tất cả",
-    "management": "Nhóm",
+    "management": "Quản lý nhóm",
+    "shareCopied": "Đã sao chép liên kết chia sẻ cho {{group}}.",
+    "shareFailed": "Không thể sao chép liên kết chia sẻ nhóm.",
     "add": "Thêm nhóm",
     "edit": "Sửa nhóm",
     "delete": "Xóa nhóm",
@@ -946,6 +1001,11 @@
     "profileCount": "{{count}} profile",
     "profileCount_plural": "{{count}} profile",
     "assignProfiles": "Gán profile",
+    "actions": {
+      "menu": "Mở thao tác nhóm",
+      "filter": "Lọc theo nhóm này",
+      "share": "Chia sẻ nhóm"
+    },
     "sync": {
       "enabled": "Đã bật sync",
       "disabled": "Đã tắt sync"
@@ -1199,6 +1259,9 @@
     },
     "error": {
       "profileCreateFailed": "Không thể tạo profile",
+      "profileLimitReached": "Đã chạm giới hạn profile: workspace này đã có {{used}}/{{limit}} profile.",
+      "profileCreateSyncServerMissing": "Chưa cấu hình Sync server URL. Vào Cài đặt Sync để cập nhật.",
+      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting yêu cầu gói trả phí và wayfernToken. Hãy dùng OS hiện tại hoặc cấu hình wayfernToken.",
       "profileDeleteFailed": "Không thể xóa profile",
       "profileUpdateFailed": "Không thể cập nhật profile",
       "profileLaunchFailed": "Không thể mở profile",
@@ -1703,7 +1766,7 @@
     "hidePassword": "Ẩn mật khẩu",
     "quickPresetTitle": "Tài khoản xem nhanh theo role",
     "quickPresetHint": "Tài khoản seed sẽ nạp dữ liệu tách theo workspace để kiểm tra vai trò cục bộ. Khi chạy production vẫn nên đi theo luồng invite.",
-    "quickPresetPlatformAdmin": "Platform Admin",
+    "quickPresetPlatformAdmin": "Super Admin",
     "quickPresetOwner": "Owner Preview",
     "quickPresetAdmin": "Admin Preview",
     "quickPresetMember": "Member Preview",
@@ -1783,7 +1846,20 @@
     "runtimeAuthLabel": "Authentication",
     "runtimeSyncLabel": "Cloud Sync",
     "signInTitle": "Đăng nhập để tiếp tục",
-    "signInDescription": "Dùng email và mật khẩu để đăng nhập workspace.",
+    "signInDescription": "",
+    "heroBadge": "Bảo mật workspace BugLogin",
+    "heroTitle": "",
+    "heroDescription": "",
+    "heroImagePrimaryTitle": "Vận hành profile được bảo vệ",
+    "heroImagePrimarySubtitle": "",
+    "heroImageOpsAlt": "Xem trước dashboard vận hành",
+    "heroImageNetworkAlt": "Xem trước hạ tầng mạng và đồng bộ",
+    "heroChipSecurity": "Truy cập ưu tiên bảo mật",
+    "heroChipSync": "Sẵn sàng cloud sync",
+    "heroChipTeam": "Kiểm soát workspace theo team",
+    "benefitSecurity": "",
+    "benefitSync": "",
+    "benefitTeam": "",
     "syncReady": "Dịch vụ sync đã cấu hình.",
     "syncPending": "Dịch vụ sync chưa hoàn tất cấu hình. Hãy cấu hình để mở khóa backup/restore đầy đủ.",
     "openSyncConfig": "Mở Sync Config",
@@ -1810,12 +1886,17 @@
       "register": "Đăng ký",
       "forgot": "Quên mật khẩu"
     },
+    "noAccountPrompt": "Chưa có tài khoản?",
+    "signUpCta": "Đăng ký",
+    "orContinueWith": "Hoặc tiếp tục với",
     "authReady": "Auth service đã sẵn sàng.",
     "authPending": "Auth service đang chờ cấu hình.",
+    "loginCardTitle": "",
     "googleButton": "Đăng nhập Google",
     "googleSoon": "Google OAuth sẽ được bật sau khi cấu hình backend auth.",
     "googleOpenBrowserTitle": "Đang mở xác thực Google trên trình duyệt...",
     "googleOpenBrowserDescription": "Vui lòng hoàn tất đăng nhập và cho phép ứng dụng mở lại.",
+    "googleInlineHint": "Hoàn tất đăng nhập trong trình duyệt. BugLogin sẽ tự nhận phiên và quay lại workspace ngay khi xác thực xong.",
     "googleOpenBrowserFailed": "Không thể mở trình duyệt để đăng nhập Google",
     "googleLoginErrorTitle": "Lỗi đăng nhập Google",
     "googleErrorInvalidCallback": "Callback Google không hợp lệ. Hãy thử đăng nhập lại.",
@@ -1824,17 +1905,21 @@
     "googleErrorAuthCodeUnsupported": "App hiện chưa hỗ trợ OAuth authorization code flow.",
     "googleErrorMissingTokens": "Google callback không có token xác thực cần thiết.",
     "googleErrorAccessDenied": "Bạn đã từ chối quyền truy cập Google.",
+    "invalidCredentialsTitle": "Email hoặc mật khẩu không đúng.",
+    "invalidCredentialsDescription": "Hãy dùng đúng mật khẩu bạn đã đăng ký cho tài khoản local này. `Password123!` chỉ là giá trị test trong spec, không phải mật khẩu mặc định khi chạy app.",
+    "emailAlreadyRegisteredTitle": "Email này đã được đăng ký.",
+    "emailAlreadyRegisteredDescription": "Hãy đăng nhập bằng mật khẩu hiện có, hoặc dùng Quên mật khẩu nếu cần khôi phục quyền truy cập.",
     "controlAuthUnavailableTitle": "Không kết nối được dịch vụ đăng nhập",
-    "controlAuthUnavailableDescription": "Control auth server chưa sẵn sàng. Với tài khoản local dev (@buglogin.local) app vẫn cho đăng nhập fallback. Với tài khoản thật, hãy cấu hình Sync server URL và bật control API.",
+    "controlAuthUnavailableDescription": "Control auth server chưa sẵn sàng hoặc chưa cấu hình. Hãy cấu hình Sync server URL và token để tiếp tục.",
     "localDevQuickTitle": "Quick credentials cho local dev",
     "localDevQuickDescription": "Bấm để điền nhanh email test. Mật khẩu mặc định: {{password}}.",
-    "registerFlowTitle": "Tạo tài khoản workspace",
+    "registerFlowTitle": "",
     "optionalLabel": "tuỳ chọn",
     "registerNamePlaceholder": "Tên hiển thị trong workspace",
     "confirmPasswordLabel": "Xác nhận mật khẩu",
     "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
     "useLocalDevPreset": "Dùng nhanh preset local dev",
-    "registerHint": "Đăng ký bằng đúng email được mời. Sau khi xác minh email, tài khoản sẽ nhận quyền theo workspace.",
+    "registerHint": "",
     "registerAction": "Gửi yêu cầu đăng ký",
     "registerQueued": "Đăng ký đã hoàn tất ở chế độ self-host.",
     "registerQueuedDescription": "Có thể bật verify email sau. Hiện tại bạn có thể đăng nhập ngay bằng email được mời.",
@@ -1845,33 +1930,112 @@
     "resetQueued": "Luồng khôi phục đã sẵn sàng ở chế độ self-host.",
     "resetQueuedDescription": "Bạn vẫn có thể dùng đăng nhập bằng email được mời trong lúc backend reset đầy đủ đang được kết nối.",
     "resetFailed": "Không thể gửi hướng dẫn khôi phục.",
-    "preferenceSaveFailed": "Không thể cập nhật giao diện hoặc ngôn ngữ."
+    "preferenceSaveFailed": "Không thể cập nhật giao diện hoặc ngôn ngữ.",
+    "footerTrust": "Desktop-first sign-in với quyền truy cập và callback rõ ràng.",
+    "footerDesktop": "Sẵn sàng mở lại BugLogin",
+    "oauthCallbackTitle": "Đang hoàn tất đăng nhập Google",
+    "oauthCallbackDescription": "Trang này chỉ dùng để chuyển phiên xác thực trở lại BugLogin một cách an toàn.",
+    "oauthCallbackResolving": "Đang chuẩn hóa thông tin tài khoản và chuyển lại ứng dụng.",
+    "oauthCallbackAutoClosing": "Đang quay lại BugLogin. Tab này sẽ tự đóng.",
+    "oauthCallbackSecondary": "Bạn có thể đóng tab này sau khi BugLogin tự mở lại. Nếu không thấy gì xảy ra, dùng nút mở thủ công bên dưới.",
+    "oauthCallbackManualHint": "Nếu BugLogin không tự mở lại, dùng nút bên dưới.",
+    "oauthCallbackStepBrowser": "Google đã xác thực trong trình duyệt",
+    "oauthCallbackStepToken": "Đang đọc token và hồ sơ tài khoản",
+    "oauthCallbackStepReturn": "Đang chuyển phiên về BugLogin",
+    "oauthCallbackOpenManually": "Mở BugLogin thủ công",
+    "oauthCallbackInitializing": "Đang khởi tạo phiên xác thực..."
   },
   "adminWorkspace": {
-    "subtitle": "Vùng quản trị nền tảng cho billing, entitlement và vận hành.",
-    "workspaceSubtitle": "Vùng quản trị workspace cho thành viên, chia sẻ và vận hành hằng ngày.",
+    "subtitle": "Điều hành BugLogin ở cấp nền tảng: vòng đời workspace, doanh thu, sự cố vận hành và kiểm soát quản trị.",
+    "workspaceSubtitle": "Quản trị workspace đang mở theo luồng owner gọn: thành viên, truy cập và kiểm soát billing an toàn.",
     "panel": {
-      "platformTitle": "Platform Admin Panel",
+      "platformTitle": "Super Admin Panel",
       "workspaceTitle": "Workspace Admin Panel",
-      "platformBadge": "Platform Admin",
+      "platformBadge": "Super Admin",
       "workspaceBadge": "Workspace Admin",
       "workspaceOverviewTitle": "Tổng quan vận hành Workspace",
       "workspaceOverviewDescription": "Theo dõi vòng đời thành viên, lưu lượng invite và trạng thái chia sẻ của workspace đang chọn."
+    },
+    "panelTree": {
+      "searchPlaceholder": "Tìm trang trong panel...",
+      "expandAll": "Mở tất cả",
+      "collapseAll": "Thu gọn tất cả",
+      "owner": {
+        "groupCommand": "Trung tâm Owner",
+        "groupTeamAccess": "Team & Truy cập",
+        "groupAssets": "Tài nguyên & Billing",
+        "pages": {
+          "overview": {
+            "title": "Tổng quan Owner",
+            "description": "Snapshot sức khỏe workspace, entitlement và trạng thái quản trị."
+          },
+          "members": {
+            "title": "Thành viên & Invite",
+            "description": "Quản lý vòng đời thành viên, phân quyền và luồng mời."
+          },
+          "share": {
+            "title": "Quyền chia sẻ",
+            "description": "Kiểm soát share grant, phạm vi truy cập và thu hồi quyền."
+          },
+          "profileGovernance": {
+            "title": "Quản trị Profile",
+            "description": "Rà soát trạng thái profile runtime và chuyển nhanh sang thao tác profile/proxy."
+          },
+          "billing": {
+            "title": "Billing & Entitlement",
+            "description": "Theo dõi gói hiện tại, giới hạn và điểm vào thanh toán."
+          }
+        },
+        "billingCardTitle": "Trạng thái billing workspace",
+        "billingCardDescription": "Xem gói hiện tại và entitlement trước khi mở thao tác thanh toán.",
+        "profileCardTitle": "Trạng thái profile workspace",
+        "profileCardDescription": "Theo dõi runtime profile và tài nguyên mạng trong workspace này.",
+        "profileRuntimeHint": "Đang chạy: {{running}} • Đang lưu: {{parked}}"
+      },
+      "super": {
+        "groupCommand": "Command Center",
+        "groupRevenue": "Vận hành doanh thu",
+        "groupGovernance": "Governance & Compliance",
+        "pages": {
+          "command": {
+            "title": "Platform Command Center",
+            "description": "Tổng quan trạng thái vận hành của toàn bộ BugLogin."
+          },
+          "workspace": {
+            "title": "Quản trị Workspace",
+            "description": "Quản lý vòng đời workspace, thành viên và chính sách truy cập đa workspace."
+          },
+          "billing": {
+            "title": "Revenue Control",
+            "description": "Vận hành coupon, entitlement và kiểm soát billing."
+          },
+          "audit": {
+            "title": "Audit & Compliance",
+            "description": "Theo dõi thao tác nhạy cảm và tính truy vết tuân thủ."
+          },
+          "cookies": {
+            "title": "BugIdea Operations",
+            "description": "Đồng bộ cookie và vận hành automation BugIdea."
+          }
+        }
+      }
     },
     "reasonRequired": "Bắt buộc nhập lý do cho thao tác này.",
     "reasonLabel": "Lý do thao tác",
     "reasonPlaceholder": "Mô tả ngắn lý do thực hiện (bắt buộc)",
     "noAccessTitle": "Bạn không có quyền vào Admin Workspace",
     "noAccessDescription": "Chỉ owner/admin hoặc platform admin mới truy cập được khu vực quản trị này.",
+    "bugideaDevOnlyDescription": "Công cụ BugIdea chỉ mở cho platform admin.",
     "ownerOnlyGovernance": "Chỉ owner/admin của workspace hoặc platform admin mới được vào Quản trị Workspace.",
     "signInRequired": "Vui lòng đăng nhập trước để truy cập Admin Workspace và các thao tác control-plane.",
     "entitlementUpdated": "Đã cập nhật trạng thái entitlement.",
     "entitlementUpdateFailed": "Không thể cập nhật trạng thái entitlement.",
     "tabs": {
-      "workspace": "Danh mục Workspace",
-      "billing": "Billing",
-      "audit": "Audit",
-      "overview": "Tổng quan",
+      "workspace": "Điều hành Workspace",
+      "billing": "Điều hành doanh thu",
+      "cookies": "BugIdea Ops",
+      "audit": "Governance",
+      "overview": "Điều hành nền tảng",
       "system": "Hệ thống",
       "analytics": "Analytics"
     },
@@ -1880,6 +2044,53 @@
       "members": "Thành viên",
       "invites": "Invite mở",
       "audits24h": "Audit 24h"
+    },
+    "analytics": {
+      "title": "Sức khỏe vận hành Workspace",
+      "description": "Theo dõi rủi ro, mức dùng storage và áp lực subscription theo từng workspace trên một bảng.",
+      "platformAdminHint": "Dữ liệu sức khỏe workspace cần quyền platform admin.",
+      "kpis": {
+        "workspaces": "Workspace đang theo dõi",
+        "membersFallback": "Tổng {{count}} thành viên",
+        "highRisk": "Workspace rủi ro cao",
+        "mediumRisk": "{{count}} workspace rủi ro vừa",
+        "storage": "Dung lượng storage",
+        "averageUsage": "Mức dùng trung bình {{percent}}",
+        "pastDue": "Subscription quá hạn",
+        "invitesAndAudits": "{{invites}} invite mở, {{audits}} audit/24h"
+      },
+      "table": {
+        "title": "Ma trận sức khỏe Workspace",
+        "description": "Ưu tiên xử lý tenant không ổn định trước khi thành sự cố support."
+      },
+      "columns": {
+        "workspace": "Workspace",
+        "plan": "Gói & billing",
+        "access": "Entitlement",
+        "members": "Thành viên",
+        "storage": "Storage",
+        "proxy": "Băng thông proxy",
+        "risk": "Rủi ro",
+        "updatedAt": "Cập nhật usage"
+      },
+      "subscription": {
+        "active": "Đang hoạt động",
+        "past_due": "Quá hạn",
+        "canceled": "Đã hủy"
+      },
+      "entitlement": {
+        "active": "Hoạt động",
+        "grace_active": "Gia hạn",
+        "read_only": "Chỉ đọc"
+      },
+      "risk": {
+        "low": "Thấp",
+        "medium": "Vừa",
+        "high": "Cao"
+      },
+      "membersMeta": "{{invites}} invite, {{shares}} share",
+      "invoiceAt": "Hóa đơn: {{at}}",
+      "empty": "Chưa có dữ liệu sức khỏe workspace."
     },
     "columns": {
       "email": "Email",
@@ -1946,6 +2157,7 @@
       "inviteEmailInvalid": "Email mời không hợp lệ.",
       "inviteRoleRestricted": "Invite chỉ được phép ở vai trò Member hoặc Viewer.",
       "inviteRoleRestrictedHint": "Để an toàn, hãy mời ở mức Member/Viewer trước, sau đó nâng quyền sau khi người dùng đã vào workspace.",
+      "rolePresetMappingHint": "Các New Roles là preset và sẽ map về role lõi (Admin/Member/Viewer) để tương thích runtime hiện tại.",
       "inviteEmailPlaceholder": "name@company.com",
       "inviteCreated": "Đã tạo invite.",
       "inviteCreateFailed": "Không thể tạo invite.",
@@ -1962,14 +2174,20 @@
       "revokeInvite": "Thu hồi invite"
     },
     "roles": {
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "owner": "Chủ workspace",
+      "admin": "Quản lý",
+      "member": "Người dùng",
+      "viewer": "Người xem",
+      "seller": "Seller",
+      "management": "Management",
+      "automation_operator": "Vận hành Automation",
+      "billing_operator": "Vận hành Billing",
+      "audit_viewer": "Kiểm toán viên"
     },
     "permissions": {
       "ownerLockedHint": "Role Owner luôn toàn quyền và không thể tắt.",
       "editorHint": "Bật/tắt từng quyền cho role đang chọn theo mô hình vận hành workspace.",
+      "newRolesHint": "Bạn có thể dùng New Roles như preset vận hành; hệ thống hiện map về role lõi để áp quyền thực thi.",
       "items": {
         "profiles_manage": {
           "title": "Quản lý profile",
@@ -2077,6 +2295,284 @@
       "activeStatus": "đang hiệu lực",
       "revokedStatus": "đã thu hồi"
     },
+    "tiktokCookies": {
+      "bearerTitle": "Bearer key BugIdea",
+      "bearerDescription": "Nhập bearer key để cho phép đẩy cookie lên BugIdea.",
+      "bearerPlaceholder": "Bearer key...",
+      "bearerSave": "Lưu key",
+      "bearerRequired": "Cần nhập bearer key trước khi thao tác push/test cookie.",
+      "bearerSaved": "Đã lưu bearer key BugIdea.",
+      "workflow": {
+        "title": "TikTok Shop Automation",
+        "description": "Luồng admin để tạo/import profile automation, chạy signup hoặc update cookie và đồng bộ dữ liệu về BugIdea.",
+        "basicConfig": "Basic Config",
+        "advancedConfig": "Advanced Config (ít dùng)",
+        "flowMode": "Flow mode",
+        "flowSingle": "Đơn profile",
+        "flowMulti": "Đa profile",
+        "phoneSource": "Nguồn phone",
+        "phoneSourceManual": "Nhập tay",
+        "phoneSourceList": "Phone list",
+        "phoneSourceFile": "CSV/TSV/TXT (xuất từ Excel)",
+        "phoneSourceApi": "API phone",
+        "profilePrefix": "Tiền tố tên profile",
+        "profilePrefixPlaceholder": "ví dụ: ttshop",
+        "profilePrefixRequired": "Bắt buộc nhập tiền tố profile.",
+        "browser": "Trình duyệt",
+        "proxyKeyword": "Từ khóa proxy",
+        "proxyKeywordPlaceholder": "ví dụ: 5p",
+        "proxyCandidates": "Proxy list (tùy chọn)",
+        "proxyCandidatesPlaceholder": "id hoặc tên proxy, ngăn cách bởi dấu phẩy",
+        "phoneCountry": "Quốc gia số điện thoại",
+        "phoneCountryUs": "Hoa Kỳ",
+        "phoneNumber": "Số điện thoại",
+        "phoneNumberPlaceholder": "ví dụ: 2025550123",
+        "phoneListTitle": "Danh sách phone",
+        "phoneListPlaceholder": "Mỗi dòng 1 phone hoặc ngăn cách bằng dấu phẩy",
+        "phoneFileTitle": "Import file phone",
+        "phoneFileHint": "Đã nạp {{count}} phone từ file CSV/TXT (xuất từ Excel).",
+        "phoneFileImported": "Đã import {{count}} phone từ file.",
+        "phoneFileFailed": "Không thể đọc file phone.",
+        "phoneFileExcelUnsupported": "Chưa hỗ trợ đọc trực tiếp file .xlsx/.xls. Vui lòng xuất sang CSV/TSV/TXT rồi import.",
+        "phoneListEmpty": "Danh sách phone đang trống.",
+        "apiPhoneEndpoint": "API phone endpoint",
+        "apiPhoneEndpointPlaceholder": "https://.../phones",
+        "apiPhoneEndpointRequired": "Cần nhập endpoint API phone.",
+        "apiPhoneFailed": "Không lấy được danh sách phone từ API.",
+        "rotationLink": "Link xoay (optional)",
+        "rotationLinkPlaceholder": "https://... (nếu có)",
+        "rotationInterval": "Thời gian xoay (phút, optional - mặc định 5)",
+        "rotationIntervalInvalid": "Thời gian xoay không hợp lệ.",
+        "phoneRequired": "Bắt buộc nhập số điện thoại.",
+        "phoneInvalidUs": "Số điện thoại US phải gồm 10 chữ số.",
+        "phoneSummary": "{{country}} • {{phone}}",
+        "eligibleProxyCount": "Số proxy phù hợp",
+        "nextProxy": "Proxy xoay tiếp theo",
+        "noProxy": "Không có proxy phù hợp",
+        "rotationCursor": "Vòng xoay batch",
+        "instructions": "Batch tạo profile theo mode đơn/đa và xoay proxy theo danh sách hiện có. Nút Start sẽ mở tab login. Sau khi làm thủ công xong và đóng profile, bấm Sync (2 chiều). Nếu để trống thời gian xoay thì hệ thống dùng mặc định 5 phút.",
+        "refreshProxy": "Tải lại proxy",
+        "createBatch": "Tạo batch profile",
+        "pullBugIdea": "Xóa cũ & kéo từ BugIdea",
+        "pullBugIdeaEmpty": "Không có cookie BugIdea nào để kéo về profile.",
+        "pullBugIdeaSuccess": "Đã kéo {{count}} cookie từ BugIdea về profile.",
+        "pullBugIdeaPartial": "Đã kéo một phần cookie từ BugIdea về profile.",
+        "pullBugIdeaFailed": "Không thể kéo cookie từ BugIdea về profile.",
+        "cookieSourceFailed": "Không thể đọc file cookie nguồn để hoàn thiện profile.",
+        "tableTitle": "Bảng profile automation",
+        "tableDescription": "Bảng dữ liệu profile chính: phone/api phone, trạng thái, cookie TikTok và thao tác chạy đồng bộ.",
+        "bulkSelected": "Đã chọn {{count}} profile",
+        "bulkStart": "Chạy tuần tự đã chọn",
+        "bulkStop": "Dừng chạy tuần tự",
+        "bulkDonePush": "Done & Push đã chọn",
+        "bulkSync": "Sync đã chọn (2 chiều)",
+        "bulkRemove": "Xóa đã chọn",
+        "bulkNoRunnable": "Không có profile khả dụng để chạy (đang Disable).",
+        "searchPlaceholder": "Tìm profile, phone, API phone, proxy hoặc cookie...",
+        "empty": "Chưa có profile nào trong luồng semi-auto.",
+        "filters": {
+          "allStatuses": "Tất cả trạng thái",
+          "empty": "Không có profile nào khớp bộ lọc hiện tại."
+        },
+        "phoneLabel": "Phone",
+        "apiPhoneLabel": "API Phone",
+        "phoneCopied": "Đã copy số điện thoại.",
+        "apiPhoneCopied": "Đã copy API Phone.",
+        "profileIdCopied": "Đã copy profile ID.",
+        "cookieCopied": "Đã copy cookie.",
+        "usernameCopied": "Đã copy username.",
+        "passwordCopied": "Đã copy mật khẩu.",
+        "paginationSummary": "Hiển thị {{from}}-{{to}} trên tổng {{total}} profile",
+        "columns": {
+          "profile": "Profile",
+          "phone": "Phone / API Phone",
+          "credentials": "Username / Password",
+          "status": "Trạng thái",
+          "stepError": "Bước / Lỗi",
+          "runtime": "Browser / Proxy",
+          "cookie": "Cookie TikTok",
+          "updated": "Cập nhật",
+          "more": "More"
+        },
+        "more": {
+          "open": "Xem thêm",
+          "browser": "Browser: {{value}}",
+          "proxy": "Proxy: {{value}}",
+          "apiPhone": "API Phone: {{value}}",
+          "bugideaId": "BugIdea ID: {{value}}"
+        },
+        "actions": {
+          "open": "Mở profile",
+          "start": "Start",
+          "sync": "Sync (2 chiều)",
+          "editBrowser": "Sửa browser",
+          "openApiPhone": "Mở URL API Phone",
+          "fetchOtp": "Lấy mã OTP",
+          "disable": "Disable profile",
+          "enable": "Enable profile",
+          "donePush": "Done & Push",
+          "remove": "Xóa"
+        },
+        "runCenter": {
+          "title": "Automation Run Center",
+          "description": "Import nguồn account, chạy run và theo dõi tiến độ, không mất trạng thái sau khi reload.",
+          "accounts": "Số account",
+          "runs": "Số run",
+          "latestStatus": "Trạng thái gần nhất",
+          "flowType": "Loại flow",
+          "flowSignup": "Sign Up",
+          "flowUpdateCookie": "Update Cookie",
+          "mode": "Chế độ chạy",
+          "activeRun": "Run đang chọn",
+          "noRunSelected": "Chưa chọn run",
+          "import": "Import nguồn",
+          "forceImport": "Force import",
+          "syncAll": "Sync All",
+          "runNow": "Tạo & chạy run",
+          "pause": "Tạm dừng",
+          "resume": "Tiếp tục",
+          "progress": "Tiến độ {{done}} / {{total}}",
+          "currentProfile": "Profile hiện tại: {{profile}}",
+          "statsOutcome": "Kết quả",
+          "statsPerformance": "Hiệu suất",
+          "statsAccounts": "Account",
+          "statsDone": "Hoàn tất",
+          "statsFailed": "Lỗi",
+          "statsStarted": "Đã start",
+          "statsSuccessRate": "Tỷ lệ thành công",
+          "statsRuns": "Số run",
+          "statsLatestStatus": "Trạng thái gần nhất",
+          "statsRunProgress": "Tiến độ run"
+        },
+        "progress": {
+          "summary": "{{processed}}/{{total}} · ok {{success}} · fail {{failed}} · skip {{skipped}}",
+          "status": {
+            "idle": "Nhàn rỗi",
+            "running": "Đang chạy",
+            "success": "Hoàn tất",
+            "partial": "Hoàn tất có cảnh báo",
+            "error": "Thất bại",
+            "interrupted": "Bị gián đoạn"
+          }
+        },
+        "status": {
+          "created": "Đã tạo",
+          "started": "Đã start",
+          "cookie_ready": "Đã có cookie mới",
+          "cookie_missing": "Thiếu cookie",
+          "push_failed": "Sync lỗi",
+          "done": "Hoàn tất"
+        },
+        "syncStatus": {
+          "needs_sync": "Cần sync",
+          "synced": "Đồng bộ",
+          "missing_cookie": "Thiếu cookie",
+          "conflict": "Xung đột",
+          "sync_error": "Lỗi sync",
+          "disabled": "Đã disable"
+        },
+        "syncStatusWithAge": "{{status}} · {{age}}",
+        "syncAgeMinutes": "{{value}} phút trước",
+        "syncAgeHours": "{{value}} giờ trước",
+        "syncAgeDays": "{{value}} ngày trước",
+        "syncAgeUnknown": "không rõ thời gian",
+        "rowState": {
+          "opening": "Đang mở",
+          "syncing": "Đang sync",
+          "awaitingClose": "Chờ đóng"
+        },
+        "proxyLoadFailed": "Không thể tải danh sách proxy đã lưu.",
+        "proxyNotAvailable": "Không có proxy khớp từ khóa. Hãy thêm proxy hoặc đổi từ khóa.",
+        "browserVersionRequired": "Không có phiên bản trình duyệt đã tải cho lựa chọn hiện tại.",
+        "browserUpdated": "Đã cập nhật browser ưu tiên sang {{browser}} cho profile {{profile}}.",
+        "apiPhoneMissing": "Profile này chưa có URL API Phone.",
+        "createBatchSuccess": "Đã tạo {{count}} profile với proxy {{proxy}}.",
+        "createBatchFailed": "Không thể tạo batch profile.",
+        "startProfileSuccess": "Đã mở browser profile {{profile}}.",
+        "startProfileFailed": "Không thể start browser profile.",
+        "signupCredentialReady": "Thông tin đăng nhập của {{profile}}: {{username}} / {{password}}",
+        "openApiPhoneSuccess": "Đã mở URL API Phone cho profile {{profile}}.",
+        "openApiPhoneFailed": "Không thể mở URL API Phone cho profile này.",
+        "otpDetectedCopied": "Đã copy OTP cho profile {{profile}}: {{code}}",
+        "otpNotFound": "Chưa lấy được mã OTP.",
+        "otpNotFoundDescription": "API Phone chưa trả về mã TikTok 6 số hợp lệ.",
+        "autoRunStarted": "Đã bắt đầu chạy tuần tự {{count}} profile.",
+        "autoRunFinished": "Đã chạy xong tuần tự {{count}} profile.",
+        "autoRunStopped": "Đã dừng chạy tuần tự.",
+        "autoRunCookieReady": "Profile {{profile}} đã có cookie TikTok mới.",
+        "autoRunStoppedNoCookie": "Profile {{profile}} chưa có cookie TikTok mới. Luồng đã dừng.",
+        "autoRunProgress": "Đang chạy tuần tự {{current}} / {{total}}",
+        "autoRunDoneCount": "Đã xong {{count}}",
+        "autoRunRemainingCount": "Còn {{count}}",
+        "autoRunCurrent": "Đang mở: {{profile}}",
+        "autoRunLaunching": "Đang mở profile kế tiếp...",
+        "autoRunOpeningProfile": "Đang chờ browser profile phản hồi...",
+        "autoRunCapturingCookie": "Đang đọc cookie sau khi profile đã đóng...",
+        "autoRunWaiting": "Đóng browser hiện tại để chuyển sang profile tiếp theo.",
+        "monitorRunning": "Automation đang chạy",
+        "monitorStalled": "Có thể đang bị kẹt",
+        "monitorProfile": "Profile: {{profile}}",
+        "monitorHeartbeat": "Nhịp cập nhật: {{seconds}}s trước",
+        "monitorRuntime": "Thời gian phiên hiện tại: {{seconds}}s",
+        "autoRunActiveRow": "Đang chạy",
+        "syncAllSuccess": "Đã sync {{count}} profile.",
+        "syncAllPartial": "Sync All hoàn tất: {{synced}} đã sync, {{missing}} thiếu cookie, {{failed}} lỗi.",
+        "syncAllFailed": "Không thể Sync All profile.",
+        "cookieMissing": "Không tìm thấy cookie TikTok Shop dùng được trong profile này.",
+        "pushNotes": "source=buglogin_semi_auto profile_id={{profileId}} proxy={{proxy}} matched_domains={{domains}} matched_cookies={{cookies}}",
+        "donePushSuccess": "Đã đẩy cookie của profile {{profile}} lên BugIdea.",
+        "donePushFailed": "Không thể đẩy/test cookie cho profile này.",
+        "syncPushSuccess": "Đã đồng bộ cookie từ BugLogin sang BugIdea cho profile {{profile}}.",
+        "syncPullSuccess": "Đã đồng bộ cookie từ BugIdea sang BugLogin cho profile {{profile}}.",
+        "syncSuccess": "Đã sync cookie 2 chiều cho profile {{profile}}.",
+        "syncNetworkWarning": "Kết nối mạng đích không ổn định (SSL/TLS). Cookie đã sync nhưng bước verify có thể chưa hoàn tất.",
+        "syncTimeoutWarning": "Request verify bị timeout. Cookie đã sync, bạn có thể thử verify lại sau.",
+        "syncFailed": "Không thể đồng bộ cookie cho profile này."
+      },
+      "createTitle": "Tạo cookie TikTok",
+      "createDescription": "Đẩy một cookie sang BugIdea.",
+      "listTitle": "Danh sách cookie TikTok",
+      "listDescription": "Quản lý cookie phục vụ automation trên BugIdea.",
+      "bulkTitle": "Đẩy hàng loạt",
+      "bulkDescription": "Gửi nhiều cookie trong một request. Mỗi dòng là một cookie.",
+      "label": "Nhãn",
+      "cookie": "Cookie",
+      "notes": "Ghi chú",
+      "status": "Trạng thái",
+      "testedAt": "Lần test gần nhất",
+      "prefix": "Tiền tố (tuỳ chọn)",
+      "bulkCookies": "Danh sách cookie",
+      "cookiePreview": "Xem nhanh cookie",
+      "labelPlaceholder": "ví dụ: tk_session_main",
+      "cookiePlaceholder": "Dán chuỗi cookie TikTok thô",
+      "notesPlaceholder": "Ghi chú cho đội vận hành (tuỳ chọn)",
+      "statusPlaceholder": "ví dụ: active / inactive",
+      "prefixPlaceholder": "ví dụ: tiktok_prod",
+      "bulkCookiesPlaceholder": "cookie=value; ... (mỗi dòng một cookie)",
+      "createAction": "Đẩy cookie",
+      "updateAction": "Cập nhật",
+      "checkCookieAction": "Check Cookie",
+      "deleteAction": "Xóa",
+      "bulkAction": "Đẩy cookie hàng loạt",
+      "editTitle": "Sửa cookie TikTok",
+      "editDescription": "Cập nhật nhãn, cookie, trạng thái hoặc ghi chú.",
+      "empty": "Chưa có cookie TikTok.",
+      "createFieldsRequired": "Bắt buộc nhập nhãn và cookie.",
+      "updateFieldsRequired": "Hãy nhập ít nhất một trường để cập nhật.",
+      "bulkFieldsRequired": "Hãy nhập ít nhất một dòng cookie.",
+      "refreshSuccess": "Đã làm mới danh sách cookie TikTok.",
+      "refreshFailed": "Không thể làm mới cookie TikTok.",
+      "createSuccess": "Đã đẩy cookie TikTok.",
+      "createFailed": "Không thể đẩy cookie TikTok.",
+      "updateSuccess": "Đã cập nhật cookie TikTok.",
+      "updateFailed": "Không thể cập nhật cookie TikTok.",
+      "deleteSuccess": "Đã xóa cookie TikTok.",
+      "deleteFailed": "Không thể xóa cookie TikTok.",
+      "testSuccess": "Đã gửi yêu cầu test cookie TikTok.",
+      "testFailed": "Không thể test cookie TikTok.",
+      "bulkSuccess": "Đã đẩy hàng loạt {{count}} cookie.",
+      "bulkFailed": "Không thể đẩy hàng loạt cookie TikTok."
+    },
     "audit": {
       "none": "Chưa có bản ghi audit."
     },
@@ -2100,10 +2596,10 @@
     },
     "ui": {
       "workspaceOpsTitle": "Workspace Operations Center",
-      "workspaceOpsDescription": "Quản trị workspace, thành viên và chia sẻ theo ngữ cảnh đang chọn, có phân tầng quyền rõ ràng.",
+      "workspaceOpsDescription": "Vận hành workspace đang mở trong một luồng gọn: vòng đời team, invite, chia sẻ và guardrail owner.",
       "workspaceDirectoryTitle": "Danh mục & Provisioning Workspace",
-      "workspaceDirectoryOpsDescription": "Quản lý toàn bộ workspace ở phạm vi admin. Các thao tác thành viên và chính sách truy cập được xử lý trong panel Quản trị Workspace của workspace đang mở.",
-      "scopePlatform": "Phạm vi: Platform Admin",
+      "workspaceDirectoryOpsDescription": "Quản lý vòng đời team và chính sách truy cập trực tiếp trên workspace hiện tại, không tách trang rời rạc.",
+      "scopePlatform": "Phạm vi: Super Admin",
       "scopeTeam": "Phạm vi: Owner/Admin Workspace",
       "scopeReadOnly": "Phạm vi: Chỉ xem",
       "workspaceDirectoryDescription": "Chọn workspace để đổi ngữ cảnh quản trị và dữ liệu vận hành.",
@@ -2129,6 +2625,17 @@
       "memberAccessDescription": "Quản lý vai trò, thu hồi quyền và theo dõi vòng đời lời mời trong workspace hiện tại.",
       "memberList": "Danh sách thành viên",
       "inviteList": "Danh sách invite",
+      "searchMembersPlaceholder": "Tìm theo email hoặc user ID...",
+      "searchInvitesPlaceholder": "Tìm email invite...",
+      "searchSharesPlaceholder": "Tìm resource ID hoặc email người nhận...",
+      "filterAllRoles": "Tất cả vai trò",
+      "filterAllStatuses": "Tất cả trạng thái",
+      "filterPending": "Chờ xử lý",
+      "filterUsed": "Đã dùng",
+      "filterActive": "Đang hoạt động",
+      "filterRevoked": "Đã thu hồi",
+      "rowSummary": "{{shown}} / {{total}} dòng",
+      "noRowsInPage": "Không có dữ liệu ở trang này. Hãy đổi bộ lọc hoặc trang.",
       "shareControlTitle": "Chính sách chia sẻ tài nguyên",
       "policyChecklistTitle": "Checklist chính sách truy cập",
       "policyChecklistDescription": "Áp dụng các kiểm soát này trước khi chia sẻ tài nguyên cho operator hoặc workspace đối tác.",
@@ -2152,6 +2659,17 @@
       "entitlementDescription": "Theo dõi giới hạn runtime thực tế và chính sách lưu trữ.",
       "latestAuditTitle": "Hoạt động audit gần nhất",
       "latestAuditDescription": "Các thao tác nhạy cảm mới nhất được control-plane ghi nhận.",
+      "operationQueueTitle": "Hàng đợi thao tác ưu tiên",
+      "operationQueueDescription": "Danh sách thao tác cần xử lý ngay cho workspace rủi ro cao, quá hạn hoặc sắp chạm ngưỡng tài nguyên.",
+      "operationQueueEmpty": "Hiện chưa có workspace cần can thiệp khẩn.",
+      "actionStabilizeSync": "Ổn định luồng sync",
+      "actionRecoverBilling": "Xử lý thu hồi thanh toán",
+      "actionReviewCapacity": "Rà soát dung lượng storage/proxy",
+      "actionReviewAccess": "Rà soát chính sách truy cập",
+      "reasonHighRisk": "Mức rủi ro cao, cần triage ngay.",
+      "reasonPastDue": "Subscription quá hạn, có thể ảnh hưởng entitlement.",
+      "reasonCapacity": "Mức dùng storage hoặc proxy đang gần giới hạn cấu hình.",
+      "reasonShareAndInvite": "Cần rà soát trạng thái share và invite trước khi mở rộng.",
       "currentWorkspace": "Workspace hiện tại",
       "createWorkspaceDescription": "Tạo workspace tách biệt mới và bắt đầu quản trị ngay.",
       "shareDescription": "Cấp quyền truy cập tài nguyên workspace kèm khả năng thu hồi rõ ràng.",
@@ -2178,6 +2696,10 @@
       "coupon": {
         "title": "Quản trị coupon",
         "description": "Kiểm soát giảm giá nội bộ với allowlist, ngày hết hạn và giới hạn lượt dùng."
+      },
+      "tiktokCookies": {
+        "title": "Vận hành Cookie TikTok",
+        "description": "Đẩy và quản lý cookie TikTok cho các endpoint BugIdea."
       },
       "audit": {
         "title": "Nhật ký audit",
@@ -2209,18 +2731,26 @@
     "sections": {
       "profiles": "Profiles",
       "automation": "Automation",
+      "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy & VPN",
       "pricing": "Bảng giá",
       "settings": "Cài đặt",
       "integrations": "Tích hợp",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
+      "superAdminPanel": "Super Admin Panel",
       "billing": "Pricing & Billing",
       "billingCheckout": "Thanh toán",
       "billingCoupon": "Mã giảm giá",
       "billingLicense": "License",
       "billingManagement": "Quản lý thanh toán",
       "workspaceGovernance": "Quản trị Workspace",
+      "workspaceOwnerPanel": "Workspace Owner Panel",
+      "workspaceOwnerOverview": "Trung tâm Owner",
+      "workspaceOwnerDirectory": "Team & Truy cập",
+      "workspaceOwnerPermissions": "Team & Truy cập",
+      "workspaceOwnerPlanManagement": "Quản lý gói",
+      "workspaceOwnerUserPermissions": "Quyền người dùng",
       "workspaceAdminOverview": "Tổng quan",
       "workspaceAdminDirectory": "Workspace hiện tại",
       "workspaceAdminPermissions": "Quyền người dùng",
@@ -2277,12 +2807,14 @@
       "openAutomation": "Mở Automation Workspace"
     },
     "roles": {
-      "platform_admin": "Platform Admin",
-      "platform_admin_short": "Platform",
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer",
+      "platform_admin": "Super Admin",
+      "platform_admin_short": "Super",
+      "owner": "Chủ workspace",
+      "admin": "Quản lý",
+      "member": "Người dùng",
+      "viewer": "Người xem",
+      "seller": "Seller",
+      "management": "Management",
       "guest": "Khách"
     },
     "workspaceSwitcher": {
@@ -2308,14 +2840,26 @@
       }
     },
     "panelSwitch": {
-      "toAdmin": "Chuyển sang Admin Panel",
+      "toAdmin": "Mở Super Admin Panel",
       "toWorkspace": "Quay về Workspace App",
-      "toWorkspaceGovernance": "Mở Panel Quản trị Workspace"
+      "toWorkspaceGovernance": "Mở Workspace Owner Panel"
     },
     "accountMenu": {
       "workspaces": "Workspace",
       "addWorkspace": "Thêm workspace",
       "panels": "Panel quản trị"
+    },
+    "webPortal": {
+      "movedDescription": "Chức năng này đã chuyển sang web portal. Desktop app chỉ còn tập trung cho runtime vận hành.",
+      "superAdminDescription": "Quản trị cấp nền tảng đã chuyển sang Super Admin Portal trên web.",
+      "workspaceOwnerDescription": "Quản trị workspace đã chuyển sang Workspace Owner Portal trên web.",
+      "billingDescription": "Quản lý thanh toán chuyển sang luồng web-first trên portal.",
+      "pricingDescription": "Bảng giá và checkout hiện được xử lý trên web portal.",
+      "openSuperAdmin": "Mở Super Admin Web Portal",
+      "openWorkspaceOwner": "Mở Workspace Owner Web Portal",
+      "openBilling": "Mở Billing Web Portal",
+      "openPricing": "Mở Pricing Web Portal",
+      "opening": "Đang mở web portal..."
     },
     "topbar": {
       "languageSystem": "Theo ngôn ngữ hệ thống",
@@ -2330,8 +2874,8 @@
       "autoUpdateInProgress": "Đang tự động cập nhật",
       "userMenu": "Menu tài khoản",
       "openSettings": "Mở cài đặt",
-      "goAdminPanel": "Vào Admin Panel",
-      "goWorkspaceGovernance": "Mở Quản trị Workspace",
+      "goAdminPanel": "Mở Super Admin Panel",
+      "goWorkspaceGovernance": "Mở Workspace Owner Panel",
       "backWorkspace": "Quay lại Workspace App",
       "preferenceSaveFailed": "Không thể lưu tuỳ chọn hiển thị",
       "notificationTitle": "{{browser}} có bản cập nhật mới",
@@ -2341,7 +2885,9 @@
       "bootTitle": "Đang khởi tạo BugLogin",
       "bootDescription": "Đang chuẩn bị workspace và ngữ cảnh tài khoản...",
       "postLoginTitle": "Đăng nhập thành công",
-      "postLoginDescription": "Đang tải dữ liệu workspace và quyền truy cập..."
+      "postLoginDescription": "Đang tải dữ liệu workspace và quyền truy cập...",
+      "sectionSwitchTitle": "Đang mở trang",
+      "sectionSwitchDescription": "Đang chuẩn bị dữ liệu và giao diện cho trang workspace..."
     }
   },
   "pricingPage": {
@@ -2362,7 +2908,7 @@
     "planSelected": "Đã chọn gói",
     "addonTitle": "Phần cộng thêm",
     "addonMembers": "Thêm thành viên",
-    "addonProfiles": "Thêm profile (+100 mỗi lần)",
+    "addonProfiles": "Thêm profile",
     "addonApplied": "từ phần cộng thêm",
     "planFootnote": "Giá có thể thay đổi theo thuế và quy định khu vực.",
     "planTierOnly": "Chỉ gói năm",
@@ -2397,17 +2943,17 @@
     "faq3Q": "Stripe chưa sẵn sàng thì có chọn gói trước được không?",
     "faq3A": "Được. Bạn có thể chọn trước gói ngay bây giờ và bật checkout đầy đủ khi Stripe cấu hình xong.",
     "currentPlanBadge": "Quản lý",
+    "pendingPlanShortBadge": "Chờ xử lý",
     "freePlanLabel": "Free",
     "customPlanBadge": "Custom nội bộ",
     "ctaBadge": "Luồng đề xuất",
     "ctaTitle": "Cần hỗ trợ chọn gói phù hợp?",
     "ctaDescription": "Chọn gói đề xuất trước, sau đó vào các trang Checkout/Coupon/License để hoàn tất thanh toán.",
-    "paymentFlowLabel": "Luồng thanh toán",
     "paymentFlowStripe": "Stripe checkout + coupon/license ở trang thanh toán riêng",
     "paymentFlowSelfHost": "Self-host checkout + coupon/license ở trang thanh toán riêng",
     "currentPlanHint": "Gói đang hoạt động: {{plan}}",
     "ctaPrimary": "Chọn gói này",
-    "ctaSecondary": "Mở Trung tâm thanh toán",
+    "ctaSecondary": "Mở Checkout",
     "trialBadge": "Đang dùng thử",
     "managePlanCta": "Quản lý gói",
     "currentWorkspacePlanHint": "Workspace {{workspace}} đang dùng gói {{plan}}",
@@ -2426,7 +2972,7 @@
     "downgradeDisabled": "Tài khoản đang có nhiều workspace, hiện chỉ hỗ trợ nâng gói. Hạ gói cần xử lý thủ công.",
     "downgradeDisabledHint": "Tài khoản đang có nhiều workspace nên chỉ cho phép tự nâng gói. Nếu cần hạ gói, vui lòng xử lý thủ công ở Billing.",
     "downgradeTo": "Hạ xuống {{plan}}",
-    "pendingPlanCta": "Sẵn sàng ở trang thanh toán",
+    "pendingPlanCta": "Tiếp tục Checkout",
     "planActionTitle": "Chọn luồng thanh toán",
     "planActionDescription": "Bạn đang chọn gói {{plan}}. Hãy chọn nơi áp dụng gói.",
     "planActionDescriptionFallback": "Chọn nơi áp dụng gói trước khi thanh toán.",
@@ -2447,7 +2993,7 @@
     "title": "Pricing & Billing",
     "description": "Quản lý gói dịch vụ, usage, coupon và trạng thái thanh toán theo chuẩn vận hành doanh nghiệp.",
     "managementPageDescription": "Theo dõi trạng thái billing, usage, lịch sử hóa đơn và điều phối thao tác thanh toán sang các trang riêng.",
-    "checkoutPageDescription": "Trang thanh toán Stripe cho workspace hiện tại. Chỉ dùng cho thao tác checkout/confirm.",
+    "checkoutPageDescription": "Thanh toán cho gói đang chờ của workspace hiện tại.",
     "couponPageDescription": "Trang áp dụng coupon cho workspace hiện tại sau khi đã chọn gói ở Bảng giá.",
     "licensePageDescription": "Trang claim license cho workspace hiện tại sau khi đã chọn gói ở Bảng giá.",
     "planFallback": "Self-hosted",
@@ -2487,25 +3033,28 @@
     "couponQueuedDescription": "Stripe chưa cấu hình nên coupon được áp dụng qua billing nội bộ self-host.",
     "couponApplied": "Coupon đã được áp dụng.",
     "couponAppliedDescription": "Mã giảm giá đã đi vào luồng billing hiện tại.",
-    "couponValidationUnavailable": "Không thể xác thực coupon từ billing server.",
+    "couponValidationUnavailable": "Chưa có sync server hoặc token để xác thực coupon.",
     "couponNotEligible": "Coupon không hợp lệ hoặc không áp dụng cho workspace hiện tại.",
     "couponLocalOnly": "Ở local mode chỉ hỗ trợ mã FREE100/LOCAL100/BUG100 để mô phỏng checkout.",
     "workspaceRequiredForBilling": "Hãy chọn workspace trước khi đổi gói.",
     "pendingPlanBadge": "Đang chờ kích hoạt",
     "pendingPlanTitle": "Đã chọn gói {{plan}}",
-    "pendingPlanStripeReady": "Stripe sẵn sàng. Xác nhận thanh toán để kích hoạt gói.",
+    "pendingPlanStripeReady": "Stripe đã sẵn sàng.",
+    "pendingPlanStripeConfigIncomplete": "Stripe đang cấu hình dở. Hoàn tất publishable key và billing URL để tiếp tục checkout.",
     "pendingPlanCouponApplied": "Coupon đã áp dụng. Bạn có thể xác nhận để kích hoạt gói.",
     "pendingPlanSelfHostedReady": "Self-host checkout đã sẵn sàng. Bấm thanh toán ngay hoặc áp dụng coupon/license để kích hoạt.",
+    "pendingPlanDirectActivationReady": "Coupon 100% hoặc license sẽ kích hoạt trực tiếp.",
     "pendingProrationCredit": "Đã trừ ${{amount}} từ {{days}} ngày còn lại của gói hiện tại.",
     "pendingAmountDue": "Số tiền cần thanh toán: ${{amount}}.",
     "pendingPlanNeedsPayment": "Cần thanh toán Stripe hoặc nhập coupon hợp lệ trước khi kích hoạt.",
-    "confirmPlanActivation": "Xác nhận kích hoạt gói",
-    "startStripeCheckout": "Mở Stripe checkout",
+    "startStripeCheckout": "Thanh toán với Stripe",
     "selfHostedPayNow": "Thanh toán ngay (Self-host)",
-    "checkoutOpened": "Đã mở Stripe checkout trên trình duyệt.",
+    "checkoutOpened": "Stripe Checkout đã mở trên trình duyệt.",
     "checkoutUrlMissing": "Thiếu Stripe billing URL trong app settings.",
-    "checkoutStartRequired": "Hãy mở Stripe checkout trước, sau đó xác nhận sau khi thanh toán.",
+    "checkoutStartRequired": "Mở Stripe Checkout trước, rồi xác minh sau khi thanh toán.",
     "stripeConfigRequired": "Cần cấu hình Stripe",
+    "stripeConfigIncomplete": "Stripe chưa cấu hình hoàn chỉnh.",
+    "stripeConfigIncompleteDescription": "Đã phát hiện Stripe key hoặc billing URL nhưng chưa đủ cả hai giá trị. Vui lòng hoàn tất cấu hình để tránh bypass self-host.",
     "stripeRequiredForCheckout": "Stripe chưa sẵn sàng. Không thể thanh toán trực tiếp nếu chưa cấu hình Stripe.",
     "stripeRequiredForPaidCoupon": "Coupon đã hợp lệ nhưng chưa thể kích hoạt.",
     "stripeRequiredForPaidCouponDescription": "Coupon chưa đủ 100%. Hãy cấu hình Stripe để thanh toán phần còn lại.",
@@ -2518,13 +3067,85 @@
     "openAdminWorkspace": "Mở Admin Workspace",
     "managementBadge": "Quản lý thanh toán",
     "managementTitle": "Quản lý subscription, usage và hóa đơn",
-    "managementDescription": "Dùng trang Bảng giá để chọn gói, hoàn tất thanh toán ở trang chuyên biệt, sau đó theo dõi vận hành billing tại đây.",
     "openPricingPage": "Mở trang Bảng giá",
     "openCheckoutPage": "Mở trang Checkout",
     "openCouponPage": "Mở trang Coupon",
     "openLicensePage": "Mở trang License",
     "openBillingManagementPage": "Về trang Quản lý thanh toán",
+    "backToPricing": "Quay lại Bảng giá",
+    "checkoutMethodTitle": "Chọn cách thanh toán",
+    "checkoutMethodSubtitle": "",
+    "checkoutSectionSelfHostHint": "Self-host đang bật. Bạn có thể thanh toán trực tiếp hoặc chuyển qua coupon/license.",
+    "checkoutTrustSecure": "Bảo mật thanh toán",
+    "checkoutStatusTitle": "Trạng thái thanh toán",
+    "checkoutStatusIdle": "Sẵn sàng",
+    "checkoutStatusLoading": "Đang xử lý",
+    "checkoutStatusSuccess": "Đã hoàn tất",
+    "checkoutStatusError": "Lỗi thanh toán",
+    "checkoutActionOpening": "Đang mở Stripe Checkout...",
+    "checkoutActionProcessing": "Đang xử lý thanh toán...",
+    "checkoutActionApplyingCoupon": "Đang áp dụng mã...",
+    "checkoutActionClaimingLicense": "Đang kiểm tra license...",
+    "stripeProviderButtonCaption": "Hosted checkout cho workspace hiện tại",
+    "amountDueLabel": "Số tiền",
+    "couponInlineHint": "Áp dụng mã giảm giá để cập nhật số tiền cần thanh toán ngay.",
+    "licenseInlineHint": "Dùng license hợp lệ để kích hoạt trực tiếp mà không cần Stripe Checkout.",
+    "licenseDisclosureClosed": "Có license key? Mở khối này để nhập và kích hoạt trực tiếp.",
+    "checkoutSummaryPlan": "Gói",
+    "checkoutSummaryCycle": "Chu kỳ",
+    "checkoutSummaryWorkspace": "Workspace",
+    "checkoutFlowIdle": "Sẵn sàng.",
+    "checkoutFlowCancelled": "Đã hủy luồng checkout đang chờ.",
+    "checkoutFlowCouponLoading": "Đang áp dụng coupon cho gói đang chờ...",
+    "checkoutFlowCouponApplied": "Coupon đã áp dụng. Tiếp tục xác nhận checkout.",
+    "checkoutFlowPaymentLoading": "Đang xử lý kích hoạt thanh toán...",
+    "checkoutFlowSelfHostedSuccess": "Đã hoàn tất thanh toán self-host và gửi kích hoạt gói.",
+    "checkoutFlowLicenseLoading": "Đang xác thực và claim license...",
+    "checkoutFlowLicenseSuccess": "License hợp lệ. Kích hoạt gói thành công.",
+    "checkoutFlowStripeLoading": "Đang tạo phiên Stripe Checkout...",
+    "checkoutFlowStripeOpened": "Stripe Checkout đã mở. Hoàn tất thanh toán rồi quay lại xác minh.",
+    "checkoutFlowConfirmLoading": "Đang xác minh thanh toán và kích hoạt gói...",
+    "checkoutFlowActivated": "Thanh toán đã xác minh. Gói workspace đã kích hoạt.",
+    "checkoutReturnOpened": "Đã quay lại BugLogin.",
+    "checkoutCancelledTitle": "Đã hủy Stripe Checkout.",
+    "checkoutCancelledDescription": "Bạn có thể quay lại bảng giá hoặc mở lại checkout.",
+    "checkoutReturnSuccessTitle": "Thanh toán đã hoàn tất",
+    "checkoutReturnSuccessDescription": "BugLogin sẽ tự mở lại để xác minh thanh toán và kích hoạt gói.",
+    "checkoutReturnCancelTitle": "Checkout đã hủy",
+    "checkoutReturnCancelDescription": "BugLogin sẽ mở lại để bạn tiếp tục chọn gói hoặc thanh toán sau.",
+    "checkoutReturnResolving": "Đang chuẩn bị quay lại BugLogin...",
+    "checkoutReturnRedirecting": "Đang mở lại BugLogin...",
+    "checkoutReturnSecondary": "Nếu ứng dụng không tự mở, dùng nút bên dưới.",
+    "checkoutReturnSuccessStep": "Đã nhận tín hiệu thanh toán thành công.",
+    "checkoutReturnCancelStep": "Đã nhận tín hiệu hủy checkout.",
+    "checkoutReturnOpenApp": "Mở BugLogin",
+    "checkoutSessionFailed": "Không thể tạo Stripe checkout.",
+    "checkoutLaunchFailed": "Không thể mở Stripe checkout.",
+    "checkoutConfirmFailed": "Không thể xác minh Stripe checkout.",
+    "checkoutActivationFailed": "Không thể hoàn tất kích hoạt.",
+    "controlServerUnavailable": "Không thể kết nối tới billing server.",
+    "controlServerUnavailableDescription": "Kiểm tra lại `sync_server_url`, cổng dịch vụ và trạng thái của buglogin-sync.",
+    "workspaceCheckoutContextExpired": "Workspace thanh toán không còn tồn tại. Hãy quay lại Bảng giá và chọn lại gói từ workspace hiện tại.",
     "nextInvoiceHint": "Hóa đơn tiếp theo sau 30 ngày",
+    "nextRenewalAt": "Gia hạn tiếp theo: {{date}}",
+    "nextRenewalUnknown": "Chưa có dữ liệu ngày gia hạn tiếp theo.",
+    "subscriptionAccessUntil": "Quyền truy cập giữ tới: {{date}}",
+    "autoRenewalStripe": "Tự gia hạn đang bật qua Stripe.",
+    "autoRenewalSelfHosted": "Tự gia hạn phụ thuộc cấu hình self-host hiện tại.",
+    "autoRenewalDisabledAtPeriodEnd": "Tự gia hạn đã tắt. Gói sẽ dừng khi hết chu kỳ.",
+    "subscriptionLifecycleTitle": "Vòng đời subscription",
+    "subscriptionLifecycleDescription": "Bạn có thể hủy vào cuối chu kỳ hoặc dừng gói ngay lập tức.",
+    "subscriptionScheduledSummary": "Gói sẽ dừng vào cuối chu kỳ hiện tại: {{date}}.",
+    "subscriptionCancelAtPeriodEnd": "Hủy khi hết chu kỳ",
+    "subscriptionCancelImmediately": "Hủy ngay lập tức",
+    "subscriptionReactivate": "Bật lại gia hạn",
+    "subscriptionCancelScheduled": "Đã lên lịch hủy gói.",
+    "subscriptionCancelScheduledDescription": "Workspace sẽ dùng tiếp gói hiện tại cho tới ngày hết hạn.",
+    "subscriptionCancelledImmediately": "Đã hủy gói ngay lập tức.",
+    "subscriptionCancelledImmediatelyDescription": "Workspace đã quay về gói mặc định ngay bây giờ.",
+    "subscriptionReactivated": "Đã bật lại gia hạn.",
+    "subscriptionReactivatedDescription": "Gói hiện tại sẽ tiếp tục gia hạn như bình thường.",
+    "subscriptionUpdateFailed": "Không thể cập nhật trạng thái subscription.",
     "paymentRoute": "Luồng thanh toán",
     "paymentRouteStripe": "Stripe checkout",
     "paymentRouteSelfHosted": "Self-host checkout",
@@ -2540,9 +3161,17 @@
     "metricFailedCharges": "Số lần charge lỗi trong quý",
     "metricExportTime": "Thời gian export trung bình",
     "paymentMethodTitle": "Phương thức thanh toán",
-    "paymentActionCenterTitle": "Trung tâm thao tác thanh toán",
-    "paymentActionCenterBodyTitle": "Thanh toán tập trung theo tác vụ",
-    "paymentActionCenterBodyDescription": "Dùng các tab Checkout, Mã giảm giá và License ngay trong cùng một trang để xử lý thanh toán.",
+    "paymentCheckoutInformation": "Thông tin thanh toán",
+    "paymentMethodStripe": "Stripe checkout",
+    "paymentMethodSelfHosted": "Self-host checkout",
+    "paymentMethodDirect": "Kích hoạt trực tiếp",
+    "paymentOrderSummaryTitle": "Tóm tắt đơn thanh toán",
+    "paymentOrderSummaryCycle": "Chu kỳ: {{cycle}}",
+    "paymentOrderSummarySubtotal": "Tạm tính",
+    "paymentOrderSummaryCoupon": "Coupon",
+    "paymentOrderSummaryProrationCredit": "Khấu trừ còn lại",
+    "paymentOrderSummaryTotal": "Tổng thanh toán",
+    "paymentOrderSummaryNoPlan": "Chưa có gói được chọn để thanh toán.",
     "paymentActionCenterSelfHostTitle": "Self-host checkout hiện đang hoạt động",
     "tabs": {
       "checkout": "Checkout",
@@ -2550,12 +3179,12 @@
       "license": "License"
     },
     "paymentConnectedTitle": "Stripe checkout đã được cấu hình",
-    "paymentConnectedDescription": "Đổi gói sẽ được xác thực qua thanh toán Stripe và đối soát webhook.",
-    "paymentClaimDescription": "Stripe chưa cấu hình. Hãy chọn gói ở Bảng giá trước, sau đó claim gói cho workspace bằng coupon hoặc license.",
-    "paymentSelfHostedDescription": "Self-host checkout đang hoạt động. Chọn gói đang chờ và thanh toán ngay, hoặc áp dụng coupon/license cho workspace này.",
+    "paymentConnectedDescription": "",
+    "paymentClaimDescription": "Chọn gói ở Bảng giá trước, sau đó claim gói cho workspace bằng coupon hoặc license.",
+    "paymentSelfHostedDescription": "Self-host checkout đang hoạt động. Chọn gói đang chờ và thanh toán ngay, hoặc kích hoạt bằng coupon/license.",
     "noPaymentMethod": "Chưa có phương thức thanh toán.",
     "selectPlanBeforeClaim": "Hãy chọn gói ở Bảng giá trước khi áp dụng coupon hoặc license.",
-    "licenseTitle": "Claim bằng license",
+    "licenseTitle": "License",
     "licensePlaceholder": "Nhập license key của workspace",
     "claimLicense": "Claim gói",
     "licenseHint": "Dùng license key do admin cấp cho gói {{code}}.",
@@ -2565,7 +3194,7 @@
     "licenseClaimed": "Claim license thành công.",
     "licenseClaimFailed": "Không thể claim license.",
     "licenseValidationUnavailable": "Không thể xác thực license từ control-plane server.",
-    "licenseStripeEnabled": "Stripe đã cấu hình. Hãy hoàn tất checkout qua Stripe thay vì claim license.",
+    "licenseStripeEnabled": "License được kích hoạt trực tiếp, không phụ thuộc vào Stripe checkout.",
     "storageUsage": "Dung lượng cloud sync",
     "bandwidthUsage": "Băng thông proxy",
     "viewFullHistory": "Xem toàn bộ lịch sử hóa đơn",
@@ -2574,11 +3203,14 @@
       "description": "Theo dõi kỳ thanh toán gần nhất và trạng thái thu tiền.",
       "historyTitle": "Toàn bộ lịch sử hóa đơn",
       "exportCsv": "Xuất CSV",
+      "searchPlaceholder": "Tìm theo gói, phương thức, số tiền hoặc thời gian...",
       "empty": "Chưa có dữ liệu hóa đơn. Hóa đơn sẽ xuất hiện sau lần kích hoạt gói thành công đầu tiên.",
+      "noResults": "Không có hóa đơn nào khớp bộ lọc hiện tại.",
       "pendingSyncDescription": "Nguồn dữ liệu hóa đơn đang chờ đồng bộ webhook Stripe. Mục này sẽ có dữ liệu sau giao dịch thành công đầu tiên.",
       "filter3": "3 kỳ",
       "filter6": "6 kỳ",
       "filterAll": "Toàn bộ",
+      "paginationSummary": "Hiển thị {{from}}-{{to}} trên tổng {{total}} hóa đơn",
       "colDate": "Thời gian",
       "colPlan": "Gói",
       "colMethod": "Phương thức",
@@ -2601,5 +3233,666 @@
     "ownerOnlyDescription": "Chỉ owner/admin của workspace hoặc platform admin mới quản lý phương thức thanh toán và hóa đơn.",
     "workspaceContext": "Đang quản lý workspace {{workspace}} · tài khoản {{email}}",
     "workspaceRoleContext": "Vai trò tại workspace này: {{role}}"
+  },
+  "webBilling": {
+    "brand": "BugLogin Billing Web",
+    "tagline": "Cổng billing web cho workspace",
+    "navLanding": "Trang chính",
+    "navPricing": "Bảng giá",
+    "navPlans": "Gói",
+    "navManagement": "Quản lý",
+    "landingTitle": "Billing cho mọi workspace",
+    "landingDescription": "Chọn gói trên web, thanh toán Stripe, rồi đồng bộ entitlement về desktop ngay.",
+    "tilePricingTitle": "Mở bảng giá",
+    "tilePricingDescription": "Chọn gói theo workspace và bắt đầu Stripe checkout trên web.",
+    "tilePlansTitle": "So sánh gói",
+    "tilePlansDescription": "Xem hạn mức profile, thành viên, storage và giá theo chu kỳ.",
+    "tileManagementTitle": "Quản lý subscription",
+    "tileManagementDescription": "Theo dõi subscription hiện tại, hóa đơn và điều khiển gia hạn.",
+    "openSection": "Mở mục",
+    "plansTitle": "Gói và hạn mức",
+    "plansDescription": "Bảng tham chiếu hạn mức từng gói và mức giá niêm yết.",
+    "pricingTitle": "Chọn gói và checkout",
+    "pricingDescription": "Bước 1 kết nối Control API. Bước 2 chọn workspace và chu kỳ. Bước 3 chuyển qua Stripe checkout.",
+    "managementTitle": "Quản lý billing",
+    "managementDescription": "Theo dõi subscription, hóa đơn và thao tác hủy/gia hạn sau khi checkout.",
+    "connectionTitle": "Kết nối Control API",
+    "connectionDescription": "Nhập credential Control API của workspace để portal tải dữ liệu billing.",
+    "connectionStatusReady": "Kết nối sẵn sàng",
+    "connectionStatusMissing": "Bước 1 bắt buộc: kết nối Control API",
+    "fieldControlBaseUrl": "Control base URL",
+    "fieldControlToken": "Control token",
+    "fieldUserId": "User ID",
+    "fieldUserEmail": "Email người dùng",
+    "fieldPlan": "Gói",
+    "fieldStatus": "Trạng thái",
+    "fieldCycle": "Chu kỳ",
+    "fieldExpires": "Hết hạn",
+    "placeholderControlBaseUrl": "https://sync.example.com",
+    "placeholderControlToken": "control token",
+    "placeholderUserId": "usr_xxx",
+    "placeholderUserEmail": "owner@example.com",
+    "workspaceSelectionTitle": "Chọn workspace",
+    "workspaceSelectionDescription": "Chọn workspace cần thanh toán trước khi checkout hoặc thao tác subscription.",
+    "workspacePlaceholder": "Chọn workspace",
+    "workspaceCurrentPlan": "Hiện tại: {{plan}}",
+    "workspaceRequired": "Cần chọn workspace để thực hiện thao tác.",
+    "startCheckout": "Tiếp tục tới Stripe checkout",
+    "creatingCheckout": "Đang tạo checkout...",
+    "checkoutImmediateActivated": "Workspace đã được kích hoạt ngay.",
+    "checkoutCreateFailed": "Không thể tạo checkout.",
+    "loadWorkspaceFailed": "Không thể tải danh sách workspace.",
+    "loadBillingFailed": "Không thể tải trạng thái billing.",
+    "currentSubscriptionTitle": "Subscription hiện tại",
+    "noSubscription": "Chưa có subscription trả phí đang hoạt động.",
+    "invoiceTitle": "Hóa đơn gần đây",
+    "noInvoices": "Chưa có dữ liệu hóa đơn.",
+    "cancelAtPeriodEnd": "Hủy vào cuối chu kỳ",
+    "cancelImmediately": "Hủy ngay",
+    "reactivate": "Kích hoạt lại",
+    "actionSuccess": "Thao tác subscription đã hoàn tất.",
+    "actionFailed": "Không thể cập nhật subscription.",
+    "genericError": "Có lỗi không mong muốn. Vui lòng thử lại.",
+    "notAvailable": "Không có dữ liệu",
+    "tablePlan": "Gói",
+    "tableMonthly": "Tháng",
+    "tableYearly": "Năm",
+    "tableProfiles": "Profiles",
+    "tableMembers": "Thành viên",
+    "tableStorage": "Storage",
+    "tableCycle": "Chu kỳ",
+    "tableAmount": "Số tiền",
+    "tableMethod": "Phương thức",
+    "tableCreatedAt": "Thời gian tạo",
+    "faqTitle": "Câu hỏi thường gặp",
+    "faq1Q": "Desktop billing còn dùng được không?",
+    "faq1A": "Không. Checkout trong desktop đã được thay hoàn toàn bằng web billing portal này.",
+    "faq2Q": "Vì sao bắt buộc kết nối Control API?",
+    "faq2A": "Portal dùng credential Control API để tải workspace và thực thi thao tác billing an toàn.",
+    "faq3Q": "Khi nào desktop nhận entitlement mới?",
+    "faq3A": "Sau checkout thành công, mở Billing trên desktop và bấm đồng bộ entitlement từ web.",
+    "desktopPricingTitle": "Bảng giá đã chuyển sang web portal",
+    "desktopPricingDescription": "Chọn gói và mua trên web. Desktop giờ chỉ đồng bộ entitlement sau checkout.",
+    "desktopManagementTitle": "Billing management đã chuyển sang web portal",
+    "desktopManagementDescription": "Cập nhật subscription, hủy gói và theo dõi hóa đơn giờ chỉ thực hiện trên web.",
+    "desktopMigrationTitle": "Luồng billing mới",
+    "desktopMigrationDescription": "Luồng checkout trong app đã được thay bằng web billing để giảm bề mặt tấn công cục bộ.",
+    "desktopManagementMigrationDescription": "Thực hiện mọi thao tác billing trên web, sau đó bấm đồng bộ để cập nhật entitlement cho desktop.",
+    "desktopOpenPricing": "Mở bảng giá web",
+    "desktopOpenPlans": "Mở trang gói web",
+    "desktopOpenManagement": "Mở quản lý web",
+    "desktopPortalOpened": "Đã mở billing portal.",
+    "desktopPortalOpenFailed": "Không thể mở billing portal.",
+    "desktopPortalMissing": "Chưa cấu hình URL của billing portal.",
+    "desktopContextMissing": "Thiếu context đồng bộ. Kiểm tra sync server URL/token và thông tin tài khoản.",
+    "desktopWorkspace": "Workspace: {{workspace}}",
+    "desktopPlan": "Gói: {{plan}}",
+    "desktopWorkspaceCount": "{{count}} workspace",
+    "desktopExpiresAt": "Hết hạn: {{date}}",
+    "desktopProfileUsage": "Mức dùng profile",
+    "desktopProfileUsageValue": "{{used}} / {{limit}} profiles",
+    "desktopSyncButton": "Đồng bộ entitlement từ web",
+    "desktopSyncSuccess": "Đã đồng bộ entitlement từ web.",
+    "desktopSyncFailed": "Không thể đồng bộ entitlement.",
+    "desktopCheckoutReturnSuccess": "Đã nhận callback checkout. Mở Billing để đồng bộ entitlement mới nhất.",
+    "desktopCheckoutReturnCancelled": "Checkout đã bị hủy."
+  },
+  "portalSite": {
+    "nav": {
+      "home": "Trang chủ",
+      "product": "Sản phẩm",
+      "teams": "Teams",
+      "resources": "Tài nguyên",
+      "community": "Cộng đồng",
+      "support": "Hỗ trợ",
+      "enterprise": "Enterprise",
+      "dashboard": "Dashboard",
+      "pricing": "Pricing",
+      "auth": "Đăng nhập",
+      "help": "Hỗ trợ",
+      "billing": "Billing",
+      "admin": "Super Admin",
+      "brand": "Antidetect Browser Control",
+      "download": "Tải app",
+      "signIn": "Đăng nhập",
+      "signUp": "Đăng ký",
+      "signOut": "Đăng xuất",
+      "superAdmin": "Super Admin",
+      "openMenu": "Mở menu"
+    },
+    "footer": {
+      "title": "BugLogin Portal",
+      "description": "Website điều phối toàn bộ hành trình mua gói, xác thực, thanh toán và vận hành admin cho BugLogin.",
+      "cta": "Xem pricing",
+      "product": "Sản phẩm",
+      "resources": "Tài nguyên",
+      "operations": "Vận hành",
+      "terms": "Điều khoản",
+      "privacy": "Quyền riêng tư",
+      "refund": "Hoàn tiền"
+    },
+    "home": {
+      "reportLabel": "State of Sites ’26",
+      "reportCta": "Mở báo cáo ngay",
+      "eyebrow": "Antidetect browser cho team vận hành",
+      "linearTitleLine1": "Hệ antidetect browser",
+      "linearTitleLine2": "dành cho team và operator",
+      "linearSubtitle": "Thiết kế riêng cho profile isolation, workspace controls và billing operations.",
+      "title": "Điều phối browser, workspace và billing trên cùng một mặt điều khiển.",
+      "description": "BugLogin kết hợp desktop antidetect browser với control layer trên web để bán gói, xác thực tài khoản, quản lý subscription và vận hành platform admin mà không làm rối trải nghiệm trong app.",
+      "primaryCta": "Tải desktop app",
+      "secondaryCta": "Xem pricing",
+      "metrics": {
+        "profiles": {
+          "value": "1,000+",
+          "label": "profiles cho mỗi workspace scale"
+        },
+        "teams": {
+          "value": "25",
+          "label": "seat tối đa cho gói custom"
+        },
+        "ops": {
+          "value": "24/7",
+          "label": "giám sát billing và admin trên web"
+        }
+      },
+      "mockup": {
+        "windowLabel": "Portal",
+        "windowTitle": "Control plane cho BugLogin",
+        "status": "Live",
+        "sidebar": {
+          "team": "Workspace đang theo dõi",
+          "active": "Profile hoạt động",
+          "seats": "Ghế đang dùng"
+        },
+        "cards": {
+          "stealth": "Stealth runtime",
+          "workspace": "Workspace controls",
+          "billing": "Stripe billing"
+        },
+        "stats": {
+          "queue": {
+            "label": "Queue vận hành",
+            "value": "08"
+          },
+          "risk": {
+            "label": "Workspace rủi ro",
+            "value": "03"
+          },
+          "revenue": {
+            "label": "Subscription hoạt động",
+            "value": "128"
+          }
+        },
+        "rows": {
+          "1": {
+            "title": "Growth workspace cần gia hạn",
+            "subtitle": "Stripe session đã sẵn sàng",
+            "badge": "Billing"
+          },
+          "2": {
+            "title": "Google OAuth callback ổn định",
+            "subtitle": "Portal và desktop dùng chung authority",
+            "badge": "Auth"
+          },
+          "3": {
+            "title": "Admin audit đồng bộ",
+            "subtitle": "Control API phản ánh realtime",
+            "badge": "Ops"
+          }
+        }
+      },
+      "surface": {
+        "runtime": "Runtime",
+        "signals": "Tín hiệu",
+        "liveLayer": "Lớp điều phối",
+        "accountBilling": "Account billing",
+        "superAdmin": "Super admin",
+        "scaleWorkspace": "Workspace scale",
+        "accountBillingDescription": "Usage, invoice, retry checkout và entitlement state luôn đọc được ngay trên web.",
+        "featureBadges": {
+          "stealth": "Stealth",
+          "workspace": "Workspace",
+          "billing": "Billing"
+        }
+      },
+      "capabilitiesEyebrow": "Năng lực cốt lõi",
+      "capabilitiesTitle": "Website bán hàng nhưng vẫn vận hành như một product thực thụ.",
+      "capabilitiesDescription": "Landing, pricing, auth, checkout, account billing và super admin dùng chung contract với desktop thay vì tách thành các bề mặt rời rạc.",
+      "features": {
+        "stealth": {
+          "title": "Antidetect browser được đặt làm trọng tâm",
+          "description": "Hero, pricing và auth đều nhấn đúng giá trị sản phẩm cốt lõi thay vì biến web thành một billing microsite chung chung."
+        },
+        "workspace": {
+          "title": "Portal nối trực tiếp vào workspace thật",
+          "description": "Mọi gói, hóa đơn và trạng thái entitlement đều lấy từ cùng Control API và DB đang phục vụ desktop app."
+        },
+        "billing": {
+          "title": "Stripe checkout và account billing gọn, an toàn",
+          "description": "User xử lý mua gói, invoice, gia hạn và trạng thái subscription trên web mà không cần nhúng logic thanh toán nặng vào app."
+        }
+      },
+      "steps": {
+        "signin": {
+          "title": "Xác thực theo một auth hub thống nhất",
+          "description": "Email/password, OTP, Google OAuth và invite flow cùng hội tụ trên một màn auth duy nhất."
+        },
+        "checkout": {
+          "title": "Chọn workspace rồi checkout",
+          "description": "Website buộc gắn plan với workspace thật trước khi tạo Stripe session để không làm lệch entitlement."
+        },
+        "operate": {
+          "title": "Vận hành sau mua trên web, chạy việc trong app",
+          "description": "User về desktop để làm việc; account billing và super admin ở lại trên website để tách lớp vận hành khỏi runtime browser."
+        }
+      },
+      "splitEyebrow": "Dual-tone product",
+      "splitTitle": "Public pages mềm, vùng sau đăng nhập đậm tính vận hành.",
+      "splitDescription": "Phong cách tổng thể vẫn premium và sạch, nhưng sau login giao diện chuyển nhịp sang shell ứng dụng để đọc dữ liệu nhanh hơn.",
+      "splitCards": {
+        "account": {
+          "title": "Account billing cho user thật",
+          "description": "User xem plan hiện tại, usage, invoice history và chạy lại luồng checkout khi cần."
+        },
+        "admin": {
+          "title": "Super admin cho vận hành nội bộ",
+          "description": "Platform admin theo dõi workspace health, revenue signals, audit trail và trạng thái hệ thống trong cùng website."
+        }
+      },
+      "faqTitle": "Câu hỏi thường gặp",
+      "faq": {
+        "security": {
+          "q": "Web portal có tách khỏi dữ liệu desktop không?",
+          "a": "Không. Portal chỉ thay mặt hiển thị và thao tác lên cùng authority đang phục vụ desktop, nên trạng thái plan và billing không bị lệch nguồn."
+        },
+        "billing": {
+          "q": "Thanh toán xử lý ở đâu?",
+          "a": "Luồng public dùng Stripe checkout. Sau khi thanh toán xong, portal đưa user về account billing để đọc lại trạng thái mới."
+        },
+        "desktop": {
+          "q": "Sau login user làm việc ở web hay desktop?",
+          "a": "Desktop vẫn là app chính. Website chỉ đảm nhận marketing, auth, checkout, billing và super admin."
+        }
+      }
+    },
+  "pricing": {
+    "eyebrow": "Public pricing",
+    "title": "Pricing công khai, rõ workspace limit và đủ mạnh để chốt mua ngay.",
+    "description": "Bảng giá mới bán đúng core offer của BugLogin: antidetect browser cho cá nhân và team, kèm cloud sync, billing và lớp quản trị vận hành trên web.",
+    "perMonthBilledYearly": "/ tháng, thanh toán theo năm",
+    "perMonthBilledMonthly": "/ tháng, thanh toán theo tháng",
+    "saveBadge": "Tiết kiệm 25%",
+    "getStarted": "Bắt đầu",
+    "selectPlan": "Chọn gói",
+    "contactSales": "Liên hệ sales",
+    "compareTitle": "So sánh giới hạn từng gói",
+    "compareHeading": "Xem chính xác mỗi gói BugLogin mở được những gì.",
+    "compareDescription": "Đối chiếu workspace limits, số thành viên, storage, proxy quota và mức hỗ trợ trước khi đưa user vào checkout.",
+    "linearSubtitle": "Chọn tier workspace phù hợp với quy mô team và nhu cầu runtime.",
+    "trustedBy": "Được tin dùng bởi team product, growth và vận hành anti-detect.",
+    "mostPopular": "Phổ biến nhất",
+    "customPriceLabel": "báo giá riêng",
+    "supportLabel": "Hỗ trợ",
+    "finalCtaEyebrow": "Checkout sẵn sàng chạy",
+    "finalCtaTitle": "Bắt đầu bằng một workspace tier đủ sức gánh browser operations hằng ngày.",
+    "finalCtaDescription": "Dùng public checkout cho Starter hoặc Scale, sau đó quản lý billing, invoice và trạng thái gói ngay trên web portal mà không phải quay lại desktop app.",
+    "plans": {
+      "free": {
+        "name": "Free",
+        "audience": "Thử nghiệm cá nhân và setup profile ban đầu"
+      },
+      "starter": {
+        "name": "Starter",
+        "audience": "Team operator nhỏ chạy chung một workspace"
+      },
+      "growth": {
+        "name": "Growth",
+        "audience": "Team đang mở rộng cần thêm profile, thành viên và dung lượng vận hành"
+      },
+      "scale": {
+        "name": "Scale",
+        "audience": "Vận hành production với concurrency cao hơn và cloud sync"
+      },
+      "custom": {
+        "name": "Custom",
+        "audience": "Team nâng cao cần quota, storage và billing tùy chỉnh"
+      }
+    },
+    "support": {
+      "community": "Hỗ trợ cộng đồng",
+      "email": "Email support",
+        "priority": "Priority support",
+        "dedicated": "Dedicated support"
+      },
+      "table": {
+        "feature": "Tính năng",
+        "profiles": "Profiles",
+        "members": "Thành viên",
+        "storage": "Storage",
+        "proxy": "Proxy"
+      },
+      "tableDescriptions": {
+        "profiles": "Số lượng browser profile cô lập tối đa có thể dùng trong workspace.",
+        "members": "Số ghế thành viên có thể dùng chung billing và quyền truy cập workspace.",
+        "storage": "Dung lượng cloud storage dành cho profile, session và dữ liệu sync.",
+        "proxy": "Quota băng thông proxy đã bao gồm trong gói.",
+        "support": "Mức hỗ trợ và kênh xử lý đi kèm với từng tier."
+      }
+    },
+    "auth": {
+      "eyebrow": "Auth hub",
+      "title": "Một cửa đăng nhập cho web portal của BugLogin.",
+      "description": "Flow này gom password auth, OTP, Google OAuth và invite accept vào cùng một entry point để giảm ma sát trước checkout hoặc account billing.",
+      "hub": "Portal auth",
+      "login": "Đăng nhập",
+      "register": "Tạo tài khoản",
+      "otp": "OTP",
+      "invite": "Invite",
+      "requestOtp": "Gửi OTP",
+      "inviteToken": "Invite token",
+      "invitePlaceholder": "Nhập token được cấp",
+      "acceptAfterLogin": "Đăng nhập rồi chấp nhận invite",
+      "google": "Tiếp tục với Google",
+      "googleConfigMissing": "Thiếu cấu hình Google OAuth cho portal.",
+      "googleFailed": "Không thể hoàn tất Google OAuth.",
+      "success": "Xác thực thành công.",
+      "error": "Không thể xác thực.",
+      "legalHint": "Tiếp tục đồng nghĩa bạn chấp nhận",
+      "and": "và",
+      "oauthReturn": "Đang đưa bạn quay lại auth hub của portal.",
+      "returnToAuth": "Quay lại auth",
+      "highlights": {
+        "browser": {
+          "title": "Auth phục vụ đúng product core",
+          "description": "Website dẫn người dùng vào desktop antidetect browser thay vì cố biến web thành app làm việc chính."
+        },
+        "billing": {
+          "title": "Checkout liền mạch sau login",
+          "description": "Pricing và checkout có thể chuyển thẳng sang workspace thật ngay khi user xác thực xong."
+        },
+        "admin": {
+          "title": "Super admin không dùng flow tách rời",
+          "description": "Platform admin dùng cùng auth authority, chỉ khác post-auth destination và quyền truy cập."
+        }
+      }
+    },
+    "checkout": {
+      "eyebrow": "Stripe checkout",
+      "title": "Checkout gắn trực tiếp với workspace thật.",
+      "description": "User chọn gói, chu kỳ và workspace rồi website tạo Stripe session trên đúng authority đang dùng chung với desktop.",
+      "loading": "Đang chuẩn bị checkout...",
+      "loadWorkspacesFailed": "Không thể tải workspace để checkout.",
+      "workspaceRequired": "Bạn cần chọn workspace trước khi tiếp tục.",
+      "createFailed": "Không thể tạo checkout.",
+      "immediateActivated": "Workspace đã được kích hoạt ngay.",
+      "planTitle": "Chọn plan",
+      "planDescription": "Các mức giá và quota bên dưới dùng chung cấu hình với pricing public và desktop app.",
+      "summaryTitle": "Tóm tắt đơn hàng",
+      "summaryDescription": "Website chỉ tạo checkout sau khi đã gắn plan vào workspace thật.",
+      "workspace": "Workspace",
+      "workspacePlaceholder": "Chọn workspace",
+      "workspaceEmpty": "Chưa chọn workspace",
+      "coupon": "Mã giảm giá",
+      "couponPlaceholder": "Nhập coupon nếu có",
+      "cycle": "Chu kỳ",
+      "cycleMonthly": "Hàng tháng",
+      "cycleYearly": "Hàng năm",
+      "profiles": "Profiles",
+      "members": "Thành viên",
+      "continue": "Tiếp tục tới Stripe",
+      "successTitle": "Thanh toán thành công",
+      "successDescription": "Portal đang đưa bạn trở lại khu billing để đọc trạng thái mới nhất.",
+      "cancelTitle": "Checkout đã bị hủy",
+      "cancelDescription": "Bạn có thể quay lại pricing hoặc mở lại checkout bất kỳ lúc nào.",
+      "returning": "Đang quay lại billing portal.",
+      "openBilling": "Mở billing"
+    },
+    "account": {
+      "eyebrow": "Account billing",
+      "title": "Quản lý subscription, invoice và usage theo workspace.",
+      "description": "Khu account giữ mọi thứ liên quan tới plan và thanh toán trên web, trong khi desktop tập trung vào runtime và profile operations.",
+      "dashboardTitle": "Tổng quan tài khoản",
+      "dashboardDescription": "Bảng điều khiển gọn cho workspace billing, lịch sử hóa đơn và các cài đặt tài khoản.",
+      "loading": "Đang tải billing account...",
+      "loadWorkspacesFailed": "Không thể tải danh sách workspace.",
+      "loadBillingFailed": "Không thể tải trạng thái billing.",
+      "refresh": "Làm mới",
+      "refreshed": "Đã làm mới dữ liệu billing.",
+      "workspace": "Workspace",
+      "workspaceHint": "Chọn workspace cần kiểm tra trạng thái plan và hóa đơn.",
+      "workspacePlaceholder": "Chọn workspace",
+      "workspaceStatus": "Trạng thái workspace",
+      "workspaceMeta": "Mode: {{mode}} · Billing: {{status}}",
+      "workspaceEmpty": "Không có workspace khả dụng trong session hiện tại.",
+      "quickActions": "Thao tác nhanh",
+      "membersLabel": "Giới hạn workspace",
+      "membersDetail": "Sức chứa profile đang hiển thị cho seat billing hiện tại.",
+      "settingsDescription": "Tuỳ chọn tài khoản, mặc định của workspace và các kiểm soát an toàn nên nằm trên web thay vì làm nặng desktop runtime.",
+      "profileTitle": "Hồ sơ",
+      "securityTitle": "Bảo mật và quyền truy cập",
+      "securityDescription": "Quyền billing, payment actions và quản trị workspace được giới hạn theo role của portal hiện tại.",
+      "languageTitle": "Ngôn ngữ",
+      "languageDescription": "Ngôn ngữ website đi theo thiết lập portal để account và admin luôn đồng nhất với public web shell.",
+      "notificationsTitle": "Thông báo",
+      "notificationsDescription": "Các cập nhật billing và hóa đơn nên nằm trên web, còn desktop app tập trung cho runtime work.",
+      "nav": {
+        "overview": "Tổng quan",
+        "billing": "Billing",
+        "invoices": "Hóa đơn",
+        "settings": "Cài đặt"
+      },
+      "plan": "Plan",
+      "status": "Trạng thái",
+      "cycle": "Chu kỳ",
+      "renewal": "Gia hạn / hết hạn",
+      "notAvailable": "Không có dữ liệu",
+      "noPlan": "Chưa có plan trả phí",
+      "changePlan": "Xem pricing",
+      "subscriptionTitle": "Subscription hiện tại",
+      "subscriptionDescription": "Portal cho phép đổi gói, khởi chạy checkout lại và điều khiển trạng thái subscription của workspace đang chọn.",
+      "managePayment": "Mở secure checkout",
+      "upgrade": "Nâng cấp / thanh toán lại",
+      "storageUsage": "Storage usage",
+      "proxyUsage": "Proxy usage",
+      "cancelAtPeriodEnd": "Hủy cuối chu kỳ",
+      "cancelNow": "Hủy ngay",
+      "reactivate": "Kích hoạt lại",
+      "actionSuccess": "Đã cập nhật subscription.",
+      "actionFailed": "Không thể cập nhật subscription.",
+      "invoiceTitle": "Invoice và lịch sử billing",
+      "invoiceDescription": "Danh sách hóa đơn gần nhất được đọc trực tiếp từ billing state hiện có.",
+      "invoiceDate": "Ngày",
+      "invoicePlan": "Plan",
+      "invoiceAmount": "Số tiền",
+      "invoiceMethod": "Phương thức",
+      "invoiceStatus": "Trạng thái",
+      "invoiceEmpty": "Chưa có invoice nào cho workspace này.",
+      "paymentMethodTitle": "Phương thức thanh toán",
+      "paymentMethodDescription": "Funding source được quản lý qua Stripe-hosted checkout. Khi cần cập nhật, portal sẽ mở lại luồng checkout an toàn cho workspace hiện tại.",
+      "checkoutSuccessTitle": "Thanh toán đã hoàn tất",
+      "checkoutSuccessDescription": "Portal đã quay lại billing. Nếu webhook xử lý xong, plan mới sẽ phản ánh ngay tại đây.",
+      "checkoutCancelTitle": "Bạn đã hủy checkout",
+      "checkoutCancelDescription": "Plan hiện tại không thay đổi. Bạn có thể mở lại checkout bất kỳ lúc nào."
+    },
+    "admin": {
+      "eyebrow": "Super admin control",
+      "loading": "Đang tải super admin panel...",
+      "refresh": "Làm mới",
+      "overview": {
+        "title": "Tổng quan nền tảng",
+        "description": "Một bề mặt điều khiển chung cho workspace risk, doanh thu và độ sẵn sàng của dịch vụ trên toàn nền tảng.",
+        "workspacesDescription": "Tổng số workspace hiện nhìn thấy từ control plane.",
+        "activeDescription": "Các subscription đang active và sẵn sàng cho production runtime.",
+        "riskDescription": "Những workspace cần operator chú ý vì billing đang suy giảm.",
+        "auditDescription": "Những workspace đang dùng custom hoặc gói được quản lý thủ công."
+      },
+      "nav": {
+        "overview": "Tổng quan",
+        "commandCenter": "Command Center",
+        "workspaces": "Workspaces",
+        "revenue": "Revenue",
+        "audit": "Audit",
+        "auditLog": "Audit log",
+        "system": "System"
+      },
+      "metrics": {
+        "workspaces": "Workspaces",
+        "audits": "Audit 24h",
+        "activeRevenue": "Subscription hoạt động",
+        "highRisk": "Workspace rủi ro cao"
+      },
+      "columns": {
+        "workspace": "Workspace",
+        "plan": "Plan",
+        "risk": "Risk",
+        "status": "Trạng thái",
+        "members": "Members",
+        "storage": "Storage",
+        "proxy": "Proxy",
+        "latestInvoice": "Invoice gần nhất",
+        "time": "Thời gian",
+        "action": "Action",
+        "actor": "Actor",
+        "reason": "Reason"
+      },
+      "risk": {
+        "low": "Thấp",
+        "medium": "Trung bình",
+        "high": "Cao"
+      },
+      "commandCenter": {
+        "title": "Command Center cho toàn bộ control plane.",
+        "description": "Màn tổng quan dành cho platform admin để đọc nhanh tình trạng workspace, queue vận hành và độ sẵn sàng của hệ thống.",
+        "queueTitle": "Queue ưu tiên",
+        "queueDescription": "Các workspace cần chú ý được gom lại theo tín hiệu risk, billing và trạng thái subscription.",
+        "systemTitle": "Trạng thái nền tảng",
+        "systemDescription": "Tổng hợp ngắn gọn readiness của auth, Stripe và sync runtime."
+      },
+      "workspaces": {
+        "title": "Workspaces trên toàn hệ thống.",
+        "description": "Danh sách này giúp platform admin nhìn nhanh health, limit và mức dùng của từng workspace.",
+        "tableTitle": "Workspace health",
+        "tableDescription": "Dữ liệu được kéo trực tiếp từ admin workspace health endpoint."
+      },
+      "revenue": {
+        "title": "Revenue signals và tình trạng entitlement.",
+        "description": "Portal web hiển thị các tín hiệu doanh thu có sẵn trên control plane mà không cần nhúng dashboard tài chính nặng vào app.",
+        "activeSubscriptions": "Subscription hoạt động",
+        "coupons": "Coupon đang có",
+        "entitlementActive": "Entitlement active",
+        "pastDue": "Workspace past due",
+        "latestTitle": "Hoạt động billing gần nhất",
+        "latestDescription": "Danh sách workspace có invoice gần nhất để theo dõi nhịp doanh thu và gia hạn."
+      },
+      "audit": {
+        "title": "Audit trail cho các thao tác quản trị.",
+        "description": "Mọi thay đổi quản trị quan trọng có thể được rà soát ngay trong website mà không cần quay lại tooling nội bộ khác.",
+        "tableTitle": "Audit log",
+        "tableDescription": "Các bản ghi mới nhất từ control plane được render trực tiếp trong bảng."
+      },
+      "system": {
+        "title": "System readiness và cấu hình runtime.",
+        "description": "Màn này tập trung vào tình trạng kết nối control plane, token và readiness của các thành phần cốt lõi.",
+        "runtimeTitle": "Runtime hiện tại",
+        "runtimeDescription": "Portal dùng chung runtime contract với desktop, nhưng đọc trạng thái theo ngữ cảnh web.",
+        "operationsTitle": "Checklist vận hành",
+        "operationsDescription": "Các gợi ý ngắn để kiểm tra nhanh khi auth, billing hoặc sync có dấu hiệu lệch trạng thái.",
+        "baseUrl": "Control base URL",
+        "controlToken": "Control token",
+        "auth": "Auth service",
+        "stripe": "Stripe service",
+        "sync": "Sync service",
+        "ready": "Sẵn sàng",
+        "pending": "Chưa sẵn sàng",
+        "hintAuthTitle": "Kiểm tra public auth routes",
+        "hintAuthDescription": "Nếu login/register lỗi, rà lại `public/auth` endpoint và token cấu hình ở sync runtime trước.",
+        "hintStripeTitle": "Kiểm tra Stripe secret và webhook",
+        "hintStripeDescription": "Portal chỉ nên public checkout khi cả secret lẫn webhook đều ở trạng thái ready.",
+        "hintSyncTitle": "Kiểm tra S3 và state file",
+        "hintSyncDescription": "Khi usage hoặc entitlement lệch, cần xác nhận sync storage và control state vẫn đang đồng bộ."
+      }
+    },
+    "help": {
+      "title": "Hỗ trợ nhanh cho website mới của BugLogin",
+      "description": "Trang này gom các hướng dẫn ngắn nhất để user biết web portal dùng để làm gì và khi nào cần quay lại desktop app.",
+      "items": {
+        "download": {
+          "title": "Tải và chạy desktop app",
+          "description": "Website chịu trách nhiệm chuyển đổi và billing, còn desktop vẫn là nơi user chạy browser profiles và workspace operations."
+        },
+        "billing": {
+          "title": "Billing chạy hoàn toàn trên web",
+          "description": "Mua gói, mở lại checkout, xem invoice và trạng thái subscription đều được thực hiện ở portal mới."
+        },
+        "admin": {
+          "title": "Super Admin nằm ngay trên website",
+          "description": "Platform admin truy cập command center, workspace health, revenue và audit ngay trên single-domain portal."
+        },
+        "security": {
+          "title": "Cùng authority với desktop",
+          "description": "Portal không tạo DB hay API riêng; nó đọc ghi trên cùng authority đang dùng cho auth, billing và workspace control."
+      }
+    },
+    "settingsShell": {
+      "workspace": "Workspace hiện tại"
+    }
+  },
+    "legal": {
+      "terms": {
+        "title": "Điều khoản sử dụng",
+        "description": "Website mới của BugLogin đóng vai trò cổng chuyển đổi, billing và admin nên các điều khoản tập trung vào quyền truy cập, workspace governance và trách nhiệm sử dụng.",
+        "sections": {
+          "1": {
+            "title": "Phạm vi sử dụng",
+            "body": "Tài khoản BugLogin được cấp cho cá nhân hoặc team đã đăng ký. Mọi thao tác billing, auth và admin trên portal đều gắn với workspace và audit trail tương ứng."
+          },
+          "2": {
+            "title": "Quản trị và phân quyền",
+            "body": "Platform admin, owner và admin của workspace chỉ được thực hiện các thao tác nằm trong phạm vi quyền được cấp bởi control plane hiện hành."
+          },
+          "3": {
+            "title": "Tuân thủ thanh toán",
+            "body": "Các giao dịch public được xử lý qua Stripe. Trạng thái thanh toán cuối cùng được xác định bởi billing authority và webhook hợp lệ."
+          }
+        }
+      },
+      "privacy": {
+        "title": "Chính sách quyền riêng tư",
+        "description": "Portal mới chỉ thu thập và hiển thị dữ liệu cần thiết cho auth, billing và vận hành admin.",
+        "sections": {
+          "1": {
+            "title": "Dữ liệu tài khoản",
+            "body": "Email, định danh người dùng, avatar và vai trò nền tảng được dùng để xác thực và định tuyến quyền trên website."
+          },
+          "2": {
+            "title": "Dữ liệu billing",
+            "body": "Workspace, subscription, invoice và usage được đồng bộ từ billing/control plane để hiển thị trong account billing và super admin."
+          },
+          "3": {
+            "title": "Nhật ký vận hành",
+            "body": "Các hành động quản trị có thể xuất hiện trong audit log nhằm đảm bảo khả năng truy vết và an toàn vận hành cho hệ thống."
+          }
+        }
+      },
+      "refund": {
+        "title": "Chính sách hoàn tiền",
+        "description": "Refund được xử lý theo trạng thái subscription và chính sách thanh toán hiện có của BugLogin.",
+        "sections": {
+          "1": {
+            "title": "Yêu cầu hoàn tiền",
+            "body": "Mọi yêu cầu cần gắn với workspace, invoice hoặc session thanh toán hợp lệ để đội ngũ có thể kiểm tra chính xác."
+          },
+          "2": {
+            "title": "Thời gian xử lý",
+            "body": "Portal hiển thị lịch sử invoice và trạng thái plan, còn quyết định hoàn tiền cuối cùng được xử lý qua quy trình billing của hệ thống."
+          },
+          "3": {
+            "title": "Ảnh hưởng tới entitlement",
+            "body": "Sau khi hoàn tiền hoặc hủy gói, entitlement của workspace có thể được cập nhật lại theo policy active, grace hoặc read-only."
+          }
+        }
+      }
+    }
   }
 }

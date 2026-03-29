@@ -17,4 +17,11 @@ export class ControlPublicAuthController {
   login(@Body() body: { email?: string; password?: string }) {
     return this.controlService.loginAuthUser(body.email ?? "", body.password ?? "");
   }
+
+  @Post("google")
+  loginWithGoogle(
+    @Body() body: { email?: string; name?: string; avatar?: string },
+  ) {
+    return this.controlService.loginOrRegisterGoogleAuthUser(body.email ?? "");
+  }
 }

@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -393,9 +394,13 @@ export function ExtensionManagementDialog({
                           onClick={handleUpload}
                           disabled={isUploading || !extensionName.trim()}
                         >
-                          {isUploading
-                            ? t("common.buttons.loading")
-                            : t("common.buttons.add")}
+                          {isUploading ? (
+                            <span className="inline-flex items-center justify-center">
+                              <Spinner size="sm" className="text-current" />
+                            </span>
+                          ) : (
+                            t("common.buttons.add")
+                          )}
                         </RippleButton>
                         <Button
                           size="sm"
@@ -414,8 +419,8 @@ export function ExtensionManagementDialog({
 
                   {/* Extensions list */}
                   {isLoading ? (
-                    <div className="text-sm text-muted-foreground">
-                      {t("common.buttons.loading")}
+                    <div className="flex items-center justify-center py-3">
+                      <Spinner size="md" />
                     </div>
                   ) : extensions.length === 0 ? (
                     <div className="text-sm text-muted-foreground">

@@ -1,14 +1,64 @@
 "use client";
 
 import { AnimatePresence, type HTMLMotionProps, motion } from "motion/react";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 import { RxCross2 } from "react-icons/rx";
 
 import { useControlledState } from "@/hooks/use-controlled-state";
 import { getStrictContext } from "@/lib/get-strict-context";
 import { cn } from "@/lib/utils";
-import { WindowDragArea } from "../window-drag-area";
+
+function detectDialogPlatform(): "macos" | "windows" | "linux" {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (userAgent.includes("mac")) return "macos";
+  if (userAgent.includes("win")) return "windows";
+  return "linux";
+}
+
+function DialogWindowDragSurface() {
+  const [enabled, setEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isTauri()) {
+      setEnabled(false);
+      return;
+    }
+    const platform = detectDialogPlatform();
+    setEnabled(platform === "windows" || platform === "macos");
+  }, []);
+
+  const handlePointerDown = React.useCallback((event: React.PointerEvent) => {
+    if (!enabled || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void getCurrentWindow()
+      .startDragging()
+      .catch(() => {
+        // Best effort only for dialog overlay drag surface.
+      });
+  }, [enabled]);
+
+  if (!enabled) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed top-0 right-0 left-0 z-[10001] h-10 bg-transparent"
+      data-window-drag-area="true"
+      onPointerDown={handlePointerDown}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    />
+  );
+}
 
 type DialogContextType = {
   isOpen: boolean;
@@ -87,7 +137,7 @@ function DialogOverlay({
         className={cn("fixed inset-0 z-9999 bg-background/50", className)}
         {...props}
       >
-        <WindowDragArea />
+        <DialogWindowDragSurface />
       </motion.div>
     </DialogPrimitive.Overlay>
   );
@@ -211,7 +261,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg font-semibold leading-none", className)}
+      className={cn("text-lg font-semibold leading-tight", className)}
       {...props}
     />
   );

@@ -24,6 +24,8 @@
 //! override endpoints without rebuilding the app (e.g., for staging/testing).
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,26 +133,143 @@ fn env_opt(name: &str) -> Option<String> {
     .filter(|value| !value.is_empty())
 }
 
+fn normalize_env_value(raw: &str) -> Option<String> {
+  let mut value = raw.trim().to_string();
+  if value.len() >= 2
+    && ((value.starts_with('"') && value.ends_with('"'))
+      || (value.starts_with('\'') && value.ends_with('\'')))
+  {
+    value = value[1..value.len() - 1].to_string();
+  }
+  let normalized = value.trim().to_string();
+  if normalized.is_empty() {
+    None
+  } else {
+    Some(normalized)
+  }
+}
+
+fn parse_env_file(path: &Path) -> HashMap<String, String> {
+  if !path.exists() {
+    return HashMap::new();
+  }
+
+  let content = match std::fs::read_to_string(path) {
+    Ok(content) => content,
+    Err(error) => {
+      log::debug!(
+        "app_config: failed to read env file {}: {}",
+        path.display(),
+        error
+      );
+      return HashMap::new();
+    }
+  };
+
+  let mut values = HashMap::new();
+  for raw_line in content.lines() {
+    let line = raw_line.trim();
+    if line.is_empty() || line.starts_with('#') {
+      continue;
+    }
+    let line = line.strip_prefix("export ").unwrap_or(line);
+    let Some(separator_index) = line.find('=') else {
+      continue;
+    };
+    if separator_index == 0 {
+      continue;
+    }
+
+    let key = line[..separator_index].trim();
+    if !key.starts_with("BUGLOGIN_") {
+      continue;
+    }
+    if !key
+      .chars()
+      .all(|character| character == '_' || character.is_ascii_alphanumeric())
+    {
+      continue;
+    }
+
+    if let Some(value) = normalize_env_value(&line[separator_index + 1..]) {
+      values.insert(key.to_string(), value);
+    }
+  }
+
+  values
+}
+
+fn candidate_env_files() -> Vec<PathBuf> {
+  let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+  let project_root = manifest_dir
+    .parent()
+    .map(Path::to_path_buf)
+    .unwrap_or_else(|| manifest_dir.clone());
+
+  let mut candidates = vec![
+    project_root.join(".env"),
+    project_root.join(".env.local"),
+    manifest_dir.join(".env"),
+    manifest_dir.join(".env.local"),
+  ];
+
+  if let Ok(current_dir) = std::env::current_dir() {
+    candidates.push(current_dir.join(".env"));
+    candidates.push(current_dir.join(".env.local"));
+  }
+
+  let mut deduped = Vec::with_capacity(candidates.len());
+  for candidate in candidates {
+    if deduped.iter().any(|existing| existing == &candidate) {
+      continue;
+    }
+    deduped.push(candidate);
+  }
+  deduped
+}
+
+fn load_file_overrides() -> HashMap<String, String> {
+  let mut merged = HashMap::new();
+  for file in candidate_env_files() {
+    let parsed = parse_env_file(&file);
+    if parsed.is_empty() {
+      continue;
+    }
+    log::info!("app_config: loaded BUGLOGIN_* overrides from {}", file.display());
+    merged.extend(parsed);
+  }
+  merged
+}
+
+fn env_override(name: &str, file_overrides: &HashMap<String, String>) -> Option<String> {
+  if let Some(value) = env_opt(name) {
+    return Some(value);
+  }
+  file_overrides.get(name).cloned()
+}
+
 fn apply_env_overrides(mut config: AppEndpoints) -> AppEndpoints {
-  if let Some(value) = env_opt("BUGLOGIN_CLOUD_API_URL") {
+  let file_overrides = load_file_overrides();
+
+  if let Some(value) = env_override("BUGLOGIN_CLOUD_API_URL", &file_overrides) {
     config.cloud_api_url = value;
   }
-  if let Some(value) = env_opt("BUGLOGIN_CLOUD_SYNC_URL") {
+  if let Some(value) = env_override("BUGLOGIN_CLOUD_SYNC_URL", &file_overrides) {
     config.cloud_sync_url = value;
   }
-  if let Some(value) = env_opt("BUGLOGIN_UPDATE_CHECK_URL") {
+  if let Some(value) = env_override("BUGLOGIN_UPDATE_CHECK_URL", &file_overrides) {
     config.update_check_url = value;
   }
-  if let Some(value) = env_opt("BUGLOGIN_BROWSER_MANIFEST_URL") {
+  if let Some(value) = env_override("BUGLOGIN_BROWSER_MANIFEST_URL", &file_overrides) {
     config.browser_manifest_url = value;
   }
-  if let Some(value) = env_opt("BUGLOGIN_AUTH_API_URL") {
+  if let Some(value) = env_override("BUGLOGIN_AUTH_API_URL", &file_overrides) {
     config.auth_api_url = Some(value);
   }
-  if let Some(value) = env_opt("BUGLOGIN_STRIPE_PUBLISHABLE_KEY") {
+  if let Some(value) = env_override("BUGLOGIN_STRIPE_PUBLISHABLE_KEY", &file_overrides) {
     config.stripe_publishable_key = Some(value);
   }
-  if let Some(value) = env_opt("BUGLOGIN_STRIPE_BILLING_URL") {
+  if let Some(value) = env_override("BUGLOGIN_STRIPE_BILLING_URL", &file_overrides) {
     config.stripe_billing_url = Some(value);
   }
   config

@@ -854,7 +854,7 @@ export function WayfernConfigForm({
               onChange={(e) =>
                 updateFingerprintConfig("fonts", e.target.value || undefined)
               }
-              placeholder='["Arial", "Verdana", "Times New Roman"]'
+              placeholder='["Inter", "Berkeley Mono"]'
               className="font-mono text-sm"
               rows={3}
             />

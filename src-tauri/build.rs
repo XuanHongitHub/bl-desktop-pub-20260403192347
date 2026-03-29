@@ -67,7 +67,10 @@ fn main() {
   // This allows building the proxy sidecar without the other binaries present.
   if external_binaries_exist() {
     #[cfg(target_os = "windows")]
-    stop_locked_dev_binaries();
+    {
+      stop_locked_dev_binaries();
+      ensure_sidecar_targets_unlocked();
+    }
 
     tauri_build::build();
 
@@ -93,35 +96,73 @@ fn main() {
 
 #[cfg(target_os = "windows")]
 fn stop_locked_dev_binaries() {
-  use std::path::PathBuf;
-  use std::process::Command;
+  use std::process::{Command, Stdio};
 
-  let manifest_dir = match std::env::var("CARGO_MANIFEST_DIR") {
-    Ok(dir) => dir,
+  // Best-effort unlock for app + sidecar processes.
+  for process_name in [
+    "buglogin.exe",
+    "buglogin-daemon.exe",
+    "buglogin-proxy.exe",
+    "buglogin-daemon-x86_64-pc-windows-msvc.exe",
+    "buglogin-proxy-x86_64-pc-windows-msvc.exe",
+  ] {
+    let _ = Command::new("taskkill")
+      .args(["/F", "/IM", process_name])
+      .stdout(Stdio::null())
+      .stderr(Stdio::null())
+      .status();
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn ensure_sidecar_targets_unlocked() {
+  use std::{
+    fs,
+    io::ErrorKind,
+    path::PathBuf,
+    thread,
+    time::Duration,
+  };
+
+  let out_dir = match std::env::var("OUT_DIR") {
+    Ok(value) => PathBuf::from(value),
     Err(_) => return,
   };
 
-  let target_dir = PathBuf::from(manifest_dir).join("target");
-  let target_prefix = target_dir.to_string_lossy().into_owned();
+  let target_dir = out_dir
+    .parent()
+    .and_then(|path| path.parent())
+    .and_then(|path| path.parent())
+    .map(|path| path.to_path_buf());
 
-  for process_name in ["buglogin-daemon.exe", "buglogin-proxy.exe"] {
-    let script = format!(
-      "$targetPrefix = '{target_prefix}'; \
-       Get-CimInstance Win32_Process -Filter \"Name = '{process_name}'\" | \
-       Where-Object {{ $_.ExecutablePath -and $_.ExecutablePath.StartsWith($targetPrefix, [System.StringComparison]::OrdinalIgnoreCase) }} | \
-       ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}"
-    );
+  let Some(target_dir) = target_dir else {
+    return;
+  };
 
-    let _ = Command::new("powershell")
-      .args([
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        &script,
-      ])
-      .output();
+  for sidecar in ["buglogin-daemon.exe", "buglogin-proxy.exe"] {
+    let sidecar_path = target_dir.join(sidecar);
+    if !sidecar_path.exists() {
+      continue;
+    }
+
+    for _ in 0..30 {
+      match fs::remove_file(&sidecar_path) {
+        Ok(_) => break,
+        Err(error) if error.kind() == ErrorKind::NotFound => break,
+        Err(error) if error.kind() == ErrorKind::PermissionDenied => {
+          if let Ok(metadata) = fs::metadata(&sidecar_path) {
+            let mut permissions = metadata.permissions();
+            if permissions.readonly() {
+              permissions.set_readonly(false);
+              let _ = fs::set_permissions(&sidecar_path, permissions);
+            }
+          }
+          stop_locked_dev_binaries();
+          thread::sleep(Duration::from_millis(150));
+        }
+        Err(_) => break,
+      }
+    }
   }
 }
 

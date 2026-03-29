@@ -61,20 +61,60 @@ jobs:
               per_page: 100
             });
 
-            const releaseJobs = jobsResp.data.jobs.filter((job) =>
-              job.name.startsWith("release (")
+            const jobs = jobsResp.data.jobs;
+            const failureStates = ["failure", "cancelled", "timed_out", "action_required"];
+
+            // Legacy mode: old matrix workflow had release (macos/linux/windows) jobs.
+            const legacyReleaseJobs = jobs.filter((job) => job.name.startsWith("release ("));
+            if (legacyReleaseJobs.length > 0) {
+              const successCount = legacyReleaseJobs.filter((job) => job.conclusion === "success").length;
+              const failedCount = legacyReleaseJobs.filter((job) =>
+                failureStates.includes(job.conclusion || "")
+              ).length;
+
+              core.notice(`Legacy release jobs: total=${legacyReleaseJobs.length}, success=${successCount}, failed=${failedCount}`);
+
+              const allDoneLegacy = latest.conclusion === "success" && successCount >= 3;
+              if (allDoneLegacy) {
+                core.notice("Legacy mode complete: all 3 release targets done.");
+                core.setOutput("should_rerun", "false");
+                return;
+              }
+
+              if (failedCount > 0) {
+                core.setOutput("should_rerun", "true");
+              } else {
+                core.notice("Legacy mode: no failed release matrix job to rerun.");
+                core.setOutput("should_rerun", "false");
+              }
+              return;
+            }
+
+            // Hybrid mode: build-frontend + release-macos
+            const requiredJobNames = ["build-frontend", "release-macos"];
+            const requiredJobs = requiredJobNames
+              .map((name) => jobs.find((job) => job.name === name))
+              .filter(Boolean);
+
+            const successCount = requiredJobs.filter((job) => job.conclusion === "success").length;
+            const failedCount = requiredJobs.filter((job) =>
+              failureStates.includes(job.conclusion || "")
+            ).length;
+            const missingJobs = requiredJobNames.filter((name) =>
+              !jobs.some((job) => job.name === name)
             );
 
-            const successCount = releaseJobs.filter((job) => job.conclusion === "success").length;
-            const failedCount = releaseJobs.filter((job) =>
-              ["failure", "cancelled", "timed_out", "action_required"].includes(job.conclusion || "")
-            ).length;
+            core.notice(
+              `Hybrid required jobs: expected=${requiredJobNames.length}, found=${requiredJobs.length}, success=${successCount}, failed=${failedCount}, missing=[${missingJobs.join(", ")}]`
+            );
 
-            core.notice(`Release jobs: total=${releaseJobs.length}, success=${successCount}, failed=${failedCount}`);
+            const allDoneHybrid =
+              latest.conclusion === "success" &&
+              missingJobs.length === 0 &&
+              successCount === requiredJobNames.length;
 
-            const allDone = latest.conclusion === "success" && successCount >= 3;
-            if (allDone) {
-              core.notice("All 3 release targets are done. No rerun needed.");
+            if (allDoneHybrid) {
+              core.notice("Hybrid mode complete: frontend + macOS release done.");
               core.setOutput("should_rerun", "false");
               return;
             }
@@ -82,7 +122,7 @@ jobs:
             if (failedCount > 0) {
               core.setOutput("should_rerun", "true");
             } else {
-              core.notice("No failed release job to rerun.");
+              core.notice("Hybrid mode: no failed required job to rerun.");
               core.setOutput("should_rerun", "false");
             }
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18n, { getLanguageWithFallback, SUPPORTED_LANGUAGES } from "@/i18n";
 import {
+  loadAppSettingsCache,
   mergeAppSettingsCache,
   readAppSettingsCache,
 } from "@/lib/app-settings-cache";
@@ -47,6 +48,17 @@ export function I18nProvider({ children }: I18nProviderProps) {
     const initializeLanguage = async () => {
       try {
         const cachedLanguage = readAppSettingsCache()?.language;
+        if (!isTauri()) {
+          const languageFromCache =
+            typeof cachedLanguage === "string" ? cachedLanguage : null;
+          const resolvedLanguage = getLanguageWithFallback(
+            languageFromCache || "vi",
+          );
+          mergeAppSettingsCache({ language: resolvedLanguage });
+          await applyLanguage(resolvedLanguage);
+          return;
+        }
+
         if (
           typeof cachedLanguage === "string" &&
           SUPPORTED_LANGUAGES.some((lang) => lang.code === cachedLanguage)
@@ -54,10 +66,10 @@ export function I18nProvider({ children }: I18nProviderProps) {
           await applyLanguage(cachedLanguage);
         }
 
-        const settings = await invoke<AppSettings>("get_app_settings");
-        let language = settings.language;
+        const settings = (await loadAppSettingsCache()) as AppSettings | null;
+        let language = settings?.language;
 
-        if (!language) {
+        if (!language && isTauri()) {
           const systemLanguage = await invoke<string>("get_system_language");
           language = getLanguageWithFallback(systemLanguage);
         }

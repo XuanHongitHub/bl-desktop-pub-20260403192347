@@ -176,6 +176,7 @@ export interface ControlWorkspace {
   id: string;
   name: string;
   mode: "personal" | "team";
+  actorRole?: TeamRole;
   createdAt: string;
   createdBy: string;
   planLabel?: string;
@@ -184,6 +185,8 @@ export interface ControlWorkspace {
   subscriptionStatus?: "active" | "past_due" | "canceled";
   subscriptionSource?: "internal" | "license" | "stripe";
   expiresAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  cancelAt?: string | null;
 }
 
 export interface ControlWorkspaceOverview {
@@ -251,6 +254,183 @@ export interface ControlAuditLog {
   createdAt: string;
 }
 
+export type TiktokCookieStatus =
+  | "active"
+  | "inactive"
+  | "disabled"
+  | "untested"
+  | "valid"
+  | "invalid"
+  | string;
+
+export interface TiktokCookieRecord {
+  id: string;
+  label: string;
+  cookie: string;
+  status: TiktokCookieStatus;
+  notes?: string | null;
+  testedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminTiktokWorkflowRow {
+  batchId: string;
+  profileId: string;
+  profileName: string;
+  browser: string;
+  proxyId: string;
+  proxyName: string;
+  phoneCountry?: "US";
+  phoneNumber?: string;
+  apiPhone?: string;
+  status:
+    | "created"
+    | "started"
+    | "cookie_ready"
+    | "cookie_missing"
+    | "push_failed"
+    | "done";
+  cookieRecordId?: string | null;
+  cookiePreview?: string | null;
+  lastError?: string | null;
+  isDisabled?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TiktokCookieSourceRecord {
+  id: string;
+  workspaceId: string;
+  phone: string;
+  apiPhone: string;
+  cookie: string;
+  source: "excel_import";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TiktokAutomationFlowType = "signup" | "update_cookie";
+export type TiktokAutomationRunMode = "auto" | "semi";
+export type TiktokAutomationRunStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "completed"
+  | "failed";
+export type TiktokAutomationItemStatus =
+  | "queued"
+  | "running"
+  | "manual_pending"
+  | "step_failed"
+  | "blocked"
+  | "done"
+  | "skipped"
+  | "cancelled";
+
+export interface TiktokAutomationAccountRecord {
+  id: string;
+  workspaceId: string;
+  phone: string;
+  apiPhone: string;
+  cookie: string;
+  username: string;
+  password: string;
+  profileId: string | null;
+  profileName: string | null;
+  status: TiktokAutomationItemStatus;
+  lastStep: string | null;
+  lastError: string | null;
+  source: "excel_import" | "manual" | "bugidea_pull";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TiktokAutomationRunRecord {
+  id: string;
+  workspaceId: string;
+  flowType: TiktokAutomationFlowType;
+  mode: TiktokAutomationRunMode;
+  status: TiktokAutomationRunStatus;
+  accountIds: string[];
+  currentIndex: number;
+  activeItemId: string | null;
+  totalCount: number;
+  doneCount: number;
+  failedCount: number;
+  blockedCount: number;
+  createdBy: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TiktokAutomationRunItemRecord {
+  id: string;
+  runId: string;
+  workspaceId: string;
+  accountId: string;
+  phone: string;
+  apiPhone: string;
+  profileId: string | null;
+  profileName: string | null;
+  status: TiktokAutomationItemStatus;
+  step: string;
+  attempt: number;
+  username: string;
+  password: string;
+  cookiePreview: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface AdminTiktokAutoWorkflowRunState {
+  queue: string[];
+  currentIndex: number;
+  activeProfileId: string | null;
+  launching: boolean;
+  observedRunning: boolean;
+  processingClose: boolean;
+}
+
+export type AdminTiktokOperationProgressStatus =
+  | "idle"
+  | "running"
+  | "success"
+  | "partial"
+  | "error"
+  | "interrupted";
+
+export interface AdminTiktokOperationProgressState {
+  operationId: string;
+  label: string;
+  status: AdminTiktokOperationProgressStatus;
+  total: number;
+  processed: number;
+  success: number;
+  failed: number;
+  skipped: number;
+  message?: string;
+  startedAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTiktokState {
+  workspaceId: string | null;
+  bearerKey: string;
+  workflowRows: AdminTiktokWorkflowRow[];
+  rotationCursor: number;
+  autoWorkflowRun?: AdminTiktokAutoWorkflowRunState | null;
+  operationProgress?: AdminTiktokOperationProgressState | null;
+  updatedAt: string;
+}
+
 export interface ControlAdminOverview {
   workspaces: number;
   members: number;
@@ -263,6 +443,28 @@ export interface ControlAdminOverview {
   auditsLast24h: number;
 }
 
+export interface ControlAdminWorkspaceHealthRow {
+  workspaceId: string;
+  workspaceName: string;
+  mode: "personal" | "team";
+  planLabel: string;
+  subscriptionStatus: "active" | "past_due" | "canceled";
+  entitlementState: EntitlementState;
+  profileLimit: number;
+  members: number;
+  activeInvites: number;
+  activeShareGrants: number;
+  storageUsedBytes: number;
+  storageLimitMb: number;
+  storagePercent: number;
+  proxyBandwidthUsedMb: number;
+  proxyBandwidthLimitMb: number;
+  proxyBandwidthPercent: number;
+  latestInvoiceAt: string | null;
+  usageUpdatedAt: string | null;
+  riskLevel: "low" | "medium" | "high";
+}
+
 export interface ControlWorkspaceSubscription {
   workspaceId: string;
   planId: "starter" | "growth" | "scale" | "custom" | null;
@@ -273,6 +475,8 @@ export interface ControlWorkspaceSubscription {
   source: "internal" | "license" | "stripe";
   startedAt: string;
   expiresAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
   updatedAt: string;
 }
 
@@ -299,6 +503,15 @@ export interface ControlWorkspaceBillingState {
   workspaceId: string;
   subscription: ControlWorkspaceSubscription;
   recentInvoices: ControlBillingInvoice[];
+  usage: ControlWorkspaceBillingUsage;
+}
+
+export interface ControlWorkspaceBillingUsage {
+  storageUsedBytes: number;
+  storageLimitMb: number;
+  proxyBandwidthUsedMb: number;
+  proxyBandwidthLimitMb: number;
+  updatedAt: string | null;
 }
 
 export interface ControlStripeCheckoutCreateResponse {
@@ -917,12 +1130,20 @@ export interface VpnStatus {
 
 export type AppSection =
   | "profiles"
+  | "bugidea-automation"
   | "proxies"
   | "pricing"
-  | "billing-checkout"
-  | "billing-coupon"
-  | "billing-license"
   | "billing"
+  | "workspace-owner-overview"
+  | "workspace-owner-directory"
+  | "workspace-owner-permissions"
+  | "super-admin-overview"
+  | "super-admin-workspace"
+  | "super-admin-billing"
+  | "super-admin-cookies"
+  | "super-admin-audit"
+  | "super-admin-system"
+  | "super-admin-analytics"
   | "workspace-admin-overview"
   | "workspace-admin-directory"
   | "workspace-admin-permissions"
@@ -938,6 +1159,7 @@ export type AppSection =
   | "admin-overview"
   | "admin-workspace"
   | "admin-billing"
+  | "admin-cookies"
   | "admin-audit"
   | "admin-system"
   | "admin-analytics";

@@ -982,8 +982,19 @@ impl ProfileManager {
       );
     }
 
+    // Preserve persisted anti-detect metadata when callers submit partial config payloads.
+    let mut next_config = config;
+    if let Some(existing_config) = profile.camoufox_config.as_ref() {
+      if next_config.fingerprint.is_none() {
+        next_config.fingerprint = existing_config.fingerprint.clone();
+      }
+      if next_config.executable_path.is_none() {
+        next_config.executable_path = existing_config.executable_path.clone();
+      }
+    }
+
     // Update the Camoufox configuration
-    profile.camoufox_config = Some(config);
+    profile.camoufox_config = Some(next_config);
 
     // Save the updated profile
     self
@@ -1042,8 +1053,19 @@ impl ProfileManager {
       );
     }
 
+    // Preserve persisted anti-detect metadata when callers submit partial config payloads.
+    let mut next_config = config;
+    if let Some(existing_config) = profile.wayfern_config.as_ref() {
+      if next_config.fingerprint.is_none() {
+        next_config.fingerprint = existing_config.fingerprint.clone();
+      }
+      if next_config.executable_path.is_none() {
+        next_config.executable_path = existing_config.executable_path.clone();
+      }
+    }
+
     // Update the Wayfern configuration
-    profile.wayfern_config = Some(config);
+    profile.wayfern_config = Some(next_config);
 
     // Save the updated profile
     self
@@ -1759,6 +1781,11 @@ impl ProfileManager {
       "user_pref(\"browser.showQuitWarning\", false);".to_string(),
       "user_pref(\"browser.tabs.warnOnClose\", false);".to_string(),
       "user_pref(\"browser.tabs.warnOnCloseOtherTabs\", false);".to_string(),
+      // Keep Firefox tab strip behavior close to stock desktop UI.
+      "user_pref(\"browser.tabs.tabMinWidth\", 76);".to_string(),
+      "user_pref(\"browser.tabs.tabClipWidth\", 76);".to_string(),
+      "user_pref(\"browser.tabs.closeButtons\", 1);".to_string(),
+      "user_pref(\"browser.tabs.inTitlebar\", 1);".to_string(),
       "user_pref(\"browser.sessionstore.warnOnQuit\", false);".to_string(),
       // Restore tabs/windows after a full close/reopen cycle.
       "user_pref(\"browser.startup.page\", 3);".to_string(),
@@ -2153,6 +2180,25 @@ pub fn list_browser_profiles() -> Result<Vec<BrowserProfile>, String> {
     .map_err(|e| format!("Failed to list profiles: {e}"))
 }
 
+fn compact_browser_profile(mut profile: BrowserProfile) -> BrowserProfile {
+  profile.camoufox_config = None;
+  profile.wayfern_config = None;
+  profile.encryption_salt = None;
+  profile.proxy_bypass_rules.clear();
+  profile.created_by_id = None;
+  profile.created_by_email = None;
+  profile
+}
+
+#[tauri::command]
+pub fn list_browser_profiles_light() -> Result<Vec<BrowserProfile>, String> {
+  let profile_manager = ProfileManager::instance();
+  profile_manager
+    .list_profiles()
+    .map(|profiles| profiles.into_iter().map(compact_browser_profile).collect())
+    .map_err(|e| format!("Failed to list profiles: {e}"))
+}
+
 #[tauri::command]
 pub async fn update_profile_proxy(
   app_handle: tauri::AppHandle,
@@ -2167,6 +2213,24 @@ pub async fn update_profile_proxy(
 }
 
 #[tauri::command]
+pub async fn update_profiles_proxy(
+  app_handle: tauri::AppHandle,
+  profile_ids: Vec<String>,
+  proxy_id: Option<String>,
+) -> Result<Vec<BrowserProfile>, String> {
+  let profile_manager = ProfileManager::instance();
+  let mut updated_profiles = Vec::with_capacity(profile_ids.len());
+  for profile_id in profile_ids {
+    let updated = profile_manager
+      .update_profile_proxy(app_handle.clone(), &profile_id, proxy_id.clone())
+      .await
+      .map_err(|e| format!("Failed to update profile '{profile_id}': {e}"))?;
+    updated_profiles.push(updated);
+  }
+  Ok(updated_profiles)
+}
+
+#[tauri::command]
 pub async fn update_profile_vpn(
   app_handle: tauri::AppHandle,
   profile_id: String,
@@ -2177,6 +2241,24 @@ pub async fn update_profile_vpn(
     .update_profile_vpn(app_handle, &profile_id, vpn_id)
     .await
     .map_err(|e| format!("Failed to update profile VPN: {e}"))
+}
+
+#[tauri::command]
+pub async fn update_profiles_vpn(
+  app_handle: tauri::AppHandle,
+  profile_ids: Vec<String>,
+  vpn_id: Option<String>,
+) -> Result<Vec<BrowserProfile>, String> {
+  let profile_manager = ProfileManager::instance();
+  let mut updated_profiles = Vec::with_capacity(profile_ids.len());
+  for profile_id in profile_ids {
+    let updated = profile_manager
+      .update_profile_vpn(app_handle.clone(), &profile_id, vpn_id.clone())
+      .await
+      .map_err(|e| format!("Failed to update profile VPN '{profile_id}': {e}"))?;
+    updated_profiles.push(updated);
+  }
+  Ok(updated_profiles)
 }
 
 #[tauri::command]
@@ -2225,6 +2307,31 @@ pub async fn check_browser_status(
     .check_browser_status(app_handle, &profile)
     .await
     .map_err(|e| format!("Failed to check browser status: {e}"))
+}
+
+#[tauri::command]
+pub async fn check_browser_statuses_batch(
+  app_handle: tauri::AppHandle,
+  profile_ids: Vec<String>,
+) -> Result<std::collections::HashMap<String, bool>, String> {
+  let profile_manager = ProfileManager::instance();
+  let all_profiles = profile_manager
+    .list_profiles()
+    .map_err(|e| format!("Failed to list profiles: {e}"))?;
+
+  let mut results = std::collections::HashMap::new();
+  for pid in &profile_ids {
+    if let Some(profile) = all_profiles.iter().find(|p| p.id.to_string() == *pid) {
+      let running = profile_manager
+        .check_browser_status(app_handle.clone(), profile)
+        .await
+        .unwrap_or(false);
+      results.insert(pid.clone(), running);
+    } else {
+      results.insert(pid.clone(), false);
+    }
+  }
+  Ok(results)
 }
 
 #[tauri::command]

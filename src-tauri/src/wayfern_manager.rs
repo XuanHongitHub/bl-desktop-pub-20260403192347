@@ -1,5 +1,6 @@
 use crate::browser_runner::BrowserRunner;
 use crate::profile::BrowserProfile;
+use chrono::Local;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -131,6 +132,241 @@ impl WayfernManager {
     // - webglParameters, webgl2Parameters, etc. are JSON strings
     // So no conversion is needed
     fingerprint
+  }
+
+  fn is_geoip_enabled(config: &WayfernConfig) -> bool {
+    match config.geoip.as_ref() {
+      None => true,
+      Some(serde_json::Value::Bool(enabled)) => *enabled,
+      Some(serde_json::Value::Number(n)) => n.as_i64().unwrap_or(1) != 0,
+      Some(serde_json::Value::String(s)) => {
+        !matches!(
+          s.trim().to_ascii_lowercase().as_str(),
+          "false" | "0" | "off" | "disabled" | "no"
+        )
+      }
+      Some(_) => true,
+    }
+  }
+
+  fn local_js_timezone_offset_minutes() -> i32 {
+    // JS Date#getTimezoneOffset uses opposite sign: west is positive.
+    -(Local::now().offset().local_minus_utc() / 60)
+  }
+
+  fn js_timezone_offset_minutes_from_utc_offset_seconds(utc_offset_seconds: i32) -> i32 {
+    -(utc_offset_seconds / 60)
+  }
+
+  fn ensure_timezone_defaults(fingerprint: &mut serde_json::Value) {
+    if let Some(obj) = fingerprint.as_object_mut() {
+      if !obj.contains_key("timezone") {
+        obj.insert("timezone".to_string(), json!("UTC"));
+      }
+
+      if !obj.contains_key("timezoneOffset") {
+        let fallback_offset = if obj.get("timezone").and_then(|v| v.as_str()) == Some("UTC") {
+          0
+        } else {
+          Self::local_js_timezone_offset_minutes()
+        };
+        obj.insert("timezoneOffset".to_string(), json!(fallback_offset));
+      }
+    }
+  }
+
+  fn extract_chrome_major_from_user_agent(user_agent: &str) -> Option<String> {
+    let marker = "Chrome/";
+    let start = user_agent.find(marker)? + marker.len();
+    let version = user_agent[start..]
+      .split_whitespace()
+      .next()?
+      .trim_end_matches(';');
+    let major = version.split('.').next()?;
+    if major.chars().all(|c| c.is_ascii_digit()) {
+      Some(major.to_string())
+    } else {
+      None
+    }
+  }
+
+  fn sync_runtime_user_agent(fingerprint: &mut serde_json::Value, runtime_user_agent: &str) {
+    let runtime_user_agent = runtime_user_agent.trim();
+    if runtime_user_agent.is_empty() {
+      return;
+    }
+
+    if let Some(obj) = fingerprint.as_object_mut() {
+      obj.insert("userAgent".to_string(), json!(runtime_user_agent));
+      if let Some(major) = Self::extract_chrome_major_from_user_agent(runtime_user_agent) {
+        obj.insert("brandVersion".to_string(), json!(major));
+      }
+    }
+  }
+
+  fn resolve_launch_language(config: &WayfernConfig) -> String {
+    const DEFAULT_LANG: &str = "en-US";
+
+    let Some(raw_fingerprint) = config.fingerprint.as_deref() else {
+      return DEFAULT_LANG.to_string();
+    };
+
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw_fingerprint) else {
+      return DEFAULT_LANG.to_string();
+    };
+
+    let from_language = value
+      .get("language")
+      .and_then(|v| v.as_str())
+      .map(str::trim)
+      .filter(|s| !s.is_empty());
+    if let Some(lang) = from_language {
+      return lang.replace('_', "-");
+    }
+
+    let from_languages = value
+      .get("languages")
+      .and_then(|v| v.as_array())
+      .and_then(|arr| arr.first())
+      .and_then(|v| v.as_str())
+      .map(str::trim)
+      .filter(|s| !s.is_empty());
+    if let Some(lang) = from_languages {
+      return lang.replace('_', "-");
+    }
+
+    DEFAULT_LANG.to_string()
+  }
+
+  fn enforce_storage_signals(fingerprint: &mut serde_json::Value, ephemeral: bool) {
+    // Persistent profiles should not expose incognito-like storage signals.
+    if ephemeral {
+      return;
+    }
+
+    if let Some(obj) = fingerprint.as_object_mut() {
+      for key in ["localStorage", "sessionStorage", "indexedDb", "cookieEnabled"] {
+        if obj.get(key).and_then(|v| v.as_bool()) != Some(true) {
+          obj.insert(key.to_string(), json!(true));
+        }
+      }
+    }
+  }
+
+  fn resolve_proxy_url_from_profile(profile: &BrowserProfile) -> Option<String> {
+    let proxy_id = profile.proxy_id.as_deref()?;
+    let proxy = crate::proxy_manager::PROXY_MANAGER.get_proxy_settings_by_id(proxy_id)?;
+    Some(match (&proxy.username, &proxy.password) {
+      (Some(u), Some(p)) => format!(
+        "{}://{}:{}@{}:{}",
+        proxy.proxy_type.to_lowercase(),
+        u,
+        p,
+        proxy.host,
+        proxy.port
+      ),
+      _ => format!(
+        "{}://{}:{}",
+        proxy.proxy_type.to_lowercase(),
+        proxy.host,
+        proxy.port
+      ),
+    })
+  }
+
+  fn locale_from_country_code(country_code: &str) -> Option<String> {
+    let selector = crate::camoufox::geolocation::LocaleSelector::new().ok()?;
+    selector.from_region(country_code).ok().map(|l| l.as_string())
+  }
+
+  async fn get_runtime_user_agent(&self, ws_url: &str) -> Option<String> {
+    match self
+      .send_cdp_command(ws_url, "Browser.getVersion", json!({}))
+      .await
+    {
+      Ok(result) => result
+        .get("userAgent")
+        .and_then(|v| v.as_str())
+        .map(str::to_string),
+      Err(e) => {
+        log::warn!("Failed to read Browser.getVersion from Wayfern CDP: {e}");
+        None
+      }
+    }
+  }
+
+  async fn sync_fingerprint_with_proxy_context(
+    &self,
+    profile: &BrowserProfile,
+    config: &WayfernConfig,
+    proxy_url: Option<&str>,
+    fingerprint: &mut serde_json::Value,
+  ) {
+    if !Self::is_geoip_enabled(config) {
+      log::info!("Wayfern geo sync skipped because auto-location is disabled");
+      return;
+    }
+
+    let proxy_for_geo = proxy_url
+      .map(str::to_string)
+      .or_else(|| Self::resolve_proxy_url_from_profile(profile));
+
+    let Some(proxy_for_geo) = proxy_for_geo else {
+      log::info!("Wayfern geo sync skipped because no proxy is configured");
+      return;
+    };
+
+    let public_ip = match crate::ip_utils::fetch_public_ip(Some(proxy_for_geo.as_str())).await {
+      Ok(ip) => ip,
+      Err(e) => {
+        log::warn!("Wayfern geo sync failed to fetch public IP through proxy: {e}");
+        return;
+      }
+    };
+
+    let geo = match crate::proxy_manager::ProxyManager::get_ip_geolocation(&public_ip).await {
+      Ok(geo) => geo,
+      Err(e) => {
+        log::warn!("Wayfern geo sync failed to resolve geolocation for IP {public_ip}: {e}");
+        return;
+      }
+    };
+
+    if let Some(obj) = fingerprint.as_object_mut() {
+      if let Some(timezone) = geo.timezone.as_ref() {
+        obj.insert("timezone".to_string(), json!(timezone));
+      }
+      if let Some(offset_seconds) = geo.utc_offset_seconds {
+        obj.insert(
+          "timezoneOffset".to_string(),
+          json!(Self::js_timezone_offset_minutes_from_utc_offset_seconds(
+            offset_seconds
+          )),
+        );
+      }
+      if let Some(latitude) = geo.latitude {
+        obj.insert("latitude".to_string(), json!(latitude));
+      }
+      if let Some(longitude) = geo.longitude {
+        obj.insert("longitude".to_string(), json!(longitude));
+      }
+      if let Some(country_code) = geo.country_code.as_deref() {
+        if let Some(locale) = Self::locale_from_country_code(country_code) {
+          obj.insert("language".to_string(), json!(locale.clone()));
+          obj.insert("languages".to_string(), json!([locale]));
+        }
+      }
+    }
+
+    log::info!(
+      "Wayfern geo sync applied from proxy IP {}: timezone={:?}, offset={:?}, lat={:?}, lon={:?}, country={:?}",
+      public_ip,
+      geo.timezone,
+      geo.utc_offset_seconds,
+      geo.latitude,
+      geo.longitude,
+      geo.country_code
+    );
   }
 
   async fn wait_for_cdp_ready(
@@ -324,6 +560,8 @@ impl WayfernManager {
       return Err(format!("Failed to refresh fingerprint: {e}").into());
     }
 
+    let runtime_user_agent = self.get_runtime_user_agent(&ws_url).await;
+
     let get_result = self
       .send_cdp_command(&ws_url, "Wayfern.getFingerprint", json!({}))
       .await;
@@ -336,19 +574,20 @@ impl WayfernManager {
         // Normalize the fingerprint: convert JSON string fields to proper types
         let mut normalized = Self::normalize_fingerprint(fp);
 
-        // Add default timezone/geolocation if not present
-        // Wayfern's Bayesian network generator doesn't include these fields,
-        // so we need to add sensible defaults
-        if let Some(obj) = normalized.as_object_mut() {
-          if !obj.contains_key("timezone") {
-            obj.insert("timezone".to_string(), json!("America/New_York"));
-          }
-          if !obj.contains_key("timezoneOffset") {
-            obj.insert("timezoneOffset".to_string(), json!(300)); // EST = UTC-5 = 300 minutes
-          }
-          // Note: latitude/longitude are intentionally not set by default
-          // as they reveal precise location. Users should set these manually if needed.
+        self
+          .sync_fingerprint_with_proxy_context(
+            profile,
+            config,
+            config.proxy.as_deref(),
+            &mut normalized,
+          )
+          .await;
+
+        if let Some(runtime_ua) = runtime_user_agent.as_deref() {
+          Self::sync_runtime_user_agent(&mut normalized, runtime_ua);
         }
+        Self::enforce_storage_signals(&mut normalized, profile.ephemeral);
+        Self::ensure_timezone_defaults(&mut normalized);
 
         normalized
       }
@@ -421,6 +660,7 @@ impl WayfernManager {
       format!("--remote-debugging-port={port}"),
       "--remote-debugging-address=127.0.0.1".to_string(),
       format!("--user-data-dir={}", profile_path),
+      format!("--lang={}", Self::resolve_launch_language(config)),
       "--no-first-run".to_string(),
       "--no-default-browser-check".to_string(),
       "--disable-background-mode".to_string(),
@@ -474,6 +714,16 @@ impl WayfernManager {
     let page_targets: Vec<_> = targets.iter().filter(|t| t.target_type == "page").collect();
     log::info!("Found {} page targets", page_targets.len());
 
+    let runtime_user_agent = if let Some(target) = page_targets.first() {
+      if let Some(ws_url) = &target.websocket_debugger_url {
+        self.get_runtime_user_agent(ws_url).await
+      } else {
+        None
+      }
+    } else {
+      None
+    };
+
     // Apply fingerprint if configured
     if let Some(fingerprint_json) = &config.fingerprint {
       log::info!(
@@ -494,17 +744,15 @@ impl WayfernManager {
         stored_value.clone()
       };
 
-      // Add default timezone if not present (for profiles created before timezone was added)
-      if let Some(obj) = fingerprint.as_object_mut() {
-        if !obj.contains_key("timezone") {
-          obj.insert("timezone".to_string(), json!("America/New_York"));
-          log::info!("Added default timezone to fingerprint");
-        }
-        if !obj.contains_key("timezoneOffset") {
-          obj.insert("timezoneOffset".to_string(), json!(300));
-          log::info!("Added default timezoneOffset to fingerprint");
-        }
+      self
+        .sync_fingerprint_with_proxy_context(profile, config, proxy_url, &mut fingerprint)
+        .await;
+
+      if let Some(runtime_ua) = runtime_user_agent.as_deref() {
+        Self::sync_runtime_user_agent(&mut fingerprint, runtime_ua);
       }
+      Self::enforce_storage_signals(&mut fingerprint, ephemeral);
+      Self::ensure_timezone_defaults(&mut fingerprint);
 
       // Denormalize fingerprint for Wayfern CDP (convert arrays/objects to JSON strings)
       let fingerprint_for_cdp = Self::denormalize_fingerprint(fingerprint);
@@ -896,6 +1144,105 @@ impl WayfernManager {
       log::info!("Cleaning up dead Wayfern instance: {id}");
       inner.instances.remove(&id);
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_is_geoip_enabled_defaults_to_true() {
+    assert!(WayfernManager::is_geoip_enabled(&WayfernConfig::default()));
+
+    let mut disabled_bool = WayfernConfig::default();
+    disabled_bool.geoip = Some(serde_json::json!(false));
+    assert!(!WayfernManager::is_geoip_enabled(&disabled_bool));
+
+    let mut disabled_str = WayfernConfig::default();
+    disabled_str.geoip = Some(serde_json::json!("false"));
+    assert!(!WayfernManager::is_geoip_enabled(&disabled_str));
+  }
+
+  #[test]
+  fn test_convert_utc_offset_to_js_offset_minutes() {
+    // UTC-7 => JS getTimezoneOffset() = +420
+    assert_eq!(
+      WayfernManager::js_timezone_offset_minutes_from_utc_offset_seconds(-7 * 3600),
+      420
+    );
+    // UTC+7 => JS getTimezoneOffset() = -420
+    assert_eq!(
+      WayfernManager::js_timezone_offset_minutes_from_utc_offset_seconds(7 * 3600),
+      -420
+    );
+  }
+
+  #[test]
+  fn test_ensure_timezone_defaults_uses_utc_pair() {
+    let mut fingerprint = serde_json::json!({});
+    WayfernManager::ensure_timezone_defaults(&mut fingerprint);
+    assert_eq!(fingerprint.get("timezone"), Some(&serde_json::json!("UTC")));
+    assert_eq!(fingerprint.get("timezoneOffset"), Some(&serde_json::json!(0)));
+  }
+
+  #[test]
+  fn test_extract_chrome_major_from_user_agent() {
+    let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36";
+    assert_eq!(
+      WayfernManager::extract_chrome_major_from_user_agent(ua),
+      Some("145".to_string())
+    );
+  }
+
+  #[test]
+  fn test_sync_runtime_user_agent_updates_version_fields() {
+    let mut fingerprint = serde_json::json!({
+      "userAgent": "Mozilla/5.0 ... Chrome/119.0.0.0 ...",
+      "brandVersion": "119"
+    });
+
+    WayfernManager::sync_runtime_user_agent(
+      &mut fingerprint,
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+    );
+
+    assert_eq!(
+      fingerprint.get("brandVersion"),
+      Some(&serde_json::json!("145"))
+    );
+    assert_eq!(
+      fingerprint.get("userAgent"),
+      Some(&serde_json::json!(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+      ))
+    );
+  }
+
+  #[test]
+  fn test_enforce_storage_signals_for_persistent_profile() {
+    let mut fingerprint = serde_json::json!({
+      "localStorage": false,
+      "sessionStorage": false,
+      "indexedDb": false,
+      "cookieEnabled": false
+    });
+
+    WayfernManager::enforce_storage_signals(&mut fingerprint, false);
+
+    assert_eq!(
+      fingerprint.get("localStorage"),
+      Some(&serde_json::json!(true))
+    );
+    assert_eq!(
+      fingerprint.get("sessionStorage"),
+      Some(&serde_json::json!(true))
+    );
+    assert_eq!(fingerprint.get("indexedDb"), Some(&serde_json::json!(true)));
+    assert_eq!(
+      fingerprint.get("cookieEnabled"),
+      Some(&serde_json::json!(true))
+    );
   }
 }
 

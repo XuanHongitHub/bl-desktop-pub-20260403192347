@@ -189,6 +189,89 @@ impl CookieManager {
     Ok(cookies)
   }
 
+  fn normalize_domain(domain: &str) -> String {
+    domain.trim().to_lowercase().trim_start_matches('.').to_string()
+  }
+
+  fn is_tiktok_shop_domain(domain: &str) -> bool {
+    let normalized = Self::normalize_domain(domain);
+    normalized == "shop.tiktok.com"
+      || normalized.ends_with(".shop.tiktok.com")
+      || normalized == "tiktok.com"
+      || normalized.ends_with(".tiktok.com")
+  }
+
+  fn read_raw_cookies(profile_id: &str) -> Result<Vec<UnifiedCookie>, String> {
+    let profile_manager = ProfileManager::instance();
+    let profiles_dir = profile_manager.get_profiles_dir();
+    let profiles = profile_manager
+      .list_profiles()
+      .map_err(|e| format!("Failed to list profiles: {e}"))?;
+
+    let profile = profiles
+      .iter()
+      .find(|p| p.id.to_string() == profile_id)
+      .ok_or_else(|| format!("Profile not found: {profile_id}"))?;
+
+    let db_path = Self::get_cookie_db_path(profile, &profiles_dir)?;
+
+    match profile.browser.as_str() {
+      "camoufox" => Self::read_firefox_cookies(&db_path),
+      "wayfern" => Self::read_chrome_cookies(&db_path),
+      _ => Err(format!("Unsupported browser type: {}", profile.browser)),
+    }
+  }
+
+  pub fn read_tiktok_cookie_header(profile_id: &str) -> Result<String, String> {
+    let cookies = Self::read_raw_cookies(profile_id)?;
+    let mut matched_cookies: Vec<UnifiedCookie> = cookies
+      .into_iter()
+      .filter(|cookie| {
+        Self::is_tiktok_shop_domain(&cookie.domain) && !cookie.value.trim().is_empty()
+      })
+      .collect();
+
+    if matched_cookies.is_empty() {
+      return Ok(String::new());
+    }
+
+    matched_cookies.sort_by(|left, right| {
+      let left_domain = Self::normalize_domain(&left.domain);
+      let right_domain = Self::normalize_domain(&right.domain);
+      let left_is_shop = left_domain.contains("shop.tiktok.com");
+      let right_is_shop = right_domain.contains("shop.tiktok.com");
+      if left_is_shop != right_is_shop {
+        return if left_is_shop {
+          std::cmp::Ordering::Less
+        } else {
+          std::cmp::Ordering::Greater
+        };
+      }
+      left.name.cmp(&right.name)
+    });
+
+    let mut seen_cookie_names = std::collections::HashSet::new();
+    let unique_cookies: Vec<UnifiedCookie> = matched_cookies
+      .into_iter()
+      .filter(|cookie| {
+        let normalized_name = cookie.name.trim().to_lowercase();
+        if normalized_name.is_empty() || seen_cookie_names.contains(&normalized_name) {
+          return false;
+        }
+        seen_cookie_names.insert(normalized_name);
+        true
+      })
+      .collect();
+
+    Ok(
+      unique_cookies
+        .into_iter()
+        .map(|cookie| format!("{}={}", cookie.name, cookie.value))
+        .collect::<Vec<_>>()
+        .join("; "),
+    )
+  }
+
   /// Write cookies to a Firefox/Camoufox profile
   fn write_firefox_cookies(
     db_path: &Path,
@@ -334,7 +417,6 @@ impl CookieManager {
   /// Public API: Read cookies from a profile
   pub fn read_cookies(profile_id: &str) -> Result<CookieReadResult, String> {
     let profile_manager = ProfileManager::instance();
-    let profiles_dir = profile_manager.get_profiles_dir();
     let profiles = profile_manager
       .list_profiles()
       .map_err(|e| format!("Failed to list profiles: {e}"))?;
@@ -344,13 +426,7 @@ impl CookieManager {
       .find(|p| p.id.to_string() == profile_id)
       .ok_or_else(|| format!("Profile not found: {profile_id}"))?;
 
-    let db_path = Self::get_cookie_db_path(profile, &profiles_dir)?;
-
-    let cookies = match profile.browser.as_str() {
-      "camoufox" => Self::read_firefox_cookies(&db_path)?,
-      "wayfern" => Self::read_chrome_cookies(&db_path)?,
-      _ => return Err(format!("Unsupported browser type: {}", profile.browser)),
-    };
+    let cookies = Self::read_raw_cookies(profile_id)?;
 
     let mut domain_map: HashMap<String, Vec<UnifiedCookie>> = HashMap::new();
 

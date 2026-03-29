@@ -75,12 +75,16 @@ export function useGroupEvents() {
           void loadGroups();
         });
 
-        // Also listen for profile changes since groups show profile counts
+        // Also listen for profile changes since groups show profile counts.
+        // Debounce to coalesce rapid events and avoid duplicating work already
+        // done by useProfileEvents which handles the same event.
+        let groupProfilesTimer: ReturnType<typeof setTimeout> | null = null;
         profilesUnlisten = await listen("profiles-changed", () => {
-          console.log(
-            "Received profiles-changed event, reloading groups for updated counts",
-          );
-          void loadGroups();
+          if (groupProfilesTimer) clearTimeout(groupProfilesTimer);
+          groupProfilesTimer = setTimeout(() => {
+            groupProfilesTimer = null;
+            void loadGroups();
+          }, 300);
         });
 
         console.log("Group event listeners set up successfully");

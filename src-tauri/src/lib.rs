@@ -1,12 +1,67 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::env;
 use std::sync::Mutex;
+use calamine::{open_workbook_auto, Data, Reader};
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 // Store pending URLs that need to be handled when the window is ready
 static PENDING_URLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn is_app_auto_update_enabled() -> bool {
+  match env::var("BUGLOGIN_APP_AUTO_UPDATE_ENABLED") {
+    Ok(raw) => {
+      let value = raw.trim().to_ascii_lowercase();
+      matches!(value.as_str(), "1" | "true" | "yes" | "on")
+    }
+    Err(_) => false,
+  }
+}
+
+fn compute_main_window_geometry<R: Runtime>(app: &tauri::App<R>) -> (f64, f64, f64, f64) {
+  const DEFAULT_WIDTH: f64 = 1280.0;
+  const DEFAULT_HEIGHT: f64 = 760.0;
+  const MIN_WIDTH: f64 = 980.0;
+  const MIN_HEIGHT: f64 = 680.0;
+  const WORK_AREA_WIDTH_RATIO: f64 = 0.78;
+  const WORK_AREA_HEIGHT_RATIO: f64 = 0.72;
+  const EDGE_PADDING_X: f64 = 20.0;
+  const EDGE_PADDING_TOP: f64 = 20.0;
+  const EDGE_PADDING_BOTTOM: f64 = 36.0;
+
+  let Ok(Some(monitor)) = app.primary_monitor() else {
+    return (DEFAULT_WIDTH, DEFAULT_HEIGHT, 80.0, 48.0);
+  };
+
+  let work_area = monitor.work_area();
+  let scale_factor = monitor.scale_factor().max(1.0);
+  let work_width = f64::from(work_area.size.width) / scale_factor;
+  let work_height = f64::from(work_area.size.height) / scale_factor;
+  let work_x = f64::from(work_area.position.x) / scale_factor;
+  let work_y = f64::from(work_area.position.y) / scale_factor;
+
+  let max_width = (work_width - EDGE_PADDING_X * 2.0)
+    .floor()
+    .max(MIN_WIDTH);
+  let max_height = (work_height - EDGE_PADDING_TOP - EDGE_PADDING_BOTTOM)
+    .floor()
+    .max(MIN_HEIGHT);
+
+  let width = (work_width * WORK_AREA_WIDTH_RATIO)
+    .floor()
+    .max(MIN_WIDTH)
+    .min(max_width);
+  let height = (work_height * WORK_AREA_HEIGHT_RATIO)
+    .floor()
+    .max(MIN_HEIGHT)
+    .min(max_height);
+
+  let x = work_x + ((work_width - width) / 2.0).max(EDGE_PADDING_X);
+  let y = work_y + ((work_height - height) / 2.0).max(EDGE_PADDING_TOP);
+
+  (width, height, x.floor(), y.floor())
+}
 
 mod api_client;
 mod api_server;
@@ -48,6 +103,7 @@ mod cookie_manager;
 pub mod daemon;
 pub mod daemon_client;
 mod daemon_spawn;
+mod local_control_server;
 pub mod daemon_ws;
 pub mod events;
 mod mcp_server;
@@ -65,10 +121,11 @@ use browser_runner::{
 };
 
 use profile::manager::{
-  check_browser_status, clone_profile, create_browser_profile_new, delete_profile,
-  list_browser_profiles, rename_profile, update_camoufox_config, update_profile_note,
-  update_profile_proxy, update_profile_proxy_bypass_rules, update_profile_tags, update_profile_vpn,
-  update_wayfern_config,
+  check_browser_status, check_browser_statuses_batch, clone_profile, create_browser_profile_new,
+  delete_profile, list_browser_profiles, list_browser_profiles_light, rename_profile,
+  update_camoufox_config, update_profile_note, update_profile_proxy,
+  update_profile_proxy_bypass_rules, update_profile_tags, update_profile_vpn,
+  update_profiles_proxy, update_profiles_vpn, update_wayfern_config,
 };
 
 use browser_version_manager::{
@@ -94,10 +151,11 @@ use settings_manager::{
 
 use sync::{
   check_has_e2e_password, delete_e2e_password, enable_sync_for_all_entities,
-  get_unsynced_entity_counts, is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
-  is_vpn_in_use_by_synced_profile, request_profile_sync, set_e2e_password,
-  set_extension_group_sync_enabled, set_extension_sync_enabled, set_group_sync_enabled,
-  set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
+  get_groups_in_use_by_synced_profiles, get_proxies_in_use_by_synced_profiles,
+  get_unsynced_entity_counts, get_vpns_in_use_by_synced_profiles, is_group_in_use_by_synced_profile,
+  is_proxy_in_use_by_synced_profile, is_vpn_in_use_by_synced_profile, request_profile_sync,
+  set_e2e_password, set_extension_group_sync_enabled, set_extension_sync_enabled,
+  set_group_sync_enabled, set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
 };
 
 use tag_manager::get_all_tags;
@@ -116,9 +174,10 @@ use auto_updater::{
 use profile_importer::{detect_existing_profiles, import_browser_profile};
 
 use extension_manager::{
-  add_extension, add_extension_to_group, assign_extension_group_to_profile, create_extension_group,
-  delete_extension, delete_extension_group, get_extension_group_for_profile, list_extension_groups,
-  list_extensions, remove_extension_from_group, update_extension, update_extension_group,
+  add_extension, add_extension_to_group, assign_extension_group_to_profile,
+  assign_extension_group_to_profiles, create_extension_group, delete_extension,
+  delete_extension_group, get_extension_group_for_profile, list_extension_groups, list_extensions,
+  remove_extension_from_group, update_extension, update_extension_group,
 };
 
 use group_manager::{
@@ -267,6 +326,13 @@ fn get_cached_proxy_check(proxy_id: String) -> Option<crate::proxy_manager::Prox
 }
 
 #[tauri::command]
+fn get_cached_proxy_checks(
+  proxy_ids: Vec<String>,
+) -> std::collections::HashMap<String, crate::proxy_manager::ProxyCheckResult> {
+  crate::proxy_manager::PROXY_MANAGER.get_cached_proxy_checks(&proxy_ids)
+}
+
+#[tauri::command]
 fn export_proxies(format: String) -> Result<String, String> {
   match format.as_str() {
     "json" => crate::proxy_manager::PROXY_MANAGER.export_proxies_json(),
@@ -307,6 +373,32 @@ fn read_profile_cookies(profile_id: String) -> Result<cookie_manager::CookieRead
 }
 
 #[tauri::command]
+fn read_profile_cookies_bulk(
+  profile_ids: Vec<String>,
+) -> std::collections::HashMap<String, cookie_manager::CookieReadResult> {
+  let mut rows = std::collections::HashMap::new();
+  for profile_id in profile_ids {
+    if let Ok(cookie_row) = cookie_manager::CookieManager::read_cookies(&profile_id) {
+      rows.insert(profile_id, cookie_row);
+    }
+  }
+  rows
+}
+
+#[tauri::command]
+fn read_profile_tiktok_cookie_headers_bulk(
+  profile_ids: Vec<String>,
+) -> std::collections::HashMap<String, String> {
+  let mut rows = std::collections::HashMap::new();
+  for profile_id in profile_ids {
+    if let Ok(cookie_header) = cookie_manager::CookieManager::read_tiktok_cookie_header(&profile_id) {
+      rows.insert(profile_id, cookie_header);
+    }
+  }
+  rows
+}
+
+#[tauri::command]
 async fn copy_profile_cookies(
   app_handle: tauri::AppHandle,
   request: cookie_manager::CookieCopyRequest,
@@ -326,12 +418,6 @@ async fn import_cookies_from_file(
   profile_id: String,
   content: String,
 ) -> Result<cookie_manager::CookieImportResult, String> {
-  if !crate::cloud_auth::CLOUD_AUTH
-    .has_active_paid_subscription()
-    .await
-  {
-    return Err("Cookie import requires an active Pro subscription".to_string());
-  }
   cookie_manager::CookieManager::import_cookies(&app_handle, &profile_id, &content).await
 }
 
@@ -344,6 +430,291 @@ async fn export_profile_cookies(profile_id: String, format: String) -> Result<St
     return Err("Cookie export requires an active Pro subscription".to_string());
   }
   cookie_manager::CookieManager::export_cookies(&profile_id, &format)
+}
+
+#[tauri::command]
+async fn bugidea_tiktok_request(
+  method: String,
+  path: String,
+  bearer_token: String,
+  base_url: Option<String>,
+  body: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+  let normalized_path = path.trim();
+  if normalized_path.is_empty() || !normalized_path.starts_with("/api/tiktok-cookies") {
+    return Err("Invalid BugIdea path".to_string());
+  }
+
+  let token = bearer_token.trim();
+  if token.is_empty() {
+    return Err("BugIdea bearer token is required".to_string());
+  }
+
+  let http_method = reqwest::Method::from_bytes(method.trim().as_bytes())
+    .map_err(|error| format!("Invalid HTTP method: {error}"))?;
+  let configured_base_url = base_url
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(ToOwned::to_owned)
+    .or_else(|| {
+      env::var("BUGIDEA_BASE_URL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    })
+    .unwrap_or_else(|| "https://bugidea.com".to_string());
+  let timeout_seconds = env::var("BUGIDEA_TIMEOUT_SECONDS")
+    .ok()
+    .and_then(|raw| raw.trim().parse::<u64>().ok())
+    .map(|value| value.clamp(5, 120))
+    .unwrap_or(20);
+  let insecure_tls = env::var("BUGIDEA_INSECURE_TLS")
+    .ok()
+    .map(|raw| {
+      let normalized = raw.trim().to_ascii_lowercase();
+      matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+    })
+    .unwrap_or(false);
+  let allow_http_fallback = env::var("BUGIDEA_ALLOW_HTTP_FALLBACK")
+    .ok()
+    .map(|raw| {
+      let normalized = raw.trim().to_ascii_lowercase();
+      matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+    })
+    .unwrap_or(false);
+  let https_url = format!(
+    "{}{}",
+    configured_base_url.trim_end_matches('/'),
+    normalized_path
+  );
+  let http_fallback_url = if allow_http_fallback {
+    https_url.strip_prefix("https://").map(|rest| format!("http://{rest}"))
+  } else {
+    None
+  };
+
+  let client = reqwest::Client::builder()
+    .user_agent("BugLogin/0.17.0")
+    .connect_timeout(std::time::Duration::from_secs(8))
+    .timeout(std::time::Duration::from_secs(timeout_seconds))
+    .danger_accept_invalid_certs(insecure_tls)
+    .build()
+    .map_err(|error| format!("Failed to build BugIdea HTTP client: {error}"))?;
+
+  let urls = if let Some(http_url) = http_fallback_url {
+    vec![https_url, http_url]
+  } else {
+    vec![https_url]
+  };
+  let max_attempts: usize = 3;
+  let mut last_error: Option<String> = None;
+
+  for (url_index, url) in urls.iter().enumerate() {
+    for attempt in 1..=max_attempts {
+      let mut request = client
+        .request(http_method.clone(), url)
+        .bearer_auth(token)
+        .header(reqwest::header::ACCEPT, "application/json");
+
+      if let Some(payload) = &body {
+        request = request.json(payload);
+      }
+
+      match request.send().await {
+        Ok(response) => {
+          let status = response.status();
+          let text = response
+            .text()
+            .await
+            .map_err(|error| format!("Failed to read BugIdea response: {error}"))?;
+
+          if status.is_success() {
+            if text.trim().is_empty() {
+              return Ok(serde_json::Value::Null);
+            }
+            return serde_json::from_str(&text)
+              .map_err(|error| format!("Invalid BugIdea JSON: {error}"));
+          }
+
+          let status_code = status.as_u16();
+          let retryable_status =
+            status_code == 408 ||
+            status_code == 425 ||
+            status_code == 429 ||
+            status_code >= 500;
+          last_error = Some(format!(
+            "BugIdea {} [{}]: {}",
+            status_code, url, text
+          ));
+          if retryable_status && attempt < max_attempts {
+            let backoff_ms = 300_u64.saturating_mul(attempt as u64);
+            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+            continue;
+          }
+          break;
+        }
+        Err(error) => {
+          let message = error.to_string();
+          let lowered = message.to_ascii_lowercase();
+          let retryable_error =
+            error.is_timeout() ||
+            error.is_connect() ||
+            lowered.contains("tls") ||
+            lowered.contains("ssl") ||
+            lowered.contains("handshake") ||
+            lowered.contains("connection reset") ||
+            lowered.contains("connection refused") ||
+            lowered.contains("eof");
+          last_error = Some(format!("BugIdea request failed [{}]: {message}", url));
+          if retryable_error && attempt < max_attempts {
+            let backoff_ms = 300_u64.saturating_mul(attempt as u64);
+            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+            continue;
+          }
+          break;
+        }
+      }
+    }
+
+    if last_error.is_none() && url_index + 1 < urls.len() {
+      continue;
+    }
+  }
+
+  Err(last_error.unwrap_or_else(|| "BugIdea request failed".to_string()))
+}
+
+#[derive(serde::Serialize)]
+struct TiktokAccountCookieSourceRow {
+  phone: String,
+  api_phone: String,
+  cookie: String,
+}
+
+fn spreadsheet_cell_to_string(cell: Option<&Data>) -> String {
+  match cell {
+    Some(Data::String(value)) => value.trim().to_string(),
+    Some(Data::Float(value)) => {
+      if value.fract() == 0.0 {
+        format!("{value:.0}")
+      } else {
+        value.to_string()
+      }
+    }
+    Some(Data::Int(value)) => value.to_string(),
+    Some(Data::Bool(value)) => value.to_string(),
+    Some(Data::DateTime(value)) => value.to_string(),
+    Some(Data::DateTimeIso(value)) => value.trim().to_string(),
+    Some(Data::DurationIso(value)) => value.trim().to_string(),
+    Some(Data::Error(_)) | Some(Data::Empty) | None => String::new(),
+  }
+}
+
+fn normalize_workbook_phone_like_value(value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+
+  let digits_only = trimmed
+    .chars()
+    .filter(|character| character.is_ascii_digit())
+    .collect::<String>();
+  if !digits_only.is_empty() && !trimmed.contains('@') && !trimmed.contains("://") {
+    return digits_only;
+  }
+
+  if (trimmed.contains('e') || trimmed.contains('E'))
+    && !trimmed.contains('@')
+    && !trimmed.contains("://")
+  {
+    if let Ok(parsed) = trimmed.parse::<f64>() {
+      if parsed.is_finite() {
+        return format!("{parsed:.0}");
+      }
+    }
+  }
+
+  trimmed.to_string()
+}
+
+fn normalize_sheet_header(value: &str) -> String {
+  value
+    .trim()
+    .to_lowercase()
+    .replace('-', "_")
+    .replace(' ', "_")
+}
+
+#[tauri::command]
+fn read_tiktok_account_cookie_source(
+  file_path: String,
+) -> Result<Vec<TiktokAccountCookieSourceRow>, String> {
+  let path = file_path.trim();
+  if path.is_empty() {
+    return Err("Cookie source file path is required".to_string());
+  }
+
+  let mut workbook = open_workbook_auto(path)
+    .map_err(|error| format!("Failed to open cookie source workbook: {error}"))?;
+  let mut rows_out: Vec<TiktokAccountCookieSourceRow> = Vec::new();
+
+  for sheet_name in workbook.sheet_names().to_owned() {
+    let range = workbook
+      .worksheet_range(&sheet_name)
+      .map_err(|error| format!("Failed to read sheet '{sheet_name}': {error}"))?;
+
+    let mut rows = range.rows();
+    let Some(header_row) = rows.next() else {
+      continue;
+    };
+
+    let mut phone_index: Option<usize> = None;
+    let mut api_phone_index: Option<usize> = None;
+    let mut cookie_index: Option<usize> = None;
+
+    for (index, cell) in header_row.iter().enumerate() {
+      let header = normalize_sheet_header(&spreadsheet_cell_to_string(Some(cell)));
+      if matches!(header.as_str(), "phone" | "phone_number" | "sdt") {
+        phone_index = Some(index);
+      } else if matches!(header.as_str(), "api_phone" | "api-phone" | "phone_api") {
+        api_phone_index = Some(index);
+      } else if matches!(header.as_str(), "cookie" | "cookie_tiktok" | "tiktok_cookie") {
+        cookie_index = Some(index);
+      }
+    }
+
+    let Some(cookie_col) = cookie_index else {
+      continue;
+    };
+
+    for row in rows {
+      let cookie = spreadsheet_cell_to_string(row.get(cookie_col));
+      if cookie.trim().is_empty() {
+        continue;
+      }
+
+      let phone = phone_index
+        .and_then(|index| row.get(index))
+        .map(|cell| spreadsheet_cell_to_string(Some(cell)))
+        .map(|value| normalize_workbook_phone_like_value(&value))
+        .unwrap_or_default();
+      let api_phone = api_phone_index
+        .and_then(|index| row.get(index))
+        .map(|cell| spreadsheet_cell_to_string(Some(cell)))
+        .map(|value| normalize_workbook_phone_like_value(&value))
+        .unwrap_or_default();
+
+      rows_out.push(TiktokAccountCookieSourceRow {
+        phone,
+        api_phone,
+        cookie,
+      });
+    }
+  }
+
+  Ok(rows_out)
 }
 
 #[tauri::command]
@@ -431,6 +802,15 @@ async fn is_geoip_database_available() -> Result<bool, String> {
 async fn get_all_traffic_snapshots() -> Result<Vec<crate::traffic_stats::TrafficSnapshot>, String> {
   // Use real-time snapshots that merge in-memory data with disk data
   Ok(crate::traffic_stats::get_all_traffic_snapshots_realtime())
+}
+
+#[tauri::command]
+async fn get_traffic_snapshots_for_profiles(
+  profile_ids: Vec<String>,
+) -> Result<Vec<crate::traffic_stats::TrafficSnapshot>, String> {
+  Ok(crate::traffic_stats::get_traffic_snapshots_for_profiles_realtime(
+    &profile_ids,
+  ))
 }
 
 #[tauri::command]
@@ -861,6 +1241,12 @@ pub fn run() {
         log::warn!("Failed to start daemon: {e}");
       }
 
+      tauri::async_runtime::spawn(async move {
+        if let Err(e) = local_control_server::ensure_local_control_server_running().await {
+          log::warn!("Failed to start local control server: {e}");
+        }
+      });
+
       // Register this GUI's PID in daemon state so the daemon can kill us directly
       daemon_spawn::register_gui_pid();
 
@@ -911,23 +1297,40 @@ pub fn run() {
         }
       });
 
-      // Create the main window programmatically
+      // Create the main window if it does not already exist.
       #[allow(unused_variables)]
-      let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("BugLogin")
-        .inner_size(800.0, 500.0)
-        .min_inner_size(800.0, 500.0)
-        .resizable(true)
-        .fullscreen(false)
-        .center()
-        .focused(true)
-        .visible(true);
+      let window = if let Some(existing_window) = app.get_webview_window("main") {
+        log::debug!("Main window already exists, reusing existing window");
+        existing_window
+      } else {
+        let (initial_width, initial_height, initial_x, initial_y) =
+          compute_main_window_geometry(app);
+        let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+          .title("BugLogin")
+          .inner_size(initial_width, initial_height)
+          .min_inner_size(980.0, 700.0)
+          .prevent_overflow()
+          .resizable(true)
+          .fullscreen(false)
+          .position(initial_x, initial_y)
+          .focused(true)
+          .visible(true);
+
+        #[cfg(target_os = "windows")]
+        let win_builder = win_builder.decorations(false);
+
+        win_builder.build().map_err(|e| {
+          log::error!("Failed to create main window: {e}");
+          e
+        })?
+      };
 
       #[cfg(target_os = "windows")]
-      let win_builder = win_builder.decorations(false);
-
-      #[allow(unused_variables)]
-      let window = win_builder.build().unwrap();
+      {
+        if let Err(e) = window.set_decorations(false) {
+          log::warn!("Failed to disable native window decorations: {e}");
+        }
+      }
 
       // Set transparent titlebar for macOS
       #[cfg(target_os = "macos")]
@@ -1079,34 +1482,41 @@ pub fn run() {
         }
       });
 
-      tauri::async_runtime::spawn(async move {
-        let updater = app_auto_updater::AppAutoUpdater::instance();
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3 * 60 * 60));
+      if is_app_auto_update_enabled() {
+        tauri::async_runtime::spawn(async move {
+          let updater = app_auto_updater::AppAutoUpdater::instance();
+          let mut interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(3 * 60 * 60));
 
-        loop {
-          interval.tick().await;
+          loop {
+            interval.tick().await;
 
-          log::info!("Checking for app updates...");
-          match updater.check_for_updates().await {
-            Ok(Some(update_info)) => {
-              log::info!(
-                "App update available: {} -> {}",
-                update_info.current_version,
-                update_info.new_version
-              );
-              if let Err(e) = events::emit("app-update-available", &update_info) {
-                log::error!("Failed to emit app update event: {e}");
+            log::info!("Checking for app updates...");
+            match updater.check_for_updates().await {
+              Ok(Some(update_info)) => {
+                log::info!(
+                  "App update available: {} -> {}",
+                  update_info.current_version,
+                  update_info.new_version
+                );
+                if let Err(e) = events::emit("app-update-available", &update_info) {
+                  log::error!("Failed to emit app update event: {e}");
+                }
+              }
+              Ok(None) => {
+                log::debug!("No app updates available");
+              }
+              Err(e) => {
+                log::error!("Failed to check for app updates: {e}");
               }
             }
-            Ok(None) => {
-              log::debug!("No app updates available");
-            }
-            Err(e) => {
-              log::error!("Failed to check for app updates: {e}");
-            }
           }
-        }
-      });
+        });
+      } else {
+        log::info!(
+          "App auto-update loop disabled. Set BUGLOGIN_APP_AUTO_UPDATE_ENABLED=true to enable."
+        );
+      }
 
       // Start Camoufox cleanup task
       let _app_handle_cleanup = app.handle().clone();
@@ -1414,6 +1824,7 @@ pub fn run() {
       check_browser_exists,
       create_browser_profile_new,
       list_browser_profiles,
+      list_browser_profiles_light,
       launch_browser_profile,
       fetch_browser_versions_with_count,
       fetch_browser_versions_cached_first,
@@ -1423,10 +1834,13 @@ pub fn run() {
       get_browser_release_types,
       update_profile_proxy,
       update_profile_vpn,
+      update_profiles_proxy,
+      update_profiles_vpn,
       update_profile_tags,
       update_profile_note,
       update_profile_proxy_bypass_rules,
       check_browser_status,
+      check_browser_statuses_batch,
       park_browser_profile,
       kill_browser_profile,
       rename_profile,
@@ -1462,6 +1876,7 @@ pub fn run() {
       check_proxy_validity,
       benchmark_proxy_protocols,
       get_cached_proxy_check,
+      get_cached_proxy_checks,
       export_proxies,
       import_proxies_json,
       parse_txt_proxies,
@@ -1486,6 +1901,7 @@ pub fn run() {
       add_extension_to_group,
       remove_extension_from_group,
       assign_extension_group_to_profile,
+      assign_extension_group_to_profiles,
       get_extension_group_for_profile,
       is_geoip_database_available,
       download_geoip_database,
@@ -1493,6 +1909,7 @@ pub fn run() {
       stop_api_server,
       get_api_server_status,
       get_all_traffic_snapshots,
+      get_traffic_snapshots_for_profiles,
       clear_all_traffic_stats,
       get_traffic_stats_for_period,
       get_sync_settings,
@@ -1504,9 +1921,12 @@ pub fn run() {
       set_proxy_sync_enabled,
       set_group_sync_enabled,
       is_proxy_in_use_by_synced_profile,
+      get_proxies_in_use_by_synced_profiles,
       is_group_in_use_by_synced_profile,
+      get_groups_in_use_by_synced_profiles,
       set_vpn_sync_enabled,
       is_vpn_in_use_by_synced_profile,
+      get_vpns_in_use_by_synced_profiles,
       set_extension_sync_enabled,
       set_extension_group_sync_enabled,
       get_unsynced_entity_counts,
@@ -1515,9 +1935,13 @@ pub fn run() {
       check_has_e2e_password,
       delete_e2e_password,
       read_profile_cookies,
+      read_profile_cookies_bulk,
+      read_profile_tiktok_cookie_headers_bulk,
       copy_profile_cookies,
       import_cookies_from_file,
       export_profile_cookies,
+      bugidea_tiktok_request,
+      read_tiktok_account_cookie_source,
       check_wayfern_terms_accepted,
       check_wayfern_downloaded,
       accept_wayfern_terms,
@@ -1541,6 +1965,7 @@ pub fn run() {
       cloud_auth::cloud_request_otp,
       cloud_auth::cloud_verify_otp,
       cloud_auth::cloud_get_user,
+      cloud_auth::cloud_set_self_host_auth_state,
       cloud_auth::cloud_refresh_profile,
       cloud_auth::cloud_logout,
       cloud_auth::cloud_get_proxy_usage,

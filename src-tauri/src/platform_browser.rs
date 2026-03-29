@@ -538,7 +538,9 @@ pub mod windows {
 
     let profile_data_path = profile.get_profile_data_path(profiles_dir);
 
-    // For Windows, try using the -requestPending approach for Firefox
+    // Use non-blocking `-requestPending` to avoid UI freezes when Firefox/Camoufox
+    // enters lock-race states ("already running, not responding").
+    // We intentionally avoid synchronous `output()` here.
     let mut cmd = Command::new(executable_path);
     cmd.args([
       "-profile",
@@ -555,42 +557,7 @@ pub mod windows {
     {
       cmd.current_dir(parent_dir);
     }
-
-    let output = cmd.output()?;
-
-    if !output.status.success() {
-      // Fallback: try without -requestPending
-      let executable_path = browser
-        .get_executable_path(browser_dir)
-        .map_err(|e| format!("Failed to get executable path: {}", e))?;
-      let mut fallback_cmd = Command::new(executable_path);
-      let profile_data_path = profile.get_profile_data_path(profiles_dir);
-      fallback_cmd.args([
-        "-profile",
-        &profile_data_path.to_string_lossy(),
-        "-new-tab",
-        url,
-      ]);
-
-      if let Some(parent_dir) = browser_dir
-        .parent()
-        .or_else(|| browser_dir.ancestors().nth(1))
-      {
-        fallback_cmd.current_dir(parent_dir);
-      }
-
-      let fallback_output = fallback_cmd.output()?;
-
-      if !fallback_output.status.success() {
-        return Err(
-          format!(
-            "Failed to open URL in existing browser: {}",
-            String::from_utf8_lossy(&fallback_output.stderr)
-          )
-          .into(),
-        );
-      }
-    }
+    cmd.spawn()?;
 
     Ok(())
   }

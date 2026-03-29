@@ -5,12 +5,23 @@
   "identifier": "com.buglogin.desktop",
   "build": {
     "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
-    "devUrl": "http://localhost:12341",
-    "beforeBuildCommand": "pnpm copy-proxy-binary && (node -e \"if(process.env.CI) process.exit(0); else process.exit(1)\" || pnpm build)",
+    "devUrl": "http://localhost:12341/desktop",
+    "beforeBuildCommand": "pnpm copy-proxy-binary && (node scripts/ci-skip-build.mjs || pnpm build)",
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [],
+    "windows": [
+      {
+        "title": "BugLogin",
+        "url": "/desktop",
+        "width": 1280,
+        "height": 760,
+        "minWidth": 980,
+        "minHeight": 680,
+        "center": true,
+        "resizable": true
+      }
+    ],
     "security": {
       "csp": null
     }

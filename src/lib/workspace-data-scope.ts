@@ -86,21 +86,40 @@ function parseRegistry(raw: string | null): ScopeRegistry {
   }
 }
 
+// In-memory cache to avoid re-parsing localStorage JSON on every call.
+let registryCache: ScopeRegistry | null = null;
+
 function readRegistry(): ScopeRegistry {
   if (!canUseStorage()) {
     return EMPTY_REGISTRY;
   }
-  return parseRegistry(window.localStorage.getItem(DATA_SCOPE_REGISTRY_KEY));
+  if (registryCache) {
+    return registryCache;
+  }
+  registryCache = parseRegistry(
+    window.localStorage.getItem(DATA_SCOPE_REGISTRY_KEY),
+  );
+  return registryCache;
 }
 
 function writeRegistry(registry: ScopeRegistry): void {
   if (!canUseStorage()) {
     return;
   }
+  registryCache = registry;
   window.localStorage.setItem(
     DATA_SCOPE_REGISTRY_KEY,
     JSON.stringify(registry),
   );
+}
+
+// Invalidate cache when another tab/window writes to the same key.
+if (canUseStorage()) {
+  window.addEventListener("storage", (event) => {
+    if (event.key === DATA_SCOPE_REGISTRY_KEY) {
+      registryCache = null;
+    }
+  });
 }
 
 function emitDataScopeChanged(scope?: DataScopeContext): void {

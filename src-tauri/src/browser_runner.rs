@@ -51,6 +51,113 @@ impl BrowserRunner {
     PROXY_MANAGER.get_proxy_settings_by_id(proxy_id)
   }
 
+  async fn ensure_camoufox_fingerprint(
+    &self,
+    app_handle: &tauri::AppHandle,
+    profile: &BrowserProfile,
+    updated_profile: &mut BrowserProfile,
+    camoufox_config: &mut CamoufoxConfig,
+  ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let needs_generation = camoufox_config.fingerprint.is_none()
+      || camoufox_config.randomize_fingerprint_on_launch == Some(true);
+
+    if !needs_generation {
+      return Ok(());
+    }
+
+    let generation_reason = if camoufox_config.randomize_fingerprint_on_launch == Some(true) {
+      "randomize-on-launch"
+    } else {
+      "missing-stored-fingerprint"
+    };
+    log::info!(
+      "Generating Camoufox fingerprint for profile '{}' ({})",
+      profile.name,
+      generation_reason
+    );
+
+    let mut config_for_generation = camoufox_config.clone();
+    config_for_generation.fingerprint = None;
+
+    let new_fingerprint = self
+      .camoufox_manager
+      .generate_fingerprint_config(app_handle, profile, &config_for_generation)
+      .await
+      .map_err(|e| format!("Failed to generate Camoufox fingerprint: {e}"))?;
+
+    camoufox_config.fingerprint = Some(new_fingerprint.clone());
+
+    let mut persisted_camoufox_config = updated_profile.camoufox_config.clone().unwrap_or_default();
+    persisted_camoufox_config.fingerprint = Some(new_fingerprint);
+    persisted_camoufox_config.randomize_fingerprint_on_launch =
+      camoufox_config.randomize_fingerprint_on_launch;
+    if camoufox_config.os.is_some() {
+      persisted_camoufox_config.os = camoufox_config.os.clone();
+    }
+    updated_profile.camoufox_config = Some(persisted_camoufox_config);
+
+    Ok(())
+  }
+
+  async fn ensure_wayfern_fingerprint(
+    &self,
+    app_handle: &tauri::AppHandle,
+    profile: &BrowserProfile,
+    updated_profile: &mut BrowserProfile,
+    wayfern_config: &mut WayfernConfig,
+  ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let needs_generation = wayfern_config.fingerprint.is_none()
+      || wayfern_config.randomize_fingerprint_on_launch == Some(true);
+
+    if !needs_generation {
+      return Ok(());
+    }
+
+    let generation_reason = if wayfern_config.randomize_fingerprint_on_launch == Some(true) {
+      "randomize-on-launch"
+    } else {
+      "missing-stored-fingerprint"
+    };
+    log::info!(
+      "Generating Wayfern fingerprint for profile '{}' ({})",
+      profile.name,
+      generation_reason
+    );
+
+    let mut config_for_generation = wayfern_config.clone();
+    config_for_generation.fingerprint = None;
+
+    let new_fingerprint = self
+      .wayfern_manager
+      .generate_fingerprint_config(app_handle, profile, &config_for_generation)
+      .await
+      .map_err(|e| format!("Failed to generate Wayfern fingerprint: {e}"))?;
+
+    wayfern_config.fingerprint = Some(new_fingerprint.clone());
+
+    let mut persisted_wayfern_config = updated_profile.wayfern_config.clone().unwrap_or_default();
+    persisted_wayfern_config.fingerprint = Some(new_fingerprint);
+    persisted_wayfern_config.randomize_fingerprint_on_launch =
+      wayfern_config.randomize_fingerprint_on_launch;
+    if wayfern_config.os.is_some() {
+      persisted_wayfern_config.os = wayfern_config.os.clone();
+    }
+    updated_profile.wayfern_config = Some(persisted_wayfern_config);
+
+    Ok(())
+  }
+
+  fn schedule_profile_window_identity_with_url(
+    &self,
+    profile: &BrowserProfile,
+    navigation_url: Option<&str>,
+  ) {
+    // Disabled: avoid runtime title/icon mutation loop during profile launch.
+    // Window identity customization can be done once at startup/bootstrap.
+    let _ = profile;
+    let _ = navigation_url;
+  }
+
   /// Get the executable path for a browser profile
   /// This is a common helper to eliminate code duplication across the codebase
   pub fn get_browser_executable_path(
@@ -94,6 +201,8 @@ impl BrowserRunner {
     remote_debugging_port: Option<u16>,
     headless: bool,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error + Send + Sync>> {
+    let navigation_url = url.as_deref().map(|value| value.to_string());
+
     // Handle Camoufox profiles using CamoufoxManager
     if profile.browser == "camoufox" {
       // Get or create camoufox config
@@ -188,52 +297,15 @@ impl BrowserRunner {
         camoufox_config.geoip
       );
 
-      // Check if we need to generate a new fingerprint on every launch
       let mut updated_profile = profile.clone();
-      if camoufox_config.randomize_fingerprint_on_launch == Some(true) {
-        log::info!(
-          "Generating random fingerprint for Camoufox profile: {}",
-          profile.name
-        );
-
-        // Create a config copy without the existing fingerprint to force generation of a new one
-        let mut config_for_generation = camoufox_config.clone();
-        config_for_generation.fingerprint = None;
-
-        // Generate a new fingerprint
-        let new_fingerprint = self
-          .camoufox_manager
-          .generate_fingerprint_config(&app_handle, profile, &config_for_generation)
-          .await
-          .map_err(|e| format!("Failed to generate random fingerprint: {e}"))?;
-
-        log::info!(
-          "New fingerprint generated, length: {} chars",
-          new_fingerprint.len()
-        );
-
-        // Update the config with the new fingerprint for launching
-        camoufox_config.fingerprint = Some(new_fingerprint.clone());
-
-        // Save the updated fingerprint to the profile so it persists
-        // We need to preserve all existing config fields and only update the fingerprint
-        let mut updated_camoufox_config =
-          updated_profile.camoufox_config.clone().unwrap_or_default();
-        updated_camoufox_config.fingerprint = Some(new_fingerprint);
-        // Preserve the randomize flag so it persists across launches
-        updated_camoufox_config.randomize_fingerprint_on_launch = Some(true);
-        // Preserve the OS setting so it's used for future fingerprint generation
-        if camoufox_config.os.is_some() {
-          updated_camoufox_config.os = camoufox_config.os.clone();
-        }
-        updated_profile.camoufox_config = Some(updated_camoufox_config.clone());
-
-        log::info!(
-          "Updated profile camoufox_config with new fingerprint for profile: {}, fingerprint length: {}",
-          profile.name,
-          updated_camoufox_config.fingerprint.as_ref().map(|f| f.len()).unwrap_or(0)
-        );
-      }
+      self
+        .ensure_camoufox_fingerprint(
+          &app_handle,
+          profile,
+          &mut updated_profile,
+          &mut camoufox_config,
+        )
+        .await?;
 
       // Create ephemeral dir for ephemeral profiles
       let override_profile_path = if profile.ephemeral {
@@ -298,6 +370,10 @@ impl BrowserRunner {
       updated_profile.process_id = Some(process_id);
       updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
       updated_profile.runtime_state = RuntimeState::Running;
+      self.schedule_profile_window_identity_with_url(
+        &updated_profile,
+        navigation_url.as_deref(),
+      );
 
       // Update the proxy manager with the correct PID
       if let Err(e) = PROXY_MANAGER.update_proxy_pid(0, process_id) {
@@ -446,48 +522,15 @@ impl BrowserRunner {
         wayfern_config.proxy
       );
 
-      // Check if we need to generate a new fingerprint on every launch
       let mut updated_profile = profile.clone();
-      if wayfern_config.randomize_fingerprint_on_launch == Some(true) {
-        log::info!(
-          "Generating random fingerprint for Wayfern profile: {}",
-          profile.name
-        );
-
-        // Create a config copy without the existing fingerprint to force generation of a new one
-        let mut config_for_generation = wayfern_config.clone();
-        config_for_generation.fingerprint = None;
-
-        // Generate a new fingerprint
-        let new_fingerprint = self
-          .wayfern_manager
-          .generate_fingerprint_config(&app_handle, profile, &config_for_generation)
-          .await
-          .map_err(|e| format!("Failed to generate random fingerprint: {e}"))?;
-
-        log::info!(
-          "New fingerprint generated, length: {} chars",
-          new_fingerprint.len()
-        );
-
-        // Update the config with the new fingerprint for launching
-        wayfern_config.fingerprint = Some(new_fingerprint.clone());
-
-        // Save the updated fingerprint to the profile so it persists
-        let mut updated_wayfern_config = updated_profile.wayfern_config.clone().unwrap_or_default();
-        updated_wayfern_config.fingerprint = Some(new_fingerprint);
-        updated_wayfern_config.randomize_fingerprint_on_launch = Some(true);
-        if wayfern_config.os.is_some() {
-          updated_wayfern_config.os = wayfern_config.os.clone();
-        }
-        updated_profile.wayfern_config = Some(updated_wayfern_config.clone());
-
-        log::info!(
-          "Updated profile wayfern_config with new fingerprint for profile: {}, fingerprint length: {}",
-          profile.name,
-          updated_wayfern_config.fingerprint.as_ref().map(|f| f.len()).unwrap_or(0)
-        );
-      }
+      self
+        .ensure_wayfern_fingerprint(
+          &app_handle,
+          profile,
+          &mut updated_profile,
+          &mut wayfern_config,
+        )
+        .await?;
 
       // Create ephemeral dir for ephemeral profiles
       if profile.ephemeral {
@@ -553,6 +596,7 @@ impl BrowserRunner {
       updated_profile.process_id = Some(process_id);
       updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
       updated_profile.runtime_state = RuntimeState::Running;
+      self.schedule_profile_window_identity_with_url(&updated_profile, url.as_deref());
 
       // Update the proxy manager with the correct PID
       if let Err(e) = PROXY_MANAGER.update_proxy_pid(0, process_id) {
@@ -637,28 +681,6 @@ impl BrowserRunner {
     if let Err(e) = browser.prepare_executable(&executable_path) {
       log::warn!("Warning: Failed to prepare executable: {e}");
       // Continue anyway, the error might not be critical
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-      let mut browser_dir = self.get_binaries_dir();
-      browser_dir.push(&profile.browser);
-      browser_dir.push(&profile.version);
-
-      if let Err(e) = crate::downloader::patch_installed_browser_icon_windows(
-        &profile.browser,
-        &profile.version,
-        &browser_dir,
-      )
-      .await
-      {
-        log::warn!(
-          "Failed to patch Windows browser icon before launch for {} {}: {}",
-          profile.browser,
-          profile.version,
-          e
-        );
-      }
     }
 
     // Refresh cloud proxy credentials if needed before resolving
@@ -831,6 +853,10 @@ impl BrowserRunner {
     updated_profile.process_id = Some(actual_pid);
     updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
     updated_profile.runtime_state = RuntimeState::Running;
+    self.schedule_profile_window_identity_with_url(
+      &updated_profile,
+      navigation_url.as_deref(),
+    );
 
     self.save_process_info(&updated_profile)?;
     let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
@@ -916,26 +942,25 @@ impl BrowserRunner {
             .get_browser_executable_path(profile)
             .map_err(|e| format!("Failed to get Camoufox executable path: {e}"))?;
 
-          // Launch Camoufox with -profile and -new-tab to open URL in existing instance
-          // This works because we no longer use -no-remote flag
-          let output = std::process::Command::new(&executable_path)
+          // Use non-blocking remote-tab open to avoid freezing the app while Firefox-like
+          // browsers handle lock-race/request-pending states.
+          let mut cmd = std::process::Command::new(&executable_path);
+          cmd
             .arg("-profile")
             .arg(&*profile_path_str)
+            .arg("-requestPending")
             .arg("-new-tab")
-            .arg(url)
-            .output()
-            .map_err(|e| format!("Failed to execute Camoufox: {e}"))?;
+            .arg(url);
 
-          if output.status.success() {
-            log::info!("Successfully opened URL in existing Camoufox instance");
-            return Ok(());
-          } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            log::warn!("Camoufox -new-tab command failed: {stderr}");
-            return Err(
-              format!("Failed to open URL in existing Camoufox instance: {stderr}").into(),
-            );
+          if let Some(parent_dir) = executable_path.parent() {
+            cmd.current_dir(parent_dir);
           }
+
+          cmd
+            .spawn()
+            .map_err(|e| format!("Failed to execute Camoufox: {e}"))?;
+          log::info!("Dispatched URL open request in existing Camoufox instance");
+          return Ok(());
         }
         Ok(None) => {
           return Err("Camoufox browser is not running".into());
@@ -1324,41 +1349,109 @@ impl BrowserRunner {
       // Browser is running and we have a URL to open
       if let Some(url_ref) = normalized_url.as_ref() {
         log::info!("Opening URL in existing browser: {url_ref}");
+        let mut last_error_message = String::new();
+        let mut running_probe_after_failure = is_running;
+        let max_attempts = 4usize;
 
-        match self
-          .open_url_in_existing_browser(
-            app_handle.clone(),
-            &final_profile,
-            url_ref,
-            internal_proxy_settings,
-          )
-          .await
-        {
-          Ok(()) => {
-            log::info!("Successfully opened URL in existing browser");
-            Ok(final_profile)
-          }
-          Err(e) => {
-            log::info!("Failed to open URL in existing browser: {e}");
-
-            // Fall back to launching a new instance
-            log::info!(
-              "Falling back to new instance for browser: {}",
-              final_profile.browser
-            );
-            // Fallback to launching a new instance for other browsers
-            self
-              .launch_browser_internal(
-                app_handle.clone(),
+        for attempt in 1..=max_attempts {
+          match self
+            .open_url_in_existing_browser(
+              app_handle.clone(),
+              &final_profile,
+              url_ref,
+              internal_proxy_settings,
+            )
+            .await
+          {
+            Ok(()) => {
+              log::info!("Successfully opened URL in existing browser");
+              self.schedule_profile_window_identity_with_url(
                 &final_profile,
-                normalized_url,
-                internal_proxy_settings,
-                None,
-                false,
-              )
-              .await
+                Some(url_ref.as_str()),
+              );
+              return Ok(final_profile);
+            }
+            Err(error) => {
+              last_error_message = error.to_string();
+              log::info!(
+                "Attempt {attempt}/{max_attempts} failed to open URL in existing browser: {}",
+                last_error_message
+              );
+
+              running_probe_after_failure = self
+                .check_browser_status(app_handle.clone(), &final_profile)
+                .await
+                .unwrap_or_else(|status_error| {
+                  log::debug!(
+                    "Status probe failed after URL open attempt for profile {} (ID: {}): {}",
+                    final_profile.name,
+                    final_profile.id,
+                    status_error
+                  );
+                  false
+                });
+
+              let should_retry =
+                running_probe_after_failure
+                  && attempt < max_attempts
+                  && should_retry_open_existing_browser_error(&last_error_message);
+
+              if should_retry {
+                let backoff_ms = 250 + (attempt as u64 * 250);
+                log::info!(
+                  "Retrying open-url in existing browser for profile {} (ID: {}) after {}ms",
+                  final_profile.name,
+                  final_profile.id,
+                  backoff_ms
+                );
+                tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
+                continue;
+              }
+
+              break;
+            }
           }
         }
+
+        if is_firefox_like_browser(&final_profile.browser) {
+          return Err(
+            format!(
+              "Failed to open URL in existing browser for Firefox-like profile: {}",
+              last_error_message
+            )
+            .into(),
+          );
+        }
+
+        if !should_fallback_to_new_instance_after_open_url_failure(
+          running_probe_after_failure,
+          &final_profile.browser,
+          &last_error_message,
+        ) {
+          return Err(
+            format!(
+              "Failed to open URL in existing browser while profile is still running: {}",
+              last_error_message
+            )
+            .into(),
+          );
+        }
+
+        log::info!(
+          "Falling back to new instance for browser {} after open-url failure: {}",
+          final_profile.browser,
+          last_error_message
+        );
+        self
+          .launch_browser_internal(
+            app_handle.clone(),
+            &final_profile,
+            normalized_url.clone(),
+            internal_proxy_settings,
+            None,
+            false,
+          )
+          .await
       } else {
         // This case shouldn't happen since we checked is_some() above, but handle it gracefully
         log::info!("URL was unexpectedly None, launching new browser instance");
@@ -1373,6 +1466,16 @@ impl BrowserRunner {
       }
     } else {
       // Browser is not running or no URL provided, launch new instance
+      if !is_running
+        && normalized_url.is_some()
+        && is_firefox_like_browser(&final_profile.browser)
+        && final_profile.process_id.is_some()
+      {
+        return Err(
+          "Firefox is already running, but is not responding. Existing profile process is still tracked; refusing to spawn a second instance."
+            .into(),
+        );
+      }
       if !is_running {
         log::info!("Launching new browser instance - browser not running");
       } else {
@@ -2669,6 +2772,94 @@ fn looks_like_direct_host(value: &str) -> bool {
 
   // Domain-like values should navigate directly, e.g. example.com or intranet.local:8080.
   value.contains('.')
+}
+
+fn is_firefox_like_browser(browser: &str) -> bool {
+  matches!(browser, "firefox" | "firefox-developer" | "zen" | "camoufox")
+}
+
+fn should_retry_open_existing_browser_error(error_message: &str) -> bool {
+  let lower = error_message.to_lowercase();
+  lower.contains("already running")
+    || lower.contains("not responding")
+    || lower.contains("close firefox")
+    || lower.contains("requestpending")
+    || lower.contains("failed to open url in existing browser")
+    || lower.contains("failed to open url with profile")
+}
+
+fn should_fallback_to_new_instance_after_open_url_failure(
+  is_browser_running: bool,
+  browser: &str,
+  error_message: &str,
+) -> bool {
+  if is_browser_running {
+    return false;
+  }
+
+  // For Firefox-like browsers, lock-related errors indicate an in-flight startup
+  // race more than a real "not running" state. Avoid spawning a second process.
+  if is_firefox_like_browser(browser) {
+    let lower = error_message.to_lowercase();
+    if lower.contains("already running")
+      || lower.contains("not responding")
+      || lower.contains("close firefox")
+      || lower.contains("profile appears to be in use")
+    {
+      return false;
+    }
+  }
+
+  true
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{
+    should_fallback_to_new_instance_after_open_url_failure,
+    should_retry_open_existing_browser_error,
+  };
+
+  #[test]
+  fn does_not_fallback_when_profile_is_still_running() {
+    assert!(!should_fallback_to_new_instance_after_open_url_failure(
+      true,
+      "camoufox",
+      "Failed to open URL in existing browser: Firefox is already running, but is not responding.",
+    ));
+  }
+
+  #[test]
+  fn does_not_fallback_for_firefox_lock_error_even_if_status_probe_is_false() {
+    assert!(!should_fallback_to_new_instance_after_open_url_failure(
+      false,
+      "camoufox",
+      "Firefox is already running, but is not responding. The old Firefox process must be closed.",
+    ));
+  }
+
+  #[test]
+  fn falls_back_for_non_lock_error_when_browser_is_not_running() {
+    assert!(should_fallback_to_new_instance_after_open_url_failure(
+      false,
+      "camoufox",
+      "Browser is not running",
+    ));
+  }
+
+  #[test]
+  fn retries_on_transient_lock_error() {
+    assert!(should_retry_open_existing_browser_error(
+      "Failed to open URL: already running but not responding",
+    ));
+  }
+
+  #[test]
+  fn does_not_retry_on_non_transient_error() {
+    assert!(!should_retry_open_existing_browser_error(
+      "unsupported browser type",
+    ));
+  }
 }
 
 async fn preflight_check_profile_proxy(profile: &BrowserProfile) -> Result<(), String> {

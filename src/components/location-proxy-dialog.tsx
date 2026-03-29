@@ -161,7 +161,7 @@ export function LocationProxyDialog({
               options={countryOptions}
               value={selectedCountry}
               onValueChange={setSelectedCountry}
-              placeholder={isLoadingCountries ? "Loading..." : "Select country"}
+              placeholder="Select country"
               searchPlaceholder="Search countries..."
             />
           </div>
@@ -173,7 +173,7 @@ export function LocationProxyDialog({
                 options={stateOptions}
                 value={selectedState}
                 onValueChange={setSelectedState}
-                placeholder={isLoadingStates ? "Loading..." : "Select state"}
+                placeholder="Select state"
                 searchPlaceholder="Search states..."
               />
             </div>
@@ -186,7 +186,7 @@ export function LocationProxyDialog({
                 options={cityOptions}
                 value={selectedCity}
                 onValueChange={setSelectedCity}
-                placeholder={isLoadingCities ? "Loading..." : "Select city"}
+                placeholder="Select city"
                 searchPlaceholder="Search cities..."
               />
             </div>

@@ -878,31 +878,49 @@ pub fn get_traffic_stats_for_period(
   profile_id: &str,
   seconds: u64,
 ) -> Option<FilteredTrafficStats> {
-  // Get in-memory data if available
-  let in_memory_sent = get_traffic_tracker()
-    .and_then(|t| {
-      if t.profile_id.as_deref() == Some(profile_id) {
-        Some(t.bytes_sent.load(Ordering::Relaxed))
-      } else {
-        None
-      }
-    })
+  let live_tracker = get_traffic_tracker();
+  let has_live_tracker_for_profile = live_tracker
+    .as_ref()
+    .is_some_and(|tracker| tracker.profile_id.as_deref() == Some(profile_id));
+
+  let in_memory_sent = live_tracker
+    .as_ref()
+    .filter(|_tracker| has_live_tracker_for_profile)
+    .map(|tracker| tracker.bytes_sent.load(Ordering::Relaxed))
     .unwrap_or(0);
-  let in_memory_recv = get_traffic_tracker()
-    .and_then(|t| {
-      if t.profile_id.as_deref() == Some(profile_id) {
-        Some(t.bytes_received.load(Ordering::Relaxed))
-      } else {
-        None
-      }
-    })
+  let in_memory_recv = live_tracker
+    .as_ref()
+    .filter(|_tracker| has_live_tracker_for_profile)
+    .map(|tracker| tracker.bytes_received.load(Ordering::Relaxed))
+    .unwrap_or(0);
+  let in_memory_requests = live_tracker
+    .as_ref()
+    .filter(|_tracker| has_live_tracker_for_profile)
+    .map(|tracker| tracker.requests.load(Ordering::Relaxed))
     .unwrap_or(0);
 
-  let mut stats = load_traffic_stats(profile_id)?;
+  let session_snapshot = if has_live_tracker_for_profile {
+    None
+  } else {
+    load_session_snapshot(profile_id)
+  };
 
-  // Merge in-memory counters with disk data for real-time totals
-  stats.total_bytes_sent += in_memory_sent;
-  stats.total_bytes_received += in_memory_recv;
+  let mut stats = if let Some(stats) = load_traffic_stats(profile_id) {
+    stats
+  } else if session_snapshot.is_some() {
+    TrafficStats::new(profile_id.to_string(), Some(profile_id.to_string()))
+  } else {
+    return None;
+  };
+
+  if stats.profile_id.is_none() {
+    stats.profile_id = Some(profile_id.to_string());
+  }
+
+  // Merge live counters with disk data for real-time totals.
+  stats.total_bytes_sent = stats.total_bytes_sent.saturating_add(in_memory_sent);
+  stats.total_bytes_received = stats.total_bytes_received.saturating_add(in_memory_recv);
+  stats.total_requests = stats.total_requests.saturating_add(in_memory_requests);
 
   let now = current_timestamp();
   let cutoff = if seconds == 0 {
@@ -911,7 +929,7 @@ pub fn get_traffic_stats_for_period(
     now.saturating_sub(seconds)
   };
 
-  // Filter bandwidth history to requested period
+  // Filter bandwidth history to requested period.
   let mut filtered_history: Vec<BandwidthDataPoint> = stats
     .bandwidth_history
     .iter()
@@ -919,15 +937,12 @@ pub fn get_traffic_stats_for_period(
     .cloned()
     .collect();
 
-  // Add current in-memory data point for real-time display
-  if (seconds == 0 || now.saturating_sub(seconds) <= now)
-    && (in_memory_sent > 0 || in_memory_recv > 0)
-  {
-    // Check if we already have a data point for this second
+  // Add current in-memory data point for real-time display.
+  if in_memory_sent > 0 || in_memory_recv > 0 {
     if let Some(last) = filtered_history.last_mut() {
       if last.timestamp == now {
-        last.bytes_sent += in_memory_sent;
-        last.bytes_received += in_memory_recv;
+        last.bytes_sent = last.bytes_sent.saturating_add(in_memory_sent);
+        last.bytes_received = last.bytes_received.saturating_add(in_memory_recv);
       } else {
         filtered_history.push(BandwidthDataPoint {
           timestamp: now,
@@ -944,11 +959,41 @@ pub fn get_traffic_stats_for_period(
     }
   }
 
-  // Calculate period totals for bandwidth (includes in-memory data)
+  if let Some(session) = session_snapshot.as_ref() {
+    if session.timestamp > stats.last_flush_timestamp {
+      stats.total_bytes_sent = stats.total_bytes_sent.saturating_add(session.bytes_sent);
+      stats.total_bytes_received = stats
+        .total_bytes_received
+        .saturating_add(session.bytes_received);
+      stats.total_requests = stats.total_requests.saturating_add(session.requests);
+
+      if session.timestamp >= cutoff {
+        if let Some(last) = filtered_history.last_mut() {
+          if last.timestamp == session.timestamp {
+            last.bytes_sent = last.bytes_sent.saturating_add(session.bytes_sent);
+            last.bytes_received = last.bytes_received.saturating_add(session.bytes_received);
+          } else {
+            filtered_history.push(BandwidthDataPoint {
+              timestamp: session.timestamp,
+              bytes_sent: session.bytes_sent,
+              bytes_received: session.bytes_received,
+            });
+          }
+        } else {
+          filtered_history.push(BandwidthDataPoint {
+            timestamp: session.timestamp,
+            bytes_sent: session.bytes_sent,
+            bytes_received: session.bytes_received,
+          });
+        }
+      }
+    }
+  }
+
   let period_bytes_sent: u64 = filtered_history.iter().map(|dp| dp.bytes_sent).sum();
   let period_bytes_received: u64 = filtered_history.iter().map(|dp| dp.bytes_received).sum();
 
-  // Filter and aggregate domain stats for the period
+  // Filter and aggregate domain stats for the period.
   let mut filtered_domains: HashMap<String, DomainAccess> = HashMap::new();
   let mut period_requests: u64 = 0;
 
@@ -976,7 +1021,13 @@ pub fn get_traffic_stats_for_period(
     entry.last_access = entry.last_access.max(access.timestamp);
   }
 
-  // If no domain_access_history exists (old data), fall back to all-time domains
+  if let Some(session) = session_snapshot.as_ref() {
+    if session.timestamp > stats.last_flush_timestamp && session.timestamp >= cutoff {
+      period_requests = period_requests.saturating_add(session.requests);
+    }
+  }
+
+  // If no domain_access_history exists (old data), fall back to all-time domains.
   let domains = if stats.domain_access_history.is_empty() {
     stats.domains
   } else {
@@ -1013,6 +1064,56 @@ pub fn get_traffic_snapshot_for_profile(profile_id: &str) -> Option<TrafficSnaps
   // Fall back to disk data
   let stats = load_traffic_stats(profile_id)?;
   Some(stats.to_snapshot())
+}
+
+fn merge_session_snapshot_into_profile_snapshot(
+  profile_id: &str,
+  snapshot: &mut TrafficSnapshot,
+) {
+  let Some(session) = load_session_snapshot(profile_id) else {
+    return;
+  };
+
+  let disk_stats = load_traffic_stats(profile_id);
+  let last_flush = disk_stats
+    .as_ref()
+    .map(|stats| stats.last_flush_timestamp)
+    .unwrap_or(0);
+
+  if session.timestamp > last_flush {
+    snapshot.total_bytes_sent = snapshot
+      .total_bytes_sent
+      .saturating_add(session.bytes_sent);
+    snapshot.total_bytes_received = snapshot
+      .total_bytes_received
+      .saturating_add(session.bytes_received);
+    snapshot.total_requests = snapshot.total_requests.saturating_add(session.requests);
+    snapshot.current_bytes_sent = session.bytes_sent;
+    snapshot.current_bytes_received = session.bytes_received;
+    snapshot.last_update = session.timestamp;
+  } else if session.timestamp > snapshot.last_update {
+    snapshot.last_update = session.timestamp;
+  }
+}
+
+pub fn get_traffic_snapshot_for_profile_realtime(profile_id: &str) -> Option<TrafficSnapshot> {
+  let mut snapshot = get_traffic_snapshot_for_profile(profile_id)?;
+  merge_session_snapshot_into_profile_snapshot(profile_id, &mut snapshot);
+  Some(snapshot)
+}
+
+pub fn get_traffic_snapshots_for_profiles_realtime(
+  profile_ids: &[String],
+) -> Vec<TrafficSnapshot> {
+  let unique_profile_ids: std::collections::HashSet<&str> =
+    profile_ids.iter().map(String::as_str).collect();
+  let mut snapshots = Vec::with_capacity(unique_profile_ids.len());
+  for profile_id in unique_profile_ids {
+    if let Some(snapshot) = get_traffic_snapshot_for_profile_realtime(profile_id) {
+      snapshots.push(snapshot);
+    }
+  }
+  snapshots
 }
 
 /// Load session snapshot from disk (written by proxy worker processes)

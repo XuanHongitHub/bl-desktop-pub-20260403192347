@@ -32,9 +32,37 @@ fn api_url() -> &'static str {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloudWorkspaceSeed {
+  pub id: String,
+  pub name: String,
+  pub mode: String,
+  #[serde(default)]
+  pub role: Option<String>,
+  pub members: i64,
+  #[serde(rename = "activeInvites")]
+  pub active_invites: i64,
+  #[serde(rename = "activeShareGrants")]
+  pub active_share_grants: i64,
+  #[serde(rename = "entitlementState")]
+  pub entitlement_state: String,
+  #[serde(rename = "profileLimit")]
+  pub profile_limit: i64,
+  #[serde(rename = "profilesUsed")]
+  pub profiles_used: i64,
+  #[serde(rename = "planLabel")]
+  pub plan_label: String,
+  #[serde(rename = "expiresAt", default)]
+  pub expires_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudUser {
   pub id: String,
   pub email: String,
+  #[serde(default)]
+  pub name: Option<String>,
+  #[serde(default)]
+  pub avatar: Option<String>,
   pub plan: String,
   #[serde(rename = "planPeriod")]
   pub plan_period: Option<String>,
@@ -58,6 +86,8 @@ pub struct CloudUser {
   pub team_role: Option<String>,
   #[serde(rename = "platformRole", default)]
   pub platform_role: Option<String>,
+  #[serde(rename = "workspaceSeeds", default)]
+  pub workspace_seeds: Vec<CloudWorkspaceSeed>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -766,6 +796,12 @@ impl CloudAuthManager {
     state.clone()
   }
 
+  pub async fn set_self_host_auth_state(&self, auth_state: CloudAuthState) {
+    let _ = Self::store_auth_state(&auth_state);
+    let mut state = self.state.lock().await;
+    *state = Some(auth_state);
+  }
+
   async fn clear_auth(&self) {
     let mut state = self.state.lock().await;
     *state = None;
@@ -1120,7 +1156,13 @@ pub async fn cloud_verify_otp(
 
 #[tauri::command]
 pub async fn cloud_get_user() -> Result<Option<CloudAuthState>, String> {
-  Ok(None)
+  Ok(CLOUD_AUTH.get_user().await)
+}
+
+#[tauri::command]
+pub async fn cloud_set_self_host_auth_state(state: CloudAuthState) -> Result<(), String> {
+  CLOUD_AUTH.set_self_host_auth_state(state).await;
+  Ok(())
 }
 
 #[tauri::command]

@@ -245,10 +245,10 @@ export function IntegrationsDialog({
           disabled={isApiStarting}
           onCheckedChange={handleApiToggle}
         />
-        <div className="grid gap-1.5 leading-none">
+        <div className="grid gap-1.5 leading-tight">
           <Label
             htmlFor="api-enabled"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            className="text-sm font-medium leading-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
             {t("integrationsDialog.api.enableTitle")}
           </Label>
@@ -325,10 +325,10 @@ export function IntegrationsDialog({
           disabled={!termsAccepted || isMcpStarting}
           onCheckedChange={handleMcpToggle}
         />
-        <div className="grid gap-1.5 leading-none">
+        <div className="grid gap-1.5 leading-tight">
           <Label
             htmlFor="mcp-enabled"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            className="text-sm font-medium leading-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
             {t("integrationsDialog.mcp.enableTitle")}
           </Label>

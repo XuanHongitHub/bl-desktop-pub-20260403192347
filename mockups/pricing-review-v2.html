@@ -4,10 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pricing Mockup V3</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <style>
+    @font-face {
+      font-family: "Inter";
+      src: url("../public/fonts/InterVariable.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Berkeley Mono";
+      src: url("../public/fonts/Berkeley-Mono-Variable.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+
     :root {
       --bg: #05070b;
       --bg-2: #0a1020;
@@ -33,7 +45,7 @@
         radial-gradient(circle at 90% 0%, #1a2243 0%, transparent 35%),
         var(--bg);
       color: var(--text);
-      font-family: "DM Sans", system-ui, sans-serif;
+      font-family: "Inter";
       min-height: 100%;
     }
 
@@ -56,7 +68,7 @@
     }
 
     .crumb {
-      font-family: "JetBrains Mono", monospace;
+      font-family: "Berkeley Mono";
       text-transform: uppercase;
       font-size: 11px;
       color: #c7d4ec;
@@ -103,7 +115,7 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: #c8d6f0;
-      font-family: "JetBrains Mono", monospace;
+      font-family: "Berkeley Mono";
     }
 
     h1 {
@@ -192,7 +204,7 @@
       padding: 0 10px;
       background: linear-gradient(180deg, #5fa3ff, #2563eb);
       color: white;
-      font-family: "JetBrains Mono", monospace;
+      font-family: "Berkeley Mono";
       font-size: 10px;
       letter-spacing: 0.09em;
       display: grid;
@@ -218,7 +230,7 @@
       color: #9eb2d3;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      font-family: "JetBrains Mono", monospace;
+      font-family: "Berkeley Mono";
     }
 
     .price {

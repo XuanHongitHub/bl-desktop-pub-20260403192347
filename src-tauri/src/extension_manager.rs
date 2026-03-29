@@ -987,6 +987,50 @@ pub async fn assign_extension_group_to_profile(
 }
 
 #[tauri::command]
+pub async fn assign_extension_group_to_profiles(
+  profile_ids: Vec<String>,
+  extension_group_id: Option<String>,
+) -> Result<Vec<crate::profile::BrowserProfile>, String> {
+  if !crate::cloud_auth::CLOUD_AUTH
+    .has_active_paid_subscription()
+    .await
+  {
+    return Err("Extension management requires an active Pro subscription".to_string());
+  }
+
+  if profile_ids.is_empty() {
+    return Ok(vec![]);
+  }
+
+  let profile_manager = crate::profile::ProfileManager::instance();
+  let profiles = profile_manager
+    .list_profiles()
+    .map_err(|e| format!("Failed to list profiles: {e}"))?;
+
+  if let Some(ref group_id) = extension_group_id {
+    let mgr = EXTENSION_MANAGER.lock().unwrap();
+    for profile_id in &profile_ids {
+      let profile = profiles
+        .iter()
+        .find(|p| p.id.to_string() == *profile_id)
+        .ok_or_else(|| format!("Profile '{profile_id}' not found"))?;
+      mgr
+        .validate_group_compatibility(group_id, &profile.browser)
+        .map_err(|e| format!("{e}"))?;
+    }
+  }
+
+  let mut updated_profiles = Vec::with_capacity(profile_ids.len());
+  for profile_id in profile_ids {
+    let updated = profile_manager
+      .update_profile_extension_group(&profile_id, extension_group_id.clone())
+      .map_err(|e| format!("Failed to assign extension group for '{profile_id}': {e}"))?;
+    updated_profiles.push(updated);
+  }
+  Ok(updated_profiles)
+}
+
+#[tauri::command]
 pub async fn get_extension_group_for_profile(
   profile_id: String,
 ) -> Result<Option<ExtensionGroup>, String> {

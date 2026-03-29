@@ -246,6 +246,54 @@ describe("ControlService", () => {
     ).toThrow(UnauthorizedException);
   });
 
+  it("rejects mismatched actor identity and ignores spoofed platform role hints", () => {
+    const first = service.registerAuthUser(
+      "owner-a@buglogin.local",
+      "Password123!",
+    );
+    const second = service.registerAuthUser(
+      "owner-b@buglogin.local",
+      "Password123!",
+    );
+    const workspaceA = service.createWorkspace(
+      {
+        userId: first.user.id,
+        email: first.user.email,
+        platformRole: first.user.platformRole,
+      },
+      "Workspace A",
+      "team",
+    );
+    const workspaceB = service.createWorkspace(
+      {
+        userId: second.user.id,
+        email: second.user.email,
+        platformRole: second.user.platformRole,
+      },
+      "Workspace B",
+      "team",
+    );
+
+    expect(() =>
+      service.resolveRequestActor({
+        userId: first.user.id,
+        email: second.user.email,
+        hintedRole: "platform_admin",
+      }),
+    ).toThrow(UnauthorizedException);
+
+    const secondActor = service.resolveRequestActor({
+      userId: second.user.id,
+      email: second.user.email,
+      hintedRole: "platform_admin",
+    });
+    expect(secondActor.platformRole).toBeNull();
+
+    const visible = service.listWorkspaces(secondActor);
+    expect(visible.map((item) => item.id)).toContain(workspaceB.id);
+    expect(visible.map((item) => item.id)).not.toContain(workspaceA.id);
+  });
+
   it("grants platform_admin to the first registered local account", () => {
     const firstUser = service.registerAuthUser(
       "first-admin@buglogin.local",
@@ -258,6 +306,29 @@ describe("ControlService", () => {
 
     expect(firstUser.user.platformRole).toBe("platform_admin");
     expect(secondUser.user.platformRole).toBeNull();
+  });
+
+  it("reuses the same personal workspace for the same owner", () => {
+    const actor = {
+      userId: "owner-1",
+      email: "owner@buglogin.local",
+      platformRole: null,
+    } as const;
+
+    const firstWorkspace = service.createWorkspace(actor, "Owner Personal", "personal");
+    const secondWorkspace = service.createWorkspace(
+      actor,
+      "Owner Personal Duplicate",
+      "personal",
+    );
+
+    expect(secondWorkspace.id).toBe(firstWorkspace.id);
+
+    const visible = service.listWorkspaces(actor);
+    const personalWorkspaces = visible.filter((workspace) => workspace.mode === "personal");
+
+    expect(personalWorkspaces).toHaveLength(1);
+    expect(personalWorkspaces[0]?.id).toBe(firstWorkspace.id);
   });
 
   it("migrates legacy auth userId on login and keeps workspace visibility", () => {
@@ -373,7 +444,50 @@ describe("ControlService", () => {
         platformRole: loggedIn.user.platformRole,
       });
       expect(workspaces.map((item) => item.id)).toContain(workspace.id);
+
+      second.saveWorkspaceAdminTiktokState(
+        workspace.id,
+        {
+          userId: loggedIn.user.id,
+          email: loggedIn.user.email,
+          platformRole: "platform_admin",
+        },
+        {
+          bearerKey: "bearer-1",
+          workflowRows: [{ profileId: "profile-1" }],
+          rotationCursor: 2,
+        },
+      );
+      const cookie = second.createTiktokCookie(
+        {
+          userId: loggedIn.user.id,
+          email: loggedIn.user.email,
+          platformRole: "platform_admin",
+        },
+        {
+          label: "cookie-main",
+          cookie: "ttwid=1; sessionid=abc",
+          notes: "seed",
+        },
+      );
       await second.onModuleDestroy();
+
+      const third = new ControlService();
+      await third.onModuleInit();
+      const savedState = await third.getWorkspaceAdminTiktokState(workspace.id, {
+        userId: loggedIn.user.id,
+        email: loggedIn.user.email,
+        platformRole: "platform_admin",
+      });
+      expect(savedState.bearerKey).toBe("bearer-1");
+      expect(savedState.rotationCursor).toBe(2);
+      const cookies = third.listTiktokCookies({
+        userId: loggedIn.user.id,
+        email: loggedIn.user.email,
+        platformRole: "platform_admin",
+      });
+      expect(cookies.some((item) => item.id === cookie.id)).toBe(true);
+      await third.onModuleDestroy();
     } finally {
       restoreEnv("NODE_ENV", originalNodeEnv);
       restoreEnv("DATABASE_URL", originalDatabaseUrl);
@@ -381,5 +495,35 @@ describe("ControlService", () => {
       restoreEnv("CONTROL_STATE_FILE", originalStateFile);
       rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+
+  it("supports CRUD and test flow for tiktok cookies", () => {
+    const actor = {
+      userId: "admin-1",
+      email: "admin@buglogin.local",
+      platformRole: "platform_admin" as const,
+    };
+    const proxySpy = jest
+      .spyOn(service as never, "proxyBugIdeaRequest")
+      .mockResolvedValue([{ id: "cookie-1", label: "cookie-a" }] as never);
+
+    void service.listTiktokCookies(actor, "bearer-1");
+    void service.createTiktokCookie(actor, "bearer-1", {
+      label: "cookie-a",
+      cookie: "ttwid=1; sessionid=abc",
+      notes: "seed",
+    });
+    void service.updateTiktokCookie("cookie-1", actor, "bearer-1", {
+      notes: "updated",
+      status: "active",
+    });
+    void service.testTiktokCookie("cookie-1", actor, "bearer-1");
+    void service.bulkCreateTiktokCookies(actor, "bearer-1", {
+      prefix: "seed",
+      cookies: ["ttwid=1", "sid_tt=2"],
+    });
+    void service.deleteTiktokCookie("cookie-1", actor, "bearer-1");
+
+    expect(proxySpy).toHaveBeenCalled();
   });
 });

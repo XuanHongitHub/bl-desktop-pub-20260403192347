@@ -6,7 +6,9 @@ const workspaceRoot = dirname(fileURLToPath(import.meta.url));
 const isProductionBuild = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
+  // Disable React StrictMode in this desktop app shell to avoid development-time
+  // double-mount/effect replay that amplifies IPC traffic and perceived lag.
+  reactStrictMode: false,
   ...(isProductionBuild ? { output: "export" as const, distDir: "dist" } : {}),
   turbopack: {
     root: workspaceRoot,
@@ -17,6 +19,7 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
+  allowedDevOrigins: ["bugdev.site", "*.bugdev.site"],
 };
 
 export default nextConfig;

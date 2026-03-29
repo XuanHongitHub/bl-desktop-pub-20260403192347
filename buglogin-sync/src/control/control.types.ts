@@ -6,6 +6,7 @@ export type BillingPlanId = "starter" | "growth" | "scale" | "custom";
 export type BillingCycle = "monthly" | "yearly";
 export type WorkspaceSubscriptionStatus = "active" | "past_due" | "canceled";
 export type BillingSource = "internal" | "license" | "stripe";
+export type BillingCancellationMode = "period_end" | "immediate";
 export type BillingPaymentMethod =
   | "self_host_checkout"
   | "coupon"
@@ -21,12 +22,15 @@ export interface WorkspaceRecord {
 }
 
 export interface WorkspaceListItem extends WorkspaceRecord {
+  actorRole: WorkspaceRole;
   planLabel: string;
   profileLimit: number;
   billingCycle: BillingCycle | null;
   subscriptionStatus: WorkspaceSubscriptionStatus;
   subscriptionSource: BillingSource;
   expiresAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
 }
 
 export interface MembershipRecord {
@@ -43,6 +47,124 @@ export interface AuthUserRecord {
   passwordSalt: string;
   passwordHash: string;
   platformRole: ControlPlatformRole | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformAdminEmailRecord {
+  email: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceAdminTiktokStateRecord {
+  workspaceId: string;
+  bearerKey: string;
+  workflowRows: unknown[];
+  rotationCursor: number;
+  autoWorkflowRun?: unknown | null;
+  operationProgress?: unknown | null;
+  updatedAt: string;
+}
+
+export interface WorkspaceTiktokCookieSourceRecord {
+  id: string;
+  workspaceId: string;
+  phone: string;
+  apiPhone: string;
+  cookie: string;
+  source: "excel_import";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TiktokAutomationFlowType = "signup" | "update_cookie";
+export type TiktokAutomationRunMode = "auto" | "semi";
+export type TiktokAutomationRunStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "completed"
+  | "failed";
+export type TiktokAutomationItemStatus =
+  | "queued"
+  | "running"
+  | "manual_pending"
+  | "step_failed"
+  | "blocked"
+  | "done"
+  | "skipped"
+  | "cancelled";
+
+export interface TiktokAutomationAccountRecord {
+  id: string;
+  workspaceId: string;
+  phone: string;
+  apiPhone: string;
+  cookie: string;
+  username: string;
+  password: string;
+  profileId: string | null;
+  profileName: string | null;
+  status: TiktokAutomationItemStatus;
+  lastStep: string | null;
+  lastError: string | null;
+  source: "excel_import" | "manual" | "bugidea_pull";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TiktokAutomationRunRecord {
+  id: string;
+  workspaceId: string;
+  flowType: TiktokAutomationFlowType;
+  mode: TiktokAutomationRunMode;
+  status: TiktokAutomationRunStatus;
+  accountIds: string[];
+  currentIndex: number;
+  activeItemId: string | null;
+  totalCount: number;
+  doneCount: number;
+  failedCount: number;
+  blockedCount: number;
+  createdBy: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TiktokAutomationRunItemRecord {
+  id: string;
+  runId: string;
+  workspaceId: string;
+  accountId: string;
+  phone: string;
+  apiPhone: string;
+  profileId: string | null;
+  profileName: string | null;
+  status: TiktokAutomationItemStatus;
+  step: string;
+  attempt: number;
+  username: string;
+  password: string;
+  cookiePreview: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface TiktokCookieRecord {
+  id: string;
+  label: string;
+  cookie: string;
+  status: string;
+  notes: string | null;
+  testedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,6 +244,8 @@ export interface WorkspaceSubscriptionRecord {
   source: BillingSource;
   startedAt: string;
   expiresAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
   updatedAt: string;
 }
 
@@ -184,6 +308,15 @@ export interface WorkspaceBillingState {
   workspaceId: string;
   subscription: WorkspaceSubscriptionRecord;
   recentInvoices: BillingInvoiceRecord[];
+  usage: WorkspaceBillingUsage;
+}
+
+export interface WorkspaceBillingUsage {
+  storageUsedBytes: number;
+  storageLimitMb: number;
+  proxyBandwidthUsedMb: number;
+  proxyBandwidthLimitMb: number;
+  updatedAt: string | null;
 }
 
 export interface StripeCheckoutCreateResult {
@@ -213,4 +346,26 @@ export interface PlatformAdminOverview {
   entitlementGrace: number;
   entitlementReadOnly: number;
   auditsLast24h: number;
+}
+
+export interface PlatformAdminWorkspaceHealthRow {
+  workspaceId: string;
+  workspaceName: string;
+  mode: WorkspaceMode;
+  planLabel: string;
+  subscriptionStatus: WorkspaceSubscriptionStatus;
+  entitlementState: EntitlementState;
+  profileLimit: number;
+  members: number;
+  activeInvites: number;
+  activeShareGrants: number;
+  storageUsedBytes: number;
+  storageLimitMb: number;
+  storagePercent: number;
+  proxyBandwidthUsedMb: number;
+  proxyBandwidthLimitMb: number;
+  proxyBandwidthPercent: number;
+  latestInvoiceAt: string | null;
+  usageUpdatedAt: string | null;
+  riskLevel: "low" | "medium" | "high";
 }

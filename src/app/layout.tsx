@@ -1,22 +1,10 @@
-"use client";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import "flag-icons/css/flag-icons.min.css";
-import { useEffect } from "react";
-import { I18nProvider } from "@/components/i18n-provider";
-import { CustomThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { WindowDragArea } from "@/components/window-drag-area";
-import { setupLogging } from "@/lib/logger";
+import { AppProviders } from "@/components/app-providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const interSans = Inter({
-  variable: "--font-inter-sans",
   subsets: ["latin"],
 });
 
@@ -30,22 +18,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    void setupLogging();
-  }, []);
-
   return (
     <html lang="vi" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${interSans.variable} ${geistMono.variable} antialiased overflow-hidden bg-background`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background antialiased`}
       >
-        <I18nProvider>
-          <CustomThemeProvider>
-            <WindowDragArea />
-            <TooltipProvider>{children}</TooltipProvider>
-            <Toaster />
-          </CustomThemeProvider>
-        </I18nProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

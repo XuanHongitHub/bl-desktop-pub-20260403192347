@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoGlobe, GoPlus } from "react-icons/go";
 import {
@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -173,6 +174,14 @@ export function ProxyManagementDialog({
     if (!a.is_cloud_managed && b.is_cloud_managed) return 1;
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
+  const storedProxyIdsSignature = useMemo(
+    () => storedProxies.map((proxy) => proxy.id).sort().join("|"),
+    [storedProxies],
+  );
+  const vpnIdsSignature = useMemo(
+    () => vpnConfigs.map((vpn) => vpn.id).sort().join("|"),
+    [vpnConfigs],
+  );
 
   // Fetch cloud proxy usage
   useEffect(() => {
@@ -241,57 +250,82 @@ export function ProxyManagementDialog({
 
   // Load cached check results on mount and when proxies change
   useEffect(() => {
+    const proxyIds = storedProxyIdsSignature
+      ? storedProxyIdsSignature.split("|")
+      : [];
+    if (proxyIds.length === 0) {
+      setProxyCheckResults((current) =>
+        Object.keys(current).length === 0 ? current : {},
+      );
+      setProxyInUse((current) =>
+        Object.keys(current).length === 0 ? current : {},
+      );
+      return;
+    }
     const loadCachedResults = async () => {
       const results: Record<string, ProxyCheckResult> = {};
       const inUse: Record<string, boolean> = {};
-      for (const proxy of storedProxies) {
-        try {
-          const cached = await invoke<ProxyCheckResult | null>(
-            "get_cached_proxy_check",
-            { proxyId: proxy.id },
-          );
+      try {
+        const bulkRows = await invoke<Record<string, ProxyCheckResult>>(
+          "get_cached_proxy_checks",
+          {
+            proxyIds,
+          },
+        );
+        for (const proxyId of proxyIds) {
+          const cached = bulkRows?.[proxyId];
           if (cached) {
-            results[proxy.id] = cached;
+            results[proxyId] = cached;
           }
-
-          const inUseBySynced = await invoke<boolean>(
-            "is_proxy_in_use_by_synced_profile",
-            { proxyId: proxy.id },
-          );
-          inUse[proxy.id] = inUseBySynced;
-        } catch (_error) {
-          // Ignore errors
         }
+      } catch (_error) {
+        // Ignore errors
+      }
+      try {
+        const inUseRows = await invoke<Record<string, boolean>>(
+          "get_proxies_in_use_by_synced_profiles",
+          {
+            proxyIds,
+          },
+        );
+        for (const proxyId of proxyIds) {
+          inUse[proxyId] = Boolean(inUseRows?.[proxyId]);
+        }
+      } catch (_error) {
+        // Ignore errors
       }
       setProxyCheckResults(results);
       setProxyInUse(inUse);
     };
-    if (storedProxies.length > 0) {
-      void loadCachedResults();
-    }
-  }, [storedProxies]);
+    void loadCachedResults();
+  }, [storedProxyIdsSignature]);
 
   // Load VPN in-use status
   useEffect(() => {
+    const vpnIds = vpnIdsSignature ? vpnIdsSignature.split("|") : [];
+    if (vpnIds.length === 0) {
+      setVpnInUse((current) => (Object.keys(current).length === 0 ? current : {}));
+      return;
+    }
     const loadVpnInUse = async () => {
       const inUse: Record<string, boolean> = {};
-      for (const vpn of vpnConfigs) {
-        try {
-          const inUseBySynced = await invoke<boolean>(
-            "is_vpn_in_use_by_synced_profile",
-            { vpnId: vpn.id },
-          );
-          inUse[vpn.id] = inUseBySynced;
-        } catch (_error) {
-          // Ignore errors
+      try {
+        const inUseRows = await invoke<Record<string, boolean>>(
+          "get_vpns_in_use_by_synced_profiles",
+          {
+            vpnIds,
+          },
+        );
+        for (const vpnId of vpnIds) {
+          inUse[vpnId] = Boolean(inUseRows?.[vpnId]);
         }
+      } catch (_error) {
+        // Ignore errors
       }
       setVpnInUse(inUse);
     };
-    if (vpnConfigs.length > 0) {
-      void loadVpnInUse();
-    }
-  }, [vpnConfigs]);
+    void loadVpnInUse();
+  }, [vpnIdsSignature]);
 
   // Proxy handlers
   const handleDeleteProxy = useCallback((proxy: StoredProxy) => {
@@ -482,8 +516,8 @@ export function ProxyManagementDialog({
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">
-          {t("proxyManagementDialog.loadingProxies")}
+        <div className="flex items-center justify-center py-3">
+          <Spinner size="md" />
         </div>
       ) : storedProxies.length === 0 ? (
         <div className="text-sm text-muted-foreground">
@@ -731,8 +765,8 @@ export function ProxyManagementDialog({
       </div>
 
       {isLoadingVpns ? (
-        <div className="text-sm text-muted-foreground">
-          {t("proxyManagementDialog.loadingVpns")}
+        <div className="flex items-center justify-center py-3">
+          <Spinner size="md" />
         </div>
       ) : vpnConfigs.length === 0 ? (
         <div className="text-sm text-muted-foreground">

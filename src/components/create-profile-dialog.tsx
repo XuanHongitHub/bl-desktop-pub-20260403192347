@@ -267,6 +267,40 @@ export function CreateProfileDialog({
   const [extensionGroups, setExtensionGroups] = useState<
     { id: string; name: string; extension_ids: string[] }[]
   >([]);
+  const loadScopedProxiesAndUsage = useCallback(async () => {
+    try {
+      const proxies = await invoke<StoredProxy[]>("get_stored_proxies");
+      const scope = getCurrentDataScope();
+      const scopedProxies = scopeEntitiesForContext(
+        "proxies",
+        proxies,
+        (proxy) => proxy.id,
+        scope,
+      );
+      const sortedProxies = [...scopedProxies].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
+      setStoredProxies(sortedProxies);
+
+      const proxyIds = sortedProxies.map((proxy) => proxy.id);
+      if (proxyIds.length === 0) {
+        setProxyInUseBySyncedProfile({});
+        return;
+      }
+
+      const usageRows = await invoke<Record<string, boolean>>(
+        "get_proxies_in_use_by_synced_profiles",
+        { proxyIds },
+      );
+      const usageByProxyId = Object.fromEntries(
+        proxyIds.map((proxyId) => [proxyId, Boolean(usageRows?.[proxyId])]),
+      ) as Record<string, boolean>;
+      setProxyInUseBySyncedProfile(usageByProxyId);
+    } catch {
+      setStoredProxies([]);
+      setProxyInUseBySyncedProfile({});
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -275,82 +309,24 @@ export function CreateProfileDialog({
       )
         .then(setExtensionGroups)
         .catch(() => setExtensionGroups([]));
-      void (async () => {
-        try {
-          const proxies = await invoke<StoredProxy[]>("get_stored_proxies");
-          const scope = getCurrentDataScope();
-          const scopedProxies = scopeEntitiesForContext(
-            "proxies",
-            proxies,
-            (proxy) => proxy.id,
-            scope,
-          );
-          const sortedProxies = [...scopedProxies].sort((a, b) =>
-            a.name.localeCompare(b.name),
-          );
-          setStoredProxies(sortedProxies);
-
-          const usageEntries = await Promise.all(
-            sortedProxies.map(async (proxy) => {
-              try {
-                const inUse = await invoke<boolean>(
-                  "is_proxy_in_use_by_synced_profile",
-                  {
-                    proxyId: proxy.id,
-                  },
-                );
-                return [proxy.id, inUse] as const;
-              } catch {
-                return [proxy.id, false] as const;
-              }
-            }),
-          );
-
-          setProxyInUseBySyncedProfile(
-            Object.fromEntries(usageEntries) as Record<string, boolean>,
-          );
-        } catch {
-          setStoredProxies([]);
-          setProxyInUseBySyncedProfile({});
-        }
-      })();
+      void loadScopedProxiesAndUsage();
     }
-  }, [isOpen]);
+  }, [isOpen, loadScopedProxiesAndUsage]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    const reloadProxiesForScope = async () => {
-      try {
-        const proxies = await invoke<StoredProxy[]>("get_stored_proxies");
-        const scope = getCurrentDataScope();
-        const scopedProxies = scopeEntitiesForContext(
-          "proxies",
-          proxies,
-          (proxy) => proxy.id,
-          scope,
-        );
-        setStoredProxies(
-          [...scopedProxies].sort((left, right) =>
-            left.name.localeCompare(right.name),
-          ),
-        );
-      } catch {
-        setStoredProxies([]);
-      }
-    };
-
     const handleScopeChanged = () => {
-      void reloadProxiesForScope();
+      void loadScopedProxiesAndUsage();
     };
 
     window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     return () => {
       window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
-  }, [isOpen]);
+  }, [isOpen, loadScopedProxiesAndUsage]);
   const [releaseTypes, setReleaseTypes] = useState<BrowserReleaseTypes>();
   const [isLoadingReleaseTypes, setIsLoadingReleaseTypes] = useState(false);
   const [releaseTypesError, setReleaseTypesError] = useState<string | null>(
@@ -894,7 +870,7 @@ export function CreateProfileDialog({
         if (selectedBrowser === "wayfern") {
           const bestWayfernVersion = getCreatableVersion("wayfern");
           if (!bestWayfernVersion) {
-            console.error("No Wayfern version available");
+            showErrorToast(t("toasts.error.profileCreateFailed"));
             return;
           }
 
@@ -920,7 +896,7 @@ export function CreateProfileDialog({
           // Default to Camoufox
           const bestCamoufoxVersion = getCreatableVersion("camoufox");
           if (!bestCamoufoxVersion) {
-            console.error("No Camoufox version available");
+            showErrorToast(t("toasts.error.profileCreateFailed"));
             return;
           }
 
@@ -947,14 +923,14 @@ export function CreateProfileDialog({
       } else {
         // Regular browser
         if (!selectedBrowser) {
-          console.error("Missing required browser selection");
+          showErrorToast(t("toasts.error.profileCreateFailed"));
           return;
         }
 
         // Use the best available version (stable preferred, nightly as fallback)
         const bestVersion = getCreatableVersion(selectedBrowser);
         if (!bestVersion) {
-          console.error("No version available");
+          showErrorToast(t("toasts.error.profileCreateFailed"));
           return;
         }
 
@@ -973,8 +949,8 @@ export function CreateProfileDialog({
       }
 
       handleClose();
-    } catch (error) {
-      console.error("Failed to create profile:", error);
+    } catch {
+      // Error toasts are handled by the parent onCreateProfile callback.
     } finally {
       setIsCreating(false);
     }
@@ -1177,7 +1153,7 @@ export function CreateProfileDialog({
         <Label htmlFor="ephemeral" className="font-medium">
           {t("profiles.ephemeral")}
         </Label>
-        <span className="px-1 py-0.5 text-[10px] leading-none rounded bg-muted text-muted-foreground font-medium">
+        <span className="px-1 py-0.5 text-[10px] leading-tight rounded bg-muted text-muted-foreground font-medium">
           {t("profiles.ephemeralAlpha")}
         </span>
       </div>

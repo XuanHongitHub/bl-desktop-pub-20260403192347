@@ -2467,8 +2467,28 @@ pub fn is_proxy_in_use_by_synced_profile(proxy_id: String) -> bool {
 }
 
 #[tauri::command]
+pub fn get_proxies_in_use_by_synced_profiles(proxy_ids: Vec<String>) -> HashMap<String, bool> {
+  let mut rows = HashMap::new();
+  for proxy_id in proxy_ids {
+    let in_use = is_proxy_used_by_synced_profile(&proxy_id);
+    rows.insert(proxy_id, in_use);
+  }
+  rows
+}
+
+#[tauri::command]
 pub fn is_group_in_use_by_synced_profile(group_id: String) -> bool {
   is_group_used_by_synced_profile(&group_id)
+}
+
+#[tauri::command]
+pub fn get_groups_in_use_by_synced_profiles(group_ids: Vec<String>) -> HashMap<String, bool> {
+  let mut rows = HashMap::new();
+  for group_id in group_ids {
+    let in_use = is_group_used_by_synced_profile(&group_id);
+    rows.insert(group_id, in_use);
+  }
+  rows
 }
 
 #[tauri::command]
@@ -2551,6 +2571,16 @@ pub async fn set_vpn_sync_enabled(
 #[tauri::command]
 pub fn is_vpn_in_use_by_synced_profile(vpn_id: String) -> bool {
   is_vpn_used_by_synced_profile(&vpn_id)
+}
+
+#[tauri::command]
+pub fn get_vpns_in_use_by_synced_profiles(vpn_ids: Vec<String>) -> HashMap<String, bool> {
+  let mut rows = HashMap::new();
+  for vpn_id in vpn_ids {
+    let in_use = is_vpn_used_by_synced_profile(&vpn_id);
+    rows.insert(vpn_id, in_use);
+  }
+  rows
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

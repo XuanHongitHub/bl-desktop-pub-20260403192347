@@ -54,6 +54,11 @@ export class SyncService implements OnModuleInit {
   private s3Ready = false;
   private backendInternalUrl: string | undefined;
   private backendInternalKey: string | undefined;
+  private workspacePrefixTemplate: string;
+  private readonly storageUsageCache = new Map<
+    string,
+    { bytes: number; expiresAt: number }
+  >();
 
   constructor(private configService: ConfigService) {
     const endpoint =
@@ -75,6 +80,9 @@ export class SyncService implements OnModuleInit {
     this.auditLogFile = this.configService
       .get<string>("SYNC_AUDIT_LOG_FILE")
       ?.trim();
+    this.workspacePrefixTemplate = (
+      this.configService.get<string>("SYNC_WORKSPACE_PREFIX_TEMPLATE") || ""
+    ).trim();
 
     this.s3Client = new S3Client({
       endpoint,
@@ -95,7 +103,7 @@ export class SyncService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.ensureBucketExists();
+    void this.ensureBucketExists();
   }
 
   private async ensureBucketExists(): Promise<void> {
@@ -127,13 +135,23 @@ export class SyncService implements OnModuleInit {
           if (isAlreadyOwned) {
             this.s3Ready = true;
           } else {
-            console.error("Failed to create S3 bucket:", createError);
-            throw createError;
+            this.s3Ready = false;
+            this.logger.warn(
+              `Failed to create S3 bucket "${this.bucket}": ${
+                createError instanceof Error
+                  ? createError.message
+                  : String(createError)
+              }`,
+            );
           }
         }
       } else {
-        console.error("S3 connection failed:", error);
-        throw error;
+        this.s3Ready = false;
+        this.logger.warn(
+          `S3 connection failed during startup: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     }
   }
@@ -149,6 +167,19 @@ export class SyncService implements OnModuleInit {
     } catch {
       return false;
     }
+  }
+
+  async getWorkspaceStorageUsageBytes(
+    workspaceId: string,
+  ): Promise<number | null> {
+    if (!workspaceId.trim()) {
+      return null;
+    }
+    if (!(await this.checkS3Connectivity())) {
+      return null;
+    }
+    const resolvedPrefix = this.resolveWorkspaceStoragePrefix(workspaceId.trim());
+    return this.countPrefixBytesCached(resolvedPrefix);
   }
 
   /**
@@ -880,6 +911,32 @@ export class SyncService implements OnModuleInit {
     } while (continuationToken);
 
     return totalBytes;
+  }
+
+  private resolveWorkspaceStoragePrefix(workspaceId: string): string {
+    if (this.workspacePrefixTemplate) {
+      const interpolated = this.workspacePrefixTemplate.replace(
+        /\{workspaceId\}/g,
+        workspaceId,
+      );
+      return this.normalizeRootPrefix(interpolated);
+    }
+    return this.rootPrefix;
+  }
+
+  private async countPrefixBytesCached(prefix: string): Promise<number> {
+    const now = Date.now();
+    const cached = this.storageUsageCache.get(prefix);
+    if (cached && cached.expiresAt > now) {
+      return cached.bytes;
+    }
+
+    const bytes = await this.countPrefixBytes(prefix);
+    this.storageUsageCache.set(prefix, {
+      bytes,
+      expiresAt: now + 20_000,
+    });
+    return bytes;
   }
 
   private async checkStorageCap(ctx: UserContext, key: string): Promise<void> {

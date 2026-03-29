@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
@@ -98,12 +98,16 @@ interface GroupManagementDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onGroupManagementComplete: () => void;
+  initialAction?: "manage" | "edit" | "delete";
+  initialGroupId?: string | null;
 }
 
 export function GroupManagementDialog({
   isOpen,
   onClose,
   onGroupManagementComplete,
+  initialAction = "manage",
+  initialGroupId = null,
 }: GroupManagementDialogProps) {
   const { t } = useTranslation();
   const [groups, setGroups] = useState<GroupWithCount[]>([]);
@@ -124,6 +128,7 @@ export function GroupManagementDialog({
   const [isTogglingSync, setIsTogglingSync] = useState<Record<string, boolean>>(
     {},
   );
+  const handledInitialIntentRef = useRef<string | null>(null);
 
   // Listen for group sync status events
   useEffect(() => {
@@ -181,17 +186,23 @@ export function GroupManagementDialog({
 
       // Check which groups are in use by synced profiles
       const inUse: Record<string, boolean> = {};
+      const groupIds = mergedGroups
+        .map((group) => group.id)
+        .filter((groupId) => groupId !== "default");
       for (const group of mergedGroups) {
         if (group.id === "default") {
           inUse[group.id] = false;
-          continue;
         }
+      }
+      if (groupIds.length > 0) {
         try {
-          const inUseBySynced = await invoke<boolean>(
-            "is_group_in_use_by_synced_profile",
-            { groupId: group.id },
+          const inUseRows = await invoke<Record<string, boolean>>(
+            "get_groups_in_use_by_synced_profiles",
+            { groupIds },
           );
-          inUse[group.id] = inUseBySynced;
+          for (const groupId of groupIds) {
+            inUse[groupId] = Boolean(inUseRows?.[groupId]);
+          }
         } catch (_error) {
           // Ignore errors
         }
@@ -263,6 +274,32 @@ export function GroupManagementDialog({
       void loadGroups();
     }
   }, [isOpen, loadGroups]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      handledInitialIntentRef.current = null;
+      return;
+    }
+    if (initialAction === "manage" || !initialGroupId) {
+      return;
+    }
+    const intentKey = `${initialAction}:${initialGroupId}`;
+    if (handledInitialIntentRef.current === intentKey) {
+      return;
+    }
+    const targetGroup = groups.find((group) => group.id === initialGroupId);
+    if (!targetGroup || targetGroup.id === "default") {
+      return;
+    }
+
+    setSelectedGroup(targetGroup);
+    if (initialAction === "edit") {
+      setEditDialogOpen(true);
+    } else if (initialAction === "delete") {
+      setDeleteDialogOpen(true);
+    }
+    handledInitialIntentRef.current = intentKey;
+  }, [groups, initialAction, initialGroupId, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {

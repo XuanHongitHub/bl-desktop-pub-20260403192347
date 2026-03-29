@@ -16,8 +16,6 @@ export function useTeamLocks(currentUserId?: string) {
   }, []);
 
   useEffect(() => {
-    fetchLocks();
-
     const unlistenAcquired = listen<{ profileId: string }>(
       "team-lock-acquired",
       () => fetchLocks(),

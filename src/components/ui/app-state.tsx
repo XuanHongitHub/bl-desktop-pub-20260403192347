@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertTriangle, CircleAlert, Inbox, Info, Loader2 } from "lucide-react";
+import { AlertTriangle, CircleAlert, Inbox, Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 type AppStateKind = "loading" | "empty" | "error" | "warning" | "info";
 
@@ -29,7 +30,7 @@ type AppStateOverlayProps = AppStateSurfaceProps & {
 function resolveDefaultIcon(kind: AppStateKind): ReactNode {
   switch (kind) {
     case "loading":
-      return <Loader2 className="h-5 w-5 animate-spin text-primary" />;
+      return <Spinner size="lg" className="text-primary" />;
     case "empty":
       return <Inbox className="h-5 w-5 text-muted-foreground" />;
     case "error":

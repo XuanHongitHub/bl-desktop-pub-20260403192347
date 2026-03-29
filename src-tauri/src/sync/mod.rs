@@ -10,7 +10,9 @@ pub use client::SyncClient;
 pub use encryption::{check_has_e2e_password, delete_e2e_password, set_e2e_password};
 pub use engine::{
   enable_group_sync_if_needed, enable_proxy_sync_if_needed, enable_sync_for_all_entities,
-  enable_vpn_sync_if_needed, get_unsynced_entity_counts, is_group_in_use_by_synced_profile,
+  enable_vpn_sync_if_needed, get_groups_in_use_by_synced_profiles,
+  get_proxies_in_use_by_synced_profiles, get_unsynced_entity_counts,
+  get_vpns_in_use_by_synced_profiles, is_group_in_use_by_synced_profile,
   is_group_used_by_synced_profile, is_proxy_in_use_by_synced_profile,
   is_proxy_used_by_synced_profile, is_sync_configured, is_vpn_in_use_by_synced_profile,
   is_vpn_used_by_synced_profile, request_profile_sync, set_extension_group_sync_enabled,

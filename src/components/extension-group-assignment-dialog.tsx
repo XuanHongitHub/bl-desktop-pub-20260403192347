@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { ProBadge } from "@/components/ui/pro-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -78,12 +79,10 @@ export function ExtensionGroupAssignmentDialog({
     setIsAssigning(true);
     setError(null);
     try {
-      for (const profileId of selectedProfiles) {
-        await invoke("assign_extension_group_to_profile", {
-          profileId,
-          extensionGroupId: selectedGroupId,
-        });
-      }
+      await invoke("assign_extension_group_to_profiles", {
+        profileIds: selectedProfiles,
+        extensionGroupId: selectedGroupId,
+      });
 
       showSuccessToast(t("extensions.assignSuccess"));
       onAssignmentComplete();
@@ -162,8 +161,8 @@ export function ExtensionGroupAssignmentDialog({
               {t("extensions.extensionGroup")}:
             </Label>
             {isLoading ? (
-              <div className="text-sm text-muted-foreground">
-                {t("common.buttons.loading")}
+              <div className="flex items-center py-1">
+                <Spinner size="sm" />
               </div>
             ) : (
               <Select

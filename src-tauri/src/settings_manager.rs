@@ -66,6 +66,12 @@ pub struct SyncSettings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct SyncBootstrapSettingsFile {
+  pub sync_server_url: Option<String>,
+  pub sync_token: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AppAccessTokenState {
   pub configured: bool,
   pub enforcement_enabled: bool,
@@ -843,6 +849,86 @@ impl SettingsManager {
   }
 }
 
+fn is_local_self_host_mode() -> bool {
+  crate::app_config::get().auth_api_url.is_none()
+}
+
+fn normalize_non_empty(value: Option<String>) -> Option<String> {
+  value.and_then(|raw| {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+      None
+    } else {
+      Some(trimmed.to_string())
+    }
+  })
+}
+
+fn load_sync_bootstrap_settings_file(manager: &SettingsManager) -> SyncBootstrapSettingsFile {
+  let path = manager.get_settings_dir().join("sync_bootstrap.json");
+  if !path.exists() {
+    return SyncBootstrapSettingsFile::default();
+  }
+  match fs::read_to_string(path) {
+    Ok(content) => serde_json::from_str::<SyncBootstrapSettingsFile>(&content)
+      .unwrap_or_else(|_| SyncBootstrapSettingsFile::default()),
+    Err(_) => SyncBootstrapSettingsFile::default(),
+  }
+}
+
+fn resolve_bootstrap_sync_server_url(manager: &SettingsManager) -> Option<String> {
+  let env_candidates = [
+    std::env::var("BUGLOGIN_DEFAULT_SYNC_SERVER_URL").ok(),
+    std::env::var("BUGLOGIN_SYNC_SERVER_URL").ok(),
+    std::env::var("NEXT_PUBLIC_SYNC_SERVER_URL").ok(),
+  ];
+  for candidate in env_candidates {
+    if let Some(value) = normalize_non_empty(candidate) {
+      return Some(value);
+    }
+  }
+
+  let file_settings = load_sync_bootstrap_settings_file(manager);
+  normalize_non_empty(file_settings.sync_server_url)
+}
+
+fn default_local_sync_server_url() -> String {
+  "http://127.0.0.1:12342".to_string()
+}
+
+fn resolve_bootstrap_sync_token(manager: &SettingsManager) -> Option<String> {
+  let env_candidates = [
+    std::env::var("BUGLOGIN_DEFAULT_SYNC_TOKEN").ok(),
+    std::env::var("BUGLOGIN_SYNC_TOKEN").ok(),
+    std::env::var("NEXT_PUBLIC_SYNC_TOKEN").ok(),
+    std::env::var("SYNC_TOKEN").ok(),
+    std::env::var("CONTROL_API_TOKEN").ok(),
+  ];
+  for candidate in env_candidates {
+    if let Some(value) = normalize_non_empty(candidate) {
+      return Some(value);
+    }
+  }
+
+  let file_settings = load_sync_bootstrap_settings_file(manager);
+  normalize_non_empty(file_settings.sync_token)
+}
+
+fn default_local_sync_token() -> Option<String> {
+  let candidates = [
+    std::env::var("SYNC_TOKEN").ok(),
+    std::env::var("CONTROL_API_TOKEN").ok(),
+    std::env::var("BUGLOGIN_SYNC_TOKEN").ok(),
+  ];
+  for candidate in candidates.into_iter().flatten() {
+    let trimmed = candidate.trim().to_string();
+    if !trimmed.is_empty() {
+      return Some(trimmed);
+    }
+  }
+  Some("dev-sync-token-change-me".to_string())
+}
+
 #[tauri::command]
 pub async fn get_app_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, String> {
   let manager = SettingsManager::instance();
@@ -996,15 +1082,45 @@ pub async fn save_table_sorting_settings(sorting: TableSortingSettings) -> Resul
 
 #[tauri::command]
 pub async fn get_sync_settings(app_handle: tauri::AppHandle) -> Result<SyncSettings, String> {
+  let _ = crate::local_control_server::ensure_local_control_server_running().await;
   let manager = SettingsManager::instance();
   let mut sync_settings = manager
     .get_sync_settings()
     .map_err(|e| format!("Failed to load sync settings: {e}"))?;
 
+  if sync_settings.sync_server_url.is_none() {
+    let bootstrap_url = resolve_bootstrap_sync_server_url(manager);
+    if let Some(url) = bootstrap_url {
+      manager
+        .save_sync_server_url(Some(url.clone()))
+        .map_err(|e| format!("Failed to persist bootstrap sync server URL: {e}"))?;
+      sync_settings.sync_server_url = Some(url);
+    }
+  }
+
+  if sync_settings.sync_server_url.is_none() && is_local_self_host_mode() {
+    sync_settings.sync_server_url = Some(default_local_sync_server_url());
+  }
+
   sync_settings.sync_token = manager
     .get_sync_token(&app_handle)
     .await
     .map_err(|e| format!("Failed to load sync token: {e}"))?;
+
+  if sync_settings.sync_token.is_none() {
+    let bootstrap_token = resolve_bootstrap_sync_token(manager);
+    if let Some(token) = bootstrap_token {
+      manager
+        .store_sync_token(&app_handle, &token)
+        .await
+        .map_err(|e| format!("Failed to persist bootstrap sync token: {e}"))?;
+      sync_settings.sync_token = Some(token);
+    }
+  }
+
+  if sync_settings.sync_token.is_none() && is_local_self_host_mode() {
+    sync_settings.sync_token = default_local_sync_token();
+  }
 
   Ok(sync_settings)
 }

@@ -16,12 +16,110 @@ create table if not exists user_credentials (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists platform_admin_emails (
+  email text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists workspaces (
   id text primary key,
   name text not null,
   mode text not null check (mode in ('personal', 'team')),
   created_by text not null references users(id),
   created_at timestamptz not null default now()
+);
+
+create table if not exists workspace_admin_tiktok_state (
+  workspace_id text primary key references workspaces(id) on delete cascade,
+  bearer_key text not null default '',
+  workflow_rows jsonb not null default '[]'::jsonb,
+  auto_workflow_run jsonb null,
+  rotation_cursor integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists workspace_tiktok_cookie_sources (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  phone text not null default '',
+  api_phone text not null default '',
+  cookie text not null,
+  source text not null default 'excel_import' check (source in ('excel_import')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists workspace_tiktok_automation_accounts (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  phone text not null default '',
+  api_phone text not null default '',
+  cookie text not null default '',
+  username text not null default '',
+  password text not null default '',
+  profile_id text null,
+  profile_name text null,
+  status text not null default 'queued',
+  last_step text null,
+  last_error text null,
+  source text not null default 'excel_import',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists workspace_tiktok_automation_runs (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  flow_type text not null check (flow_type in ('signup', 'update_cookie')),
+  mode text not null check (mode in ('auto', 'semi')),
+  status text not null check (status in ('queued', 'running', 'paused', 'stopped', 'completed', 'failed')),
+  account_ids jsonb not null default '[]'::jsonb,
+  current_index integer not null default 0,
+  active_item_id text null,
+  total_count integer not null default 0,
+  done_count integer not null default 0,
+  failed_count integer not null default 0,
+  blocked_count integer not null default 0,
+  created_by text not null references users(id),
+  started_at timestamptz null,
+  finished_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists workspace_tiktok_automation_run_items (
+  id text primary key,
+  run_id text not null references workspace_tiktok_automation_runs(id) on delete cascade,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  account_id text not null,
+  phone text not null default '',
+  api_phone text not null default '',
+  profile_id text null,
+  profile_name text null,
+  status text not null default 'queued',
+  step text not null default 'queued',
+  attempt integer not null default 0,
+  username text not null default '',
+  password text not null default '',
+  cookie_preview text null,
+  error_code text null,
+  error_message text null,
+  started_at timestamptz null,
+  finished_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists tiktok_cookie_records (
+  id text primary key,
+  label text not null,
+  cookie text not null,
+  status text not null default 'untested',
+  notes text null,
+  tested_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists workspace_memberships (
@@ -100,6 +198,10 @@ create table if not exists audit_logs (
 );
 
 create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
+create index if not exists idx_workspace_tiktok_cookie_sources_workspace on workspace_tiktok_cookie_sources(workspace_id, updated_at desc);
+create index if not exists idx_workspace_tiktok_automation_accounts_workspace on workspace_tiktok_automation_accounts(workspace_id, updated_at desc);
+create index if not exists idx_workspace_tiktok_automation_runs_workspace on workspace_tiktok_automation_runs(workspace_id, updated_at desc);
+create index if not exists idx_workspace_tiktok_automation_run_items_run on workspace_tiktok_automation_run_items(run_id, updated_at desc);
 create index if not exists idx_user_credentials_platform_role on user_credentials(platform_role);
 create index if not exists idx_invites_workspace on invites(workspace_id);
 create index if not exists idx_share_grants_workspace on share_grants(workspace_id);

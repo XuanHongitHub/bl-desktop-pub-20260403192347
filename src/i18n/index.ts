@@ -17,14 +17,26 @@ export const LANGUAGE_FALLBACKS: Record<string, string[]> = {
 };
 
 export function getLanguageWithFallback(systemLocale: string): string {
-  const baseLanguage = systemLocale.split(/[-_]/)[0].toLowerCase();
+  const normalizedLocale = (systemLocale || "").trim();
+  if (!normalizedLocale) {
+    return "vi";
+  }
+
+  if (SUPPORTED_LANGUAGES.some((lang) => lang.code === normalizedLocale)) {
+    return normalizedLocale;
+  }
+
+  const baseLanguage = normalizedLocale.split(/[-_]/)[0].toLowerCase();
 
   if (baseLanguage === "vi") {
     return "vi";
   }
+  if (baseLanguage === "en") {
+    return "en";
+  }
 
-  if (LANGUAGE_FALLBACKS[systemLocale]) {
-    return LANGUAGE_FALLBACKS[systemLocale][0];
+  if (LANGUAGE_FALLBACKS[normalizedLocale]) {
+    return LANGUAGE_FALLBACKS[normalizedLocale][0];
   }
 
   if (LANGUAGE_FALLBACKS[baseLanguage]) {

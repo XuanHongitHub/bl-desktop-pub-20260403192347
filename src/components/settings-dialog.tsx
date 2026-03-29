@@ -3,30 +3,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import Color from "color";
 import {
-  Activity,
-  BarChart3,
   Bell,
-  Cloud,
-  CreditCard,
-  DatabaseBackup,
-  FileSearch,
-  FileUp,
-  Globe,
-  KeyRound,
   Languages,
-  Network,
   Palette,
-  PlugZap,
-  Receipt,
-  RefreshCcw,
-  Rocket,
-  ScanFace,
   Shield,
   SlidersHorizontal,
-  Ticket,
-  Timer,
-  Trash2,
-  Users,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import * as React from "react";
@@ -63,6 +44,7 @@ import { useLanguage } from "@/hooks/use-language";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
 import type { SupportedLanguage } from "@/i18n";
+import type { AppSection } from "@/types";
 import {
   mergeAppSettingsCache,
   readAppSettingsCache,
@@ -82,9 +64,16 @@ interface AppSettings {
   set_as_default_browser: boolean;
   theme: string;
   custom_theme?: Record<string, string>;
+  language?: string | null;
+  sync_server_url?: string | null;
   api_enabled: boolean;
   api_port: number;
-  api_token?: string;
+  api_token?: string | null;
+  mcp_enabled: boolean;
+  mcp_port?: number | null;
+  mcp_token?: string | null;
+  stripe_publishable_key?: string | null;
+  stripe_billing_url?: string | null;
 }
 
 interface CustomThemeState {
@@ -100,13 +89,6 @@ interface PermissionInfo {
 
 type AutoSaveState = "idle" | "saving" | "saved" | "error";
 type SettingsSectionId = string;
-type SettingsGroupId =
-  | "workspace"
-  | "network"
-  | "security"
-  | "billing"
-  | "sync"
-  | "system";
 
 function ThemeMiniPreview({
   colors,
@@ -266,6 +248,8 @@ interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onIntegrationsOpen?: () => void;
+  onSectionOpen?: (section: AppSection) => void;
+  onSyncConfigOpen?: () => void;
   canUseEncryption?: boolean;
   mode?: "dialog" | "page";
 }
@@ -273,16 +257,22 @@ interface SettingsDialogProps {
 export function SettingsDialog({
   isOpen,
   onClose,
-  onIntegrationsOpen,
   mode = "dialog",
 }: SettingsDialogProps) {
   const [settings, setSettings] = useState<AppSettings>({
     set_as_default_browser: false,
     theme: "system",
     custom_theme: undefined,
+    language: null,
+    sync_server_url: null,
     api_enabled: false,
     api_port: 10108,
     api_token: undefined,
+    mcp_enabled: false,
+    mcp_port: null,
+    mcp_token: null,
+    stripe_publishable_key: null,
+    stripe_billing_url: null,
   });
   const [customThemeState, setCustomThemeState] = useState<CustomThemeState>({
     selectedThemeId: null,
@@ -298,6 +288,9 @@ export function SettingsDialog({
   const [isMacOS, setIsMacOS] = useState(false);
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("unsupported");
 
   const { t } = useTranslation();
   const { resolvedTheme, setTheme } = useTheme();
@@ -411,6 +404,14 @@ export function SettingsDialog({
           Object.keys(cachedSettings.custom_theme).length > 0
             ? cachedSettings.custom_theme
             : tokyoNightTheme?.colors,
+        language:
+          typeof cachedSettings.language === "string"
+            ? cachedSettings.language
+            : null,
+        sync_server_url:
+          typeof cachedSettings.sync_server_url === "string"
+            ? cachedSettings.sync_server_url
+            : null,
         api_enabled: Boolean(cachedSettings.api_enabled),
         api_port:
           typeof cachedSettings.api_port === "number"
@@ -419,7 +420,24 @@ export function SettingsDialog({
         api_token:
           typeof cachedSettings.api_token === "string"
             ? cachedSettings.api_token
-            : undefined,
+            : null,
+        mcp_enabled: Boolean(cachedSettings.mcp_enabled),
+        mcp_port:
+          typeof cachedSettings.mcp_port === "number"
+            ? cachedSettings.mcp_port
+            : null,
+        mcp_token:
+          typeof cachedSettings.mcp_token === "string"
+            ? cachedSettings.mcp_token
+            : null,
+        stripe_publishable_key:
+          typeof cachedSettings.stripe_publishable_key === "string"
+            ? cachedSettings.stripe_publishable_key
+            : null,
+        stripe_billing_url:
+          typeof cachedSettings.stripe_billing_url === "string"
+            ? cachedSettings.stripe_billing_url
+            : null,
       };
       setSettings(mergedFromCache);
       setIsLoading(false);
@@ -542,6 +560,26 @@ export function SettingsDialog({
     },
     [getPermissionDisplayName, requestPermission, t],
   );
+
+  const handleRequestNotificationPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    try {
+      const result = await Notification.requestPermission();
+      setNotificationPermission(result);
+      if (result === "granted") {
+        showSuccessToast(t("settings.notifications.permissionGranted"));
+      } else if (result === "denied") {
+        showErrorToast(t("settings.notifications.permissionDenied"));
+      }
+    } catch (error) {
+      showErrorToast(t("toasts.error.settingsSaveFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [t]);
 
   const scheduleAutoSaveStateReset = useCallback(() => {
     clearAutoSaveResetTimer();
@@ -735,6 +773,12 @@ export function SettingsDialog({
       const isMac = userAgent.includes("Mac");
       setIsMacOS(isMac);
 
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setNotificationPermission(Notification.permission);
+      } else {
+        setNotificationPermission("unsupported");
+      }
+
       if (isMac) {
         loadPermissions().catch(() => undefined);
       }
@@ -832,16 +876,14 @@ export function SettingsDialog({
       ? t("settings.appearance.yourOwn")
       : (THEMES.find((theme) => theme.id === customThemeState.selectedThemeId)
           ?.name ?? t("settings.appearance.yourOwn"));
-  const implementedSectionIds = useMemo(
-    () =>
-      new Set<SettingsSectionId>([
-        "appearance",
-        "language",
-        "permissions",
-        "advanced",
-      ]),
-    [],
-  );
+  const notificationPermissionLabel =
+    notificationPermission === "granted"
+      ? t("settings.notifications.statusGranted")
+      : notificationPermission === "denied"
+        ? t("settings.notifications.statusDenied")
+        : notificationPermission === "default"
+          ? t("settings.notifications.statusPrompt")
+          : t("settings.notifications.statusUnsupported");
   const settingsSectionItems = useMemo(
     () => [
       {
@@ -849,157 +891,39 @@ export function SettingsDialog({
         label: t("settings.navigation.items.appearance"),
         icon: Palette,
         group: "workspace" as const,
+        disabled: false,
       },
       {
         id: "language" as const,
         label: t("settings.navigation.items.languageRegion"),
         icon: Languages,
         group: "workspace" as const,
+        disabled: false,
       },
       {
         id: "notifications" as const,
         label: t("settings.navigation.items.notifications"),
         icon: Bell,
         group: "workspace" as const,
+        disabled: false,
       },
-      {
-        id: "profile-defaults" as const,
-        label: t("settings.navigation.items.profileDefaults"),
-        icon: Rocket,
-        group: "workspace" as const,
-      },
-      {
-        id: "templates-startup" as const,
-        label: t("settings.navigation.items.templatesStartup"),
-        icon: Globe,
-        group: "workspace" as const,
-      },
-      {
-        id: "proxy-vpn" as const,
-        label: t("settings.navigation.items.proxyVpn"),
-        icon: Globe,
-        group: "network" as const,
-      },
-      {
-        id: "fingerprint-privacy" as const,
-        label: t("settings.navigation.items.fingerprintPrivacy"),
-        icon: ScanFace,
-        group: "network" as const,
-      },
-      {
-        id: "dns-traffic" as const,
-        label: t("settings.navigation.items.dnsTraffic"),
-        icon: Network,
-        group: "network" as const,
-      },
-      {
-        id: "team-roles" as const,
-        label: t("settings.navigation.items.teamRoles"),
-        icon: Users,
-        group: "security" as const,
-      },
-      {
-        id: "session-policies" as const,
-        label: t("settings.navigation.items.sessionPolicies"),
-        icon: Timer,
-        group: "security" as const,
-      },
-      {
-        id: "account-security" as const,
-        label: t("settings.navigation.items.accountSecurity"),
-        icon: KeyRound,
-        group: "security" as const,
-      },
-      {
-        id: "audit-logs" as const,
-        label: t("settings.navigation.items.auditLogs"),
-        icon: FileSearch,
-        group: "security" as const,
-      },
-      {
-        id: "subscription" as const,
-        label: t("settings.navigation.items.subscription"),
-        icon: CreditCard,
-        group: "billing" as const,
-      },
-      {
-        id: "payment-methods" as const,
-        label: t("settings.navigation.items.paymentMethods"),
-        icon: CreditCard,
-        group: "billing" as const,
-      },
-      {
-        id: "invoices" as const,
-        label: t("settings.navigation.items.invoices"),
-        icon: Receipt,
-        group: "billing" as const,
-      },
-      {
-        id: "coupon-license" as const,
-        label: t("settings.navigation.items.couponLicense"),
-        icon: Ticket,
-        group: "billing" as const,
-      },
-      {
-        id: "usage-addons" as const,
-        label: t("settings.navigation.items.usageAddons"),
-        icon: BarChart3,
-        group: "billing" as const,
-      },
-      {
-        id: "sync-provider" as const,
-        label: t("settings.navigation.items.syncProvider"),
-        icon: Cloud,
-        group: "sync" as const,
-      },
-      {
-        id: "backup-restore" as const,
-        label: t("settings.navigation.items.backupRestore"),
-        icon: DatabaseBackup,
-        group: "sync" as const,
-      },
-      {
-        id: "import-export" as const,
-        label: t("settings.navigation.items.importExport"),
-        icon: FileUp,
-        group: "sync" as const,
-      },
-      {
-        id: "data-retention" as const,
-        label: t("settings.navigation.items.dataRetention"),
-        icon: Trash2,
-        group: "sync" as const,
-      },
-      {
-        id: "integrations" as const,
-        label: t("settings.navigation.items.integrations"),
-        icon: PlugZap,
-        group: "system" as const,
-      },
-      {
-        id: "runtime-updates" as const,
-        label: t("settings.navigation.items.runtimeUpdates"),
-        icon: RefreshCcw,
-        group: "system" as const,
-      },
-      {
-        id: "diagnostics" as const,
-        label: t("settings.navigation.items.diagnostics"),
-        icon: Activity,
-        group: "system" as const,
-      },
-      {
-        id: "permissions" as const,
-        label: t("settings.navigation.items.permissions"),
-        icon: Shield,
-        group: "system" as const,
-        disabled: !isMacOS,
-      },
+      ...(isMacOS
+        ? [
+            {
+              id: "permissions" as const,
+              label: t("settings.navigation.items.permissions"),
+              icon: Shield,
+              group: "system" as const,
+              disabled: false,
+            },
+          ]
+        : []),
       {
         id: "advanced" as const,
         label: t("settings.navigation.items.advanced"),
         icon: SlidersHorizontal,
         group: "system" as const,
+        disabled: false,
       },
     ],
     [isMacOS, t],
@@ -1009,22 +933,6 @@ export function SettingsDialog({
       {
         id: "workspace" as const,
         label: t("settings.navigation.groups.workspace"),
-      },
-      {
-        id: "network" as const,
-        label: t("settings.navigation.groups.network"),
-      },
-      {
-        id: "security" as const,
-        label: t("settings.navigation.groups.security"),
-      },
-      {
-        id: "billing" as const,
-        label: t("settings.navigation.groups.billing"),
-      },
-      {
-        id: "sync" as const,
-        label: t("settings.navigation.groups.sync"),
       },
       {
         id: "system" as const,
@@ -1042,28 +950,6 @@ export function SettingsDialog({
         }))
         .filter((group) => group.items.length > 0),
     [settingsGroupRows, settingsSectionItems],
-  );
-  const settingsGroupLabelById = useMemo<Record<SettingsGroupId, string>>(
-    () =>
-      settingsGroupRows.reduce(
-        (acc, group) => {
-          acc[group.id] = group.label;
-          return acc;
-        },
-        {} as Record<SettingsGroupId, string>,
-      ),
-    [settingsGroupRows],
-  );
-  const managedLocationByGroup = useMemo<Record<SettingsGroupId, string>>(
-    () => ({
-      workspace: t("settings.navigation.locations.settingsPage"),
-      network: t("settings.navigation.locations.proxyCenter"),
-      security: t("settings.navigation.locations.workspaceGovernance"),
-      billing: t("settings.navigation.locations.pricingBilling"),
-      sync: t("settings.navigation.locations.syncIntegrations"),
-      system: t("settings.navigation.locations.systemControls"),
-    }),
-    [t],
   );
   useEffect(() => {
     if (settingsSectionItems.length === 0) {
@@ -1083,43 +969,6 @@ export function SettingsDialog({
       setActiveSection(sectionId);
     },
     [settingsSectionItems],
-  );
-
-  const autoSaveStatusMeta: Record<
-    AutoSaveState,
-    { label: string; className: string; dotClassName: string }
-  > = {
-    idle: {
-      label: t("settings.autoSaveStatus.idle"),
-      className: "border-border bg-card text-muted-foreground",
-      dotClassName: "bg-muted-foreground/60",
-    },
-    saving: {
-      label: t("settings.autoSaveStatus.saving"),
-      className: "border-primary/40 bg-primary/10 text-primary",
-      dotClassName: "animate-pulse bg-primary",
-    },
-    saved: {
-      label: t("settings.autoSaveStatus.saved"),
-      className: "border-border bg-card text-foreground",
-      dotClassName: "bg-chart-2",
-    },
-    error: {
-      label: t("settings.autoSaveStatus.error"),
-      className: "border-destructive/40 bg-destructive/10 text-destructive",
-      dotClassName: "bg-destructive",
-    },
-  };
-  const currentAutoSaveStatus = autoSaveStatusMeta[autoSaveState];
-  const autoSaveStatusIndicator = (
-    <div
-      className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium ${currentAutoSaveStatus.className}`}
-    >
-      <span
-        className={`h-2 w-2 rounded-full ${currentAutoSaveStatus.dotClassName}`}
-      />
-      <span>{currentAutoSaveStatus.label}</span>
-    </div>
   );
 
   const loadingSections = (
@@ -1154,9 +1003,6 @@ export function SettingsDialog({
     <div className="space-y-3 rounded-xl border border-border bg-card p-3">
       <div className="space-y-1 px-1">
         <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {currentAutoSaveStatus.label}
-        </p>
       </div>
       {groupedSectionItems.map((group) => (
         <div key={group.id} className="space-y-1">
@@ -1386,69 +1232,15 @@ export function SettingsDialog({
         </div>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.overviewTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              {
-                label: t("settings.appearance.theme"),
-                value: selectedThemeModeLabel,
-              },
-              {
-                label: t("settings.appearance.themePreset"),
-                value: selectedThemePresetLabel,
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.syncLabel"),
-                value: t(
-                  "settings.navigation.placeholderPanels.syncManagedValue",
-                ),
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.statusLabel"),
-                value: currentAutoSaveStatus.label,
-              },
-            ].map((row) => (
-              <div
-                key={`appearance-section-${row.label}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-muted-foreground">
-                  {row.label}
-                </span>
-                <span className="text-xs font-medium text-foreground">
-                  {row.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.checklistTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              t("settings.navigation.placeholderPanels.checklistPolicy"),
-              t("settings.navigation.placeholderPanels.checklistValidation"),
-              t("settings.navigation.placeholderPanels.checklistRollout"),
-              t("settings.navigation.placeholderPanels.checklistAudit"),
-            ].map((rowLabel) => (
-              <div
-                key={`appearance-section-checklist-${rowLabel}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-foreground">{rowLabel}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {t("settings.navigation.placeholderPanels.checklistState")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">
+          {t("settings.appearance.theme")}: {selectedThemeModeLabel}
+        </Badge>
+        {settings.theme === "custom" ? (
+          <Badge variant="outline">
+            {t("settings.appearance.themePreset")}: {selectedThemePresetLabel}
+          </Badge>
+        ) : null}
       </div>
     </section>
   );
@@ -1492,72 +1284,51 @@ export function SettingsDialog({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.overviewTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              {
-                label: t("settings.language.selectLanguage"),
-                value:
-                  supportedLanguages.find(
-                    (lang) => lang.code === selectedLanguage,
-                  )?.nativeName ?? selectedLanguage,
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.statusLabel"),
-                value: currentAutoSaveStatus.label,
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.syncLabel"),
-                value: t(
-                  "settings.navigation.placeholderPanels.syncManagedValue",
-                ),
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.sourceLabel"),
-                value: t("settings.navigation.locations.settingsPage"),
-              },
-            ].map((row) => (
-              <div
-                key={`language-section-${row.label}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-muted-foreground">
-                  {row.label}
-                </span>
-                <span className="text-xs font-medium text-foreground">
-                  {row.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.checklistTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              t("settings.navigation.placeholderPanels.checklistPolicy"),
-              t("settings.navigation.placeholderPanels.checklistValidation"),
-              t("settings.navigation.placeholderPanels.checklistRollout"),
-              t("settings.navigation.placeholderPanels.checklistAudit"),
-            ].map((rowLabel) => (
-              <div
-                key={`language-section-checklist-${rowLabel}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-foreground">{rowLabel}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {t("settings.navigation.placeholderPanels.checklistState")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">
+          {t("settings.language.selectLanguage")}:{" "}
+          {supportedLanguages.find((lang) => lang.code === selectedLanguage)
+            ?.nativeName ?? selectedLanguage}
+        </Badge>
+      </div>
+    </section>
+  );
+
+  const notificationsSection = (
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label className="text-base font-semibold">
+          {t("settings.notifications.title")}
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.notifications.description")}
+        </p>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          {t("settings.notifications.actionTitle")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.notifications.permissionLabel")}:{" "}
+          <span className="font-medium text-foreground">
+            {notificationPermissionLabel}
+          </span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.notifications.actionHint")}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void handleRequestNotificationPermission();
+          }}
+          disabled={notificationPermission === "unsupported"}
+        >
+          {t("settings.notifications.requestPermission")}
+        </Button>
       </div>
     </section>
   );
@@ -1641,343 +1412,7 @@ export function SettingsDialog({
         {t("settings.advanced.clearCache")}
       </LoadingButton>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.overviewTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              {
-                label: t("settings.navigation.placeholderPanels.statusLabel"),
-                value: currentAutoSaveStatus.label,
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.syncLabel"),
-                value: t(
-                  "settings.navigation.placeholderPanels.syncManagedValue",
-                ),
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.ownerLabel"),
-                value: t(
-                  "settings.navigation.placeholderPanels.ownerManagedValue",
-                ),
-              },
-              {
-                label: t("settings.navigation.placeholderPanels.sourceLabel"),
-                value: t("settings.navigation.locations.systemControls"),
-              },
-            ].map((row) => (
-              <div
-                key={`advanced-section-${row.label}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-muted-foreground">
-                  {row.label}
-                </span>
-                <span className="text-xs font-medium text-foreground">
-                  {row.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {t("settings.navigation.placeholderPanels.checklistTitle")}
-          </p>
-          <div className="space-y-1.5">
-            {[
-              t("settings.navigation.placeholderPanels.checklistPolicy"),
-              t("settings.navigation.placeholderPanels.checklistValidation"),
-              t("settings.navigation.placeholderPanels.checklistRollout"),
-              t("settings.navigation.placeholderPanels.checklistAudit"),
-            ].map((rowLabel) => (
-              <div
-                key={`advanced-section-checklist-${rowLabel}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-              >
-                <span className="text-xs text-foreground">{rowLabel}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {t("settings.navigation.placeholderPanels.checklistState")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </section>
-  );
-
-  const renderPlaceholderSection = useCallback(
-    (item: (typeof settingsSectionItems)[number]) => {
-      const Icon = item.icon;
-      const groupId = item.group as SettingsGroupId;
-      const managedLocation = managedLocationByGroup[groupId];
-      const groupLabel = settingsGroupLabelById[groupId];
-      const canOpenIntegrations =
-        item.id === "integrations" && Boolean(onIntegrationsOpen);
-      return (
-        <section className="space-y-4 rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-                <Label className="text-base font-semibold">{item.label}</Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.navigation.placeholderPanels.subtitle", {
-                  section: item.label,
-                })}
-              </p>
-            </div>
-            <Badge variant="secondary">
-              {t("settings.navigation.status.managed")}
-            </Badge>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {t("settings.navigation.placeholderPanels.overviewTitle")}
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.sourceLabel",
-                    ),
-                    value: managedLocation,
-                  },
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.statusLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.statusManagedValue",
-                    ),
-                  },
-                  {
-                    label: t("settings.navigation.placeholderPanels.syncLabel"),
-                    value: t(
-                      "settings.navigation.placeholderPanels.syncManagedValue",
-                    ),
-                  },
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.ownerLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.ownerManagedValue",
-                    ),
-                  },
-                ].map((row) => (
-                  <div
-                    key={row.label}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {row.label}
-                    </span>
-                    <span className="text-xs font-medium text-foreground">
-                      {row.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {t("settings.navigation.placeholderPanels.checklistTitle")}
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  t("settings.navigation.placeholderPanels.checklistPolicy"),
-                  t(
-                    "settings.navigation.placeholderPanels.checklistValidation",
-                  ),
-                  t("settings.navigation.placeholderPanels.checklistRollout"),
-                  t("settings.navigation.placeholderPanels.checklistAudit"),
-                ].map((rowLabel) => (
-                  <div
-                    key={`${item.id}-${rowLabel}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-                  >
-                    <span className="text-xs text-foreground">{rowLabel}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {t(
-                        "settings.navigation.placeholderPanels.checklistState",
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {t("settings.navigation.placeholderPanels.controlsTitle")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  "settings.navigation.placeholderPanels.controlsDescription",
-                  {
-                    section: item.label,
-                  },
-                )}
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.controlPrimaryLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.controlPrimaryValue",
-                      {
-                        section: item.label,
-                      },
-                    ),
-                  },
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.controlScopeLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.controlScopeValue",
-                      {
-                        group: groupLabel,
-                      },
-                    ),
-                  },
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.controlAutomationLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.controlAutomationValue",
-                    ),
-                  },
-                  {
-                    label: t(
-                      "settings.navigation.placeholderPanels.controlRollbackLabel",
-                    ),
-                    value: t(
-                      "settings.navigation.placeholderPanels.controlRollbackValue",
-                    ),
-                  },
-                ].map((row) => (
-                  <div
-                    key={`${item.id}-${row.label}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {row.label}
-                    </span>
-                    <span className="text-xs font-medium text-foreground">
-                      {row.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {t("settings.navigation.placeholderPanels.timelineTitle")}
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  {
-                    event: t(
-                      "settings.navigation.placeholderPanels.timelineEventPolicy",
-                      {
-                        section: item.label,
-                      },
-                    ),
-                    time: t(
-                      "settings.navigation.placeholderPanels.timelineNow",
-                    ),
-                  },
-                  {
-                    event: t(
-                      "settings.navigation.placeholderPanels.timelineEventValidation",
-                      {
-                        group: groupLabel,
-                      },
-                    ),
-                    time: t(
-                      "settings.navigation.placeholderPanels.timelineToday",
-                    ),
-                  },
-                  {
-                    event: t(
-                      "settings.navigation.placeholderPanels.timelineEventSync",
-                    ),
-                    time: t(
-                      "settings.navigation.placeholderPanels.timelineThisWeek",
-                    ),
-                  },
-                ].map((entry) => (
-                  <div
-                    key={`${item.id}-${entry.event}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-1.5"
-                  >
-                    <span className="text-xs text-foreground">
-                      {entry.event}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {entry.time}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {canOpenIntegrations && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  onIntegrationsOpen?.();
-                }}
-              >
-                {t("settings.navigation.placeholderPanels.openManagedModule")}
-              </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                showSuccessToast(
-                  t("settings.navigation.placeholderPanels.reviewRequested", {
-                    section: item.label,
-                  }),
-                );
-              }}
-            >
-              {t("settings.navigation.placeholderPanels.requestPolicyReview")}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.navigation.managedAt", {
-                location: managedLocation,
-              })}
-            </p>
-          </div>
-        </section>
-      );
-    },
-    [managedLocationByGroup, onIntegrationsOpen, settingsGroupLabelById, t],
   );
 
   const activeSectionItem =
@@ -1987,19 +1422,16 @@ export function SettingsDialog({
 
   let activeSectionContent: React.ReactNode = null;
   if (activeSectionItem) {
-    if (implementedSectionIds.has(activeSectionItem.id)) {
-      if (activeSectionItem.id === "appearance") {
-        activeSectionContent = appearanceSection;
-      } else if (activeSectionItem.id === "language") {
-        activeSectionContent = languageSection;
-      } else if (activeSectionItem.id === "permissions") {
-        activeSectionContent =
-          permissionsSection ?? renderPlaceholderSection(activeSectionItem);
-      } else if (activeSectionItem.id === "advanced") {
-        activeSectionContent = advancedSection;
-      }
-    } else {
-      activeSectionContent = renderPlaceholderSection(activeSectionItem);
+    if (activeSectionItem.id === "appearance") {
+      activeSectionContent = appearanceSection;
+    } else if (activeSectionItem.id === "language") {
+      activeSectionContent = languageSection;
+    } else if (activeSectionItem.id === "notifications") {
+      activeSectionContent = notificationsSection;
+    } else if (activeSectionItem.id === "permissions") {
+      activeSectionContent = permissionsSection ?? advancedSection;
+    } else if (activeSectionItem.id === "advanced") {
+      activeSectionContent = advancedSection;
     }
   }
 
@@ -2024,7 +1456,6 @@ export function SettingsDialog({
       <ScrollArea className="min-h-0 flex-1">{settingsSections}</ScrollArea>
 
       <DialogFooter className="shrink-0 border-t px-5 py-4 sm:justify-between">
-        {autoSaveStatusIndicator}
         {mode === "dialog" && (
           <RippleButton variant="outline" onClick={handleClose}>
             {t("common.buttons.cancel")}
@@ -2038,7 +1469,6 @@ export function SettingsDialog({
     return (
       <WorkspacePageShell
         title={title}
-        actions={autoSaveStatusIndicator}
         contentClassName="max-w-none"
       >
         {isLoading ? loadingSections : settingsSections}

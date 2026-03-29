@@ -3,6 +3,7 @@
 import { ThemeProvider } from "next-themes";
 import { useEffect, useState } from "react";
 import {
+  loadAppSettingsCache,
   mergeAppSettingsCache,
   readAppSettingsCache,
 } from "@/lib/app-settings-cache";
@@ -66,9 +67,14 @@ export function CustomThemeProvider({ children }: CustomThemeProviderProps) {
 
     const loadTheme = async () => {
       try {
-        // Lazy import to avoid pulling Tauri API on SSR
-        const { invoke } = await import("@tauri-apps/api/core");
-        const settings = await invoke<AppSettings>("get_app_settings");
+        const settings = (await loadAppSettingsCache()) as AppSettings | null;
+        if (!settings) {
+          if (!isCancelled) {
+            clearCustomThemeVariables();
+            setDefaultTheme("system");
+          }
+          return;
+        }
         const themeValue = settings?.theme ?? "system";
 
         mergeAppSettingsCache(settings);
@@ -116,7 +122,6 @@ export function CustomThemeProvider({ children }: CustomThemeProviderProps) {
 
   return (
     <ThemeProvider
-      key={`theme-provider-${defaultTheme}`}
       attribute="class"
       defaultTheme={defaultTheme}
       enableSystem={true}

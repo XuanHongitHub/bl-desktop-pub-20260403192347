@@ -492,13 +492,13 @@ impl ApiClient {
     let content = fs::read_to_string(&cache_file).ok()?;
     if let Ok(cached) = serde_json::from_str::<CachedVersionData>(&content) {
       // Always return cached releases regardless of age - they're always valid
-      log::info!("Using cached versions for {browser}");
+      log::debug!("Using cached versions for {browser}");
       return Some(cached.releases);
     }
 
     // Backward compatibility: legacy caches stored just an array of version strings
     if let Ok(legacy_versions) = serde_json::from_str::<Vec<String>>(&content) {
-      log::info!("Using legacy cached versions for {browser}; upgrading in-memory");
+      log::debug!("Using legacy cached versions for {browser}; upgrading in-memory");
       let releases: Vec<BrowserRelease> = legacy_versions
         .into_iter()
         .map(|version| BrowserRelease {

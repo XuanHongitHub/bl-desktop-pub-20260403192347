@@ -21,9 +21,7 @@ export function useUpdateNotifications(
   const [updatingBrowsers, setUpdatingBrowsers] = useState<Set<string>>(
     new Set(),
   );
-  const [processedNotifications, setProcessedNotifications] = useState<
-    Set<string>
-  >(new Set());
+  const processedNotificationsRef = useRef<Set<string>>(new Set());
 
   const isUpdating = useCallback(
     (browser: string) => updatingBrowsers.has(browser),
@@ -182,6 +180,7 @@ export function useUpdateNotifications(
       const updates = await invoke<UpdateNotification[]>(
         "check_for_browser_updates",
       );
+      const processedNotifications = processedNotificationsRef.current;
 
       // Filter out already processed notifications
       const newUpdates = updates.filter((notification) => {
@@ -192,24 +191,23 @@ export function useUpdateNotifications(
 
       // Automatically start downloads for new update notifications
       for (const notification of newUpdates) {
-        if (!processedNotifications.has(notification.id)) {
-          setProcessedNotifications((prev) =>
-            new Set(prev).add(notification.id),
-          );
-          // Start automatic update without user interaction
-          void handleAutoUpdate(
-            notification.browser,
-            notification.new_version,
-            notification.id,
-          );
+        if (processedNotifications.has(notification.id)) {
+          continue;
         }
+        processedNotifications.add(notification.id);
+        // Start automatic update without user interaction
+        void handleAutoUpdate(
+          notification.browser,
+          notification.new_version,
+          notification.id,
+        );
       }
     } catch (error) {
       console.error("Failed to check for updates:", error);
     } finally {
       isCheckingForUpdates.current = false;
     }
-  }, [processedNotifications, handleAutoUpdate]);
+  }, [handleAutoUpdate]);
 
   return {
     notifications,

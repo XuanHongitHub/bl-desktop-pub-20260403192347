@@ -7,9 +7,16 @@ interface UseWayfernTermsReturn {
   checkTerms: () => Promise<void>;
 }
 
-export function useWayfernTerms(): UseWayfernTermsReturn {
+interface UseWayfernTermsOptions {
+  enabled?: boolean;
+}
+
+export function useWayfernTerms(
+  options: UseWayfernTermsOptions = {},
+): UseWayfernTermsReturn {
+  const { enabled = true } = options;
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
 
   const checkTerms = useCallback(async () => {
     try {
@@ -32,8 +39,12 @@ export function useWayfernTerms(): UseWayfernTermsReturn {
   }, []);
 
   useEffect(() => {
-    checkTerms();
-  }, [checkTerms]);
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+    void checkTerms();
+  }, [checkTerms, enabled]);
 
   return {
     termsAccepted,

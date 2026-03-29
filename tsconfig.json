@@ -39,6 +39,7 @@
     "buglogin-sync",
     "src-tauri/target",
     "buglogin-sync",
-    "camoufox-js"
+    "camoufox-js",
+    "docs/workflow/references/**/*"
   ]
 }

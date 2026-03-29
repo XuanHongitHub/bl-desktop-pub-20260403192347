@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import { RippleButton } from "./ui/ripple";
 
 interface ProxyExportDialogProps {
@@ -123,8 +124,8 @@ export function ProxyExportDialog({ isOpen, onClose }: ProxyExportDialogProps) {
             <Label>{t("proxyExportDialog.labels.preview")}</Label>
             <ScrollArea className="h-[200px] border rounded-md bg-muted/30">
               {isLoading ? (
-                <div className="flex items-center justify-center h-full p-4 text-sm text-muted-foreground">
-                  Loading...
+                <div className="flex items-center justify-center h-full p-4">
+                  <Spinner size="md" />
                 </div>
               ) : exportContent ? (
                 <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all">

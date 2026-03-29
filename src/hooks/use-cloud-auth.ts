@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuthLoginScope } from "@/lib/auth-quick-presets";
 import {
   BILLING_PLAN_DEFINITIONS,
@@ -8,26 +8,19 @@ import {
   type BillingPlanId,
 } from "@/lib/billing-plans";
 import { extractRootError } from "@/lib/error-utils";
-import { listSelfHostedSubscriptions } from "@/lib/self-host-billing";
+import { invokeCached } from "@/lib/ipc-query-cache";
 import { normalizeTeamRole } from "@/lib/team-permissions";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
+import { buildControlApiUrl } from "@/lib/control-api-routes";
 import type {
   CloudAuthState,
   CloudUser,
-  ControlMembership,
-  ControlWorkspaceBillingState,
   ControlWorkspace,
-  ControlWorkspaceOverview,
 } from "@/types";
 
 interface SyncSettings {
   sync_server_url?: string;
   sync_token?: string;
-}
-
-interface ControlBaseUrlResolution {
-  baseUrl: string;
-  hasExplicitConfig: boolean;
 }
 
 interface PublicAuthUser {
@@ -38,6 +31,12 @@ interface PublicAuthUser {
 
 interface PublicAuthResponse {
   user: PublicAuthUser;
+}
+
+interface ControlAuthProfileResponse {
+  id: string;
+  email: string;
+  platformRole?: "platform_admin" | null;
 }
 
 interface UseCloudAuthReturn {
@@ -76,7 +75,9 @@ interface UseCloudAuthReturn {
   }) => Promise<CloudUser>;
 }
 
-const LOCAL_AUTH_STORAGE_KEY = "buglogin.auth.local-session.v1";
+const AUTH_STATE_PERSIST_DEDUP_WINDOW_MS = 30_000;
+const CONTROL_ENRICH_CACHE_TTL_MS = 600_000;
+const SYNC_SETTINGS_CACHE_TTL_MS = 30_000;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -96,20 +97,6 @@ function requirePassword(password: string | undefined): string {
   return password;
 }
 
-function supportsLocalDevAuthFallback(email: string): boolean {
-  return email.endsWith("@buglogin.local");
-}
-
-function resolveLocalDevPlatformRole(
-  email: string,
-  scope?: AuthLoginScope,
-): "platform_admin" | null {
-  if (scope === "platform_admin") {
-    return "platform_admin";
-  }
-  return email === "platform.admin@buglogin.local" ? "platform_admin" : null;
-}
-
 function normalizeBaseUrl(url?: string | null): string | null {
   if (!url) {
     return null;
@@ -118,131 +105,68 @@ function normalizeBaseUrl(url?: string | null): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function resolveControlBaseUrlFromSettings(
-  settings?: SyncSettings | null,
-): ControlBaseUrlResolution {
-  const configuredBaseUrl = normalizeBaseUrl(settings?.sync_server_url);
-  if (configuredBaseUrl) {
-    return {
-      baseUrl: configuredBaseUrl,
-      hasExplicitConfig: true,
-    };
-  }
-
-  const envBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL);
-  if (envBaseUrl) {
-    return {
-      baseUrl: envBaseUrl,
-      hasExplicitConfig: true,
-    };
-  }
-
-  return {
-    baseUrl: "http://127.0.0.1:3929",
-    hasExplicitConfig: false,
-  };
+function getLocalDevControlBaseUrlCandidates(): string[] {
+  const candidates = [
+    "http://127.0.0.1:12342",
+    "http://localhost:12342",
+    "http://127.0.0.1:3929",
+    "http://localhost:3929",
+  ];
+  return Array.from(
+    new Set(
+      candidates
+        .map((candidate) => normalizeBaseUrl(candidate))
+        .filter((candidate): candidate is string => Boolean(candidate)),
+    ),
+  );
 }
 
-function hydrateUserFromSelfHostedSubscriptions(user: CloudUser): CloudUser {
-  const subscriptions = listSelfHostedSubscriptions(user.id);
-  if (subscriptions.length === 0) {
-    return user;
+function resolveControlBaseUrlCandidatesFromSettings(
+  settings?: SyncSettings | null,
+): string[] {
+  const configuredBaseUrl = normalizeBaseUrl(settings?.sync_server_url);
+  const envBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL);
+  if (process.env.NODE_ENV !== "production") {
+    return Array.from(
+      new Set(
+        [envBaseUrl, configuredBaseUrl, ...getLocalDevControlBaseUrlCandidates()]
+          .filter((candidate): candidate is string => Boolean(candidate)),
+      ),
+    );
   }
 
-  const workspaceSeeds = [...(user.workspaceSeeds ?? [])];
-  const workspaceSeedById = new Map(
-    workspaceSeeds.map((workspace, index) => [workspace.id, index] as const),
-  );
-  let hasPersonalWorkspace = workspaceSeeds.some(
-    (workspace) => workspace.mode === "personal",
-  );
-
-  for (const subscription of subscriptions) {
-    const existingIndex = workspaceSeedById.get(subscription.workspaceId);
-    if (typeof existingIndex === "number") {
-      const existing = workspaceSeeds[existingIndex];
-      workspaceSeeds[existingIndex] = {
-        ...existing,
-        name: existing.name || subscription.workspaceName,
-        planLabel: subscription.planLabel,
-        profileLimit: subscription.profileLimit,
-        entitlementState: "active",
-      };
-      continue;
-    }
-
-    const mode =
-      subscription.workspaceId === "personal"
-        ? "personal"
-        : user.teamId && subscription.workspaceId === user.teamId
-          ? "team"
-          : !hasPersonalWorkspace && subscriptions.length === 1
-            ? "personal"
-            : "team";
-    const role =
-      mode === "personal"
-        ? "owner"
-        : normalizeTeamRole(user.teamRole) ?? "owner";
-    workspaceSeedById.set(subscription.workspaceId, workspaceSeeds.length);
-    workspaceSeeds.push({
-      id: subscription.workspaceId,
-      name: subscription.workspaceName || user.email,
-      mode,
-      role,
-      members: 1,
-      activeInvites: 0,
-      activeShareGrants: 0,
-      entitlementState: "active",
-      profileLimit: subscription.profileLimit,
-      profilesUsed: 0,
-      planLabel: subscription.planLabel,
-      expiresAt: null,
-    });
-    if (mode === "personal") {
-      hasPersonalWorkspace = true;
-    }
+  if (configuredBaseUrl) {
+    return [configuredBaseUrl];
   }
 
-  const teamWorkspace =
-    workspaceSeeds.find((workspace) => workspace.id === user.teamId) ??
-    workspaceSeeds.find((workspace) => workspace.mode === "team") ??
-    null;
-  const personalWorkspace =
-    workspaceSeeds.find((workspace) => workspace.mode === "personal") ?? null;
-  const primaryWorkspace = teamWorkspace ?? personalWorkspace ?? workspaceSeeds[0];
-  const primarySubscription =
-    subscriptions.find(
-      (subscription) => subscription.workspaceId === primaryWorkspace?.id,
-    ) ?? subscriptions[0];
-  const primaryPlanId =
-    primarySubscription?.planId ??
-    normalizePlanIdFromLabel(primaryWorkspace?.planLabel);
-  const primaryPlanConfig = primaryPlanId
-    ? BILLING_PLAN_DEFINITIONS.find((plan) => plan.id === primaryPlanId)
-    : null;
-  const primaryProxyBandwidthLimitMb = primaryPlanConfig
-    ? Math.max(0, Math.round(primaryPlanConfig.proxyGb * 1024))
-    : user.proxyBandwidthLimitMb;
+  if (envBaseUrl) {
+    return [envBaseUrl];
+  }
 
-  return {
-    ...user,
-    plan: primaryPlanId ?? user.plan,
-    planPeriod: primarySubscription?.billingCycle ?? user.planPeriod,
-    subscriptionStatus: "active",
-    profileLimit: primaryWorkspace?.profileLimit ?? user.profileLimit,
-    proxyBandwidthLimitMb: primaryProxyBandwidthLimitMb,
-    proxyBandwidthUsedMb: Math.min(
-      user.proxyBandwidthUsedMb,
-      primaryProxyBandwidthLimitMb,
-    ),
-    teamId: teamWorkspace?.id ?? user.teamId,
-    teamName: teamWorkspace?.name ?? user.teamName,
-    teamRole:
-      normalizeTeamRole(teamWorkspace?.role) ??
-      normalizeTeamRole(user.teamRole) ??
-      undefined,
-    workspaceSeeds,
-  };
+  return [];
+}
+
+function resolveControlTokenFromSettings(
+  settings?: SyncSettings | null,
+): string | null {
+  const configuredToken = settings?.sync_token?.trim();
+  const envToken = process.env.NEXT_PUBLIC_SYNC_TOKEN?.trim();
+
+  if (process.env.NODE_ENV !== "production") {
+    if (envToken && envToken.length > 0) {
+      return envToken;
+    }
+    if (configuredToken && configuredToken.length > 0) {
+      return configuredToken;
+    }
+    return null;
+  }
+
+  if (configuredToken && configuredToken.length > 0) {
+    return configuredToken;
+  }
+
+  return null;
 }
 
 function deriveLocalUserId(normalizedEmail: string): string {
@@ -322,39 +246,54 @@ function deriveProfileLimitFromPlanLabel(
   return mode === "personal" ? 3 : 100;
 }
 
-function readLocalAuthState(): CloudAuthState | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUTH_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as CloudAuthState;
-    if (!parsed?.user?.email || !parsed?.user?.id) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
+function writeLocalAuthState(state: CloudAuthState | null) {
+  void state;
 }
 
-function writeLocalAuthState(state: CloudAuthState | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
+function buildAuthPersistSignature(state: CloudAuthState): string {
+  const seeds = (state.user.workspaceSeeds ?? [])
+    .map((seed) => ({
+      id: seed.id,
+      mode: seed.mode,
+      role: seed.role ?? null,
+      planLabel: seed.planLabel ?? null,
+      entitlementState: seed.entitlementState ?? null,
+      profileLimit: seed.profileLimit ?? null,
+      expiresAt: seed.expiresAt ?? null,
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
 
+  return JSON.stringify({
+    user: {
+      id: state.user.id,
+      email: state.user.email,
+      plan: state.user.plan ?? null,
+      planPeriod: state.user.planPeriod ?? null,
+      subscriptionStatus: state.user.subscriptionStatus ?? null,
+      profileLimit: state.user.profileLimit ?? null,
+      teamId: state.user.teamId ?? null,
+      teamRole: state.user.teamRole ?? null,
+      teamName: state.user.teamName ?? null,
+      platformRole: state.user.platformRole ?? null,
+      workspaceSeeds: seeds,
+    },
+  });
+}
+
+function areAuthStatesEqual(
+  left: CloudAuthState | null,
+  right: CloudAuthState | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
   try {
-    if (!state) {
-      window.localStorage.removeItem(LOCAL_AUTH_STORAGE_KEY);
-      return;
-    }
-    window.localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(state));
+    return JSON.stringify(left) === JSON.stringify(right);
   } catch {
-    // Ignore storage errors to keep login flow non-blocking.
+    return false;
   }
 }
 
@@ -394,6 +333,28 @@ async function parseHttpError(response: Response): Promise<string> {
 export function useCloudAuth(): UseCloudAuthReturn {
   const [authState, setAuthState] = useState<CloudAuthState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const suppressAuthChangedEventUntilRef = useRef(0);
+  const loadUserInFlightRef = useRef<Promise<void> | null>(null);
+  const lastLoadTriggeredAtRef = useRef(0);
+  const lastEnrichedAtRef = useRef(0);
+  const lastEnrichedUserIdRef = useRef<string | null>(null);
+  const lastPersistedAuthStateSignatureRef = useRef("");
+  const lastPersistedAuthStateAtRef = useRef(0);
+  const enrichUserCacheRef = useRef<{
+    key: string;
+    expiresAt: number;
+    user: CloudUser;
+  } | null>(null);
+  const enrichUserInFlightRef = useRef<Map<string, Promise<CloudUser>>>(
+    new Map(),
+  );
+
+  const resetEnrichCaches = useCallback(() => {
+    enrichUserCacheRef.current = null;
+    enrichUserInFlightRef.current.clear();
+    lastEnrichedAtRef.current = 0;
+    lastEnrichedUserIdRef.current = null;
+  }, []);
 
   const normalizeUser = useCallback((user: CloudUser): CloudUser => {
     const normalizedRole = normalizeTeamRole(user.teamRole);
@@ -403,6 +364,8 @@ export function useCloudAuth(): UseCloudAuthReturn {
     return {
       ...user,
       teamRole: normalizedRole ?? undefined,
+      platformRole:
+        user.platformRole === "platform_admin" ? "platform_admin" : undefined,
       teamName: user.teamName
         ? normalizeWorkspaceSeedDisplayName({ name: user.teamName }).name
         : user.teamName,
@@ -418,34 +381,67 @@ export function useCloudAuth(): UseCloudAuthReturn {
             user: normalizeUser(state.user),
           }
         : null;
-      setAuthState(normalizedState);
-      writeLocalAuthState(normalizedState);
-      void invoke("cloud_sync_local_subscription_state", {
-        state: normalizedState
-          ? {
-              plan: normalizedState.user.plan,
-              planPeriod: normalizedState.user.planPeriod ?? null,
-              subscriptionStatus: normalizedState.user.subscriptionStatus,
-              teamRole: normalizedState.user.teamRole ?? null,
-            }
-          : null,
-      }).catch(() => {
-        // Keep local auth flow non-blocking when backend sync fails.
+      setAuthState((current) => {
+        if (areAuthStatesEqual(current, normalizedState)) {
+          return current;
+        }
+        writeLocalAuthState(normalizedState);
+        return normalizedState;
       });
     },
     [normalizeUser],
   );
 
+  const persistSelfHostAuthState = useCallback(async (state: CloudAuthState) => {
+    const signature = buildAuthPersistSignature(state);
+    const now = Date.now();
+    if (
+      signature === lastPersistedAuthStateSignatureRef.current &&
+      now - lastPersistedAuthStateAtRef.current <
+        AUTH_STATE_PERSIST_DEDUP_WINDOW_MS
+    ) {
+      return;
+    }
+    suppressAuthChangedEventUntilRef.current = now + 1200;
+    await invoke("cloud_set_self_host_auth_state", { state });
+    lastPersistedAuthStateSignatureRef.current = signature;
+    lastPersistedAuthStateAtRef.current = Date.now();
+  }, []);
+
   const enrichUserFromControlPlane = useCallback(async (user: CloudUser) => {
+    const cacheKey = `${user.id}::${user.email}::${user.platformRole ?? "-"}`;
+    const cached = enrichUserCacheRef.current;
+    if (
+      cached &&
+      cached.key === cacheKey &&
+      cached.expiresAt > Date.now()
+    ) {
+      return cached.user;
+    }
+    const inFlight = enrichUserInFlightRef.current.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const task = (async (): Promise<CloudUser> => {
     let syncSettings: SyncSettings | null = null;
-    try {
-      syncSettings = await invoke<SyncSettings>("get_sync_settings");
+      try {
+      syncSettings = await invokeCached<SyncSettings>(
+        "get_sync_settings",
+        undefined,
+        {
+          key: "get_sync_settings",
+          ttlMs: SYNC_SETTINGS_CACHE_TTL_MS,
+        },
+      );
     } catch {
       syncSettings = null;
     }
 
-    const { baseUrl, hasExplicitConfig } =
-      resolveControlBaseUrlFromSettings(syncSettings);
+    const baseUrls = resolveControlBaseUrlCandidatesFromSettings(syncSettings);
+    if (baseUrls.length === 0) {
+      return user;
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -455,16 +451,35 @@ export function useCloudAuth(): UseCloudAuthReturn {
     if (user.platformRole) {
       headers["x-platform-role"] = user.platformRole;
     }
-    if (syncSettings?.sync_token?.trim()) {
-      headers.Authorization = `Bearer ${syncSettings.sync_token.trim()}`;
+    const controlToken = resolveControlTokenFromSettings(syncSettings);
+    if (controlToken) {
+      headers.Authorization = `Bearer ${controlToken}`;
     }
 
-    try {
+    const enrichFromBaseUrl = async (baseUrl: string): Promise<CloudUser | null> => {
+      const actorResponse = await fetch(buildControlApiUrl(baseUrl, "authMe"), {
+        method: "GET",
+        headers,
+      }).catch(() => null);
+      const actorProfile = actorResponse?.ok
+        ? ((await actorResponse.json()) as ControlAuthProfileResponse)
+        : null;
+      const effectiveHeaders =
+        actorProfile?.platformRole === "platform_admin"
+          ? {
+              ...headers,
+              "x-platform-role": "platform_admin",
+            }
+          : headers;
+
       const loadWorkspaces = async () => {
-        const response = await fetch(`${baseUrl}/v1/control/workspaces`, {
+        const response = await fetch(
+          buildControlApiUrl(baseUrl, "workspaces", { scope: "member" }),
+          {
           method: "GET",
-          headers,
-        });
+          headers: effectiveHeaders,
+          },
+        );
         if (!response.ok) {
           return null;
         }
@@ -473,15 +488,13 @@ export function useCloudAuth(): UseCloudAuthReturn {
 
       let workspaces = await loadWorkspaces();
       if (!workspaces) {
-        return hasExplicitConfig
-          ? user
-          : hydrateUserFromSelfHostedSubscriptions(user);
+        return null;
       }
 
       if (workspaces.length === 0) {
-        await fetch(`${baseUrl}/v1/control/workspaces`, {
+        await fetch(buildControlApiUrl(baseUrl, "workspaces"), {
           method: "POST",
-          headers,
+          headers: effectiveHeaders,
           body: JSON.stringify({
             name: user.email,
             mode: "personal",
@@ -493,192 +506,184 @@ export function useCloudAuth(): UseCloudAuthReturn {
       if (!workspaces || workspaces.length === 0) {
         const emptyWorkspaceUser: CloudUser = {
           ...user,
+          platformRole:
+            actorProfile?.platformRole === "platform_admin"
+              ? "platform_admin"
+              : user.platformRole,
           teamRole: undefined,
           workspaceSeeds: [],
         };
-        return hasExplicitConfig
-          ? emptyWorkspaceUser
-          : hydrateUserFromSelfHostedSubscriptions(emptyWorkspaceUser);
+        return emptyWorkspaceUser;
       }
 
-      const details = await Promise.all(
-        workspaces.map(async (workspace) => {
-          const [membersResponse, overviewResponse, billingResponse] =
-            await Promise.all([
-              fetch(`${baseUrl}/v1/control/workspaces/${workspace.id}/members`, {
-                method: "GET",
-                headers,
-              }),
-              fetch(
-                `${baseUrl}/v1/control/workspaces/${workspace.id}/overview`,
-                {
-                  method: "GET",
-                  headers,
-                },
-              ),
-              fetch(
-                `${baseUrl}/v1/control/workspaces/${workspace.id}/billing/state`,
-                {
-                  method: "GET",
-                  headers,
-                },
-              ),
-            ]);
-
-          const members = membersResponse.ok
-            ? ((await membersResponse.json()) as ControlMembership[])
-            : [];
-          const overview = overviewResponse.ok
-            ? ((await overviewResponse.json()) as ControlWorkspaceOverview)
-            : null;
-          const billingState = billingResponse.ok
-            ? ((await billingResponse.json()) as ControlWorkspaceBillingState)
-            : null;
-          const membership = members.find(
-            (member) =>
-              member.userId === user.id ||
-              member.email.toLowerCase() === user.email.toLowerCase(),
-          );
-          return {
-            workspace,
-            membership,
-            overview,
-            billingState,
-          };
-        }),
-      );
-
-      const workspaceSeeds = details.map((item) => {
-        const billingSubscription = item.billingState?.subscription ?? null;
+      const workspaceSeeds: NonNullable<CloudUser["workspaceSeeds"]> =
+        workspaces.map((workspace) => {
         const planLabel =
-          item.workspace.planLabel ??
-          billingSubscription?.planLabel ??
-          (item.workspace.mode === "personal" ? "Free" : "Starter");
+          workspace.planLabel ??
+          (workspace.mode === "personal" ? "Free" : "Starter");
+        const apiWorkspaceRole = normalizeTeamRole(workspace.actorRole ?? null);
+        const inferredRole =
+          apiWorkspaceRole ??
+          (workspace.mode === "personal"
+            ? "owner"
+            : workspace.id === user.teamId
+              ? (normalizeTeamRole(user.teamRole) ?? "member")
+              : "member");
         return {
-          id: item.workspace.id,
+          id: workspace.id,
           name: resolveWorkspaceName({
-            name: item.workspace.name,
-            mode: item.workspace.mode,
+            name: workspace.name,
+            mode: workspace.mode,
             userEmail: user.email,
           }),
-          mode: item.workspace.mode,
-          role: item.membership?.role ?? "member",
-          members: item.overview?.members ?? 0,
-          activeInvites: item.overview?.activeInvites ?? 0,
-          activeShareGrants: item.overview?.activeShareGrants ?? 0,
-          entitlementState: item.overview?.entitlementState ?? "active",
+          mode: workspace.mode,
+          role: inferredRole,
+          members: 0,
+          activeInvites: 0,
+          activeShareGrants: 0,
+          entitlementState: "active",
           profileLimit:
-            typeof item.workspace.profileLimit === "number"
-              ? item.workspace.profileLimit
-              : typeof billingSubscription?.profileLimit === "number"
-                ? billingSubscription.profileLimit
-                : deriveProfileLimitFromPlanLabel(planLabel, item.workspace.mode),
+            typeof workspace.profileLimit === "number"
+              ? workspace.profileLimit
+              : deriveProfileLimitFromPlanLabel(planLabel, workspace.mode),
           profilesUsed: 0,
           planLabel,
-          expiresAt:
-            item.workspace.expiresAt ?? billingSubscription?.expiresAt ?? null,
+          expiresAt: workspace.expiresAt ?? null,
         };
       });
 
       const teamDetail =
-        details.find(
-          (item) =>
-            item.workspace.mode === "team" &&
-            (item.membership?.role === "owner" ||
-              item.membership?.role === "admin" ||
-              item.membership?.role === "member" ||
-              item.membership?.role === "viewer"),
-        ) ??
-        details.find((item) => item.workspace.mode === "team") ??
+        workspaces.find((workspace) => workspace.id === user.teamId) ??
+        workspaces.find((workspace) => workspace.mode === "team") ??
         null;
-
-      const teamMembership = details.find(
-        (item) => item.workspace.id === teamDetail?.workspace.id,
-      )?.membership;
-      const teamRole = normalizeTeamRole(teamMembership?.role) ?? undefined;
+      const teamRole = normalizeTeamRole(user.teamRole) ?? undefined;
       const personalDetail =
-        details.find((item) => item.workspace.mode === "personal") ?? null;
-      const primaryDetail = teamDetail ?? personalDetail ?? details[0] ?? null;
+        workspaces.find((workspace) => workspace.mode === "personal") ?? null;
+      const primaryDetail = teamDetail ?? personalDetail ?? workspaces[0] ?? null;
       const primaryPlanLabel =
-        primaryDetail?.workspace.planLabel ??
-        primaryDetail?.billingState?.subscription.planLabel ??
+        primaryDetail?.planLabel ??
         "Free";
       const primaryPlanPeriod =
-        primaryDetail?.workspace.billingCycle ??
-        primaryDetail?.billingState?.subscription.billingCycle ??
+        primaryDetail?.billingCycle ??
         null;
       const primarySubscriptionStatus =
-        primaryDetail?.workspace.subscriptionStatus ??
-        primaryDetail?.billingState?.subscription.status ??
+        primaryDetail?.subscriptionStatus ??
         "active";
       const primaryProfileLimit =
-        typeof primaryDetail?.workspace.profileLimit === "number"
-          ? primaryDetail.workspace.profileLimit
-          : typeof primaryDetail?.billingState?.subscription.profileLimit ===
-                "number"
-            ? primaryDetail.billingState.subscription.profileLimit
+        typeof primaryDetail?.profileLimit === "number"
+          ? primaryDetail.profileLimit
             : user.profileLimit;
       const normalizedPlanId =
-        primaryDetail?.billingState?.subscription.planId ??
         normalizePlanIdFromLabel(primaryPlanLabel) ??
         "free";
 
       return {
         ...user,
+        platformRole:
+          actorProfile?.platformRole === "platform_admin"
+            ? "platform_admin"
+            : user.platformRole,
         plan: normalizedPlanId,
         planPeriod: primaryPlanPeriod,
         subscriptionStatus: primarySubscriptionStatus,
         profileLimit: primaryProfileLimit,
-        teamId: teamDetail?.workspace.id,
-        teamName: teamDetail?.workspace.name,
+        teamId: teamDetail?.id,
+        teamName: teamDetail?.name,
         teamRole,
         workspaceSeeds,
       };
-    } catch {
-      return hasExplicitConfig
-        ? user
-        : hydrateUserFromSelfHostedSubscriptions(user);
-    }
-  }, []);
+    };
 
-  const resolveControlBaseUrl = useCallback(async (): Promise<string> => {
-    let syncSettings: SyncSettings | null = null;
-    try {
-      syncSettings = await invoke<SyncSettings>("get_sync_settings");
-    } catch {
-      syncSettings = null;
+    for (const baseUrl of baseUrls) {
+      try {
+        const enriched = await enrichFromBaseUrl(baseUrl);
+        if (enriched) {
+          enrichUserCacheRef.current = {
+            key: cacheKey,
+            expiresAt: Date.now() + CONTROL_ENRICH_CACHE_TTL_MS,
+            user: enriched,
+          };
+          return enriched;
+        }
+      } catch {
+        // Try next candidate URL in self-host local dev fallback list.
+      }
     }
-    return resolveControlBaseUrlFromSettings(syncSettings).baseUrl;
+
+    enrichUserCacheRef.current = {
+      key: cacheKey,
+      expiresAt: Date.now() + CONTROL_ENRICH_CACHE_TTL_MS,
+      user,
+    };
+    return user;
+    })();
+
+    enrichUserInFlightRef.current.set(cacheKey, task);
+    try {
+      return await task;
+    } finally {
+      enrichUserInFlightRef.current.delete(cacheKey);
+    }
   }, []);
 
   const requestControlPublicAuth = useCallback(
     async (
-      route: "register" | "login",
-      payload: { email: string; password: string },
+      route: "register" | "login" | "google",
+      payload: {
+        email: string;
+        password?: string;
+        name?: string;
+        avatar?: string;
+      },
     ): Promise<PublicAuthResponse> => {
-      const baseUrl = await resolveControlBaseUrl();
-      let response: Response;
+      let syncSettings: SyncSettings | null = null;
       try {
-        response = await fetch(`${baseUrl}/v1/control/public/auth/${route}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        syncSettings = await invokeCached<SyncSettings>(
+          "get_sync_settings",
+          undefined,
+          {
+            key: "get_sync_settings",
+            ttlMs: SYNC_SETTINGS_CACHE_TTL_MS,
           },
-          body: JSON.stringify(payload),
-        });
+        );
       } catch {
-        throw new Error("control_auth_unreachable");
+        syncSettings = null;
       }
-      if (!response.ok) {
-        throw new Error(await parseHttpError(response));
+
+      const baseUrls = resolveControlBaseUrlCandidatesFromSettings(syncSettings);
+      if (baseUrls.length === 0) {
+        throw new Error("control_auth_not_configured");
       }
-      const parsed = (await response.json()) as PublicAuthResponse;
-      if (!parsed?.user?.id || !parsed.user.email) {
-        throw new Error("invalid_auth_response");
+
+      for (const baseUrl of baseUrls) {
+        let response: Response;
+        try {
+          response = await fetch(buildControlApiUrl(baseUrl, "publicAuth", { route }), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+        } catch {
+          continue;
+        }
+        if (!response.ok) {
+          if (response.status === 404 && baseUrls.length > 1) {
+            continue;
+          }
+          throw new Error(await parseHttpError(response));
+        }
+        const parsed = (await response.json()) as PublicAuthResponse;
+        if (!parsed?.user?.id || !parsed.user.email) {
+          throw new Error("invalid_auth_response");
+        }
+        return parsed;
       }
-      return parsed;
+
+      throw new Error("control_auth_unreachable");
     },
-    [resolveControlBaseUrl],
+    [],
   );
 
   const buildAuthStateFromPublicUser = useCallback(
@@ -694,6 +699,9 @@ export function useCloudAuth(): UseCloudAuthReturn {
       if (!isValidEmail(normalizedEmail)) {
         throw new Error("invalid_auth_response");
       }
+      resetEnrichCaches();
+      const resolvedPlatformRole =
+        publicUser.platformRole === "platform_admin" ? "platform_admin" : undefined;
       const seedUser: CloudUser = {
         ...defaultLocalUser(
           normalizedEmail,
@@ -703,35 +711,32 @@ export function useCloudAuth(): UseCloudAuthReturn {
         ),
         id: publicUser.id,
         email: normalizedEmail,
-        platformRole:
-          publicUser.platformRole === "platform_admin"
-            ? "platform_admin"
-            : undefined,
+        platformRole: resolvedPlatformRole,
       };
-      const baseState: CloudAuthState = {
-        user: seedUser,
-        logged_in_at: new Date().toISOString(),
-      };
-      updateAuthState(baseState);
-
       const enrichedUser = await enrichUserFromControlPlane(seedUser);
       const finalState: CloudAuthState = {
-        ...baseState,
+        logged_in_at: new Date().toISOString(),
         user: {
           ...enrichedUser,
           id: publicUser.id,
           email: normalizedEmail,
-          platformRole:
-            publicUser.platformRole === "platform_admin"
-              ? "platform_admin"
-              : enrichedUser.platformRole,
+          platformRole: resolvedPlatformRole ?? enrichedUser.platformRole,
         },
       };
+      try {
+        await persistSelfHostAuthState(finalState);
+      } catch {
+        // Keep the self-host login flow usable even if the Tauri bridge is unavailable.
+      }
       updateAuthState(finalState);
-      void emit("cloud-auth-changed");
       return finalState;
     },
-    [enrichUserFromControlPlane, updateAuthState],
+    [
+      enrichUserFromControlPlane,
+      persistSelfHostAuthState,
+      resetEnrichCaches,
+      updateAuthState,
+    ],
   );
 
   const registerWithEmail = useCallback(
@@ -748,35 +753,14 @@ export function useCloudAuth(): UseCloudAuthReturn {
         throw new Error("invalid_email");
       }
       const normalizedPassword = requirePassword(password);
-      try {
-        const response = await requestControlPublicAuth("register", {
-          email: normalizedEmail,
-          password: normalizedPassword,
-        });
-        return buildAuthStateFromPublicUser(response.user, {
-          name: options?.name,
-          avatar: options?.avatar,
-        });
-      } catch (error) {
-        const message = extractRootError(error);
-        if (
-          message.includes("control_auth_unreachable") &&
-          supportsLocalDevAuthFallback(normalizedEmail)
-        ) {
-          return buildAuthStateFromPublicUser(
-            {
-              id: deriveLocalUserId(normalizedEmail),
-              email: normalizedEmail,
-              platformRole: resolveLocalDevPlatformRole(normalizedEmail),
-            },
-            {
-              name: options?.name,
-              avatar: options?.avatar,
-            },
-          );
-        }
-        throw error;
-      }
+      const response = await requestControlPublicAuth("register", {
+        email: normalizedEmail,
+        password: normalizedPassword,
+      });
+      return buildAuthStateFromPublicUser(response.user, {
+        name: options?.name,
+        avatar: options?.avatar,
+      });
     },
     [buildAuthStateFromPublicUser, requestControlPublicAuth],
   );
@@ -799,98 +783,139 @@ export function useCloudAuth(): UseCloudAuthReturn {
       }
 
       if (options?.authProvider === "google_oauth") {
-        return buildAuthStateFromPublicUser(
-          {
-            id: deriveLocalUserId(normalizedEmail),
-            email: normalizedEmail,
-            platformRole: resolveLocalDevPlatformRole(
-              normalizedEmail,
-              options?.scope,
-            ),
-          },
-          {
-            scope: options?.scope,
-            name: options?.name,
-            avatar: options?.avatar,
-          },
-        );
-      }
-
-      const normalizedPassword = requirePassword(options?.password);
-      try {
-        const response = await requestControlPublicAuth("login", {
+        const response = await requestControlPublicAuth("google", {
           email: normalizedEmail,
-          password: normalizedPassword,
+          name: options?.name,
+          avatar: options?.avatar,
         });
         return buildAuthStateFromPublicUser(response.user, {
           scope: options?.scope,
           name: options?.name,
           avatar: options?.avatar,
         });
-      } catch (error) {
-        const message = extractRootError(error);
-        if (
-          message.includes("control_auth_unreachable") &&
-          supportsLocalDevAuthFallback(normalizedEmail)
-        ) {
-          return buildAuthStateFromPublicUser(
-            {
-              id: deriveLocalUserId(normalizedEmail),
-              email: normalizedEmail,
-              platformRole: resolveLocalDevPlatformRole(
-                normalizedEmail,
-                options?.scope,
-              ),
-            },
-            {
-              scope: options?.scope,
-              name: options?.name,
-              avatar: options?.avatar,
-            },
-          );
-        }
-        throw error;
       }
+
+      const normalizedPassword = requirePassword(options?.password);
+      const response = await requestControlPublicAuth("login", {
+        email: normalizedEmail,
+        password: normalizedPassword,
+      });
+      return buildAuthStateFromPublicUser(response.user, {
+        scope: options?.scope,
+        name: options?.name,
+        avatar: options?.avatar,
+      });
     },
     [buildAuthStateFromPublicUser, requestControlPublicAuth],
   );
 
   const loadUser = useCallback(async () => {
-    try {
-      const state = await invoke<CloudAuthState | null>("cloud_get_user");
-      if (state) {
-        updateAuthState(state);
-        return;
-      }
-
-      const localState = readLocalAuthState();
-      if (!localState) {
-        updateAuthState(null);
-        return;
-      }
-
-      const refreshedUser = await enrichUserFromControlPlane(localState.user);
-      updateAuthState({
-        ...localState,
-        user: refreshedUser,
-      });
-    } catch {
-      const localState = readLocalAuthState();
-      updateAuthState(localState);
-    } finally {
-      setIsLoading(false);
+    if (loadUserInFlightRef.current) {
+      await loadUserInFlightRef.current;
+      return;
     }
-  }, [enrichUserFromControlPlane, updateAuthState]);
+
+    const task = (async () => {
+      try {
+        const state = await invoke<CloudAuthState | null>("cloud_get_user");
+        if (state) {
+          const normalizedState = {
+            ...state,
+            user: normalizeUser(state.user),
+          };
+          updateAuthState(normalizedState);
+          const hasPersistedWorkspaceSeeds =
+            Array.isArray(normalizedState.user.workspaceSeeds) &&
+            normalizedState.user.workspaceSeeds.length > 0;
+          const now = Date.now();
+          const shouldEnrich =
+            !hasPersistedWorkspaceSeeds &&
+            (lastEnrichedUserIdRef.current !== normalizedState.user.id ||
+              now - lastEnrichedAtRef.current >= CONTROL_ENRICH_CACHE_TTL_MS);
+          if (hasPersistedWorkspaceSeeds) {
+            lastEnrichedAtRef.current = now;
+            lastEnrichedUserIdRef.current = normalizedState.user.id;
+          }
+          if (!shouldEnrich) {
+            return;
+          }
+          const enrichedUser = await enrichUserFromControlPlane(
+            normalizedState.user,
+          );
+          const nextState: CloudAuthState = {
+            ...normalizedState,
+            user: enrichedUser,
+          };
+          if (!areAuthStatesEqual(normalizedState, nextState)) {
+            try {
+              await persistSelfHostAuthState(nextState);
+            } catch {
+              // Keep boot usable even if the Tauri bridge write-back is unavailable.
+            }
+          }
+          updateAuthState(nextState);
+          lastEnrichedAtRef.current = Date.now();
+          lastEnrichedUserIdRef.current = normalizedState.user.id;
+          return;
+        }
+        resetEnrichCaches();
+        updateAuthState(null);
+      } catch {
+        resetEnrichCaches();
+        updateAuthState(null);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+
+    loadUserInFlightRef.current = task;
+    try {
+      await task;
+    } finally {
+      if (loadUserInFlightRef.current === task) {
+        loadUserInFlightRef.current = null;
+      }
+    }
+  }, [
+    enrichUserFromControlPlane,
+    normalizeUser,
+    persistSelfHostAuthState,
+    resetEnrichCaches,
+    updateAuthState,
+  ]);
+  const loadUserRef = useRef(loadUser);
+  const updateAuthStateRef = useRef(updateAuthState);
 
   useEffect(() => {
-    void loadUser();
+    loadUserRef.current = loadUser;
+  }, [loadUser]);
+
+  useEffect(() => {
+    updateAuthStateRef.current = updateAuthState;
+  }, [updateAuthState]);
+
+  useEffect(() => {
+    void loadUserRef.current();
+
+    if (!isTauri()) {
+      return;
+    }
 
     const unlistenExpired = listen("cloud-auth-expired", () => {
-      updateAuthState(null);
+      resetEnrichCaches();
+      updateAuthStateRef.current(null);
     });
 
     const unlistenChanged = listen("cloud-auth-changed", () => {
-      void loadUser();
+      if (Date.now() < suppressAuthChangedEventUntilRef.current) {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastLoadTriggeredAtRef.current < 120_000) {
+        return;
+      }
+      lastLoadTriggeredAtRef.current = now;
+      void loadUserRef.current();
     });
 
     return () => {
@@ -901,7 +926,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
         unlisten();
       });
     };
-  }, [loadUser, updateAuthState]);
+  }, [resetEnrichCaches]);
 
   const requestOtp = useCallback(async (email: string): Promise<string> => {
     try {
@@ -939,9 +964,10 @@ export function useCloudAuth(): UseCloudAuthReturn {
     } catch {
       // Ignore command failures in self-hosted mode.
     }
+    resetEnrichCaches();
     updateAuthState(null);
     setIsLoading(false);
-  }, [updateAuthState]);
+  }, [resetEnrichCaches, updateAuthState]);
 
   const refreshProfile = useCallback(async (): Promise<CloudUser> => {
     try {
@@ -966,10 +992,23 @@ export function useCloudAuth(): UseCloudAuthReturn {
         ...authState,
         user: enrichedUser,
       };
+      if (!areAuthStatesEqual(authState, nextState)) {
+        try {
+          await persistSelfHostAuthState(nextState);
+        } catch {
+          // Keep self-host profile refresh usable even if state write-back fails.
+        }
+      }
       updateAuthState(nextState);
       return enrichedUser;
     }
-  }, [authState, enrichUserFromControlPlane, normalizeUser, updateAuthState]);
+  }, [
+    authState,
+    enrichUserFromControlPlane,
+    normalizeUser,
+    persistSelfHostAuthState,
+    updateAuthState,
+  ]);
 
   const updateLocalSubscription = useCallback(
     async (input: {
