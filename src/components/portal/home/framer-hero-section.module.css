@@ -1,0 +1,162 @@
+.section {
+  position: relative;
+  overflow: hidden;
+}
+
+.glowTop {
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.1), transparent 42%);
+}
+
+.glowBottom {
+  background: radial-gradient(circle at bottom, rgba(15, 23, 42, 0.07), transparent 50%);
+}
+
+.galleryShell {
+  position: relative;
+  overflow: hidden;
+  min-height: 640px;
+  background: transparent;
+}
+
+.galleryShell::before,
+.galleryShell::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.galleryShell::before {
+  top: 0;
+  height: 22%;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0));
+}
+
+.galleryShell::after {
+  bottom: 0;
+  height: 18%;
+  background: linear-gradient(0deg, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0));
+}
+
+.galleryGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0;
+  align-items: start;
+}
+
+.column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 720px;
+  mask-image: linear-gradient(180deg, transparent 0%, black 12%, black 84%, transparent 100%);
+}
+
+.columnInner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation-name: floatColumn;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+.columnReverse .columnInner {
+  animation-direction: reverse;
+}
+
+.card {
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.cardVisual {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.card img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+:global(.dark) .glowTop {
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 42%);
+}
+
+:global(.dark) .glowBottom {
+  background: radial-gradient(circle at bottom, rgba(255, 255, 255, 0.06), transparent 50%);
+}
+
+:global(.dark) .galleryShell {
+  background: transparent;
+}
+
+:global(.dark) .galleryShell::before {
+  background: linear-gradient(180deg, rgba(5, 6, 8, 0.96), rgba(5, 6, 8, 0));
+}
+
+:global(.dark) .galleryShell::after {
+  background: linear-gradient(0deg, rgba(5, 6, 8, 0.92), rgba(5, 6, 8, 0));
+}
+
+:global(.dark) .card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes floatColumn {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-25%);
+  }
+}
+
+@media (max-width: 1279px) {
+  .galleryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .column:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .galleryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .column:nth-child(4),
+  .column:nth-child(5) {
+    display: none;
+  }
+
+  .column {
+    min-height: 520px;
+  }
+
+  .galleryShell {
+    min-height: 520px;
+  }
+}

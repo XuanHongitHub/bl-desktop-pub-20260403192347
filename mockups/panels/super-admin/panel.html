@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BugLogin Super Admin Panel Preview</title>
+    <link rel="stylesheet" href="../shared/panel-preview.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <h1 id="brandTitle"></h1>
+          <p id="brandSubtitle"></p>
+        </div>
+        <input id="searchNav" class="input" placeholder="Tìm page..." />
+        <div style="display:flex; gap:8px;">
+          <button id="expandAll" class="btn">Expand all</button>
+          <button id="collapseAll" class="btn">Collapse all</button>
+        </div>
+        <div id="treeRoot"></div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h2 id="pageTitle"></h2>
+            <p id="pageSummary"></p>
+          </div>
+          <div id="metaTags" class="meta-tags"></div>
+        </header>
+
+        <section id="kpiGrid" class="kpi-grid"></section>
+
+        <section class="toolbar">
+          <div class="toolbar-left">
+            <input id="toolbarSearch" class="input" />
+            <select id="toolbarFilter" class="select"></select>
+          </div>
+          <div id="toolbarActions" class="toolbar-right"></div>
+        </section>
+
+        <section class="surface-grid">
+          <article class="card">
+            <h3>Dữ liệu chính của page</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr id="dataTableHead"></tr>
+                </thead>
+                <tbody id="dataTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Timeline / Event Feed</h3>
+            <ul id="timeline" class="timeline"></ul>
+          </article>
+        </section>
+
+        <section class="ux">
+          <h3>UI/UX State Preview</h3>
+          <div id="stateSwitch" class="state-switch">
+            <button data-state="default" class="active">Default</button>
+            <button data-state="loading">Loading</button>
+            <button data-state="empty">Empty</button>
+            <button data-state="error">Error</button>
+          </div>
+          <div id="stateCanvas" class="state-canvas"></div>
+          <div id="patterns" class="patterns"></div>
+          <ul id="featureList"></ul>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      window.PANEL_CONFIG = {
+        storageKey: "buglogin.preview.super-admin.v1",
+        panelName: "Super Admin Panel Preview",
+        panelScope: "Platform-level only · BugIdea Automation excluded",
+        groups: [
+          {
+            id: "g1",
+            label: "01. Command Center",
+            summary: "Nắm tình trạng platform",
+            pages: [
+              {
+                id: "sa-ov",
+                code: "SA-OV-001",
+                title: "Global Operations Overview",
+                summary: "Landing page cho super admin, theo dõi health, risk, KPI.",
+                priority: "p0",
+                owner: "Platform Ops",
+                kpis: [
+                  { label: "Active Workspaces", value: "1,284" },
+                  { label: "Active Subs", value: "1,031" },
+                  { label: "Incidents 24h", value: "07" },
+                  { label: "Sync Success", value: "99.1%" },
+                ],
+                searchPlaceholder: "Search workspace / owner / signal...",
+                filters: ["All services", "Auth", "Sync", "Billing", "S3"],
+                actions: ["Open Incident Center", "Export Snapshot", "Refresh"],
+                table: {
+                  columns: ["Workspace", "Plan", "Risk", "Last Incident", "Health"],
+                  rows: [
+                    ["hongxuannguyen2004@gmail.com", "Custom", "Low", "-", "Healthy"],
+                    ["Agency SEA", "Scale", "Medium", "2h ago", "Degraded"],
+                    ["Reseller Team", "Growth", "High", "18m ago", "Alert"],
+                  ],
+                },
+                timeline: [
+                  { title: "Sync latency spike detected", time: "09:42" },
+                  { title: "Service auth recovered", time: "09:21" },
+                  { title: "Coupon campaign LAUNCH40 started", time: "08:50" },
+                ],
+                uxPatterns: ["KPI Strip", "Service Status Chips", "Risk Table", "Quick Jump Actions"],
+                featureMap: [
+                  "<strong>Module</strong>: KPI + service health + risky workspace list.",
+                  "<strong>Interaction</strong>: click row -> open workspace details drawer.",
+                  "<strong>Guardrail</strong>: read-only, no destructive action ở trang tổng quan.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g2",
+            label: "02. Workspace Governance",
+            summary: "Quản trị lifecycle và entitlement",
+            pages: [
+              {
+                id: "sa-ws",
+                code: "SA-WS-001",
+                title: "Workspace Directory & Lifecycle",
+                summary: "Danh mục workspace với actions pause/reactivate/archive.",
+                priority: "p0",
+                owner: "Platform Ops",
+                kpis: [
+                  { label: "Total Workspaces", value: "1,847" },
+                  { label: "Active", value: "1,284" },
+                  { label: "Paused", value: "83" },
+                  { label: "Archived", value: "42" },
+                ],
+                searchPlaceholder: "Search workspace name, owner email...",
+                filters: ["All status", "Active", "Paused", "Archived"],
+                actions: ["Create Workspace", "Bulk Pause", "Bulk Export"],
+                table: {
+                  columns: ["Workspace", "Owner", "Plan", "Profile Limit", "Status", "Actions"],
+                  rows: [
+                    ["hongxuannguyen2004@gmail.com", "hongx...@gmail.com", "Custom", "2000", "Active", "Pause | Edit"],
+                    ["Demo-BugLogin1", "ops@bugmedia.vn", "Scale", "600", "Active", "Pause | Edit"],
+                    ["Trial Sandbox", "sandbox@local", "Free", "3", "Paused", "Reactivate"],
+                  ],
+                },
+                timeline: [
+                  { title: "Workspace Trial Sandbox paused", time: "10:02" },
+                  { title: "Entitlement override applied", time: "09:39" },
+                  { title: "Workspace created: Agency SEA", time: "08:11" },
+                ],
+                uxPatterns: ["Dense Data Table", "Bulk Action Bar", "Confirm Modal", "Status Filters"],
+                featureMap: [
+                  "<strong>Module</strong>: directory table + row menu + bulk actions.",
+                  "<strong>Interaction</strong>: pause/archive require reason modal.",
+                  "<strong>Guardrail</strong>: destructive actions have double confirmation.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g3",
+            label: "03. Revenue Operations",
+            summary: "Subscription, invoice, coupon",
+            pages: [
+              {
+                id: "sa-rev",
+                code: "SA-REV-001",
+                title: "Subscription Control Tower",
+                summary: "Điều phối trạng thái subscription ở cấp platform.",
+                priority: "p0",
+                owner: "Revenue Ops",
+                kpis: [
+                  { label: "MRR", value: "$84.2k" },
+                  { label: "Failed Payments", value: "19" },
+                  { label: "Churn Risk", value: "46" },
+                  { label: "Recovered", value: "12" },
+                ],
+                searchPlaceholder: "Search workspace / subscription id...",
+                filters: ["All cycles", "Monthly", "Yearly", "Internal"],
+                actions: ["Reactivate Batch", "Create Coupon", "Export Invoices"],
+                table: {
+                  columns: ["Workspace", "Plan", "Cycle", "Status", "Next Charge", "Action"],
+                  rows: [
+                    ["hongxuan...", "Custom", "Monthly", "Active", "2026-04-25", "Cancel"],
+                    ["Agency SEA", "Scale", "Yearly", "Past due", "2026-03-29", "Retry"],
+                    ["Sandbox", "Free", "-", "Active", "-", "Upgrade"],
+                  ],
+                },
+                timeline: [
+                  { title: "Invoice generated #INV-1902", time: "09:55" },
+                  { title: "Subscription reactivated", time: "09:33" },
+                  { title: "Coupon BUGIDEA20 revoked", time: "09:02" },
+                ],
+                uxPatterns: ["Financial Table", "Status Chips", "Batch Action CTA", "Audit-linked Actions"],
+                featureMap: [
+                  "<strong>Module</strong>: subscriptions + invoice/coupon quick lane.",
+                  "<strong>Interaction</strong>: financial action always logs audit.",
+                  "<strong>Guardrail</strong>: cancel/reactivate via confirm modal with reason.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g4",
+            label: "04. Identity & Access",
+            summary: "RBAC super admin",
+            pages: [
+              {
+                id: "sa-iam",
+                code: "SA-IAM-001",
+                title: "Super Admin Accounts & RBAC",
+                summary: "Quản trị role/scope cho operator của platform.",
+                priority: "p0",
+                owner: "Security",
+                kpis: [
+                  { label: "Admin Accounts", value: "18" },
+                  { label: "Active Sessions", value: "26" },
+                  { label: "High Privilege", value: "5" },
+                  { label: "Drift Alerts", value: "2" },
+                ],
+                searchPlaceholder: "Search admin email / role...",
+                filters: ["All roles", "Super Admin", "Billing Ops", "Audit Viewer"],
+                actions: ["Add Admin", "Force Logout", "Export Access Report"],
+                table: {
+                  columns: ["Admin", "Role", "Scope", "MFA", "Status", "Action"],
+                  rows: [
+                    ["owner@buglogin.io", "Super Admin", "*", "Enabled", "Active", "Edit"],
+                    ["finops@buglogin.io", "Billing Ops", "billing:*", "Enabled", "Active", "Edit"],
+                    ["auditor@buglogin.io", "Audit Viewer", "audit:read", "Enabled", "Suspended", "Enable"],
+                  ],
+                },
+                timeline: [
+                  { title: "Role updated for finops@", time: "10:13" },
+                  { title: "Suspicious login blocked", time: "09:47" },
+                  { title: "MFA policy enforced", time: "08:59" },
+                ],
+                uxPatterns: ["RBAC Matrix", "Sensitive Action Confirm", "Session Control"],
+                featureMap: [
+                  "<strong>Module</strong>: account table + role scope editor.",
+                  "<strong>Interaction</strong>: role escalation requires step-up confirmation.",
+                  "<strong>Guardrail</strong>: cannot remove last super-admin.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g5",
+            label: "05. Reliability & Infrastructure",
+            summary: "Queue, jobs, storage budget",
+            pages: [
+              {
+                id: "sa-rel",
+                code: "SA-REL-001",
+                title: "Sync Pipeline Monitor",
+                summary: "Theo dõi queue depth và retry operations.",
+                priority: "p0",
+                owner: "Platform Ops",
+                kpis: [
+                  { label: "Queue Depth", value: "1,408" },
+                  { label: "Failures 1h", value: "37" },
+                  { label: "Retry Success", value: "92%" },
+                  { label: "P95 Latency", value: "1.4s" },
+                ],
+                searchPlaceholder: "Search job id / workspace...",
+                filters: ["All queues", "sync-upload", "sync-download", "cleanup"],
+                actions: ["Retry Failed", "Pause Queue", "Export Errors"],
+                table: {
+                  columns: ["Job ID", "Workspace", "Queue", "Error", "Retry", "Status"],
+                  rows: [
+                    ["job_91ac", "Agency SEA", "sync-upload", "timeout", "2", "Failed"],
+                    ["job_77ff", "Demo-BugLogin1", "sync-download", "-", "0", "Running"],
+                    ["job_41de", "Sandbox", "cleanup", "auth_miss", "1", "Queued"],
+                  ],
+                },
+                timeline: [
+                  { title: "Batch retry executed (24 jobs)", time: "10:17" },
+                  { title: "Queue sync-upload degraded", time: "09:52" },
+                  { title: "Queue cleanup resumed", time: "09:20" },
+                ],
+                uxPatterns: ["Ops Table", "Retry Actions", "Error Feed", "State Banner"],
+                featureMap: [
+                  "<strong>Module</strong>: queue metrics + failed job table.",
+                  "<strong>Interaction</strong>: retry supports single/bulk flows.",
+                  "<strong>Guardrail</strong>: retry rate-limited by workspace.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g6",
+            label: "06. Audit & Compliance",
+            summary: "Truy vết và export",
+            pages: [
+              {
+                id: "sa-aud",
+                code: "SA-AUD-001",
+                title: "Audit Explorer",
+                summary: "Truy vấn audit theo actor/action/resource/time.",
+                priority: "p0",
+                owner: "Security + Compliance",
+                kpis: [
+                  { label: "Events 24h", value: "12,993" },
+                  { label: "Query P95", value: "420ms" },
+                  { label: "Masked Fields", value: "87" },
+                  { label: "Export Jobs", value: "9" },
+                ],
+                searchPlaceholder: "Search actor/action/resource...",
+                filters: ["All severity", "Info", "Warn", "High"],
+                actions: ["Run Query", "Save Filter", "Export CSV"],
+                table: {
+                  columns: ["Time", "Actor", "Action", "Resource", "Severity"],
+                  rows: [
+                    ["10:21", "owner@buglogin.io", "workspace.pause", "ws_trial_09", "Warn"],
+                    ["10:14", "finops@buglogin.io", "coupon.revoke", "BUGIDEA20", "Info"],
+                    ["09:57", "monitor", "service.degraded", "sync-upload", "High"],
+                  ],
+                },
+                timeline: [
+                  { title: "Saved filter: high-risk actions", time: "10:20" },
+                  { title: "Export compliance package", time: "09:42" },
+                  { title: "Mask policy updated", time: "09:05" },
+                ],
+                uxPatterns: ["Virtualized Table", "Detail Drawer", "Saved Filters"],
+                featureMap: [
+                  "<strong>Module</strong>: high-density audit table with server filters.",
+                  "<strong>Interaction</strong>: click row opens payload diff drawer.",
+                  "<strong>Guardrail</strong>: sensitive fields masked by policy.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g7",
+            label: "07. Support & Intervention",
+            summary: "Timeline hỗ trợ và can thiệp",
+            pages: [
+              {
+                id: "sa-sup",
+                code: "SA-SUP-001",
+                title: "Workspace Support Timeline",
+                summary: "Tập trung context xử lý ticket theo từng workspace.",
+                priority: "p1",
+                owner: "Customer Success",
+                kpis: [
+                  { label: "Open Tickets", value: "31" },
+                  { label: "Avg Resolve", value: "2h 10m" },
+                  { label: "Context Completeness", value: "94%" },
+                  { label: "Escalations", value: "4" },
+                ],
+                searchPlaceholder: "Search workspace / ticket id...",
+                filters: ["All channels", "Billing", "Sync", "Access"],
+                actions: ["Add Internal Note", "Escalate", "Open Entitlement"],
+                table: {
+                  columns: ["Ticket", "Workspace", "Type", "Owner", "Status", "SLA"],
+                  rows: [
+                    ["SUP-912", "Demo-BugLogin1", "Sync", "ops@", "Open", "32m"],
+                    ["SUP-903", "Agency SEA", "Billing", "finops@", "In progress", "1h 11m"],
+                    ["SUP-897", "Sandbox", "Access", "sec@", "Resolved", "-"],
+                  ],
+                },
+                timeline: [
+                  { title: "Note added: retry suggested", time: "10:19" },
+                  { title: "Ticket escalated to Ops", time: "10:01" },
+                  { title: "Customer replied", time: "09:44" },
+                ],
+                uxPatterns: ["Support Queue", "Internal Notes", "SLA Indicators"],
+                featureMap: [
+                  "<strong>Module</strong>: support queue + context timeline.",
+                  "<strong>Interaction</strong>: actions jump to entitlement/audit pages.",
+                  "<strong>Guardrail</strong>: notes are internal-only and revisioned.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "g8",
+            label: "08. Platform Settings",
+            summary: "Config và policy defaults",
+            pages: [
+              {
+                id: "sa-set",
+                code: "SA-SET-001",
+                title: "Integration Config Registry",
+                summary: "Quan sát config status + rotate keys an toàn.",
+                priority: "p0",
+                owner: "Platform Ops",
+                kpis: [
+                  { label: "Configured", value: "5/6" },
+                  { label: "Connected", value: "4/6" },
+                  { label: "Drift Alerts", value: "1" },
+                  { label: "Last Validation", value: "09:58" },
+                ],
+                searchPlaceholder: "Search integration...",
+                filters: ["All integrations", "Auth", "Stripe", "S3", "Sync"],
+                actions: ["Validate All", "Rotate Secret", "Open Runbook"],
+                table: {
+                  columns: ["Integration", "Configured", "Connected", "Last Check", "Action"],
+                  rows: [
+                    ["Auth", "Yes", "Yes", "09:58", "Validate"],
+                    ["Stripe", "Yes", "Yes", "09:56", "Rotate"],
+                    ["S3", "Yes", "No", "09:55", "Fix Config"],
+                  ],
+                },
+                timeline: [
+                  { title: "S3 certificate mismatch detected", time: "09:55" },
+                  { title: "Stripe key rotation success", time: "09:22" },
+                  { title: "Auth config validated", time: "09:11" },
+                ],
+                uxPatterns: ["Integration Cards", "Health Badges", "Sensitive Action Workflow"],
+                featureMap: [
+                  "<strong>Module</strong>: config status matrix + validation history.",
+                  "<strong>Interaction</strong>: rotate flow uses confirm + rollback hint.",
+                  "<strong>Guardrail</strong>: never display raw secrets.",
+                ],
+              },
+            ],
+          },
+        ],
+      };
+    </script>
+    <script src="../shared/panel-preview.js"></script>
+  </body>
+</html>

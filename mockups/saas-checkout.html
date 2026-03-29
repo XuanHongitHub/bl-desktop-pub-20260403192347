@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BugLogin Checkout - Stripe or License</title>
+    <style>
+      @font-face {
+        font-family: "Inter";
+        src: url("../public/fonts/InterVariable.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Berkeley Mono";
+        src: url("../public/fonts/Berkeley-Mono-Variable.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+      }
+
+      :root {
+        --bg: #f3f7fb;
+        --surface: #ffffff;
+        --surface-2: #eef4fb;
+        --text: #102038;
+        --muted: #60708a;
+        --border: #d7e2f1;
+        --primary: #0c8092;
+        --primary-strong: #0b5b75;
+        --success: #0f9b61;
+        --danger: #b43636;
+        --shadow: 0 24px 52px rgba(10, 34, 61, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 600px at 100% -20%, #d3ebff 0%, transparent 58%),
+          radial-gradient(900px 500px at -10% 0%, #d9f1f2 0%, transparent 54%),
+          var(--bg);
+      }
+
+      .wrap {
+        width: min(1120px, calc(100% - 2rem));
+        margin: 28px auto 34px;
+      }
+
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .brand {
+        font-family: Sora, sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .back {
+        text-decoration: none;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.8);
+        color: var(--text);
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 16px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--shadow);
+        padding: 22px;
+      }
+
+      .title {
+        margin: 0;
+        font-family: Sora, sans-serif;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+
+      .desc {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+
+      .tabs {
+        margin: 18px 0 0;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: 14px;
+        padding: 6px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .tabs button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px;
+        font-family: inherit;
+        font-weight: 800;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .tabs button.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 10px 25px rgba(12, 42, 67, 0.1);
+      }
+
+      .content {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+        padding: 16px;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .value {
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .stripe-btn,
+      .license-btn {
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .stripe-btn {
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+        color: white;
+      }
+
+      .license-btn {
+        background: #132033;
+        color: white;
+      }
+
+      .license-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      .status {
+        border-radius: 14px;
+        border: 1px dashed var(--border);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 12px;
+        font-size: 13px;
+      }
+
+      .status[data-kind="loading"] {
+        border-style: solid;
+        border-color: rgba(12, 128, 146, 0.25);
+        color: var(--primary-strong);
+      }
+
+      .status[data-kind="success"] {
+        border-style: solid;
+        border-color: rgba(15, 155, 97, 0.28);
+        color: var(--success);
+      }
+
+      .status[data-kind="error"] {
+        border-style: solid;
+        border-color: rgba(180, 54, 54, 0.28);
+        color: var(--danger);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .summary h3 {
+        margin: 0 0 14px;
+        font-family: Sora, sans-serif;
+      }
+
+      .money {
+        font-size: 40px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-family: Sora, sans-serif;
+      }
+
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="head">
+        <div class="brand">BugLogin Checkout Center</div>
+        <a class="back" href="./saas-pricing-plan.html">Quay lại Pricing</a>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h1 class="title">Thanh toán Subscription</h1>
+          <p class="desc">
+            Trang checkout riêng cho gói đã chọn. Bạn có thể dùng Stripe checkout hoặc nhập
+            license (phụ) nếu đã có key.
+          </p>
+
+          <div class="tabs" role="tablist" aria-label="Checkout methods">
+            <button id="stripeTab" class="active" type="button">Thanh toán Stripe</button>
+            <button id="licenseTab" type="button">Nhập license (phụ)</button>
+          </div>
+
+          <div class="content" id="stripePanel">
+            <div class="card">
+              <div class="row">
+                <span class="label">Payment provider</span>
+                <span class="value">Stripe Checkout</span>
+              </div>
+              <div class="row" style="margin-top: 8px">
+                <span class="label">Phương thức</span>
+                <span class="value">Card, Link, Apple Pay, Google Pay</span>
+              </div>
+            </div>
+            <button class="stripe-btn" id="stripeAction" type="button">
+              Mở Stripe Payment
+            </button>
+            <div class="status" id="stripeStatus" data-kind="idle">
+              Sẵn sàng chuyển sang Stripe để thanh toán an toàn.
+            </div>
+          </div>
+
+          <div class="content hidden" id="licensePanel">
+            <div class="card">
+              <div class="label">Nhập key license để kích hoạt trực tiếp</div>
+              <div class="license-row" style="margin-top: 10px">
+                <input
+                  id="licenseInput"
+                  type="text"
+                  placeholder="VD: BUG-GROWTH-2026-XXXX"
+                  autocomplete="off"
+                />
+                <button class="license-btn" id="licenseAction" type="button">Áp dụng</button>
+              </div>
+              <p class="small" style="margin: 10px 0 0">
+                License là phương án phụ, ưu tiên thanh toán Stripe cho onboarding tiêu chuẩn.
+              </p>
+            </div>
+            <div class="status" id="licenseStatus" data-kind="idle">
+              Chưa có license được áp dụng.
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel summary">
+          <h3>Tóm tắt đơn hàng</h3>
+          <div class="card">
+            <div class="row">
+              <span class="label">Gói</span>
+              <span class="value" id="summaryPlan">Growth</span>
+            </div>
+            <div class="row" style="margin-top: 8px">
+              <span class="label">Chu kỳ</span>
+              <span class="value" id="summaryCycle">Theo tháng</span>
+            </div>
+            <div class="row" style="margin-top: 8px">
+              <span class="label">Workspace</span>
+              <span class="value">personal</span>
+            </div>
+          </div>
+          <div style="margin-top: 14px" class="card">
+            <div class="label">Tổng thanh toán</div>
+            <div class="money" id="summaryAmount">$79</div>
+            <div class="small" id="summaryRenewal">Tự động gia hạn sau 30 ngày</div>
+          </div>
+          <div class="status" style="margin-top: 14px" id="flowStatus" data-kind="idle">
+            Trạng thái: Chờ thao tác checkout hoặc nhập license.
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const plan = (params.get("plan") || "growth").toUpperCase();
+      const cycle = params.get("cycle") || "monthly";
+      const amount = params.get("amount") || "79";
+
+      const summaryPlan = document.getElementById("summaryPlan");
+      const summaryCycle = document.getElementById("summaryCycle");
+      const summaryAmount = document.getElementById("summaryAmount");
+      const summaryRenewal = document.getElementById("summaryRenewal");
+
+      const stripeTab = document.getElementById("stripeTab");
+      const licenseTab = document.getElementById("licenseTab");
+      const stripePanel = document.getElementById("stripePanel");
+      const licensePanel = document.getElementById("licensePanel");
+      const stripeStatus = document.getElementById("stripeStatus");
+      const licenseStatus = document.getElementById("licenseStatus");
+      const flowStatus = document.getElementById("flowStatus");
+
+      const stripeAction = document.getElementById("stripeAction");
+      const licenseAction = document.getElementById("licenseAction");
+      const licenseInput = document.getElementById("licenseInput");
+
+      summaryPlan.textContent = plan;
+      summaryCycle.textContent = cycle === "yearly" ? "Theo năm" : "Theo tháng";
+      summaryAmount.textContent = `$${amount}`;
+      summaryRenewal.textContent =
+        cycle === "yearly"
+          ? "Tự động gia hạn sau 12 tháng"
+          : "Tự động gia hạn sau 30 ngày";
+
+      function activateTab(tab) {
+        const stripeActive = tab === "stripe";
+        stripeTab.classList.toggle("active", stripeActive);
+        licenseTab.classList.toggle("active", !stripeActive);
+        stripePanel.classList.toggle("hidden", !stripeActive);
+        licensePanel.classList.toggle("hidden", stripeActive);
+      }
+
+      function setStatus(node, kind, message) {
+        node.dataset.kind = kind;
+        node.textContent = message;
+      }
+
+      stripeTab.addEventListener("click", () => activateTab("stripe"));
+      licenseTab.addEventListener("click", () => activateTab("license"));
+
+      stripeAction.addEventListener("click", () => {
+        stripeAction.disabled = true;
+        setStatus(stripeStatus, "loading", "Đang tạo Stripe checkout session...");
+        setStatus(flowStatus, "loading", "Flow đang xử lý redirect sang Stripe...");
+
+        setTimeout(() => {
+          setStatus(stripeStatus, "success", "Stripe checkout đã sẵn sàng (demo). Bạn có thể tích hợp session URL thật tại đây.");
+          setStatus(flowStatus, "success", "Hoàn tất bước checkout demo. Chờ webhook/confirm để cập nhật subscription.");
+          stripeAction.disabled = false;
+        }, 1400);
+      });
+
+      licenseAction.addEventListener("click", () => {
+        const value = (licenseInput.value || "").trim();
+        if (!value) {
+          setStatus(licenseStatus, "error", "Vui lòng nhập license key.");
+          setStatus(flowStatus, "error", "Flow lỗi: thiếu license key.");
+          return;
+        }
+
+        if (!value.startsWith("BUG-") || value.length < 14) {
+          setStatus(licenseStatus, "error", "License không hợp lệ. Định dạng mẫu: BUG-GROWTH-2026-XXXX");
+          setStatus(flowStatus, "error", "Flow lỗi: xác thực license thất bại.");
+          return;
+        }
+
+        setStatus(licenseStatus, "success", "License hợp lệ (demo). Entitlement sẽ được kích hoạt.");
+        setStatus(flowStatus, "success", "Flow thành công: Subscription activated via license.");
+      });
+    </script>
+  </body>
+</html>
