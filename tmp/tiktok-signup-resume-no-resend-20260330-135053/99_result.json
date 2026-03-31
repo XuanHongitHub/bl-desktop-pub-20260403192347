@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-03-30T13:50:53.403119",
+  "target_url": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "proxy_server": "http://103.183.118.9:50081",
+  "memory_before": {},
+  "send_code_action": "skipped",
+  "otp_code": "624632",
+  "otp_preview": "{\"code\":1,\"msg\":\"ok\",\"data\":{\"code\":\"[TikTok] 624632 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.\",\"code_time\":\"2026-03-30 14:45:58\",\"expired_date\":\"2026-04-21 00:00:00\"}}",
+  "filled": true,
+  "selector_used": "placeholder-6digit",
+  "next_enabled": false,
+  "clicked_next": false,
+  "final_url": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "title": "Sign up | TikTok",
+  "memory_after": {
+    "last_run_at": "2026-03-30T13:51:02.034814",
+    "last_otp_code": "624632",
+    "code_input_selector": "placeholder-6digit",
+    "last_out_dir": "E:\\\\bug-login\\\\tmp\\\\tiktok-signup-resume-no-resend-20260330-135053"
+  }
+}

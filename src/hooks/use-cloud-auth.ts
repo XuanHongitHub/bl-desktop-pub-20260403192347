@@ -3,7 +3,6 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuthLoginScope } from "@/lib/auth-quick-presets";
 import {
-  BILLING_PLAN_DEFINITIONS,
   type BillingCycle,
   type BillingPlanId,
 } from "@/lib/billing-plans";
@@ -194,7 +193,7 @@ function defaultLocalUser(
     subscriptionStatus: "active",
     profileLimit: 3,
     cloudProfilesUsed: 0,
-    proxyBandwidthLimitMb: 1024,
+    proxyBandwidthLimitMb: 0,
     proxyBandwidthUsedMb: 0,
     proxyBandwidthExtraMb: 0,
     teamId: undefined,
@@ -232,7 +231,7 @@ function deriveProfileLimitFromPlanLabel(
 ): number {
   const normalizedPlanId = normalizePlanIdFromLabel(planLabel);
   if (normalizedPlanId === "starter") {
-    return 100;
+    return 50;
   }
   if (normalizedPlanId === "growth") {
     return 300;
@@ -241,9 +240,9 @@ function deriveProfileLimitFromPlanLabel(
     return 1000;
   }
   if (normalizedPlanId === "custom") {
-    return 2000;
+    return 5000;
   }
-  return mode === "personal" ? 3 : 100;
+  return mode === "personal" ? 3 : 50;
 }
 
 function writeLocalAuthState(state: CloudAuthState | null) {
@@ -895,11 +894,14 @@ export function useCloudAuth(): UseCloudAuthReturn {
   }, [updateAuthState]);
 
   useEffect(() => {
-    void loadUserRef.current();
-
     if (!isTauri()) {
+      resetEnrichCaches();
+      updateAuthStateRef.current(null);
+      setIsLoading(false);
       return;
     }
+
+    void loadUserRef.current();
 
     const unlistenExpired = listen("cloud-auth-expired", () => {
       resetEnrichCaches();
@@ -1038,12 +1040,6 @@ export function useCloudAuth(): UseCloudAuthReturn {
         now +
           (input.billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000,
       ).toISOString();
-      const matchedPlan =
-        BILLING_PLAN_DEFINITIONS.find((plan) => plan.id === input.planId) ??
-        null;
-      const derivedProxyBandwidthLimitMb = matchedPlan
-        ? Math.max(0, Math.round(matchedPlan.proxyGb * 1024))
-        : currentUser.proxyBandwidthLimitMb;
       const normalizedWorkspaceSeeds = workspaceSeeds.map((workspace) => ({
         ...workspace,
         planLabel:
@@ -1076,15 +1072,8 @@ export function useCloudAuth(): UseCloudAuthReturn {
         profileLimit: shouldUpdateGlobalPlan
           ? input.profileLimit
           : currentUser.profileLimit,
-        proxyBandwidthLimitMb: shouldUpdateGlobalPlan
-          ? derivedProxyBandwidthLimitMb
-          : currentUser.proxyBandwidthLimitMb,
-        proxyBandwidthUsedMb: shouldUpdateGlobalPlan
-          ? Math.min(
-              currentUser.proxyBandwidthUsedMb,
-              derivedProxyBandwidthLimitMb,
-            )
-          : currentUser.proxyBandwidthUsedMb,
+        proxyBandwidthLimitMb: currentUser.proxyBandwidthLimitMb,
+        proxyBandwidthUsedMb: currentUser.proxyBandwidthUsedMb,
         workspaceSeeds: normalizedWorkspaceSeeds,
       });
 

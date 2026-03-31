@@ -66,7 +66,11 @@ export function normalizePlanIdFromLabel(
   if (normalized.includes("scale") || normalized.includes("business")) {
     return "scale";
   }
-  if (normalized.includes("growth") || normalized.includes("pro")) {
+  if (
+    normalized.includes("growth") ||
+    normalized.includes("team") ||
+    normalized.includes("pro")
+  ) {
     return "growth";
   }
   if (

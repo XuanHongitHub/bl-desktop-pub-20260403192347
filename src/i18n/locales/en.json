@@ -28,7 +28,8 @@
       "export": "Export",
       "refresh": "Refresh",
       "loading": "Loading...",
-      "saveSettings": "Save Settings"
+      "saveSettings": "Save Settings",
+      "rename": "Rename"
     },
     "status": {
       "active": "Active",
@@ -828,7 +829,6 @@
     "launchAfterCreate": "Launch browser after create",
     "sections": {
       "basic": "Basic",
-      "proxy": "Proxy",
       "advanced": "Advanced",
       "basicHint": "Set profile name and required browser basics.",
       "proxyHint": "Choose an existing proxy or quick add a new one.",
@@ -1832,8 +1832,7 @@
     "featureProfiles": "{{count}} managed profiles",
     "featureMembers": "{{count}} team members",
     "featureStorage": "{{count}} GB sync storage",
-    "featureProxy": "{{count}} GB resident proxy",
-    "featureSupport": "{{level}} support",
+        "featureSupport": "{{level}} support",
     "support": {
       "email": "Email",
       "priority": "Priority",
@@ -1869,16 +1868,16 @@
         "description": "For solo operators and quick daily tasks."
       },
       "growth": {
-        "name": "Growth",
-        "description": "For growing teams and shared workspace operations."
+        "name": "Team",
+        "description": "For small and mid teams running a shared workspace."
       },
       "scale": {
         "name": "Scale",
         "description": "Large-volume operations with stronger capacity."
       },
       "custom": {
-        "name": "Custom",
-        "description": "Custom profile limits and internal team support."
+        "name": "Enterprise",
+        "description": "For organizations requiring custom quota, governance, and contract billing."
       }
     },
     "tabs": {
@@ -2252,9 +2251,9 @@
       "planMenuPricing": "Pricing & status",
       "planMenuUsage": "Usage limits",
       "planMenuExperience": "Plan experience",
-      "customPlanTitle": "Custom plan control",
-      "customPlanDescription": "Configure custom plan pricing and limits for internal workspace operations.",
-      "customPlanEnabled": "Custom plan visibility",
+      "customPlanTitle": "Enterprise plan control",
+      "customPlanDescription": "Configure Enterprise plan pricing and limits for internal workspace operations.",
+      "customPlanEnabled": "Enterprise plan visibility",
       "customPlanEnabledYes": "Enabled",
       "customPlanEnabledNo": "Disabled",
       "customPlanMonthly": "Monthly price ($)",
@@ -2263,14 +2262,13 @@
       "customPlanProfiles": "Managed profiles",
       "customPlanMembers": "Team members",
       "customPlanStorage": "Sync storage (GB)",
-      "customPlanProxy": "Resident proxy (GB)",
-      "customPlanRecommended": "Recommended badge",
+            "customPlanRecommended": "Recommended badge",
       "customPlanRecommendedYes": "Yes",
       "customPlanRecommendedNo": "No",
-      "customPlanSaveAction": "Save custom plan",
+      "customPlanSaveAction": "Save Enterprise plan",
       "customPlanResetAction": "Reset defaults",
-      "customPlanSaved": "Custom plan updated.",
-      "customPlanReset": "Custom plan reset to defaults.",
+      "customPlanSaved": "Enterprise plan updated.",
+      "customPlanReset": "Enterprise plan reset to defaults.",
       "sourceInternal": "Internal",
       "sourceStripe": "Stripe-linked",
       "couponCode": "Coupon code",
@@ -2339,6 +2337,11 @@
         "apiPhoneEndpointPlaceholder": "https://.../phones",
         "apiPhoneEndpointRequired": "API phone endpoint is required.",
         "apiPhoneFailed": "Failed to fetch phone list from API.",
+        "captchaService": "Captcha service",
+        "captchaServiceNone": "Disabled",
+        "captchaServiceOmocaptcha": "OMOcaptcha",
+        "captchaApiKey": "Captcha API key",
+        "captchaApiKeyPlaceholder": "Enter captcha provider API key",
         "rotationLink": "Rotation link (optional)",
         "rotationLinkPlaceholder": "https://... (optional)",
         "rotationInterval": "Rotation interval (minutes, optional - default 5)",
@@ -2407,6 +2410,7 @@
           "sync": "Sync (2-way)",
           "editBrowser": "Edit browser",
           "openApiPhone": "Open API Phone URL",
+          "openCaptchaService": "Open captcha service",
           "fetchOtp": "Fetch OTP code",
           "disable": "Disable profile",
           "enable": "Enable profile",
@@ -2486,6 +2490,7 @@
         "browserVersionRequired": "No downloaded browser version found for the selected browser.",
         "browserUpdated": "Updated browser preference to {{browser}} for profile {{profile}}.",
         "apiPhoneMissing": "API Phone URL is missing for this profile.",
+        "captchaServiceMissing": "Captcha service is not configured for this profile.",
         "createBatchSuccess": "Created {{count}} profiles with proxy {{proxy}}.",
         "createBatchFailed": "Failed to create profile batch.",
         "startProfileSuccess": "Opened browser profile {{profile}}.",
@@ -2493,6 +2498,8 @@
         "signupCredentialReady": "Credentials for {{profile}}: {{username}} / {{password}}",
         "openApiPhoneSuccess": "Opened API Phone URL for profile {{profile}}.",
         "openApiPhoneFailed": "Failed to open API Phone URL for this profile.",
+        "openCaptchaServiceSuccess": "Opened captcha service for profile {{profile}}.",
+        "openCaptchaServiceFailed": "Failed to open captcha service for this profile.",
         "otpDetectedCopied": "OTP for profile {{profile}} copied: {{code}}",
         "otpNotFound": "OTP code not found yet.",
         "otpNotFoundDescription": "The API Phone endpoint has not returned a valid TikTok 6-digit code.",
@@ -2664,11 +2671,11 @@
       "operationQueueEmpty": "No workspace currently requires urgent intervention.",
       "actionStabilizeSync": "Stabilize sync pipeline",
       "actionRecoverBilling": "Run payment recovery",
-      "actionReviewCapacity": "Review storage/proxy capacity",
+      "actionReviewCapacity": "Review storage capacity",
       "actionReviewAccess": "Review access policy",
       "reasonHighRisk": "Risk posture is high and needs immediate triage.",
       "reasonPastDue": "Subscription is past due and may impact entitlement.",
-      "reasonCapacity": "Storage or proxy usage is nearing configured limits.",
+      "reasonCapacity": "Storage usage is nearing configured limits.",
       "reasonShareAndInvite": "Review sharing and invite posture before scale-up.",
       "currentWorkspace": "Current workspace",
       "createWorkspaceDescription": "Provision a new isolated workspace and start governance immediately.",
@@ -2731,11 +2738,17 @@
     "sections": {
       "profiles": "Profiles",
       "automation": "Automation",
+      "automationSignupTiktok": "Sign Up Tiktok",
+      "automationUpdateCookies": "Update Cookies",
       "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy Center",
       "pricing": "Pricing",
       "settings": "Settings",
       "integrations": "Integrations",
+      "accountOverview": "Overview",
+      "accountBilling": "Billing",
+      "accountInvoices": "Invoices",
+      "accountSettings": "Settings",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
       "superAdminPanel": "Super Admin Panel",
@@ -2849,6 +2862,10 @@
       "addWorkspace": "Add workspace",
       "panels": "Governance panels"
     },
+    "navigationGroups": {
+      "platform": "Platform",
+      "projects": "Projects"
+    },
     "webPortal": {
       "movedDescription": "This function is now managed on the web portal. Desktop remains focused on runtime operations.",
       "superAdminDescription": "Platform governance has moved to the web Super Admin Portal.",
@@ -2919,17 +2936,16 @@
     "compareProfiles": "Managed profiles",
     "compareMembers": "Team members",
     "compareStorage": "Sync storage",
-    "compareProxy": "Resident proxy",
-    "compareAutomation": "Automation capacity",
+        "compareAutomation": "Automation capacity",
     "compareAutomationStarter": "Basic",
     "compareAutomationGrowth": "Standard",
     "compareAutomationScale": "Advanced",
-    "compareAutomationCustom": "Custom workflow",
+    "compareAutomationCustom": "Enterprise workflow",
     "compareSecurity": "Security controls",
     "compareSecurityStarter": "Standard",
     "compareSecurityGrowth": "Role-based",
-    "compareSecurityScale": "Custom policy",
-    "compareSecurityCustom": "Custom policy + internal review",
+    "compareSecurityScale": "Enterprise policy",
+    "compareSecurityCustom": "Enterprise policy + internal review",
     "compareSupport": "Support level",
     "comparisonNote": "Need custom security and compliance? Contact us for enterprise onboarding.",
     "enterpriseLabel": "Enterprise",
@@ -2942,7 +2958,7 @@
     "faq2A": "Yearly mode applies a discounted annual price while keeping the same feature limits and support level.",
     "faq3Q": "Do I need Stripe ready before selecting a plan?",
     "faq3A": "No. You can pre-select plans now and activate full checkout as soon as Stripe is configured.",
-    "currentPlanBadge": "Manage",
+    "currentPlanBadge": "Current plan",
     "pendingPlanShortBadge": "Pending",
     "freePlanLabel": "Free",
     "customPlanBadge": "Internal custom",
@@ -3347,13 +3363,17 @@
       "support": "Support",
       "enterprise": "Enterprise",
       "dashboard": "Dashboard",
+      "account": "Account",
       "pricing": "Pricing",
+      "docs": "Docs",
       "auth": "Auth",
       "help": "Help",
+      "status": "Status",
+      "contact": "Contact",
       "billing": "Billing",
       "admin": "Super Admin",
       "brand": "Antidetect Browser Control",
-      "download": "Download App",
+      "download": "Download",
       "signIn": "Sign In",
       "signUp": "Sign up",
       "signOut": "Sign Out",
@@ -3369,19 +3389,65 @@
       "operations": "Operations",
       "terms": "Terms",
       "privacy": "Privacy",
-      "refund": "Refund"
+      "refund": "Refund",
+      "copyright": "© {{year}} BugLogin. All rights reserved."
     },
     "home": {
       "reportLabel": "State of Sites ’26",
-      "reportCta": "Unlock the report now",
+      "reportCta": "Open report now",
       "eyebrow": "Antidetect browser for serious operators",
-      "linearTitleLine1": "The antidetect browser",
-      "linearTitleLine2": "system for teams and operators",
-      "linearSubtitle": "Purpose-built for profile isolation, workspace controls, and billing operations.",
+      "linearTitleLine1": "Operate profiles",
+      "linearTitleLine2": "at real scale",
+      "linearSubtitle": "Stable runtime, reliable sync, clear governance.",
       "title": "Run browser, workspace, and billing operations from one control surface.",
       "description": "BugLogin combines a desktop antidetect browser with a web control layer for pricing, authentication, checkout, account billing, and super admin workflows without turning the browser app into a billing shell.",
       "primaryCta": "Download desktop app",
-      "secondaryCta": "View pricing",
+      "secondaryCta": "View workspace demo",
+      "demoWorkspace": {
+        "eyebrow": "Workspace demo",
+        "title": "One surface for profile runtime, proxy, and VPN",
+        "description": "Realistic operations preview: launch profile, bind proxy, verify tunnel, and sync state.",
+        "kpiProfiles": "Profiles scaled",
+        "kpiQueue": "Current queue",
+        "kpiSync": "Sync success",
+        "leftTitle": "Workspace menu",
+        "leftSignup": "Proxy",
+        "leftUpdate": "VPN",
+        "leftProxy": "Proxy",
+        "leftVpn": "VPN",
+        "leftProfiles": "Profiles",
+        "sidebarPlatform": "Platform",
+        "sidebarProjects": "Projects",
+        "tabTitleProfiles": "Profiles Workspace",
+        "tabTitleProxy": "Proxy Center",
+        "tabTitleVpn": "VPN Center",
+        "centerTitle": "Runtime queue",
+        "searchHint": "Filter profile, proxy, endpoint...",
+        "colEntity": "Entity",
+        "colStatus": "Status",
+        "colEndpoint": "Endpoint",
+        "colUpdated": "Updated",
+        "colAction": "Action",
+        "filterAll": "all",
+        "filterRunning": "running",
+        "filterQueued": "queued",
+        "rowQueued": "BugIdeaSync A-02 · pending launch",
+        "rowRunning": "BugIdeaSync A-03 · running",
+        "rowDone": "BugIdeaSync A-01 · synced",
+        "rightTitle": "Step log",
+        "log1": "18:50 · Launch profile + attach proxy",
+        "log2": "18:51 · OTP fetched · form advanced",
+        "log3": "18:52 · Cookie extracted · outbox synced",
+        "profilesLog1": "18:50 · Launch profile + attach local proxy",
+        "profilesLog2": "18:51 · Camoufox PID mapped + state running",
+        "profilesLog3": "18:52 · Close profile + outbox replay ok",
+        "proxyLog1": "18:50 · Proxy worker boot + port reserved",
+        "proxyLog2": "18:51 · Upstream healthcheck fallback passed",
+        "proxyLog3": "18:52 · Rotation window updated (5m)",
+        "vpnLog1": "18:50 · VPN tunnel handshake initialized",
+        "vpnLog2": "18:51 · GeoIP timezone matched to endpoint",
+        "vpnLog3": "18:52 · Tunnel stable + keepalive active"
+      },
       "metrics": {
         "profiles": {
           "value": "1,000+",
@@ -3389,7 +3455,7 @@
         },
         "teams": {
           "value": "25",
-          "label": "seats on custom plans"
+          "label": "seats on Enterprise plans"
         },
         "ops": {
           "value": "24/7",
@@ -3456,40 +3522,40 @@
           "billing": "Billing"
         }
       },
-      "capabilitiesEyebrow": "Core capabilities",
-      "capabilitiesTitle": "A sales website that still behaves like a real product surface.",
-      "capabilitiesDescription": "Landing, pricing, auth, checkout, account billing, and super admin all sit on top of the same contract used by the desktop product.",
+      "capabilitiesEyebrow": "Why this feels different",
+      "capabilitiesTitle": "A real product surface, not a brochure of cards.",
+      "capabilitiesDescription": "Visual proof from the product, focused copy, and direct actions into auth, pricing, and workspace control.",
       "features": {
         "stealth": {
-          "title": "The antidetect browser stays at the center",
-          "description": "Home, pricing, and auth all sell the actual product instead of collapsing the website into a generic billing microsite."
+          "title": "Browser runtime remains the hero",
+          "description": "Landing and auth sections highlight real profile operations instead of generic SaaS billing language."
         },
         "workspace": {
-          "title": "The portal connects to real workspaces",
-          "description": "Plans, invoices, and entitlement states are pulled from the same Control API and database already serving the desktop app."
+          "title": "Web portal reads real workspace state",
+          "description": "Plans, invoices, and entitlement are rendered from the same authority already serving the desktop runtime."
         },
         "billing": {
-          "title": "Stripe checkout and account billing stay clean",
-          "description": "Users handle purchasing, invoices, renewals, and subscription state on web without bloating the desktop runtime."
+          "title": "Checkout stays separate from runtime",
+          "description": "Payments and account billing stay on web while desktop remains optimized for profile execution."
         }
       },
       "steps": {
         "signin": {
-          "title": "Authenticate through one auth hub",
-          "description": "Email/password, OTP, Google OAuth, and invite acceptance all converge into a single auth entry point."
+          "title": "Authenticate once through one auth hub",
+          "description": "Email/password, OTP, Google OAuth, and invite acceptance converge into a single entry point."
         },
         "checkout": {
-          "title": "Choose a workspace before checkout",
-          "description": "The website binds plans to real workspaces before creating Stripe sessions so entitlement never drifts."
+          "title": "Bind a workspace before checkout",
+          "description": "Each checkout session is tied to a real workspace first, so entitlement state never drifts."
         },
         "operate": {
-          "title": "Operate on web, work in the app",
-          "description": "Users return to desktop for runtime work while account billing and super admin remain on the website."
+          "title": "Control on web, execute in desktop",
+          "description": "Billing and admin stay on web; heavy profile runtime remains in the desktop app."
         }
       },
-      "splitEyebrow": "Dual-tone product",
-      "splitTitle": "Public pages stay soft. Logged-in surfaces get denser.",
-      "splitDescription": "The overall brand stays premium and restrained, but logged-in routes shift into a sharper, operations-first app rhythm.",
+      "splitEyebrow": "From interest to action",
+      "splitTitle": "One flow from first visit to production workspace.",
+      "splitDescription": "Sign in, bind a workspace, then run operations with clear boundaries between web control and desktop runtime.",
       "splitCards": {
         "account": {
           "title": "Real account billing for users",
@@ -3516,52 +3582,68 @@
         }
       }
     },
-  "pricing": {
-    "eyebrow": "Public pricing",
-    "title": "Public pricing that is clear on workspace limits and strong enough to convert directly.",
-    "description": "The new pricing page sells BugLogin as it is: an antidetect browser for individual operators and teams, paired with cloud sync, billing, and web-based admin control.",
-    "perMonthBilledYearly": "/ month, billed yearly",
-    "perMonthBilledMonthly": "/ month, billed monthly",
-    "saveBadge": "Save 25%",
-    "getStarted": "Get started",
-    "selectPlan": "Choose plan",
-    "contactSales": "Contact sales",
-    "compareTitle": "Compare plan limits",
-    "compareHeading": "See what each BugLogin plan actually unlocks.",
-    "compareDescription": "Review workspace limits, members, storage, proxy quota, and support before sending the user into checkout.",
-    "linearSubtitle": "Pick the workspace tier that matches team scale and runtime needs.",
-    "trustedBy": "Trusted by product, growth, and anti-detect teams.",
-    "mostPopular": "Most popular",
-    "customPriceLabel": "custom quote",
-    "supportLabel": "Support",
-    "finalCtaEyebrow": "Checkout-ready pricing",
-    "finalCtaTitle": "Start with a workspace tier that can actually carry daily browser operations.",
-    "finalCtaDescription": "Use the public checkout flow for Starter or Scale, then manage billing, invoices, and plan state from the web portal without going back into the desktop app.",
-    "plans": {
-      "free": {
-        "name": "Free",
-        "audience": "Solo testing and initial profile setup"
+    "pricing": {
+      "eyebrow": "Public pricing",
+      "title": "Pricing",
+      "titleLine1": "Unlock every",
+      "titleLine2": "advanced feature",
+      "description": "Pick the plan that fits your usage.",
+      "heroDiscountBadge": "Annual savings",
+      "perMonthBilledYearly": "/ month, billed yearly",
+      "perMonthBilledMonthly": "/ month, billed monthly",
+      "saveBadge": "Save",
+      "freeLabel": "Free",
+      "getStarted": "Get started",
+      "selectPlan": "Choose plan",
+      "startTrial": "Start free trial",
+      "contactSales": "Contact sales",
+      "compareTitle": "Compare plan limits",
+      "compareHeading": "See what each BugLogin plan actually unlocks.",
+      "compareDescription": "Review workspace limits, members, storage, and support before sending the user into checkout.",
+      "linearSubtitle": "Monthly or yearly billing. Pick what fits your team.",
+      "trustedBy": "Trusted by product, growth, and anti-detect teams.",
+      "mostPopular": "Most popular",
+      "trialBadge": "Free trial",
+      "trialPeriodLabel": "7 days trial access",
+      "freePlanPriceLine": "Free plan",
+      "addons": {
+        "profiles": "Profiles",
+        "members": "Members"
       },
-      "starter": {
-        "name": "Starter",
-        "audience": "Small operator teams running a shared workspace"
+      "customPriceLabel": "enterprise quote",
+      "supportLabel": "Support",
+      "finalCtaEyebrow": "Checkout-ready pricing",
+      "finalCtaTitle": "Start with a workspace tier that can actually carry daily browser operations.",
+      "finalCtaDescription": "Use the public checkout flow for Starter or Scale, then manage billing, invoices, and plan state from the web portal without going back into the desktop app.",
+      "plans": {
+        "trial": {
+          "name": "Free Trial",
+          "audience": "Test core workflow before choosing a paid tier"
+        },
+        "free": {
+          "name": "Free",
+          "audience": "Solo testing and initial profile setup"
+        },
+        "starter": {
+          "name": "Starter",
+          "audience": "Small operator teams running a shared workspace"
+        },
+        "growth": {
+          "name": "Team",
+          "audience": "Small-to-mid teams that need shared workspace controls and room to scale"
+        },
+        "scale": {
+          "name": "Scale",
+          "audience": "Production operations with higher concurrency and cloud sync"
+        },
+        "custom": {
+          "name": "Enterprise",
+          "audience": "Organizations requiring custom quota, governance, and billing support"
+        }
       },
-      "growth": {
-        "name": "Growth",
-        "audience": "Growing teams that need more profiles, seats, and storage headroom"
-      },
-      "scale": {
-        "name": "Scale",
-        "audience": "Production operations with higher concurrency and cloud sync"
-      },
-      "custom": {
-        "name": "Custom",
-        "audience": "Advanced teams with custom quota, storage, and billing needs"
-      }
-    },
-    "support": {
-      "community": "Community support",
-      "email": "Email support",
+      "support": {
+        "community": "Community support",
+        "email": "Email support",
         "priority": "Priority support",
         "dedicated": "Dedicated support"
       },
@@ -3569,16 +3651,20 @@
         "feature": "Feature",
         "profiles": "Profiles",
         "members": "Members",
-        "storage": "Storage",
-        "proxy": "Proxy"
+        "storage": "Storage"
       },
       "tableDescriptions": {
         "profiles": "Maximum isolated browser profiles available in the workspace.",
         "members": "Team seats that can share billing and workspace access.",
         "storage": "Cloud storage reserved for profiles, sessions, and sync data.",
-        "proxy": "Included proxy bandwidth quota available inside the plan.",
         "support": "Support channel and response level included with the tier."
-      }
+      },
+      "currentPlanBadge": "Current plan",
+      "managePlanCta": "Manage plan",
+      "currentWorkspacePlanHint": "Workspace {{workspace}} is on {{plan}}",
+      "downgradeDisabled": "Downgrade is not available in self-service.",
+      "downgradeDisabledHint": "Downgrade is handled manually in Billing Support.",
+      "downgradeTo": "Downgrade to {{plan}}"
     },
     "auth": {
       "eyebrow": "Auth hub",
@@ -3646,14 +3732,23 @@
       "cancelTitle": "Checkout was cancelled",
       "cancelDescription": "You can return to pricing or relaunch checkout at any time.",
       "returning": "Returning to billing portal.",
-      "openBilling": "Open billing"
+      "openBilling": "Open billing",
+      "openInvoices": "Open invoices",
+      "checkoutSession": "Checkout session",
+      "latestInvoice": "Latest invoice",
+      "invoicePending": "Invoice is still being synchronized. Please check billing again in a few seconds.",
+      "syncingPayment": "Synchronizing payment confirmation...",
+      "syncComplete": "Payment confirmed. Subscription and invoice are now updated.",
+      "syncPending": "Payment is still pending confirmation from Stripe.",
+      "syncFailed": "Unable to verify payment automatically. Open Billing to retry.",
+      "syncCompleteToast": "Payment confirmed. Billing is updated."
     },
     "account": {
       "eyebrow": "Account billing",
       "title": "Manage subscriptions, invoices, and usage per workspace.",
       "description": "The account area keeps plan and payment operations on web while the desktop product stays focused on runtime and profile execution.",
       "dashboardTitle": "Account overview",
-      "dashboardDescription": "A compact control panel for workspace billing, invoice history, and account-level settings.",
+      "dashboardDescription": "Billing status, usage, invoices, and next actions in one view.",
       "loading": "Loading billing account...",
       "loadWorkspacesFailed": "Unable to load workspace list.",
       "loadBillingFailed": "Unable to load billing state.",
@@ -3662,20 +3757,45 @@
       "workspace": "Workspace",
       "workspaceHint": "Select the workspace whose billing state you want to inspect.",
       "workspacePlaceholder": "Select workspace",
+      "workspaceSearchPlaceholder": "Search workspace...",
       "workspaceStatus": "Workspace status",
       "workspaceMeta": "Mode: {{mode}} · Billing: {{status}}",
+      "workspaceMode": "Workspace mode",
       "workspaceEmpty": "No workspace is available in the current portal session.",
+      "currentWorkspace": "Current workspace",
       "quickActions": "Quick actions",
+      "quickActionsBillingHint": "Manage plan state, renewal, and cancellation.",
+      "quickActionsInvoicesHint": "Review payment history and export-ready records.",
+      "quickActionsPricingHint": "Compare limits before upgrading workspace capacity.",
+      "openBilling": "Open billing",
+      "openInvoices": "Open invoices",
+      "openSettings": "Open settings",
+      "openPricing": "Open pricing",
+      "goToCheckout": "Go to checkout",
       "membersLabel": "Workspace limit",
       "membersDetail": "Profile capacity visible to the current billing seat.",
       "settingsDescription": "Account preferences, workspace-facing defaults, and safety controls stay on web instead of bloating the desktop runtime.",
       "profileTitle": "Profile",
+      "accountRole": "Account role",
+      "preferencesTitle": "Preferences",
       "securityTitle": "Security and access",
       "securityDescription": "Billing access, payment actions, and workspace administration are limited by the current portal role.",
+      "paymentSecurityNote": "Payment security",
+      "paymentSecurityHint": "Checkout and payment methods are handled only in Stripe-hosted surfaces.",
       "languageTitle": "Language",
       "languageDescription": "Website language follows the portal preference so account and admin pages stay consistent with the public web shell.",
       "notificationsTitle": "Notifications",
       "notificationsDescription": "Billing and invoice updates should stay on web, while the desktop app remains focused on runtime work.",
+      "usageSnapshot": "Usage snapshot",
+      "usageUpdatedAt": "Updated at",
+      "latestInvoices": "Latest invoices",
+      "invoicesCount": "Invoices",
+      "billedAmount": "Billed amount",
+      "totalPaid": "Total paid",
+      "lastInvoiceAt": "Last invoice",
+      "noInvoicesYet": "No invoices yet for this workspace.",
+      "searchInvoices": "Search invoices...",
+      "noMatchInvoices": "No invoice matches this filter.",
       "nav": {
         "overview": "Overview",
         "billing": "Billing",
@@ -3688,9 +3808,25 @@
       "renewal": "Renewal / expiry",
       "notAvailable": "Not available",
       "noPlan": "No paid plan yet",
+      "selectPlan": "Select plan",
+      "planMenu": "Plan",
+      "planRequiredHint": "You are on Free plan. Select a paid plan to enable cancellation lifecycle controls.",
+      "queue": {
+        "title": "Operational queue",
+        "empty": "No billing action is required right now.",
+        "issue": "Issue",
+        "severity": "Severity",
+        "planRequiredDetail": "This workspace is still on Free. Upgrade to unlock cancellation and renewal controls.",
+        "cancelScheduled": "Cancellation is already scheduled",
+        "cancelScheduledDetail": "Open Billing if you need to reactivate before the current cycle ends.",
+        "capacityWarning": "Usage is nearing plan limits",
+        "capacityWarningDetail": "Storage usage is over 80%. Upgrade before runtime is throttled.",
+        "invoicePending": "Invoice status still needs confirmation",
+        "invoicePendingDetail": "Open invoices and confirm the latest payment synchronization state."
+      },
       "changePlan": "View pricing",
       "subscriptionTitle": "Current subscription",
-      "subscriptionDescription": "The portal lets users change plans, relaunch checkout, and control the subscription state of the selected workspace.",
+      "subscriptionDescription": "Plan lifecycle, renewal, cancellation, and checkout for the selected workspace.",
       "managePayment": "Open secure checkout",
       "upgrade": "Upgrade / pay again",
       "storageUsage": "Storage usage",
@@ -3701,8 +3837,9 @@
       "actionSuccess": "Subscription updated.",
       "actionFailed": "Unable to update subscription.",
       "invoiceTitle": "Invoices and billing history",
-      "invoiceDescription": "Recent invoices are rendered directly from the existing billing state endpoints.",
+      "invoiceDescription": "Invoice history from billing APIs, ready for finance review.",
       "invoiceDate": "Date",
+      "invoiceId": "Invoice ID",
       "invoicePlan": "Plan",
       "invoiceAmount": "Amount",
       "invoiceMethod": "Method",
@@ -3749,7 +3886,6 @@
         "status": "Status",
         "members": "Members",
         "storage": "Storage",
-        "proxy": "Proxy",
         "latestInvoice": "Latest invoice",
         "time": "Time",
         "action": "Action",
@@ -3765,6 +3901,11 @@
         "title": "Command center for the full control plane.",
         "description": "A high-level cockpit for platform admins to read workspace state, operational queue pressure, and service readiness at a glance.",
         "queueTitle": "Priority queue",
+        "queueEmpty": "No workspace currently needs manual action.",
+        "runbookTitle": "Operational runbook",
+        "runbookBilling": "Review past-due workspaces before the next renewal window.",
+        "runbookAudit": "Check audit trail for unexpected plan or billing changes.",
+        "runbookSync": "Verify sync freshness if entitlement or usage looks delayed.",
         "queueDescription": "Workspaces that need attention are grouped by risk, billing, and subscription status signals.",
         "systemTitle": "Platform readiness",
         "systemDescription": "A concise read on auth, Stripe, and sync availability."
@@ -3773,7 +3914,10 @@
         "title": "Workspaces across the system.",
         "description": "This view gives platform admins a fast way to inspect workspace health, limits, and usage in one place.",
         "tableTitle": "Workspace health",
-        "tableDescription": "Data is pulled directly from the existing admin workspace health endpoint."
+        "tableDescription": "Data is pulled directly from the existing admin workspace health endpoint.",
+        "canceled": "Canceled workspaces",
+        "searchPlaceholder": "Search workspace...",
+        "allStatuses": "All statuses"
       },
       "revenue": {
         "title": "Revenue signals and entitlement state.",
@@ -3783,7 +3927,8 @@
         "entitlementActive": "Active entitlement",
         "pastDue": "Past-due workspaces",
         "latestTitle": "Latest billing activity",
-        "latestDescription": "A quick list of workspaces with the freshest invoice timestamps to track renewal cadence and revenue motion."
+        "latestDescription": "A quick list of workspaces with the freshest invoice timestamps to track renewal cadence and revenue motion.",
+        "planMixTitle": "Workspace mix by plan"
       },
       "audit": {
         "title": "Audit trail for platform actions.",
@@ -3796,6 +3941,7 @@
         "description": "This route focuses on control plane connectivity, token readiness, and the health of the core services the portal depends on.",
         "runtimeTitle": "Current runtime",
         "runtimeDescription": "The portal shares the same runtime contract as desktop, but reads it in a website-specific context.",
+        "serviceColumn": "Service",
         "operationsTitle": "Operational checklist",
         "operationsDescription": "Short reminders for checking auth, billing, and sync when state appears inconsistent.",
         "baseUrl": "Control base URL",
@@ -3832,12 +3978,104 @@
         "security": {
           "title": "The website shares the same authority as desktop",
           "description": "The portal does not create a parallel database or API. It reads and writes against the same authority used for auth, billing, and workspace control."
+        }
+      },
+      "settingsShell": {
+        "workspace": "Current workspace"
       }
     },
-    "settingsShell": {
-      "workspace": "Current workspace"
-    }
-  },
+    "docsPage": {
+      "badge": "Docs",
+      "title": "Documentation for operators and teams.",
+      "description": "Setup guides and runbooks for stable daily operations.",
+      "cards": {
+        "quickstart": {
+          "title": "Quickstart",
+          "description": "Install desktop, connect workspace, and launch your first profiles."
+        },
+        "api": {
+          "title": "API and webhooks",
+          "description": "Integrate workspace events with your own systems and internal workflows."
+        },
+        "security": {
+          "title": "Security guidance",
+          "description": "Best practices for access control, session protection, and credential handling."
+        },
+        "runbook": {
+          "title": "Operational runbooks",
+          "description": "Troubleshooting guides for auth, sync, and billing-sensitive incidents."
+        }
+      }
+    },
+    "downloadPage": {
+      "badge": "Download",
+      "title": "Download the BugLogin desktop app.",
+      "description": "Get the runtime app and keep entitlement synced from the web portal.",
+      "cards": {
+        "windows": {
+          "title": "Windows-ready package",
+          "description": "Production build for operator workstations with profile launch and sync."
+        },
+        "channels": {
+          "title": "Release channels",
+          "description": "Stable and preview channels for controlled rollout across teams."
+        },
+        "integrity": {
+          "title": "Verified artifacts",
+          "description": "Signed packages and checksums for safe deployment in managed environments."
+        },
+        "release": {
+          "title": "Release notes",
+          "description": "Track fixes, runtime improvements, and compatibility changes each version."
+        }
+      }
+    },
+    "statusPage": {
+      "badge": "Status",
+      "title": "Current service health.",
+      "description": "Auth, billing, and sync indicators for the web control layer.",
+      "cards": {
+        "auth": {
+          "title": "Auth",
+          "description": "Portal sign-in, OTP, and Google OAuth callback health."
+        },
+        "billing": {
+          "title": "Billing",
+          "description": "Checkout creation, invoice sync, and subscription status processing."
+        },
+        "sync": {
+          "title": "Sync",
+          "description": "Control API and state propagation between web and desktop surfaces."
+        },
+        "uptime": {
+          "title": "Uptime window",
+          "description": "Recent availability snapshot for customer-facing web operations."
+        }
+      }
+    },
+    "contactPage": {
+      "badge": "Contact",
+      "title": "Talk to the BugLogin team.",
+      "description": "Reach sales, support, or security response with the right channel.",
+      "cards": {
+        "sales": {
+          "title": "Sales",
+          "description": "Plan sizing, enterprise quota, and procurement support."
+        },
+        "support": {
+          "title": "Support",
+          "description": "Help for account, billing, and workspace control issues."
+        },
+        "security": {
+          "title": "Security",
+          "description": "Responsible disclosure and incident escalation contact path."
+        },
+        "partnership": {
+          "title": "Partnership",
+          "description": "Integration and ecosystem collaboration for growth teams."
+        }
+      }
+    },
     "legal": {
       "terms": {
         "title": "Terms of service",
@@ -3891,6 +4129,608 @@
             "title": "Impact on entitlement",
             "body": "After a refund or plan cancellation, the workspace entitlement may move according to the active, grace, or read-only policy."
           }
+        }
+      }
+    }
+  },
+  "frontendBaseline": {
+    "empty": "No profiles match current filters.",
+    "syncedAgo": "{{value}} ago",
+    "status": {
+      "running": "Running",
+      "syncing": "Syncing",
+      "stopped": "Stopped",
+      "locked": "Locked"
+    },
+    "actions": {
+      "patchBurst": "Apply Incremental Patch",
+      "searchPlaceholder": "Search profiles"
+    },
+    "metrics": {
+      "totalProfiles": "Total profiles",
+      "visibleRows": "Visible rows"
+    },
+    "desktop": {
+      "shell": "App Baseline",
+      "navProfiles": "Profiles Workspace",
+      "navAutomation": "Automation Flow",
+      "navSync": "Sync Monitor",
+      "navMonitoring": "Runtime Signals",
+      "title": "Phase A Desktop Baseline (Shadcn Foundation)",
+      "subtitle": "Independent baseline scaffold for approval before custom UX coding.",
+      "badgePhaseA": "PHASE A"
+    },
+    "web": {
+      "badge": "Website Baseline",
+      "badgeShadcn": "Shadcn Original Style",
+      "title": "Phase A Web Baseline for BugLogin",
+      "subtitle": "Web surface rebuilt from an isolated shadcn baseline. No business-specific custom layout is applied yet.",
+      "cards": {
+        "foundation": "Foundation-first architecture",
+        "readyForScale": "Scale target: 2000+ profiles",
+        "stateSafety": "State-safe incremental updates",
+        "crossSurface": "Desktop + Web aligned baseline"
+      },
+      "previewListTitle": "Profile list baseline preview"
+    },
+    "benchmark": {
+      "title": "Frontend Benchmark Lab (Before vs After)",
+      "run": "Run 50/500/2000/5000 Benchmark",
+      "running": "Benchmark running...",
+      "legacyTab": "Before (Legacy Strategy)",
+      "optimizedTab": "After (Optimized Strategy)",
+      "legacyTitle": "Before: full-array replace + full list render",
+      "optimizedTitle": "After: incremental map patch + virtualized windowing",
+      "resultsTitle": "Measured Results",
+      "noResults": "No benchmark data yet.",
+      "columns": {
+        "mode": "Mode",
+        "size": "Profiles",
+        "render": "Render latency",
+        "interaction": "Interaction delay",
+        "scrollFps": "Scroll FPS (avg/min)",
+        "cpu": "CPU busy",
+        "memory": "Memory"
+      }
+    }
+  },
+  "frontendV2": {
+    "header": {
+      "title": "BugLogin Workspace V2",
+      "subtitle": "Realtime profiles cockpit rebuilt from the approved baseline.",
+      "phase": "PHASE B"
+    },
+    "metrics": {
+      "total": "Total profiles",
+      "visible": "Visible after filter",
+      "running": "Running now",
+      "syncing": "Syncing now",
+      "locked": "Locked by team",
+      "syncEnabled": "Sync enabled"
+    },
+    "tabs": {
+      "profiles": "Profiles",
+      "automation": "Automation",
+      "runtime": "Runtime"
+    },
+    "actions": {
+      "searchPlaceholder": "Search by name, note, or tag",
+      "toggleSync": "Sync"
+    },
+    "labels": {
+      "noNote": "No note",
+      "locked": "Locked",
+      "empty": "No profiles available for current filter."
+    },
+    "automation": {
+      "title": "Automation lane (Phase B scaffold)",
+      "description": "This lane is prepared for the next step where profile runs and automation tasks are orchestrated from one surface.",
+      "hint": "Realtime profile state in the Profiles tab is already wired through backend events and shared runtime state."
+    },
+    "runtime": {
+      "title": "Runtime telemetry snapshot",
+      "description": "Running/Lock/Sync states are consumed from backend events and rendered incrementally without replacing full profile arrays.",
+      "itemRunning": "Running profiles: {{value}}",
+      "itemLocked": "Locked profiles: {{value}}",
+      "itemSyncing": "Syncing profiles: {{value}}"
+    },
+    "toasts": {
+      "refreshed": "Workspace state refreshed",
+      "loadFailed": "Failed to load realtime profile state",
+      "stopQueued": "Stop request sent"
+    },
+    "web": {
+      "badge": "Web View V2",
+      "badgeRealtime": "Realtime Workspace",
+      "title": "BugLogin Web Surface (Phase B)",
+      "subtitle": "The new web surface points directly to the rebuilt desktop workspace and benchmark lab for scale validation.",
+      "openApp": "Open App V2",
+      "openBenchmark": "Open Benchmark Lab",
+      "cards": {
+        "isolation": "Isolated frontend architecture",
+        "isolationBody": "The rebuilt surface runs in a dedicated namespace without patching legacy desktop components.",
+        "realtime": "Realtime backend state",
+        "realtimeBody": "Running, lock, and sync signals are streamed from backend events to keep visual state aligned.",
+        "incremental": "Incremental updates",
+        "incrementalBody": "Profile updates patch only changed entities instead of replacing large arrays on each event.",
+        "windowing": "Windowing ready",
+        "windowingBody": "Virtualized list rendering keeps visible work bounded as profile counts scale into the thousands."
+      }
+    }
+  },
+  "webShadcn": {
+    "brand": "BugLogin Web Shadcn",
+    "migrationBadge": "Shadcn Web",
+    "searchPlaceholder": "Search route...",
+    "routesTitle": "Web Route Directory",
+    "routesDescription": "All old web routes are remapped to the new shadcn-based shell.",
+    "groups": {
+      "marketing": "Marketing",
+      "legal": "Legal",
+      "account": "Account",
+      "checkout": "Checkout",
+      "admin": "Admin",
+      "lab": "Lab"
+    },
+    "shellTitle": "BugLogin Web Frontend (Shadcn)",
+    "shellDescription": "This route now runs on the new frontend shell. Active path: {{path}}.",
+    "currentRouteLabel": "Current route",
+    "groupLabel": "Route group",
+    "componentTitle": "Cloned Component Set",
+    "componentDescription": "Core building blocks sourced from the cloned shadcn primitives.",
+    "nextTitle": "Navigation",
+    "nextDescription": "Continue to auth or open clone galleries for web and desktop surfaces."
+  },
+  "shadcnCloneDemo": {
+    "header": {
+      "title": "Shadcn UI Clone Workspace",
+      "subtitle": "Baseline from ai-website-cloner-template with full shadcn registry showcase.",
+      "badge": "Shadcn Original Clone",
+      "components": "components",
+      "searchPlaceholder": "Search components...",
+      "actions": "Actions",
+      "notifications": "Notifications",
+      "themeSync": "Sync theme",
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "web": "Web"
+    },
+    "nav": {
+      "foundation": "Foundation",
+      "primitives": "Primitives",
+      "data": "Data Layer",
+      "registry": "Registry Inventory",
+      "overview": "Overview",
+      "forms": "Forms",
+      "overlays": "Overlays",
+      "system": "System"
+    },
+    "breadcrumb": {
+      "baseline": "Web Baseline",
+      "showcase": "Shadcn Full Showcase"
+    },
+    "sections": {
+      "actions": {
+        "title": "Primitives & Actions",
+        "description": "Core buttons, toggles, badges, alerts, and quick commands."
+      },
+      "overlays": {
+        "title": "Overlays & Menus",
+        "description": "Dialogs, drawers, sheets, menu surfaces, and contextual layers."
+      },
+      "form": {
+        "title": "Inputs & Form Controls",
+        "description": "Inputs, select, checkbox, switch, radio, slider, and OTP controls.",
+        "controlsTitle": "Advanced Inputs",
+        "controlsDescription": "Combobox, OTP, switch, radio, checkbox, and slider controls."
+      },
+      "mixed": {
+        "title": "Mixed Components",
+        "description": "Calendar, carousel, command palette, and visual ratio blocks."
+      },
+      "data": {
+        "title": "Data Presentation",
+        "description": "Table, accordion, item patterns, progress and skeleton states."
+      },
+      "metrics": {
+        "title": "Metrics & Empty States",
+        "description": "Chart, pagination, avatar and empty-state patterns."
+      },
+      "registry": {
+        "title": "Registry Component Inventory",
+        "description": "Component set cloned into src/frontend-shadcn/ui.",
+        "footer": "Total cloned components: {{value}}."
+      },
+      "navigation": {
+        "title": "Navigation & Command",
+        "description": "Navigation menu, menubar, and command primitives."
+      }
+    },
+    "actions": {
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "outline": "Outline",
+      "ghost": "Ghost",
+      "left": "Left",
+      "center": "Center",
+      "right": "Right",
+      "search": "Search",
+      "searchPlaceholder": "Filter by keyword",
+      "toggleA": "Toggle sparkle",
+      "toggleGroup": "Toggle group",
+      "filters": "Filters",
+      "rules": "Rules",
+      "sync": "Sync",
+      "commandKey": "Ctrl+K"
+    },
+    "alert": {
+      "title": "Theme-safe token system",
+      "description": "This showcase uses design tokens and shadcn primitives without hardcoded color values."
+    },
+    "overlays": {
+      "dialog": "Dialog",
+      "dialogTitle": "Dialog Example",
+      "dialogDescription": "Layered modal interactions with token-based styling.",
+      "sheet": "Sheet",
+      "sheetTitle": "Sheet Panel",
+      "sheetDescription": "Right side panel preview in official shadcn style.",
+      "drawer": "Drawer",
+      "drawerTitle": "Drawer Panel",
+      "drawerDescription": "Bottom sheet interaction with compact actions.",
+      "alertDialog": "Alert Dialog",
+      "alertTitle": "Confirm Critical Action",
+      "alertDescription": "This demonstrates destructive confirmation flow.",
+      "popover": "Popover",
+      "popoverBody": "Inline popover surface rendered by Radix + shadcn primitives.",
+      "hoverCard": "Hover Card",
+      "hoverBody": "Hover cards are useful for quick entity preview.",
+      "tooltip": "Tooltip",
+      "tooltipBody": "Tooltip content",
+      "dropdown": "Dropdown",
+      "quickActions": "Quick Actions",
+      "menuFile": "File",
+      "contextHint": "Right click this area"
+    },
+    "form": {
+      "handlePlaceholder": "workspace-handle",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Shadcn clone validation flow",
+      "noteLabel": "Notes",
+      "notePlaceholder": "Keep this screen as a reusable frontend starter.",
+      "modeLabel": "Notification Mode",
+      "modePlaceholder": "Select mode",
+      "modeUpdates": "Live updates",
+      "modeDigest": "Daily digest",
+      "modeCritical": "Critical only",
+      "syncLabel": "Auto sync",
+      "shadowLabel": "Enable shadow run",
+      "safe": "Safe",
+      "fast": "Fast",
+      "volume": "Runtime volume",
+      "otpLabel": "Security OTP",
+      "regionLabel": "Region",
+      "nativeLabel": "Native select",
+      "emailLabel": "Owner email",
+      "syncHelp": "Keep local and cloud state aligned.",
+      "titleHelp": "Use a short label for this showcase preset.",
+      "comboboxLabel": "Framework",
+      "comboboxPlaceholder": "Select framework",
+      "comboboxEmpty": "No framework found."
+    },
+    "mixed": {
+      "aspectRatio": "Aspect ratio primitive",
+      "calendar": "Calendar",
+      "carousel": "Carousel",
+      "slideA": "Slide A: profile orchestration",
+      "slideB": "Slide B: sync telemetry",
+      "slideC": "Slide C: workflow controls",
+      "commandPlaceholder": "Type a command or search...",
+      "commandEmpty": "No results found.",
+      "commandHeading": "Suggestions",
+      "commandItemA": "Open workspace",
+      "commandItemB": "Open settings",
+      "commandHeadingB": "Signals",
+      "commandItemC": "Unread events"
+    },
+    "data": {
+      "tabs": {
+        "table": "Table",
+        "accordion": "Accordion",
+        "items": "Items"
+      },
+      "table": {
+        "component": "Component",
+        "status": "Status",
+        "version": "Version"
+      },
+      "ready": "Ready",
+      "accordion": {
+        "itemA": "Why isolate this clone?",
+        "bodyA": "Isolation keeps baseline UI independent from legacy implementation.",
+        "itemB": "How to extend this starter?",
+        "bodyB": "Use this route as the source for future custom BugLogin web layouts."
+      },
+      "items": {
+        "titleA": "Structured item shell",
+        "bodyA": "Item primitives help keep cards and lists consistent.",
+        "titleB": "Calendar-aware card",
+        "bodyB": "Combine item + schedule components for workflow timelines."
+      },
+      "progress": "Registry adoption",
+      "collapseTrigger": "Show loading skeletons"
+    },
+    "metrics": {
+      "avatarTitle": "shadcn-ui/ui",
+      "avatarSubtitle": "Highest-star source selected for clone baseline.",
+      "emptyTitle": "No additional blocks loaded",
+      "emptyDescription": "You can now branch this starter into custom web UX.",
+      "emptyAction": "Create block",
+      "leftPane": "Resizable left pane",
+      "rightPane": "Resizable right pane"
+    },
+    "toasts": {
+      "saved": "Saved successfully.",
+      "toastPreview": "Preview toast from Sonner.",
+      "previewButton": "Show toast"
+    }
+  },
+  "shadcnCloneSkill": {
+    "header": {
+      "mainNav": {
+        "docs": "Docs",
+        "components": "Components",
+        "blocks": "Blocks",
+        "charts": "Charts",
+        "directory": "Directory",
+        "create": "Create"
+      },
+      "subNav": {
+        "examples": "Examples",
+        "dashboard": "Dashboard",
+        "tasks": "Tasks",
+        "playground": "Playground",
+        "authentication": "Authentication",
+        "rtl": "RTL"
+      },
+      "searchPlaceholder": "Search documentation...",
+      "new": "New",
+      "neutral": "Neutral",
+      "sectionHint": "Explore cloned sections from ui.shadcn.com across docs, components, blocks, and charts."
+    },
+    "sidebar": {
+      "orgName": "Acme Inc.",
+      "home": "Home",
+      "documents": "Documents",
+      "top": {
+        "dashboard": "Dashboard",
+        "lifecycle": "Lifecycle",
+        "analytics": "Analytics",
+        "projects": "Projects",
+        "team": "Team"
+      },
+      "bottom": {
+        "dataLibrary": "Data Library",
+        "reports": "Reports",
+        "wordAssistant": "Word Assistant",
+        "more": "More"
+      }
+    },
+    "content": {
+      "title": "Documents",
+      "quickCreate": "Quick Create"
+    },
+    "stats": {
+      "revenue": {
+        "title": "Total Revenue",
+        "description": "Trending up this month",
+        "subDescription": "Visitors for the last 6 months"
+      },
+      "customers": {
+        "title": "New Customers",
+        "description": "Down 20% this period",
+        "subDescription": "Acquisition needs attention"
+      },
+      "accounts": {
+        "title": "Active Accounts",
+        "description": "Strong user retention",
+        "subDescription": "Engagement exceed targets"
+      },
+      "growth": {
+        "title": "Growth Rate",
+        "description": "Steady performance increase",
+        "subDescription": "Meets growth projections"
+      }
+    },
+    "chart": {
+      "title": "Total Visitors",
+      "description": "Total for the last 3 months",
+      "range": {
+        "3m": "Last 3 months",
+        "30d": "Last 30 days",
+        "7d": "Last 7 days"
+      }
+    },
+    "pages": {
+      "tasks": {
+        "title": "Tasks",
+        "action": "Create Task",
+        "tableTitle": "Task Queue",
+        "tableDescription": "Operational items synced from the cloned dashboard workflow.",
+        "chartTitle": "Task Throughput",
+        "columns": {
+          "task": "Task",
+          "status": "Status",
+          "priority": "Priority"
+        }
+      },
+      "playground": {
+        "title": "Playground",
+        "controls": "Control Surface",
+        "searchLabel": "Search block",
+        "searchPlaceholder": "Type to filter cloned blocks...",
+        "liveSync": "Live sync state",
+        "includeAssets": "Include downloaded assets",
+        "preview": "Preview Pool",
+        "previewDescription": "Seeded components ready for section composition."
+      },
+      "authentication": {
+        "signInTitle": "Sign in",
+        "signInDescription": "Clone-ready auth screen variant.",
+        "signUpTitle": "Create account",
+        "signUpDescription": "Secondary auth layout from the same design language.",
+        "email": "Email",
+        "password": "Password",
+        "name": "Name",
+        "namePlaceholder": "Your full name",
+        "signInButton": "Continue",
+        "signUpButton": "Create account"
+      },
+      "rtl": {
+        "title": "RTL",
+        "cardTitle": "Right-to-left preview",
+        "cardDescription": "Mirrored layout check for multilingual cloning.",
+        "body": "This panel validates directional behavior before production rollout."
+      }
+    },
+    "components": {
+      "title": "Components Directory",
+      "description": "Full registry coverage from the cloned shadcn component set."
+    },
+    "charts": {
+      "title": "Charts",
+      "visitors": "Visitors Trend",
+      "tasks": "Tasks Trend"
+    },
+    "directory": {
+      "title": "Directory",
+      "component": "Component",
+      "path": "Path",
+      "description": "Crawled {{value}} internal shadcn URLs (docs/components/examples/blocks/charts).",
+      "category": "Category",
+      "url": "URL"
+    },
+    "create": {
+      "title": "Create",
+      "cardTitle": "New Clone Job",
+      "cardDescription": "Configure a new target and reuse this cloned shell.",
+      "projectName": "Project name",
+      "targetUrl": "Target URL",
+      "includeAssets": "Include images/videos assets",
+      "button": "Start cloning"
+    },
+    "docs": {
+      "title": "Documentation",
+      "cardTitle": "Clone Workflow Notes",
+      "cardDescription": "Mapped from ai-website-cloner-template execution flow.",
+      "bulletA": "1. Capture references and interaction behavior.",
+      "bulletB": "2. Rebuild sections with design-token parity.",
+      "bulletC": "3. Validate web and desktop surfaces."
+    },
+    "routeViewer": {
+      "sidebarTitle": "Clone Route Directory",
+      "searchPlaceholder": "Search cloned shadcn paths...",
+      "previewTitle": "Source Mirror",
+      "previewDescription": "Viewing {{path}} from ui.shadcn.com inside this clone route.",
+      "groups": {
+        "examples": "Examples",
+        "components": "Components",
+        "blocks": "Blocks",
+        "charts": "Charts",
+        "docs": "Docs",
+        "themes": "Themes",
+        "other": "Other"
+      },
+      "actions": {
+        "allRoutes": "All Routes",
+        "openWeb": "Open Web",
+        "openDesktop": "Open Desktop",
+        "openSource": "Open Source"
+      }
+    },
+    "footer": {
+      "source": "Cloned with ai-website-cloner-template flow · target: ui.shadcn.com/examples/dashboard"
+    }
+  },
+  "bugloginHome": {
+    "logoAlt": "BugLogin Global Logo",
+    "searchPlaceholder": "Search profiles, workflows, settings...",
+    "header": {
+      "title": "BugLogin Global Workspace",
+      "subtitle": "Shadcn-based homepage baseline for BugLogin web.",
+      "notifications": "Notifications",
+      "refresh": "Sync now",
+      "newProfile": "New profile"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "activity": "Activity",
+      "resources": "Resources"
+    },
+    "sidebar": {
+      "group": "Workspace",
+      "overview": "Overview",
+      "profiles": "Profiles",
+      "automation": "Automation",
+      "sync": "Sync Center",
+      "settings": "Settings",
+      "statusLabel": "System status",
+      "statusValue": "All services healthy"
+    },
+    "metrics": {
+      "profiles": {
+        "label": "Total profiles",
+        "hint": "Profiles available across all workspaces"
+      },
+      "running": {
+        "label": "Running now",
+        "hint": "Profiles currently active"
+      },
+      "successRate": {
+        "label": "Automation success",
+        "hint": "Average completion rate in last 24h"
+      },
+      "syncLatency": {
+        "label": "Realtime sync latency",
+        "hint": "Current event delivery delay"
+      }
+    },
+    "workspace": {
+      "title": "Profiles workspace",
+      "description": "Control large profile sets with shadcn primitives and scalable table patterns.",
+      "actions": {
+        "profiles": "Manage profiles",
+        "automation": "Open automation",
+        "analytics": "View analytics"
+      }
+    },
+    "table": {
+      "columns": {
+        "profile": "Profile",
+        "state": "State",
+        "lastSync": "Last sync",
+        "health": "Health"
+      },
+      "state": {
+        "running": "Running",
+        "idle": "Idle",
+        "locked": "Locked"
+      },
+      "health": {
+        "ok": "Healthy",
+        "warning": "Needs review"
+      }
+    },
+    "insights": {
+      "title": "Operational insights",
+      "description": "Quick view for automation and workspace stability.",
+      "cards": {
+        "running": {
+          "title": "Running monitor",
+          "body": "Keep active sessions stable before scaling from 500 to 2000+ profiles."
+        },
+        "flow": {
+          "title": "Flow readiness",
+          "body": "Use this baseline shell as starting point for next BugLogin UX phases."
         }
       }
     }

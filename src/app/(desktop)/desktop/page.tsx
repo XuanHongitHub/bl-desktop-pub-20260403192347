@@ -4,13 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrent } from "@tauri-apps/plugin-deep-link";
 import dynamic from "next/dynamic";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GroupBadges } from "@/components/group-badges";
@@ -34,9 +28,8 @@ import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { useWayfernTerms } from "@/hooks/use-wayfern-terms";
 import { getBrowserDisplayName } from "@/lib/browser-utils";
 import { extractRootError } from "@/lib/error-utils";
-import { formatLocaleDate } from "@/lib/locale-format";
 import { invokeCached } from "@/lib/ipc-query-cache";
-import { openWebBillingPortal } from "@/lib/web-billing-desktop";
+import { formatLocaleDate } from "@/lib/locale-format";
 import {
   canPerformTeamAction,
   normalizeTeamRole,
@@ -49,8 +42,8 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
+import { openWebBillingPortal } from "@/lib/web-billing-desktop";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
-import { updateWorkspaceProfilesUsed } from "@/lib/workspace-switcher";
 import {
   DATA_SCOPE_CHANGED_EVENT,
   distributeUnscopedEntityIdsForAccount,
@@ -60,6 +53,7 @@ import {
   setCurrentDataScope,
   toDataScopeKey,
 } from "@/lib/workspace-data-scope";
+import { updateWorkspaceProfilesUsed } from "@/lib/workspace-switcher";
 import type {
   AppSection,
   BrowserProfile,
@@ -69,10 +63,10 @@ import type {
   WayfernConfig,
 } from "@/types";
 
-const AuthPricingWorkspace = dynamic(
+const PortalAuthPage = dynamic(
   () =>
-    import("@/components/auth-pricing-workspace").then(
-      (mod) => mod.AuthPricingWorkspace,
+    import("@/components/portal/auth/portal-auth-page").then(
+      (mod) => mod.PortalAuthPage,
     ),
   { ssr: false, loading: () => <PageLoader /> },
 );
@@ -309,6 +303,7 @@ interface WorkspaceSwitcherOption {
   details?: string;
   status?: string;
   planLabel?: string;
+  profileLimit?: number | null;
 }
 
 interface WorkspaceSwitcherSummary {
@@ -414,17 +409,18 @@ const WORKSPACE_OWNER_SECTIONS: AppSection[] = [
   "workspace-governance",
 ];
 
-const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppSection>> =
-  {
-    "workspace-governance": "workspace-owner-overview",
-    "workspace-admin-overview": "workspace-owner-overview",
-    "workspace-owner-directory": "workspace-admin-members",
-    "workspace-admin-directory": "workspace-admin-members",
-    "workspace-owner-permissions": "workspace-admin-access",
-    "workspace-admin-permissions": "workspace-admin-access",
-    "workspace-admin-system": "workspace-owner-overview",
-    "workspace-admin-analytics": "workspace-owner-overview",
-  };
+const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<
+  Record<AppSection, AppSection>
+> = {
+  "workspace-governance": "workspace-owner-overview",
+  "workspace-admin-overview": "workspace-owner-overview",
+  "workspace-owner-directory": "workspace-admin-members",
+  "workspace-admin-directory": "workspace-admin-members",
+  "workspace-owner-permissions": "workspace-admin-access",
+  "workspace-admin-permissions": "workspace-admin-access",
+  "workspace-admin-system": "workspace-owner-overview",
+  "workspace-admin-analytics": "workspace-owner-overview",
+};
 
 const SUPER_ADMIN_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppSection>> =
   {
@@ -687,7 +683,8 @@ function extractCheckoutCallbackPayload(
   try {
     const parsed = new URL(rawUrl);
     const isBugloginCallback =
-      parsed.protocol === "buglogin:" && parsed.hostname === "checkout-callback";
+      parsed.protocol === "buglogin:" &&
+      parsed.hostname === "checkout-callback";
     const isLocalhostCallback =
       (parsed.protocol === "http:" || parsed.protocol === "https:") &&
       (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
@@ -741,17 +738,23 @@ function buildUrlProcessingKey(rawUrl: string): string {
 
 export default function Home() {
   const { t } = useTranslation();
+  const [mounted, setMounted] = useState(false);
   const showRuntimeConfigHints =
     process.env.NEXT_PUBLIC_SHOW_RUNTIME_CONFIG_HINTS === "1";
   const isDeveloperBuild =
     process.env.NODE_ENV !== "production" ||
     process.env.NEXT_PUBLIC_ENABLE_LOCAL_DEV_AUTH === "1";
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
   const normalizedActiveSection = normalizeLegacyAppSection(activeSection);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isProfilesSectionActive = normalizedActiveSection === "profiles";
-  const isBugideaSectionActive = normalizedActiveSection === "bugidea-automation";
+  const isBugideaSectionActive =
+    normalizedActiveSection === "bugidea-automation";
   const isWorkspaceOwnerPanelActive = isWorkspaceOwnerSection(
     normalizedActiveSection,
   );
@@ -767,8 +770,10 @@ export default function Home() {
   const [hasHydratedVpnData, setHasHydratedVpnData] = useState(false);
   const shouldLoadProfileGroupData =
     isProfilesSectionActive && hasHydratedGroupData;
-  const shouldLoadProxyEntityData = hasHydratedProxyData;
-  const shouldLoadVpnEntityData = hasHydratedVpnData;
+  const shouldLoadProxyEntityData =
+    hasHydratedProxyData || isProfilesSectionActive || isBugideaSectionActive;
+  const shouldLoadVpnEntityData =
+    hasHydratedVpnData || isProfilesSectionActive || isBugideaSectionActive;
   const shouldLoadWorkspaceProfileUsage = shouldLoadWorkspaceEntityData;
   const shouldLoadWorkspaceSwitcherData = false;
   const shouldSeedWorkspaceScopes = shouldLoadWorkspaceEntityData;
@@ -1350,6 +1355,7 @@ export default function Home() {
                 `shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`,
               )),
         planLabel: workspace.planLabel ?? undefined,
+        profileLimit: workspace.profileLimit,
       }));
     }
 
@@ -1373,6 +1379,7 @@ export default function Home() {
               ),
             }),
         planLabel: workspace.planLabel ?? undefined,
+        profileLimit: workspace.profileLimit,
       }));
     }
 
@@ -1387,7 +1394,8 @@ export default function Home() {
       });
       options.push({
         id: cloudUser?.teamId ?? "team",
-        label: cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
+        label:
+          cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
         details: t("shell.workspaceSwitcher.usageProfiles", {
           used: cloudUser?.cloudProfilesUsed,
           limit: teamProfileLimit || "∞",
@@ -1397,6 +1405,7 @@ export default function Home() {
           status: cloudUser?.subscriptionStatus,
         }),
         planLabel: teamPlanLabel ?? undefined,
+        profileLimit: teamProfileLimit,
       });
     }
     const defaultPersonalPlanLabel =
@@ -1424,15 +1433,25 @@ export default function Home() {
         status: cloudUser?.subscriptionStatus,
       }),
       planLabel: defaultPersonalPlanLabel,
+      profileLimit: personalProfileLimit,
     });
 
-    if (workspaceSwitcherError && cloudUser?.platformRole === "platform_admin") {
+    if (
+      workspaceSwitcherError &&
+      cloudUser?.platformRole === "platform_admin"
+    ) {
       options.unshift({
         id: "platform-fallback",
         label: "Bug Media",
         details: t("shell.workspaceSwitcher.syncUnavailable"),
         status: workspaceSwitcherError,
         planLabel: formatPlanLabel(cloudUser?.plan) ?? undefined,
+        profileLimit: resolveWorkspaceProfileLimit({
+          workspaceId: "platform-fallback",
+          workspaceMode: "team",
+          planLabel: formatPlanLabel(cloudUser?.plan),
+          profileLimit: cloudUser?.profileLimit,
+        }),
       });
     }
 
@@ -1985,11 +2004,7 @@ export default function Home() {
           preferredScopeKey,
         );
 
-        if (
-          didMigrateGuest ||
-          didNormalizeScopes ||
-          didChangeProfiles
-        ) {
+        if (didMigrateGuest || didNormalizeScopes || didChangeProfiles) {
           window.dispatchEvent(new Event(DATA_SCOPE_CHANGED_EVENT));
         }
       } catch {
@@ -2469,9 +2484,7 @@ export default function Home() {
   const hasCheckedMissingBinariesRef = useRef(
     hasCheckedMissingBinariesGlobally,
   );
-  const hasEnsuredActiveBrowsersRef = useRef(
-    hasEnsuredActiveBrowsersGlobally,
-  );
+  const hasEnsuredActiveBrowsersRef = useRef(hasEnsuredActiveBrowsersGlobally);
 
   useEffect(() => {
     profilesRef.current = profiles;
@@ -2513,10 +2526,13 @@ export default function Home() {
         console.log("URL received for opening:", normalizedUrl);
         const oauthPayload = extractOAuthCallbackPayload(normalizedUrl);
         if (oauthPayload) {
+          setIsPostLoginTransitioning(true);
           if (oauthPayload.error) {
             const oauthErrorKey = oauthPayload.error.toLowerCase();
             const oauthErrorDescriptionMap: Record<string, string> = {
-              invalid_callback_payload: t("authLanding.googleErrorInvalidCallback"),
+              invalid_callback_payload: t(
+                "authLanding.googleErrorInvalidCallback",
+              ),
               invalid_token_payload: t("authLanding.googleErrorInvalidToken"),
               google_userinfo_unreachable: t("authLanding.googleErrorUserinfo"),
               authorization_code_not_supported: t(
@@ -2529,12 +2545,14 @@ export default function Home() {
               description:
                 oauthErrorDescriptionMap[oauthErrorKey] ?? oauthPayload.error,
             });
+            setIsPostLoginTransitioning(false);
             return;
           }
           if (!oauthPayload.email) {
             showErrorToast(t("authLanding.googleLoginErrorTitle"), {
               description: "invalid_callback_payload",
             });
+            setIsPostLoginTransitioning(false);
             return;
           }
 
@@ -2557,6 +2575,7 @@ export default function Home() {
               showErrorToast(t("authLanding.controlAuthUnavailableTitle"), {
                 description: t("authLanding.controlAuthUnavailableDescription"),
               });
+              setIsPostLoginTransitioning(false);
               return;
             }
             if (
@@ -2564,11 +2583,13 @@ export default function Home() {
               authMessage.includes("password_login_required")
             ) {
               showErrorToast(t("authLanding.googleSoon"));
+              setIsPostLoginTransitioning(false);
               return;
             }
             showErrorToast(t("authDialog.loginFailed"), {
               description: authMessage,
             });
+            setIsPostLoginTransitioning(false);
           }
           return;
         }
@@ -2604,7 +2625,13 @@ export default function Home() {
         }
       }
     },
-    [handleWorkspaceChange, loginWithEmail, refreshProfile, sidebarWorkspaceId, t],
+    [
+      handleWorkspaceChange,
+      loginWithEmail,
+      refreshProfile,
+      sidebarWorkspaceId,
+      t,
+    ],
   );
 
   useEffect(() => {
@@ -2933,7 +2960,9 @@ export default function Home() {
           ) ||
           normalizedRawError.includes("provide a wayferntoken parameter")
         ) {
-          detailMessages.push(t("toasts.error.profileCreateWayfernTokenRequired"));
+          detailMessages.push(
+            t("toasts.error.profileCreateWayfernTokenRequired"),
+          );
         }
 
         showErrorToast(t("toasts.error.profileCreateFailed"), {
@@ -3408,15 +3437,17 @@ export default function Home() {
           const toastId = `sync-${profile_id}`;
           const profile = profilesRef.current.find((p) => p.id === profile_id);
           const name =
-            profile?.name ??
-            translationRef.current("common.labels.unknown");
+            profile?.name ?? translationRef.current("common.labels.unknown");
 
           if (status === "syncing") {
             showToast({
               type: "loading",
-              title: translationRef.current("profiles.syncToggle.syncingProfile", {
-                name,
-              }),
+              title: translationRef.current(
+                "profiles.syncToggle.syncingProfile",
+                {
+                  name,
+                },
+              ),
               id: toastId,
               duration: Number.POSITIVE_INFINITY,
               onCancel: () => dismissToast(toastId),
@@ -3429,7 +3460,9 @@ export default function Home() {
           } else if (status === "error") {
             dismissToast(toastId);
             showErrorToast(
-              translationRef.current("toasts.error.profileSyncFailed", { name }),
+              translationRef.current("toasts.error.profileSyncFailed", {
+                name,
+              }),
               {
                 description: error ?? undefined,
               },
@@ -3449,8 +3482,7 @@ export default function Home() {
           const toastId = `sync-${profile_id}`;
           const profile = profilesRef.current.find((p) => p.id === profile_id);
           const name =
-            profile?.name ??
-            translationRef.current("common.labels.unknown");
+            profile?.name ?? translationRef.current("common.labels.unknown");
 
           showSyncProgressToast(name, total_files ?? 0, total_bytes ?? 0, {
             id: toastId,
@@ -3928,7 +3960,12 @@ export default function Home() {
             </WorkspacePageShell>
           );
         }
-        const superSidebarTab: "overview" | "workspace" | "billing" | "cookies" | "audit" =
+        const superSidebarTab:
+          | "overview"
+          | "workspace"
+          | "billing"
+          | "cookies"
+          | "audit" =
           activeSection === "super-admin-workspace" ||
           activeSection === "admin-workspace"
             ? "workspace"
@@ -3997,7 +4034,9 @@ export default function Home() {
                 onSettingsPageOpen={() => setActiveSection("settings")}
                 onSyncConfigDialogOpen={setSyncConfigDialogOpen}
                 onIntegrationsPageOpen={() => setActiveSection("integrations")}
-                onExtensionManagementDialogOpen={setExtensionManagementDialogOpen}
+                onExtensionManagementDialogOpen={
+                  setExtensionManagementDialogOpen
+                }
                 extensionManagementUnlocked={extensionManagementUnlocked}
               />
             }
@@ -4022,9 +4061,9 @@ export default function Home() {
                 onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
               />
             }
-            shellClassName="gap-3"
-            toolbarClassName="mt-2.5"
-            contentClassName="max-w-none space-y-3 pb-0"
+            shellClassName="gap-2.5"
+            toolbarClassName="mt-2"
+            contentClassName="max-w-none space-y-2.5 pb-0"
           >
             {filteredProfiles.length === 0 &&
               profiles.length > 0 &&
@@ -4047,7 +4086,7 @@ export default function Home() {
                   </Button>
                 </div>
               )}
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
               <div className="shrink-0">
                 <GroupBadges
                   selectedGroupId={selectedGroupId}
@@ -4124,24 +4163,23 @@ export default function Home() {
     }
   };
 
-  if (!cloudUser) {
-    if (isCloudAuthLoading) {
-      return (
-        <PageLoader
-          mode="fullscreen"
-          className="type-ui font-(family-name:--font-sans)"
-        />
-      );
-    }
+  if (!mounted) {
+    return null;
+  }
 
+  if (!cloudUser && isCloudAuthLoading) {
+    return <PageLoader mode="fullscreen" className="type-ui" />;
+  }
+
+  if (!cloudUser) {
     return (
-      <div className="type-ui relative flex min-h-screen bg-background font-(family-name:--font-sans)">
+      <div className="type-ui relative flex min-h-screen bg-background">
         {pendingConfigMessages.length > 0 && (
           <div className="type-section fixed top-0 left-0 right-0 z-50 flex justify-center border-b border-border bg-muted/80 px-4 py-2 uppercase text-muted-foreground backdrop-blur-md">
             {pendingConfigMessages.join(" • ")}
           </div>
         )}
-        <AuthPricingWorkspace runtimeConfig={runtimeConfig} />
+        <PortalAuthPage surface="desktop" />
         <SyncConfigDialog
           isOpen={syncConfigDialogOpen}
           onClose={(loginOccurred) => {
@@ -4156,16 +4194,11 @@ export default function Home() {
   }
 
   if (isPostLoginTransitioning) {
-    return (
-      <PageLoader
-        mode="fullscreen"
-        className="type-ui font-(family-name:--font-sans)"
-      />
-    );
+    return <PageLoader mode="fullscreen" className="type-ui" />;
   }
 
   return (
-    <div className="type-ui flex h-screen overflow-hidden bg-background font-(family-name:--font-sans)">
+    <div className="type-ui flex h-screen overflow-hidden bg-background">
       <AppSidebar
         activeSection={activeSection}
         collapsed={sidebarCollapsed}
@@ -4193,9 +4226,7 @@ export default function Home() {
         }}
       />
 
-      <main
-        className="app-shell-safe flex min-w-0 flex-1 flex-col overflow-hidden pl-6 pb-4 md:pl-8 md:pb-6"
-      >
+      <main className="app-shell-safe flex min-w-0 flex-1 flex-col overflow-hidden pl-3 pb-2.5 md:pl-4 md:pb-3">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <MainWorkspaceTopBar
             workspaceName={

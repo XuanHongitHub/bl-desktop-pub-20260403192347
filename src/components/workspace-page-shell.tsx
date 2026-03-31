@@ -29,7 +29,9 @@ export function WorkspacePageShell({
 }: WorkspacePageShellProps) {
   const hasHeaderContent = Boolean(title || description || actions || toolbar);
   const contentNode = (
-    <div className={cn("w-full space-y-6 pr-4 pb-8 md:pr-6", contentClassName)}>
+    <div
+      className={cn("w-full space-y-3 pr-2.5 pb-3 md:pr-3", contentClassName)}
+    >
       {children}
     </div>
   );
@@ -37,28 +39,40 @@ export function WorkspacePageShell({
   return (
     <div
       className={cn(
-        "flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden",
+        "flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden",
         shellClassName,
       )}
     >
       {hasHeaderContent ? (
-        <div className={cn("app-shell-safe-header shrink-0", headerClassName)}>
-          <div className="flex items-start justify-between gap-4">
+        <div
+          className={cn(
+            "app-shell-safe-header shrink-0 pr-2.5 md:pr-3",
+            headerClassName,
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {title ? (
-                <h2 className="truncate text-lg font-semibold leading-tight">
+                <h2 className="truncate text-base font-semibold leading-tight">
                   {title}
                 </h2>
               ) : null}
               {description && (
-                <p className={cn("max-w-2xl text-sm text-muted-foreground", title ? "mt-2" : "mt-0")}>
+                <p
+                  className={cn(
+                    "max-w-2xl text-xs text-muted-foreground",
+                    title ? "mt-1" : "mt-0",
+                  )}
+                >
                   {description}
                 </p>
               )}
             </div>
             {actions && <div className="shrink-0">{actions}</div>}
           </div>
-          {toolbar && <div className={cn("mt-4", toolbarClassName)}>{toolbar}</div>}
+          {toolbar && (
+            <div className={cn("mt-2", toolbarClassName)}>{toolbar}</div>
+          )}
         </div>
       ) : null}
 

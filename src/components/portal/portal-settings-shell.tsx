@@ -1,28 +1,28 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  type LucideIcon,
+  Activity,
+  BadgeDollarSign,
+  Building2,
   CreditCard,
   FileText,
   Gauge,
+  type LucideIcon,
   ReceiptText,
   Settings2,
-  Building2,
-  Activity,
-  BadgeDollarSign,
-  UserRound,
   User,
+  UserRound,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Logo } from "@/components/icons/logo";
+import { PORTAL_CONTENT_WIDTH_CLASS } from "@/components/portal/portal-geometry";
 import { PortalHeaderControls } from "@/components/portal/portal-header-controls";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
-import { PORTAL_CONTENT_WIDTH_CLASS } from "@/components/portal/portal-geometry";
-import { Logo } from "@/components/icons/logo";
+import { cn } from "@/lib/utils";
 
 export type PortalSettingsNavItem = {
   href: string;
@@ -31,23 +31,60 @@ export type PortalSettingsNavItem = {
 };
 
 export const ACCOUNT_SETTINGS_NAV: PortalSettingsNavItem[] = [
-  { href: "/account", labelKey: "portalSite.account.nav.overview", icon: UserRound },
-  { href: "/account/billing", labelKey: "portalSite.account.nav.billing", icon: CreditCard },
-  { href: "/account/invoices", labelKey: "portalSite.account.nav.invoices", icon: ReceiptText },
-  { href: "/account/settings", labelKey: "portalSite.account.nav.settings", icon: Settings2 },
+  {
+    href: "/account",
+    labelKey: "portalSite.account.nav.overview",
+    icon: UserRound,
+  },
+  {
+    href: "/account/billing",
+    labelKey: "portalSite.account.nav.billing",
+    icon: CreditCard,
+  },
+  {
+    href: "/account/invoices",
+    labelKey: "portalSite.account.nav.invoices",
+    icon: ReceiptText,
+  },
+  {
+    href: "/account/settings",
+    labelKey: "portalSite.account.nav.settings",
+    icon: Settings2,
+  },
 ];
 
 export const ADMIN_SETTINGS_NAV: PortalSettingsNavItem[] = [
-  { href: "/admin", labelKey: "portalSite.admin.nav.overview", icon: Gauge },
-  { href: "/admin/workspaces", labelKey: "portalSite.admin.nav.workspaces", icon: Building2 },
-  { href: "/admin/revenue", labelKey: "portalSite.admin.nav.revenue", icon: BadgeDollarSign },
-  { href: "/admin/audit-log", labelKey: "portalSite.admin.nav.auditLog", icon: FileText },
-  { href: "/admin/system", labelKey: "portalSite.admin.nav.system", icon: Activity },
+  {
+    href: "/admin/command-center",
+    labelKey: "portalSite.admin.nav.commandCenter",
+    icon: Gauge,
+  },
+  {
+    href: "/admin/workspaces",
+    labelKey: "portalSite.admin.nav.workspaces",
+    icon: Building2,
+  },
+  {
+    href: "/admin/revenue",
+    labelKey: "portalSite.admin.nav.revenue",
+    icon: BadgeDollarSign,
+  },
+  {
+    href: "/admin/audit-log",
+    labelKey: "portalSite.admin.nav.auditLog",
+    icon: FileText,
+  },
+  {
+    href: "/admin/system",
+    labelKey: "portalSite.admin.nav.system",
+    icon: Activity,
+  },
 ];
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/account") return pathname === "/account";
-  if (href === "/admin") return pathname === "/admin";
+  if (href === "/admin/command-center")
+    return pathname === "/admin" || pathname === "/admin/command-center";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

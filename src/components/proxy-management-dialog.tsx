@@ -373,6 +373,11 @@ export function ProxyManagementDialog({
           proxyId: proxy.id,
           enabled: !proxy.sync_enabled,
         });
+        try {
+          await invoke("restart_sync_service");
+        } catch {
+          // Keep toggle successful even if scheduler restart is delayed.
+        }
         showSuccessToast(
           proxy.sync_enabled
             ? t("proxyManagementDialog.toasts.syncDisabled")
@@ -439,6 +444,11 @@ export function ProxyManagementDialog({
           vpnId: vpn.id,
           enabled: !vpn.sync_enabled,
         });
+        try {
+          await invoke("restart_sync_service");
+        } catch {
+          // Keep toggle successful even if scheduler restart is delayed.
+        }
         showSuccessToast(
           vpn.sync_enabled
             ? t("proxyManagementDialog.toasts.syncDisabled")
@@ -520,7 +530,7 @@ export function ProxyManagementDialog({
           <Spinner size="md" />
         </div>
       ) : storedProxies.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {t("proxyManagementDialog.emptyProxies")}
         </div>
       ) : (
@@ -552,7 +562,7 @@ export function ProxyManagementDialog({
                   const isDerived = proxy.is_cloud_derived === true;
                   return (
                     <TableRow key={proxy.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="text-xs font-medium">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-2">
                             {isDerived && proxy.geo_country && (
@@ -769,7 +779,7 @@ export function ProxyManagementDialog({
           <Spinner size="md" />
         </div>
       ) : vpnConfigs.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {t("proxyManagementDialog.emptyVpns")}
         </div>
       ) : (
@@ -802,7 +812,7 @@ export function ProxyManagementDialog({
                   );
                   return (
                     <TableRow key={vpn.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="text-xs font-medium">
                         <div className="flex items-center gap-2">
                           <Tooltip>
                             <TooltipTrigger asChild>

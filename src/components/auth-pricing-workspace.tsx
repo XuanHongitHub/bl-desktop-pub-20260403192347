@@ -32,17 +32,17 @@ import {
   getThemeAppearance,
 } from "@/lib/themes";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import { cn } from "@/lib/utils";
 import type { RuntimeConfigStatus } from "@/types";
 import { Logo } from "./icons/logo";
 import { LoadingButton } from "./loading-button";
-import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { ScrollArea } from "./ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import { cn } from "@/lib/utils";
 
 type AuthView = "login" | "register" | "forgot";
 type GoogleAuthUiState = "idle" | "browser_opened";
@@ -100,7 +100,7 @@ function resolveAuthErrorMessage(
 }
 
 export function AuthPricingWorkspace({
-  runtimeConfig,
+  runtimeConfig: _runtimeConfig,
 }: AuthPricingWorkspaceProps = {}) {
   const { t } = useTranslation();
   const { loginWithEmail, refreshProfile, requestOtp, registerWithEmail } =
@@ -461,7 +461,8 @@ export function AuthPricingWorkspace({
                   {supportedLanguages.map((language) => {
                     const isSelected = currentLanguage === language.code;
                     const compactLabel = language.code.toUpperCase();
-                    const flagClass = LANGUAGE_FLAG_CLASS[language.code] ?? "fi";
+                    const flagClass =
+                      LANGUAGE_FLAG_CLASS[language.code] ?? "fi";
                     return (
                       <button
                         key={language.code}
@@ -586,357 +587,369 @@ export function AuthPricingWorkspace({
                 )}
               </CardHeader>
               <CardContent className="space-y-4 pt-5">
+                {authView === "login" && (
+                  <div className="space-y-2.5 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-login-email"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("authDialog.emailLabel")}
+                      </Label>
+                      <Input
+                        id="auth-pricing-login-email"
+                        type="email"
+                        value={loginEmail}
+                        onChange={(event) => setLoginEmail(event.target.value)}
+                        placeholder={t("authDialog.emailPlaceholder")}
+                        disabled={isSubmitting}
+                        className="h-10 bg-background/50"
+                      />
+                    </div>
 
-          {authView === "login" && (
-            <div className="space-y-2.5 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-login-email"
-                  className="text-[13px] font-medium"
-                >
-                  {t("authDialog.emailLabel")}
-                </Label>
-                <Input
-                  id="auth-pricing-login-email"
-                  type="email"
-                  value={loginEmail}
-                  onChange={(event) => setLoginEmail(event.target.value)}
-                  placeholder={t("authDialog.emailPlaceholder")}
-                  disabled={isSubmitting}
-                  className="h-10 bg-background/50"
-                />
-              </div>
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-login-password"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("proxies.form.password")}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="auth-pricing-login-password"
+                          type={showLoginPassword ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(event) =>
+                            setLoginPassword(event.target.value)
+                          }
+                          placeholder={t("authDialog.passwordPlaceholder")}
+                          disabled={isSubmitting}
+                          className="h-10 bg-background/50 pr-11"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowLoginPassword((current) => !current)
+                          }
+                          className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label={
+                            showLoginPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          title={
+                            showLoginPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          disabled={isSubmitting}
+                        >
+                          {showLoginPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-login-password"
-                  className="text-[13px] font-medium"
-                >
-                  {t("proxies.form.password")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="auth-pricing-login-password"
-                    type={showLoginPassword ? "text" : "password"}
-                    value={loginPassword}
-                    onChange={(event) => setLoginPassword(event.target.value)}
-                    placeholder={t("authDialog.passwordPlaceholder")}
-                    disabled={isSubmitting}
-                    className="h-10 bg-background/50 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPassword((current) => !current)}
-                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={
-                      showLoginPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    title={
-                      showLoginPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    disabled={isSubmitting}
-                  >
-                    {showLoginPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <label
+                        htmlFor="auth-pricing-remember-me"
+                        className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+                      >
+                        <Checkbox
+                          id="auth-pricing-remember-me"
+                          checked={rememberMe}
+                          onCheckedChange={(checked) =>
+                            setRememberMe(checked === true)
+                          }
+                          disabled={isSubmitting}
+                        />
+                        <span>{t("authDialog.rememberMe")}</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setAuthView("forgot")}
+                        className="ml-auto rounded-sm text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:underline"
+                        disabled={isSubmitting}
+                      >
+                        {t("authLanding.tabs.forgot")}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 pt-1">
+                      <LoadingButton
+                        type="button"
+                        className="h-10 w-full shadow-sm font-medium"
+                        onClick={handleSignIn}
+                        isLoading={isSubmitting}
+                        disabled={isSubmitting}
+                      >
+                        {t("authDialog.signInWithEmail")}
+                      </LoadingButton>
+
+                      <div className="relative py-1">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-border/70" />
+                        </div>
+                        <span className="relative mx-auto block w-fit bg-background px-2 text-[11px] text-muted-foreground xl:bg-card">
+                          {t("authLanding.orContinueWith")}
+                        </span>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 w-full shadow-sm font-medium"
+                        disabled={isSubmitting}
+                        onClick={() => handleGoogleLogin()}
+                      >
+                        <FaGoogle
+                          className="mr-2.5 h-3.5 w-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {t("authLanding.googleButton")}
+                      </Button>
+                    </div>
+
+                    {googleAuthState === "browser_opened" && (
+                      <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-3 text-sm">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">
+                            {t("authLanding.googleOpenBrowserTitle")}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {t("authLanding.googleInlineHint")}
+                          </p>
+                        </div>
+                      </div>
                     )}
-                  </button>
-                </div>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                <label
-                  htmlFor="auth-pricing-remember-me"
-                  className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <Checkbox
-                    id="auth-pricing-remember-me"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked === true)
-                    }
-                    disabled={isSubmitting}
-                  />
-                  <span>{t("authDialog.rememberMe")}</span>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthView("forgot")}
-                  className="ml-auto rounded-sm text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:underline"
-                  disabled={isSubmitting}
-                >
-                  {t("authLanding.tabs.forgot")}
-                </button>
-              </div>
-
-	              <div className="grid grid-cols-1 gap-2 pt-1">
-	                <LoadingButton
-	                  type="button"
-	                  className="h-10 w-full shadow-sm font-medium"
-                  onClick={handleSignIn}
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting}
-                >
-                  {t("authDialog.signInWithEmail")}
-                </LoadingButton>
-
-                <div className="relative py-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/70" />
+                    <p className="pt-1.5 text-center text-xs text-muted-foreground">
+                      {t("authLanding.noAccountPrompt")}{" "}
+                      <button
+                        type="button"
+                        onClick={() => setAuthView("register")}
+                        className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
+                        disabled={isSubmitting}
+                      >
+                        {t("authLanding.signUpCta")}
+                      </button>
+                    </p>
                   </div>
-                  <span className="relative mx-auto block w-fit bg-background px-2 text-[11px] text-muted-foreground xl:bg-card">
-                    {t("authLanding.orContinueWith")}
-                  </span>
-                </div>
+                )}
 
-	                <Button
-	                  type="button"
-	                  variant="outline"
-	                  className="h-10 w-full shadow-sm font-medium"
-	                  disabled={isSubmitting}
-	                  onClick={() => handleGoogleLogin()}
-	                >
-	                  <FaGoogle
-                    className="mr-2.5 h-3.5 w-3.5 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-	                  {t("authLanding.googleButton")}
-	                </Button>
-	              </div>
+                {authView === "register" && (
+                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-register-name"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("authDialog.nameLabel")} (
+                        {t("authLanding.optionalLabel")})
+                      </Label>
+                      <Input
+                        id="auth-pricing-register-name"
+                        type="text"
+                        value={registerName}
+                        onChange={(event) =>
+                          setRegisterName(event.target.value)
+                        }
+                        placeholder={t("authLanding.registerNamePlaceholder")}
+                        disabled={isSubmitting}
+                        className="h-10"
+                      />
+                    </div>
 
-	              {googleAuthState === "browser_opened" && (
-	                <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-3 text-sm">
-	                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-	                  <div className="space-y-1">
-	                    <p className="font-medium text-foreground">
-	                      {t("authLanding.googleOpenBrowserTitle")}
-	                    </p>
-	                    <p className="text-muted-foreground">
-	                      {t("authLanding.googleInlineHint")}
-	                    </p>
-	                  </div>
-	                </div>
-	              )}
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-register-email"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("authDialog.emailLabel")}
+                      </Label>
+                      <Input
+                        id="auth-pricing-register-email"
+                        type="email"
+                        value={registerEmail}
+                        onChange={(event) =>
+                          setRegisterEmail(event.target.value)
+                        }
+                        placeholder={t("authDialog.emailPlaceholder")}
+                        disabled={isSubmitting}
+                        className="h-10"
+                      />
+                    </div>
 
-	              <p className="pt-1.5 text-center text-xs text-muted-foreground">
-	                {t("authLanding.noAccountPrompt")}{" "}
-	                <button
-                  type="button"
-                  onClick={() => setAuthView("register")}
-                  className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
-                  disabled={isSubmitting}
-                >
-                  {t("authLanding.signUpCta")}
-                </button>
-              </p>
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-register-password"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("proxies.form.password")}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="auth-pricing-register-password"
+                          type={showRegisterPassword ? "text" : "password"}
+                          value={registerPassword}
+                          onChange={(event) =>
+                            setRegisterPassword(event.target.value)
+                          }
+                          placeholder={t("authDialog.passwordPlaceholder")}
+                          disabled={isSubmitting}
+                          className="h-10 pr-11"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowRegisterPassword((current) => !current)
+                          }
+                          className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label={
+                            showRegisterPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          title={
+                            showRegisterPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          disabled={isSubmitting}
+                        >
+                          {showRegisterPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-            </div>
-          )}
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-register-password-confirm"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("authLanding.confirmPasswordLabel")}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="auth-pricing-register-password-confirm"
+                          type={
+                            showRegisterConfirmPassword ? "text" : "password"
+                          }
+                          value={registerConfirmPassword}
+                          onChange={(event) =>
+                            setRegisterConfirmPassword(event.target.value)
+                          }
+                          placeholder={t(
+                            "authLanding.confirmPasswordPlaceholder",
+                          )}
+                          disabled={isSubmitting}
+                          className="h-10 pr-11"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowRegisterConfirmPassword(
+                              (current) => !current,
+                            )
+                          }
+                          className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label={
+                            showRegisterConfirmPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          title={
+                            showRegisterConfirmPassword
+                              ? t("authDialog.hidePassword")
+                              : t("authDialog.showPassword")
+                          }
+                          disabled={isSubmitting}
+                        >
+                          {showRegisterConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-          {authView === "register" && (
-	            <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-register-name"
-                  className="text-[13px] font-medium"
-                >
-                  {t("authDialog.nameLabel")} ({t("authLanding.optionalLabel")})
-                </Label>
-                <Input
-                  id="auth-pricing-register-name"
-                  type="text"
-                  value={registerName}
-                  onChange={(event) => setRegisterName(event.target.value)}
-                  placeholder={t("authLanding.registerNamePlaceholder")}
-                  disabled={isSubmitting}
-                  className="h-10"
-                />
-              </div>
+                    <LoadingButton
+                      type="button"
+                      className="h-10 w-full shadow-sm font-medium"
+                      onClick={() => {
+                        void handleRegister();
+                      }}
+                      isLoading={isSubmitting}
+                      disabled={isSubmitting}
+                    >
+                      {t("authLanding.registerAction")}
+                    </LoadingButton>
+                  </div>
+                )}
 
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-register-email"
-                  className="text-[13px] font-medium"
-                >
-                  {t("authDialog.emailLabel")}
-                </Label>
-                <Input
-                  id="auth-pricing-register-email"
-                  type="email"
-                  value={registerEmail}
-                  onChange={(event) => setRegisterEmail(event.target.value)}
-                  placeholder={t("authDialog.emailPlaceholder")}
-                  disabled={isSubmitting}
-                  className="h-10"
-                />
-              </div>
+                {authView === "forgot" && (
+                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="auth-pricing-forgot-email"
+                        className="text-[13px] font-medium"
+                      >
+                        {t("authDialog.emailLabel")}
+                      </Label>
+                      <Input
+                        id="auth-pricing-forgot-email"
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(event) => setForgotEmail(event.target.value)}
+                        placeholder={t("authDialog.emailPlaceholder")}
+                        disabled={isSubmitting}
+                        className="h-10"
+                      />
+                    </div>
 
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-register-password"
-                  className="text-[13px] font-medium"
-                >
-                  {t("proxies.form.password")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="auth-pricing-register-password"
-                    type={showRegisterPassword ? "text" : "password"}
-                    value={registerPassword}
-                    onChange={(event) =>
-                      setRegisterPassword(event.target.value)
-                    }
-                    placeholder={t("authDialog.passwordPlaceholder")}
-                    disabled={isSubmitting}
-                    className="h-10 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowRegisterPassword((current) => !current)
-                    }
-                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={
-                      showRegisterPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    title={
-                      showRegisterPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    disabled={isSubmitting}
-                  >
-                    {showRegisterPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+                    <p className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                      {t("authLanding.forgotHint")}
+                    </p>
 
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-register-password-confirm"
-                  className="text-[13px] font-medium"
-                >
-                  {t("authLanding.confirmPasswordLabel")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="auth-pricing-register-password-confirm"
-                    type={showRegisterConfirmPassword ? "text" : "password"}
-                    value={registerConfirmPassword}
-                    onChange={(event) =>
-                      setRegisterConfirmPassword(event.target.value)
-                    }
-                    placeholder={t("authLanding.confirmPasswordPlaceholder")}
-                    disabled={isSubmitting}
-                    className="h-10 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowRegisterConfirmPassword((current) => !current)
-                    }
-                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={
-                      showRegisterConfirmPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    title={
-                      showRegisterConfirmPassword
-                        ? t("authDialog.hidePassword")
-                        : t("authDialog.showPassword")
-                    }
-                    disabled={isSubmitting}
-                  >
-                    {showRegisterConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <LoadingButton
-                type="button"
-                className="h-10 w-full shadow-sm font-medium"
-                onClick={() => {
-                  void handleRegister();
-                }}
-                isLoading={isSubmitting}
-                disabled={isSubmitting}
-              >
-                {t("authLanding.registerAction")}
-              </LoadingButton>
-
-            </div>
-          )}
-
-          {authView === "forgot" && (
-	            <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300 fill-mode-both">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="auth-pricing-forgot-email"
-                  className="text-[13px] font-medium"
-                >
-                  {t("authDialog.emailLabel")}
-                </Label>
-                <Input
-                  id="auth-pricing-forgot-email"
-                  type="email"
-                  value={forgotEmail}
-                  onChange={(event) => setForgotEmail(event.target.value)}
-                  placeholder={t("authDialog.emailPlaceholder")}
-                  disabled={isSubmitting}
-                  className="h-10"
-                />
-              </div>
-
-	              <p className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-	                {t("authLanding.forgotHint")}
-	              </p>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <LoadingButton
-                  type="button"
-                  className="h-10 w-full shadow-sm font-medium"
-                  onClick={() => {
-                    void handleForgotPassword();
-                  }}
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting}
-                >
-                  {t("authLanding.forgotAction")}
-                </LoadingButton>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-10 w-full font-medium text-muted-foreground hover:text-foreground"
-                  onClick={() => setAuthView("login")}
-                  disabled={isSubmitting}
-                >
-                  {t("authDialog.back")}
-	                </Button>
-	              </div>
-	            </div>
-	          )}
-	              </CardContent>
-	            </Card>
-	          </div>
-	        </ScrollArea>
-	      </div>
-	    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <LoadingButton
+                        type="button"
+                        className="h-10 w-full shadow-sm font-medium"
+                        onClick={() => {
+                          void handleForgotPassword();
+                        }}
+                        isLoading={isSubmitting}
+                        disabled={isSubmitting}
+                      >
+                        {t("authLanding.forgotAction")}
+                      </LoadingButton>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-10 w-full font-medium text-muted-foreground hover:text-foreground"
+                        onClick={() => setAuthView("login")}
+                        disabled={isSubmitting}
+                      >
+                        {t("authDialog.back")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
   );
 }

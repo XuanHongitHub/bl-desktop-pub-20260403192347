@@ -97,8 +97,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
       | "yearlyPrice"
       | "profiles"
       | "members"
-      | "storageGb"
-      | "proxyGb",
+      | "storageGb",
     value: string,
   ) => {
     const numeric = Number(value);
@@ -484,10 +483,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
               </div>
             </TabsContent>
 
-            <TabsContent
-              value="usage"
-              className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
-            >
+            <TabsContent value="usage" className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-muted-foreground">
                   {t("adminWorkspace.billing.customPlanProfiles")}
@@ -536,21 +532,6 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[12px] text-muted-foreground">
-                  {t("adminWorkspace.billing.customPlanProxy")}
-                </Label>
-                <Input
-                  value={customPlanDraft.proxyGb}
-                  onChange={(event) =>
-                    updateCustomPlanNumber("proxyGb", event.target.value)
-                  }
-                  type="number"
-                  min={1}
-                  className="h-10 text-[13px] bg-background"
-                  disabled={props.isBusy}
-                />
-              </div>
             </TabsContent>
 
             <TabsContent

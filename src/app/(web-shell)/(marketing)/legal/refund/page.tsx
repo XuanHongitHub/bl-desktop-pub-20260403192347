@@ -1,19 +1,32 @@
-import { PortalPageFrame } from "@/components/portal/portal-page-frame";
+"use client";
+
+import { useTranslation } from "react-i18next";
+import {
+  MARKETING_CONTENT_WIDTH_CLASS,
+  MARKETING_RAIL_WIDTH_CLASS,
+} from "@/components/portal/portal-geometry";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function RefundPage() {
+  const { t } = useTranslation();
+
   return (
-    <PortalPageFrame
-      title="Refund Policy"
-      description="Billing adjustments and refund handling for BugLogin workspace subscriptions."
-    >
-      <div className="space-y-3 text-sm leading-7 text-muted-foreground">
-        <p>
-          Refund requests are reviewed against plan terms, usage period, and payment confirmation records.
-        </p>
-        <p>
-          Contact support with workspace ID and transaction reference for expedited review.
-        </p>
-      </div>
-    </PortalPageFrame>
+    <section className={cn("space-y-8 py-16 sm:py-20", MARKETING_RAIL_WIDTH_CLASS, MARKETING_CONTENT_WIDTH_CLASS)}>
+      <header className="space-y-3">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t("portalSite.legal.refund.title")}</h1>
+        <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">{t("portalSite.legal.refund.description")}</p>
+      </header>
+      {["1", "2", "3"].map((section) => (
+        <Card key={section} className="border-border/70 bg-card/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t(`portalSite.legal.refund.sections.${section}.title`)}</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm leading-7 text-muted-foreground">
+            {t(`portalSite.legal.refund.sections.${section}.body`)}
+          </CardContent>
+        </Card>
+      ))}
+    </section>
   );
 }

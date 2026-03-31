@@ -1,6 +1,6 @@
-import { Suspense } from "react";
-import { WebsiteShell } from "@/components/website/website-shell";
 import { PortalRouteGuard } from "@/components/website/portal-route-guard";
+import { WebRuntimeOnlyGuard } from "@/components/website/runtime-surface-guard";
+import { PortalBillingDataProvider } from "@/hooks/use-portal-billing-data";
 
 export default function PortalWebLayout({
   children,
@@ -8,10 +8,10 @@ export default function PortalWebLayout({
   children: React.ReactNode;
 }) {
   return (
-    <WebsiteShell variant="portal">
-      <Suspense fallback={null}>
-        <PortalRouteGuard>{children}</PortalRouteGuard>
-      </Suspense>
-    </WebsiteShell>
+    <WebRuntimeOnlyGuard>
+      <PortalRouteGuard>
+        <PortalBillingDataProvider>{children}</PortalBillingDataProvider>
+      </PortalRouteGuard>
+    </WebRuntimeOnlyGuard>
   );
 }

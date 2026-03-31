@@ -291,11 +291,7 @@ export function AdminAnalyticsTab({
                       </TableCell>
                       <TableCell className="align-top">
                         <p className="text-sm text-foreground">
-                          {formatPercent(row.proxyBandwidthPercent)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {Math.round(row.proxyBandwidthUsedMb)} /{" "}
-                          {row.proxyBandwidthLimitMb} MB
+                          {Math.round(row.proxyBandwidthUsedMb)} MB
                         </p>
                       </TableCell>
                       <TableCell className="align-top">

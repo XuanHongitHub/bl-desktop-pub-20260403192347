@@ -221,6 +221,25 @@ impl SyncSubscription {
     key
   }
 
+  fn extract_profile_id(key: &str) -> Option<String> {
+    if let Some(profile_id) = key
+      .strip_prefix("profiles/")
+      .and_then(|s| s.strip_suffix(".tar.gz"))
+    {
+      if !profile_id.is_empty() {
+        return Some(profile_id.to_string());
+      }
+    }
+
+    let rest = key.strip_prefix("profiles/")?;
+    let mut parts = rest.split('/');
+    let profile_id = parts.next()?;
+    if profile_id.is_empty() || parts.next().is_none() {
+      return None;
+    }
+    Some(profile_id.to_string())
+  }
+
   fn handle_event(event: &SubscribeEvent, work_tx: &mpsc::UnboundedSender<SyncWorkItem>) {
     let Some(raw_key) = &event.key else {
       return;
@@ -233,10 +252,7 @@ impl SyncSubscription {
     let key = Self::strip_team_prefix(raw_key);
 
     let work_item = if key.starts_with("profiles/") {
-      key
-        .strip_prefix("profiles/")
-        .and_then(|s| s.strip_suffix(".tar.gz"))
-        .map(|s| SyncWorkItem::Profile(s.to_string()))
+      Self::extract_profile_id(key).map(SyncWorkItem::Profile)
     } else if key.starts_with("proxies/") {
       key
         .strip_prefix("proxies/")
@@ -368,5 +384,40 @@ impl SubscriptionManager {
 
   pub fn is_running(&self) -> bool {
     self.subscription.as_ref().is_some_and(|s| s.is_running())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn extract_profile_id_supports_manifest_layout() {
+    assert_eq!(
+      SyncSubscription::extract_profile_id("profiles/abc-123/manifest.json").as_deref(),
+      Some("abc-123")
+    );
+    assert_eq!(
+      SyncSubscription::extract_profile_id("profiles/abc-123/metadata.json").as_deref(),
+      Some("abc-123")
+    );
+    assert_eq!(
+      SyncSubscription::extract_profile_id("profiles/abc-123/files/Cookies").as_deref(),
+      Some("abc-123")
+    );
+  }
+
+  #[test]
+  fn extract_profile_id_keeps_backward_compat_tar_layout() {
+    assert_eq!(
+      SyncSubscription::extract_profile_id("profiles/legacy-id.tar.gz").as_deref(),
+      Some("legacy-id")
+    );
+  }
+
+  #[test]
+  fn strip_team_prefix_normalizes_team_scoped_keys() {
+    let normalized = SyncSubscription::strip_team_prefix("teams/team-1/profiles/abc/manifest.json");
+    assert_eq!(normalized, "profiles/abc/manifest.json");
   }
 }

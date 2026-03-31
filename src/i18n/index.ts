@@ -51,10 +51,19 @@ const resources = {
   en: { translation: en },
 };
 
+function resolveInitialLanguage(): string {
+  if (typeof window === "undefined") {
+    return "vi";
+  }
+  const documentLanguage = window.document?.documentElement?.lang ?? "vi";
+  return getLanguageWithFallback(documentLanguage);
+}
+
 i18n.use(initReactI18next).init({
   resources,
-  lng: "vi",
+  lng: resolveInitialLanguage(),
   fallbackLng: ["vi", "en"],
+  initImmediate: false,
   interpolation: {
     escapeValue: false,
   },

@@ -1619,9 +1619,17 @@ pub fn run() {
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_running_states: std::collections::HashMap<String, bool> =
           std::collections::HashMap::new();
+        let mut full_probe_counter: u32 = 0;
 
         loop {
           interval.tick().await;
+          full_probe_counter = full_probe_counter.saturating_add(1);
+          let run_full_probe = if full_probe_counter >= 12 {
+            full_probe_counter = 0;
+            true
+          } else {
+            false
+          };
 
           let runner = crate::browser_runner::BrowserRunner::instance();
           // If listing profiles fails, skip this tick
@@ -1634,6 +1642,36 @@ pub fn run() {
           };
 
           for profile in profiles {
+            let should_probe = run_full_probe
+              || profile.process_id.is_some()
+              || matches!(
+                profile.runtime_state,
+                crate::profile::types::RuntimeState::Running
+                  | crate::profile::types::RuntimeState::Parked
+                  | crate::profile::types::RuntimeState::Starting
+                  | crate::profile::types::RuntimeState::Stopping
+                  | crate::profile::types::RuntimeState::Syncing
+                  | crate::profile::types::RuntimeState::Terminating
+              );
+            if !should_probe {
+              let profile_id = profile.id.to_string();
+              let last_state = last_running_states
+                .get(&profile_id)
+                .copied()
+                .unwrap_or(false);
+              if last_state {
+                let payload = serde_json::json!({
+                  "id": profile_id.clone(),
+                  "is_running": false
+                });
+                if let Err(e) = events::emit("profile-running-changed", &payload) {
+                  log::warn!("Failed to emit profile running changed event: {e}");
+                }
+              }
+              last_running_states.insert(profile_id, false);
+              continue;
+            }
+
             // Check browser status and track changes
             match runner
               .check_browser_status(app_handle_status.clone(), &profile)

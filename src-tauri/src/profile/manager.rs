@@ -10,11 +10,20 @@ use crate::proxy_manager::PROXY_MANAGER;
 use crate::wayfern_manager::WayfernConfig;
 use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
+
+#[derive(Clone)]
+struct ProfileCache {
+  profiles_dir: PathBuf,
+  profiles: Vec<BrowserProfile>,
+  profiles_by_id: std::collections::HashMap<uuid::Uuid, BrowserProfile>,
+}
 
 pub struct ProfileManager {
   camoufox_manager: &'static crate::camoufox_manager::CamoufoxManager,
   wayfern_manager: &'static crate::wayfern_manager::WayfernManager,
+  profile_cache: RwLock<Option<ProfileCache>>,
 }
 
 impl ProfileManager {
@@ -22,6 +31,7 @@ impl ProfileManager {
     Self {
       camoufox_manager: crate::camoufox_manager::CamoufoxManager::instance(),
       wayfern_manager: crate::wayfern_manager::WayfernManager::instance(),
+      profile_cache: RwLock::new(None),
     }
   }
 
@@ -407,16 +417,15 @@ impl ProfileManager {
     let json = serde_json::to_string_pretty(profile)?;
     fs::write(profile_file, json)?;
 
-    // Update tag suggestions after any save
-    let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
-      let _ = tm.rebuild_from_profiles(&self.list_profiles().unwrap_or_default());
-    });
+    self.upsert_profile_cache(profile);
 
     Ok(())
   }
 
-  pub fn list_profiles(&self) -> Result<Vec<BrowserProfile>, Box<dyn std::error::Error>> {
-    let profiles_dir = self.get_profiles_dir();
+  fn read_profiles_from_disk(
+    &self,
+    profiles_dir: &Path,
+  ) -> Result<Vec<BrowserProfile>, Box<dyn std::error::Error>> {
     if !profiles_dir.exists() {
       return Ok(vec![]);
     }
@@ -438,6 +447,103 @@ impl ProfileManager {
     }
 
     Ok(profiles)
+  }
+
+  fn get_cached_profiles_for_dir(&self, profiles_dir: &Path) -> Option<Vec<BrowserProfile>> {
+    let cache = self.profile_cache.read().ok()?;
+    let cached = cache.as_ref()?;
+    if cached.profiles_dir == profiles_dir {
+      return Some(cached.profiles.clone());
+    }
+    None
+  }
+
+  fn get_cached_profile_for_dir(
+    &self,
+    profiles_dir: &Path,
+    profile_id: &uuid::Uuid,
+  ) -> Option<BrowserProfile> {
+    let cache = self.profile_cache.read().ok()?;
+    let cached = cache.as_ref()?;
+    if cached.profiles_dir != profiles_dir {
+      return None;
+    }
+    cached.profiles_by_id.get(profile_id).cloned()
+  }
+
+  fn set_cached_profiles_for_dir(&self, profiles_dir: &Path, profiles: Vec<BrowserProfile>) {
+    if let Ok(mut cache) = self.profile_cache.write() {
+      let profiles_by_id = profiles
+        .iter()
+        .cloned()
+        .map(|profile| (profile.id, profile))
+        .collect::<std::collections::HashMap<_, _>>();
+      *cache = Some(ProfileCache {
+        profiles_dir: profiles_dir.to_path_buf(),
+        profiles,
+        profiles_by_id,
+      });
+    }
+  }
+
+  fn upsert_profile_cache(&self, profile: &BrowserProfile) {
+    let current_dir = self.get_profiles_dir();
+    if let Ok(mut cache) = self.profile_cache.write() {
+      let Some(cache_value) = cache.as_mut() else {
+        return;
+      };
+
+      if cache_value.profiles_dir != current_dir {
+        *cache = None;
+        return;
+      }
+
+      if let Some(existing) = cache_value.profiles.iter_mut().find(|p| p.id == profile.id) {
+        *existing = profile.clone();
+      } else {
+        cache_value.profiles.push(profile.clone());
+      }
+      cache_value.profiles_by_id.insert(profile.id, profile.clone());
+    }
+  }
+
+  fn invalidate_profile_cache(&self) {
+    if let Ok(mut cache) = self.profile_cache.write() {
+      *cache = None;
+    }
+  }
+
+  pub fn list_profiles(&self) -> Result<Vec<BrowserProfile>, Box<dyn std::error::Error>> {
+    let profiles_dir = self.get_profiles_dir();
+    if let Some(cached) = self.get_cached_profiles_for_dir(&profiles_dir) {
+      return Ok(cached);
+    }
+
+    let profiles = self.read_profiles_from_disk(&profiles_dir)?;
+    self.set_cached_profiles_for_dir(&profiles_dir, profiles.clone());
+    Ok(profiles)
+  }
+
+  pub fn get_profile_by_id(
+    &self,
+    profile_id: &uuid::Uuid,
+  ) -> Result<Option<BrowserProfile>, Box<dyn std::error::Error>> {
+    let profiles_dir = self.get_profiles_dir();
+    if let Some(profile) = self.get_cached_profile_for_dir(&profiles_dir, profile_id) {
+      return Ok(Some(profile));
+    }
+
+    let profiles = self.list_profiles()?;
+    Ok(profiles.into_iter().find(|profile| profile.id == *profile_id))
+  }
+
+  pub fn get_profile_by_id_str(
+    &self,
+    profile_id: &str,
+  ) -> Result<Option<BrowserProfile>, Box<dyn std::error::Error>> {
+    let parsed =
+      uuid::Uuid::parse_str(profile_id).map_err(|_| format!("Invalid profile ID: {profile_id}"))?;
+    self.get_profile_by_id(&parsed)
   }
 
   pub fn rename_profile(
@@ -526,6 +632,8 @@ impl ProfileManager {
       fs::remove_dir_all(&profile_uuid_dir)?;
       log::info!("Profile directory deleted successfully");
     }
+
+    self.invalidate_profile_cache();
 
     // Verify deletion was successful
     if profile_uuid_dir.exists() {
@@ -832,6 +940,8 @@ impl ProfileManager {
         std::fs::remove_dir_all(&profile_uuid_dir)?;
       }
     }
+
+    self.invalidate_profile_cache();
 
     // Delete sync-enabled profiles from S3
     if !sync_enabled_ids.is_empty() {
@@ -1398,49 +1508,47 @@ impl ProfileManager {
       };
 
       let mut merged = latest_profile.clone();
+      let mut changed = false;
 
       if let Some(pid) = found_pid {
         if merged.process_id != Some(pid) {
           merged.process_id = Some(pid);
+          changed = true;
         }
-        if !matches!(
-          merged.runtime_state,
-          RuntimeState::Running | RuntimeState::Parked
-        ) {
+        if merged.runtime_state != RuntimeState::Running {
           merged.runtime_state = RuntimeState::Running;
+          changed = true;
         }
-        if let Err(e) = self.save_profile(&merged) {
-          log::warn!("Warning: Failed to update profile with new PID: {e}");
+      } else {
+        if merged.process_id.is_some() {
+          merged.process_id = None;
+          changed = true;
         }
-      } else if merged.process_id.is_some() {
-        // Clear the PID if no process found
-        merged.process_id = None;
-        merged.runtime_state = if merged.runtime_state == RuntimeState::Parked {
-          RuntimeState::Crashed
-        } else {
-          RuntimeState::Stopped
-        };
-        if let Err(e) = self.save_profile(&merged) {
-          log::warn!("Warning: Failed to clear profile PID: {e}");
-        }
-      } else if matches!(
-        merged.runtime_state,
-        RuntimeState::Running | RuntimeState::Parked
-      ) {
-        // Keep runtime state coherent even when PID is already empty.
-        merged.runtime_state = if merged.runtime_state == RuntimeState::Parked {
-          RuntimeState::Crashed
-        } else {
-          RuntimeState::Stopped
-        };
-        if let Err(e) = self.save_profile(&merged) {
-          log::warn!("Warning: Failed to update runtime state after status check: {e}");
+
+        if matches!(
+          merged.runtime_state,
+          RuntimeState::Running
+            | RuntimeState::Parked
+            | RuntimeState::Starting
+            | RuntimeState::Stopping
+            | RuntimeState::Syncing
+        ) {
+          merged.runtime_state = if merged.runtime_state == RuntimeState::Parked {
+            RuntimeState::Crashed
+          } else {
+            RuntimeState::Stopped
+          };
+          changed = true;
         }
       }
 
-      // Emit profile update event to frontend
-      if let Err(e) = events::emit("profile-updated", &merged) {
-        log::warn!("Warning: Failed to emit profile update event: {e}");
+      if changed {
+        if let Err(e) = self.save_profile(&merged) {
+          log::warn!("Warning: Failed to persist profile status: {e}");
+        }
+        if let Err(e) = events::emit("profile-updated", &merged) {
+          log::warn!("Warning: Failed to emit profile update event: {e}");
+        }
       }
     }
 
@@ -1453,6 +1561,20 @@ impl ProfileManager {
     _app_handle: &tauri::AppHandle,
     profile: &BrowserProfile,
   ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    // Fast path: if we already have a PID and it is alive, avoid expensive profile-path scans.
+    if let Some(existing_pid) = profile.process_id {
+      use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
+      let system = System::new_with_specifics(
+        RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+      );
+      if let Some(process) = system.process(Pid::from(existing_pid as usize)) {
+        let exe_name = process.name().to_string_lossy().to_lowercase();
+        if exe_name.contains("camoufox") || exe_name.contains("firefox") {
+          return Ok(true);
+        }
+      }
+    }
+
     let launcher = self.camoufox_manager;
     let profiles_dir = self.get_profiles_dir();
     let profile_data_path =
@@ -1533,7 +1655,11 @@ impl ProfileManager {
           if latest.process_id.is_some()
             || matches!(
               latest.runtime_state,
-              RuntimeState::Running | RuntimeState::Parked
+              RuntimeState::Running
+                | RuntimeState::Parked
+                | RuntimeState::Starting
+                | RuntimeState::Stopping
+                | RuntimeState::Syncing
             )
           {
             latest.process_id = None;
@@ -1577,7 +1703,11 @@ impl ProfileManager {
           if latest.process_id.is_some()
             || matches!(
               latest.runtime_state,
-              RuntimeState::Running | RuntimeState::Parked
+              RuntimeState::Running
+                | RuntimeState::Parked
+                | RuntimeState::Starting
+                | RuntimeState::Stopping
+                | RuntimeState::Syncing
             )
           {
             latest.process_id = None;
@@ -1689,7 +1819,11 @@ impl ProfileManager {
           if latest.process_id.is_some()
             || matches!(
               latest.runtime_state,
-              RuntimeState::Running | RuntimeState::Parked
+              RuntimeState::Running
+                | RuntimeState::Parked
+                | RuntimeState::Starting
+                | RuntimeState::Stopping
+                | RuntimeState::Syncing
             )
           {
             latest.process_id = None;
@@ -2318,17 +2452,31 @@ pub async fn check_browser_statuses_batch(
   let all_profiles = profile_manager
     .list_profiles()
     .map_err(|e| format!("Failed to list profiles: {e}"))?;
+  let profile_lookup: std::collections::HashMap<String, BrowserProfile> = all_profiles
+    .into_iter()
+    .map(|profile| (profile.id.to_string(), profile))
+    .collect();
 
   let mut results = std::collections::HashMap::new();
-  for pid in &profile_ids {
-    if let Some(profile) = all_profiles.iter().find(|p| p.id.to_string() == *pid) {
+  for pid in profile_ids {
+    if let Some(profile) = profile_lookup.get(&pid) {
+      if profile.process_id.is_none()
+        && matches!(
+          profile.runtime_state,
+          RuntimeState::Stopped | RuntimeState::Error | RuntimeState::Crashed
+        )
+      {
+        results.insert(pid, false);
+        continue;
+      }
+
       let running = profile_manager
         .check_browser_status(app_handle.clone(), profile)
         .await
         .unwrap_or(false);
-      results.insert(pid.clone(), running);
+      results.insert(pid, running);
     } else {
-      results.insert(pid.clone(), false);
+      results.insert(pid, false);
     }
   }
   Ok(results)

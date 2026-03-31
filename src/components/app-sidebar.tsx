@@ -5,19 +5,22 @@ import {
   Check,
   ChevronRight,
   ChevronsUpDown,
+  Cookie,
+  Crown,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen,
+  Receipt,
+  Settings2,
+  UserPlus,
   UserRound,
   Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getSectionIcon } from "@/lib/app-icon-registry";
-import { getPlanBadgeStyle } from "@/lib/plan-tier";
 import { cn } from "@/lib/utils";
 import type { AppSection, TeamRole } from "@/types";
 import { Logo } from "./icons/logo";
@@ -38,11 +41,12 @@ type NavLeafItem = {
   id: AppSection;
   labelKey: string;
   icon: ComponentType<{ className?: string }>;
+  automationFlowPreset?: "signup" | "update_cookie";
 };
 
 type NavGroupItem = {
   type: "group";
-  id: "workspace-billing";
+  id: "workspace-billing" | "automation-menu";
   labelKey: string;
   icon: ComponentType<{ className?: string }>;
   children: NavLeafItem[];
@@ -50,21 +54,28 @@ type NavGroupItem = {
 
 type NavEntry = NavLeafItem | NavGroupItem;
 type NavGroupId = NavGroupItem["id"];
-const PENDING_SECTION_RESET_DELAY_MS = 220;
+type NavSection = {
+  id: "platform" | "projects";
+  label: string;
+  items: NavEntry[];
+};
 const SIDEBAR_NAV_ITEM_CLASS =
-  "group flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-semibold leading-[1.25] tracking-normal transition-colors";
+  "group flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-xs font-semibold leading-[1.2] tracking-normal transition-colors";
 const SIDEBAR_NAV_CHILD_ITEM_CLASS =
-  "group flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-[12px] font-semibold tracking-normal transition-colors";
+  "group flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[11px] font-semibold tracking-normal transition-colors";
 const SIDEBAR_NAV_ICON_CLASS = "h-4 w-4 shrink-0";
 const SIDEBAR_ACCOUNT_TITLE_CLASS =
-  "truncate text-[12px] leading-[1.3] font-semibold tracking-normal text-foreground";
+  "truncate text-xs leading-[1.25] font-semibold tracking-normal text-sidebar-foreground";
 const SIDEBAR_ACCOUNT_META_CLASS =
-  "truncate text-[10px] leading-[1.3] font-medium tracking-normal text-muted-foreground";
+  "truncate text-[11px] leading-[1.25] font-medium tracking-normal text-sidebar-foreground/70";
 const SIDEBAR_ACCOUNT_ACTION_CLASS =
-  "rounded-md px-2 py-2 text-[12px] leading-[1.25] font-semibold [&_svg:not([class*='size-'])]:size-4";
-const SIDEBAR_WORKSPACE_ITEM_CLASS = "rounded-md px-2 py-2";
+  "rounded-md px-2.5 py-2 text-xs leading-[1.2] font-semibold [&_svg:not([class*='size-'])]:size-4";
+const SIDEBAR_WORKSPACE_ITEM_CLASS = "rounded-md px-2 py-1.5";
 const SIDEBAR_TRIGGER_CLASS =
-  "group flex w-full items-center gap-2 rounded-md px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-muted/50 data-[state=open]:bg-muted/50 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-70";
+  "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent/80 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-70";
+const SIDEBAR_EXPANDED_WIDTH_CLASS = "w-[248px] basis-[248px]";
+const SIDEBAR_COLLAPSED_WIDTH_CLASS = "w-12 basis-12";
+const AUTOMATION_FLOW_STORAGE_KEY = "buglogin.automation.flow";
 
 const PROFILES_NAV_ITEM: NavLeafItem = {
   type: "item",
@@ -73,11 +84,28 @@ const PROFILES_NAV_ITEM: NavLeafItem = {
   icon: getSectionIcon("profiles"),
 };
 
-const BUGIDEA_AUTOMATION_NAV_ITEM: NavLeafItem = {
+const AUTOMATION_SIGNUP_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "bugidea-automation",
-  labelKey: "shell.sections.bugideaAutomation",
+  labelKey: "shell.sections.automationSignupTiktok",
+  icon: UserPlus,
+  automationFlowPreset: "signup",
+};
+
+const AUTOMATION_UPDATE_COOKIES_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "bugidea-automation",
+  labelKey: "shell.sections.automationUpdateCookies",
+  icon: Cookie,
+  automationFlowPreset: "update_cookie",
+};
+
+const AUTOMATION_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "automation-menu",
+  labelKey: "shell.sections.automation",
   icon: getSectionIcon("bugidea-automation"),
+  children: [AUTOMATION_SIGNUP_NAV_ITEM, AUTOMATION_UPDATE_COOKIES_NAV_ITEM],
 };
 
 const PROXIES_NAV_ITEM: NavLeafItem = {
@@ -122,7 +150,7 @@ const BILLING_NAV_ITEM: NavLeafItem = {
   icon: getSectionIcon("billing"),
 };
 
-const WORKSPACE_BILLING_NAV_GROUP: NavGroupItem = {
+const _WORKSPACE_BILLING_NAV_GROUP: NavGroupItem = {
   type: "group",
   id: "workspace-billing",
   labelKey: "shell.sections.billing",
@@ -232,7 +260,7 @@ function buildNavItems(input: NavBuildInput): NavEntry[] {
       (item) => item.type === "item" && item.id === "profiles",
     );
     const bugIdeaInsertIndex = profileIndex >= 0 ? profileIndex + 1 : 0;
-    base.splice(bugIdeaInsertIndex, 0, BUGIDEA_AUTOMATION_NAV_ITEM);
+    base.splice(bugIdeaInsertIndex, 0, AUTOMATION_NAV_GROUP);
   }
   if (input.teamRole !== "viewer") {
     return base;
@@ -275,6 +303,8 @@ type Props = {
     details?: string;
     status?: string;
     planLabel?: string;
+    profileLimit?: number | null;
+    profilesUsed?: number | null;
   }>;
   currentWorkspaceId?: string | null;
   onWorkspaceChange?: (workspaceId: string) => void;
@@ -286,6 +316,7 @@ type Props = {
   isAuthBusy?: boolean;
   onSignIn?: () => void;
   onSignOut?: () => void;
+  navigationMode?: "default" | "portal-account";
 };
 
 function AppSidebarComponent({
@@ -293,7 +324,7 @@ function AppSidebarComponent({
   collapsed,
   onSectionChange,
   onCollapsedChange,
-  showAdminSection = false,
+  showAdminSection: _showAdminSection = false,
   teamRole = null,
   currentWorkspaceRole = null,
   platformRole = null,
@@ -309,6 +340,7 @@ function AppSidebarComponent({
   isAuthBusy = false,
   onSignIn,
   onSignOut,
+  navigationMode = "default",
 }: Props) {
   const { t } = useTranslation();
   const isPlatformAdmin = platformRole === "platform_admin";
@@ -320,8 +352,7 @@ function AppSidebarComponent({
     isPlatformAdmin ||
     effectiveWorkspaceRole === "owner" ||
     effectiveWorkspaceRole === "admin";
-  const canAccessWorkspaceGovernance =
-    canManageWorkspaceGovernance;
+  const canAccessWorkspaceGovernance = canManageWorkspaceGovernance;
   const inSuperAdminPanel = isSuperAdminPanelSection(activeSection);
   const inWorkspaceOwnerPanel =
     activeSection.startsWith("workspace-owner-") ||
@@ -332,77 +363,92 @@ function AppSidebarComponent({
     : inWorkspaceOwnerPanel
       ? "workspace-owner"
       : "workspace";
-  const [pendingSection, setPendingSection] = useState<AppSection | null>(null);
-  const pendingSectionResetTimerRef = useRef<number | null>(null);
-  const effectiveActiveSection = pendingSection ?? activeSection;
+  const [automationFlowSelection, setAutomationFlowSelection] = useState<
+    "signup" | "update_cookie"
+  >("signup");
+  const effectiveActiveSection = activeSection;
   const roleLabel = isPlatformAdmin
     ? t("shell.roles.platform_admin")
     : effectiveWorkspaceRole
       ? t(`shell.roles.${effectiveWorkspaceRole}`)
       : t("shell.roles.guest");
 
-  useEffect(() => {
-    if (!pendingSection) {
-      return;
-    }
-    if (pendingSection !== activeSection) {
-      return;
-    }
-    setPendingSection(null);
-    if (
-      typeof window !== "undefined" &&
-      pendingSectionResetTimerRef.current !== null
-    ) {
-      window.clearTimeout(pendingSectionResetTimerRef.current);
-      pendingSectionResetTimerRef.current = null;
-    }
-  }, [activeSection, pendingSection]);
-
-  useEffect(() => {
-    return () => {
-      if (
-        typeof window !== "undefined" &&
-        pendingSectionResetTimerRef.current !== null
-      ) {
-        window.clearTimeout(pendingSectionResetTimerRef.current);
-      }
-    };
-  }, []);
-
   const scheduleSectionChange = useCallback(
     (nextSection: AppSection) => {
       if (isWorkspaceSwitching) {
         return;
       }
-
-      if (nextSection === activeSection) {
-        setPendingSection(null);
-        onSectionChange(nextSection);
-        return;
-      }
-
-      setPendingSection(nextSection);
-
-      if (typeof window === "undefined") {
-        onSectionChange(nextSection);
-        return;
-      }
-
-      if (pendingSectionResetTimerRef.current !== null) {
-        window.clearTimeout(pendingSectionResetTimerRef.current);
-      }
-      pendingSectionResetTimerRef.current = window.setTimeout(() => {
-        setPendingSection((current) =>
-          current === nextSection ? null : current,
-        );
-        pendingSectionResetTimerRef.current = null;
-      }, PENDING_SECTION_RESET_DELAY_MS);
       onSectionChange(nextSection);
     },
-    [activeSection, isWorkspaceSwitching, onSectionChange],
+    [isWorkspaceSwitching, onSectionChange],
   );
 
+  const persistAutomationFlowPreset = useCallback(
+    (flowPreset?: "signup" | "update_cookie") => {
+      if (!flowPreset || typeof window === "undefined") {
+        return;
+      }
+      try {
+        window.localStorage.setItem(AUTOMATION_FLOW_STORAGE_KEY, flowPreset);
+        window.dispatchEvent(
+          new CustomEvent("buglogin:automation-flow-changed", {
+            detail: flowPreset,
+          }),
+        );
+        setAutomationFlowSelection(flowPreset);
+      } catch {
+        // Ignore storage errors.
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const persistedFlow = window.localStorage.getItem(
+        AUTOMATION_FLOW_STORAGE_KEY,
+      );
+      if (persistedFlow === "signup" || persistedFlow === "update_cookie") {
+        setAutomationFlowSelection(persistedFlow);
+      }
+    } catch {
+      // Ignore storage read errors.
+    }
+  }, []);
+
   const navItems = useMemo(() => {
+    if (navigationMode === "portal-account") {
+      return [
+        {
+          type: "item",
+          id: "profiles",
+          labelKey: "shell.sections.accountOverview",
+          icon: LayoutDashboard,
+        },
+        {
+          type: "item",
+          id: "pricing",
+          labelKey: "shell.sections.accountBilling",
+          icon: Crown,
+        },
+        {
+          type: "item",
+          id: "billing",
+          labelKey: "shell.sections.accountInvoices",
+          icon: Receipt,
+        },
+        {
+          type: "item",
+          id: "settings",
+          labelKey: "shell.sections.accountSettings",
+          icon: Settings2,
+        },
+      ] satisfies NavEntry[];
+    }
+
     return buildNavItems({
       panelMode,
       isAuthenticated,
@@ -416,6 +462,7 @@ function AppSidebarComponent({
       teamRole: panelMode === "workspace" ? effectiveWorkspaceRole : teamRole,
     });
   }, [
+    navigationMode,
     canManageWorkspaceBilling,
     canAccessWorkspaceGovernance,
     canManageWorkspaceGovernance,
@@ -427,22 +474,63 @@ function AppSidebarComponent({
     panelMode,
     teamRole,
   ]);
+
+  const navSections = useMemo<NavSection[]>(() => {
+    if (panelMode !== "workspace") {
+      return [
+        {
+          id: "platform",
+          label: t("shell.navigationGroups.platform"),
+          items: navItems,
+        },
+      ];
+    }
+
+    const platformItemIds = new Set<AppSection>([
+      "profiles",
+      "bugidea-automation",
+    ]);
+    const platformItems: NavEntry[] = [];
+    const projectItems: NavEntry[] = [];
+
+    navItems.forEach((item) => {
+      if (item.type === "item" && platformItemIds.has(item.id)) {
+        platformItems.push(item);
+        return;
+      }
+      projectItems.push(item);
+    });
+
+    const sections: NavSection[] = [];
+    if (platformItems.length > 0) {
+      sections.push({
+        id: "platform",
+        label: t("shell.navigationGroups.platform"),
+        items: platformItems,
+      });
+    }
+    if (projectItems.length > 0) {
+      sections.push({
+        id: "projects",
+        label: t("shell.navigationGroups.projects"),
+        items: projectItems,
+      });
+    }
+    return sections;
+  }, [navItems, panelMode, t]);
   const [expandedNavGroups, setExpandedNavGroups] = useState<
     Record<NavGroupId, boolean>
   >(() => ({
     "workspace-billing":
-      activeSection === "pricing" ||
-      activeSection === "billing",
+      activeSection === "pricing" || activeSection === "billing",
+    "automation-menu": true,
   }));
 
   useEffect(() => {
     if (panelMode !== "workspace") {
       return;
     }
-    if (
-      activeSection !== "pricing" &&
-      activeSection !== "billing"
-    ) {
+    if (activeSection !== "pricing" && activeSection !== "billing") {
       return;
     }
     setExpandedNavGroups((prev) => {
@@ -463,8 +551,22 @@ function AppSidebarComponent({
     }));
   }, []);
 
+  const isChildSectionActive = useCallback(
+    (item: NavLeafItem) => {
+      if (effectiveActiveSection !== item.id) {
+        return false;
+      }
+      if (item.id !== "bugidea-automation" || !item.automationFlowPreset) {
+        return true;
+      }
+      return item.automationFlowPreset === automationFlowSelection;
+    },
+    [automationFlowSelection, effectiveActiveSection],
+  );
+
   const canSwitchWorkspace =
     workspaceOptions.length > 1 && Boolean(onWorkspaceChange);
+  const preferPlanBadgeOnly = navigationMode === "portal-account";
   const selectedWorkspaceId =
     currentWorkspaceId ?? workspaceOptions[0]?.id ?? "default";
   const selectedWorkspace =
@@ -478,21 +580,57 @@ function AppSidebarComponent({
     selectedWorkspace?.details ??
     selectedWorkspace?.status ??
     workspaceContextLabel;
+  const resolvePlanToneClass = useCallback((planLabelRaw?: string | null) => {
+    const plan = (planLabelRaw || "").trim().toLowerCase();
+    if (plan.includes("enterprise") || plan.includes("custom")) {
+      return "plan-badge-tier-enterprise";
+    }
+    if (plan.includes("scale")) {
+      return "plan-badge-tier-scale";
+    }
+    if (plan.includes("team") || plan.includes("growth")) {
+      return "plan-badge-tier-team";
+    }
+    if (plan.includes("starter")) {
+      return "plan-badge-tier-starter";
+    }
+    return "plan-badge-tier-free";
+  }, []);
   const resolveWorkspacePlanLabel = useCallback(
-    (planLabel?: string) => {
-      const normalized = planLabel?.trim();
-      if (normalized) {
-        return normalized;
+    (workspace?: {
+      planLabel?: string;
+      details?: string;
+    } | null) => {
+      const rawPlan = workspace?.planLabel?.trim();
+      if (rawPlan) {
+        return rawPlan;
+      }
+      const fallback = workspace?.details?.trim();
+      if (fallback) {
+        return fallback;
       }
       return t("billingPage.freePlanLabel");
     },
     [t],
   );
-  const selectedWorkspacePlanLabel = resolveWorkspacePlanLabel(
-    selectedWorkspace?.planLabel,
-  );
-  const selectedWorkspacePlanBadge = getPlanBadgeStyle(
-    selectedWorkspacePlanLabel,
+  const formatWorkspaceQuotaBadge = useCallback(
+    (profileLimit?: number | null, profilesUsed?: number | null) => {
+      const used =
+        typeof profilesUsed === "number" &&
+        Number.isFinite(profilesUsed) &&
+        profilesUsed >= 0
+          ? Math.floor(profilesUsed)
+          : 0;
+      if (
+        typeof profileLimit === "number" &&
+        Number.isFinite(profileLimit) &&
+        profileLimit > 0
+      ) {
+        return `${used.toLocaleString("en-US")}/${profileLimit.toLocaleString("en-US")}`;
+      }
+      return `${used.toLocaleString("en-US")}/∞`;
+    },
+    [],
   );
 
   const handleWorkspaceMenuItemSelect = useCallback(
@@ -539,9 +677,7 @@ function AppSidebarComponent({
           <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>
             {authEmail ?? t("shell.auth.loggedOut")}
           </p>
-          <p className={SIDEBAR_ACCOUNT_META_CLASS}>
-            {workspaceContextLabel}
-          </p>
+          <p className={SIDEBAR_ACCOUNT_META_CLASS}>{workspaceContextLabel}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {canOpenSuperAdminPanel && (
@@ -594,11 +730,21 @@ function AppSidebarComponent({
         </DropdownMenuLabel>
         {workspaceOptions.map((workspace) => {
           const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
-          const canSwitchToThisWorkspace = canSwitchWorkspace && !isCurrentWorkspace;
-          const workspacePlanLabel = resolveWorkspacePlanLabel(
-            workspace.planLabel,
-          );
-          const workspacePlanBadge = getPlanBadgeStyle(workspacePlanLabel);
+          const canSwitchToThisWorkspace =
+            canSwitchWorkspace && !isCurrentWorkspace;
+          const hasUsageQuota =
+            !preferPlanBadgeOnly &&
+            typeof workspace.profileLimit === "number" &&
+            Number.isFinite(workspace.profileLimit) &&
+            workspace.profileLimit > 0 &&
+            typeof workspace.profilesUsed === "number" &&
+            Number.isFinite(workspace.profilesUsed) &&
+            workspace.profilesUsed >= 0;
+          const workspaceLimitBadge = hasUsageQuota
+            ? formatWorkspaceQuotaBadge(workspace.profileLimit, workspace.profilesUsed)
+            : null;
+          const workspacePlanBadge = resolveWorkspacePlanLabel(workspace);
+          const workspacePlanToneClass = resolvePlanToneClass(workspacePlanBadge);
           return (
             <DropdownMenuItem
               key={workspace.id}
@@ -612,7 +758,9 @@ function AppSidebarComponent({
               )}
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-                <Building2 className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
+                <Building2
+                  className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`}
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>{workspace.label}</p>
@@ -623,12 +771,24 @@ function AppSidebarComponent({
                         ? t("shell.workspaceSwitcher.current")
                         : t("shell.workspaceSwitcher.switchTo"))}
                   </p>
-                  <Badge
-                    variant={workspacePlanBadge.variant}
-                    className={cn("h-5 shrink-0 px-1.5 text-[10px]", workspacePlanBadge.className)}
-                  >
-                    {workspacePlanLabel}
-                  </Badge>
+                  {workspaceLimitBadge ? (
+                    <Badge
+                      variant="secondary"
+                      className="h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold"
+                    >
+                      {workspaceLimitBadge}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="default"
+                      className={cn(
+                        "h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold",
+                        workspacePlanToneClass,
+                      )}
+                    >
+                      {workspacePlanBadge}
+                    </Badge>
+                  )}
                 </div>
                 {workspace.status && (
                   <p className="truncate text-[10px] text-muted-foreground/80">
@@ -662,12 +822,15 @@ function AppSidebarComponent({
     const button = (
       <button
         type="button"
-        onClick={() => scheduleSectionChange(item.id)}
+        onClick={() => {
+          persistAutomationFlowPreset(item.automationFlowPreset);
+          scheduleSectionChange(item.id);
+        }}
         className={cn(
           SIDEBAR_NAV_ITEM_CLASS,
           isActive
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
           collapsed && "justify-center px-0",
         )}
       >
@@ -675,15 +838,17 @@ function AppSidebarComponent({
           className={cn(
             SIDEBAR_NAV_ICON_CLASS,
             isActive
-              ? "text-foreground"
-              : "text-muted-foreground group-hover:text-foreground",
+              ? "text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
           )}
         />
         {!collapsed && (
           <>
             <span className="min-w-0 truncate">{t(item.labelKey)}</span>
             {isActive && (
-              <ChevronRight className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
+              <ChevronRight
+                className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-sidebar-foreground/70`}
+              />
             )}
           </>
         )}
@@ -704,24 +869,27 @@ function AppSidebarComponent({
 
   const renderNavChildItem = (item: NavLeafItem) => {
     const Icon = item.icon;
-    const isActive = effectiveActiveSection === item.id;
+    const isActive = isChildSectionActive(item);
     return (
       <button
         type="button"
-        onClick={() => scheduleSectionChange(item.id)}
+        onClick={() => {
+          persistAutomationFlowPreset(item.automationFlowPreset);
+          scheduleSectionChange(item.id);
+        }}
         className={cn(
           SIDEBAR_NAV_CHILD_ITEM_CLASS,
           isActive
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
         )}
       >
         <Icon
           className={cn(
             SIDEBAR_NAV_ICON_CLASS,
             isActive
-              ? "text-foreground"
-              : "text-muted-foreground group-hover:text-foreground",
+              ? "text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
           )}
         />
         <span className="min-w-0 truncate">{t(item.labelKey)}</span>
@@ -731,9 +899,7 @@ function AppSidebarComponent({
 
   const renderNavGroup = (item: NavGroupItem) => {
     const Icon = item.icon;
-    const isActive = item.children.some(
-      (child) => child.id === effectiveActiveSection,
-    );
+    const isActive = item.children.some((child) => isChildSectionActive(child));
     const isExpanded = expandedNavGroups[item.id] ?? false;
 
     if (collapsed) {
@@ -741,18 +907,18 @@ function AppSidebarComponent({
         <button
           type="button"
           className={cn(
-            "group flex h-10 w-full items-center justify-center rounded-md text-left text-[13px] font-semibold leading-[1.25] tracking-normal transition-colors",
+            "group flex h-9 w-full items-center justify-center rounded-md text-left text-xs font-semibold leading-[1.2] tracking-normal transition-colors",
             isActive
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
           )}
         >
           <Icon
             className={cn(
               SIDEBAR_NAV_ICON_CLASS,
               isActive
-                ? "text-foreground"
-                : "text-muted-foreground group-hover:text-foreground",
+                ? "text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
             )}
           />
         </button>
@@ -774,22 +940,30 @@ function AppSidebarComponent({
           >
             {item.children.map((child) => {
               const ChildIcon = child.icon;
-              const isChildActive = effectiveActiveSection === child.id;
+              const isChildActive = isChildSectionActive(child);
+              const childKey = `${child.id}:${child.automationFlowPreset ?? "default"}`;
               return (
                 <DropdownMenuItem
-                  key={child.id}
-                  onClick={() => scheduleSectionChange(child.id)}
+                  key={childKey}
+                  onClick={() => {
+                    persistAutomationFlowPreset(child.automationFlowPreset);
+                    scheduleSectionChange(child.id);
+                  }}
                   className={cn(
                     SIDEBAR_WORKSPACE_ITEM_CLASS,
-                    isChildActive && "bg-muted",
+                    isChildActive && "bg-sidebar-accent",
                   )}
                 >
-                  <ChildIcon className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`} />
-                  <span className="text-[10.5px] leading-[1.25] font-[600] tracking-normal text-foreground">
+                  <ChildIcon
+                    className={`${SIDEBAR_NAV_ICON_CLASS} text-sidebar-foreground/70`}
+                  />
+                  <span className="text-[11px] leading-[1.25] font-[600] tracking-normal text-sidebar-foreground">
                     {t(child.labelKey)}
                   </span>
                   {isChildActive && (
-                    <Check className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-foreground`} />
+                    <Check
+                      className={`ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-sidebar-accent-foreground`}
+                    />
                   )}
                 </DropdownMenuItem>
               );
@@ -807,38 +981,39 @@ function AppSidebarComponent({
           className={cn(
             SIDEBAR_NAV_ITEM_CLASS,
             isActive
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
           )}
         >
-        <Icon
-          className={cn(
-            SIDEBAR_NAV_ICON_CLASS,
-            isActive
-              ? "text-foreground"
-              : "text-muted-foreground group-hover:text-foreground",
+          <Icon
+            className={cn(
+              SIDEBAR_NAV_ICON_CLASS,
+              isActive
+                ? "text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
             )}
           />
           <span className="min-w-0">{t(item.labelKey)}</span>
           <ChevronRight
             className={cn(
-              `ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground transition-transform duration-200`,
+              `ml-auto ${SIDEBAR_NAV_ICON_CLASS} text-sidebar-foreground/70 transition-transform duration-200`,
               isExpanded && "rotate-90",
             )}
           />
         </button>
         <div
           className={cn(
-            "ml-4 grid overflow-hidden transition-all duration-200",
+            "ml-4 grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none",
             isExpanded
               ? "grid-rows-[1fr] opacity-100"
               : "grid-rows-[0fr] opacity-0",
           )}
         >
           <div className="min-h-0 space-y-0.5">
-            {item.children.map((child) => (
-              <div key={child.id}>{renderNavChildItem(child)}</div>
-            ))}
+            {item.children.map((child) => {
+              const childKey = `${child.id}:${child.automationFlowPreset ?? "default"}`;
+              return <div key={childKey}>{renderNavChildItem(child)}</div>;
+            })}
           </div>
         </div>
       </div>
@@ -848,8 +1023,10 @@ function AppSidebarComponent({
   return (
     <aside
       className={cn(
-        "app-shell-sidebar app-sidebar-font relative flex h-screen shrink-0 flex-col border-r border-border bg-background text-foreground tracking-normal transition-all duration-200",
-        collapsed ? "w-[80px] basis-[80px]" : "w-[258px] basis-[258px]",
+        "app-shell-sidebar relative flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground tracking-normal transition-[width,flex-basis] duration-150 ease-out will-change-[width,flex-basis] motion-reduce:transition-none",
+        collapsed
+          ? SIDEBAR_COLLAPSED_WIDTH_CLASS
+          : SIDEBAR_EXPANDED_WIDTH_CLASS,
       )}
     >
       <div
@@ -857,92 +1034,97 @@ function AppSidebarComponent({
         style={{ height: "var(--window-titlebar-height)" }}
       />
 
-      <div className="shrink-0 border-b border-border">
+      <div className="shrink-0 border-b border-sidebar-border">
         <div
           className={cn(
             collapsed
-              ? "flex h-11 items-center justify-between px-2"
-              : "flex h-11 items-center gap-2 px-3",
+              ? "flex h-11 items-center justify-center px-1"
+              : "px-2 py-2",
           )}
         >
           {collapsed ? (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => scheduleSectionChange("profiles")}
-                    className="flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-muted/60"
-                  >
-                    <Logo variant="icon" className="h-8 w-8 rounded-md" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">BugLogin</TooltipContent>
-              </Tooltip>
-
-              {onCollapsedChange && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => onCollapsedChange(false)}
-                      aria-label={t("shell.expandSidebar")}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                    >
-                      <PanelLeftOpen className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {t("shell.expandSidebar")}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="min-w-0 flex-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={() => scheduleSectionChange("profiles")}
-                  className="flex h-8 w-full items-center rounded-md px-1.5 transition-colors hover:bg-muted/60"
+                  onClick={() => {
+                    if (onCollapsedChange) {
+                      onCollapsedChange(false);
+                      return;
+                    }
+                    scheduleSectionChange("profiles");
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-sidebar-accent/80"
                 >
-                  <Logo
-                    variant="full"
-                    className="h-6 w-auto max-w-[168px] shrink-0 object-contain"
-                  />
+                  <Logo variant="icon" className="h-7 w-7 rounded-md" />
                 </button>
-              </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">BugLogin</TooltipContent>
+            </Tooltip>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scheduleSectionChange("profiles")}
+                className="flex h-9 min-w-0 flex-1 items-center rounded-md px-2 transition-colors hover:bg-sidebar-accent/80"
+              >
+                <Logo variant="full" className="h-7 w-auto max-w-[136px]" />
+              </button>
 
               {onCollapsedChange && (
                 <button
                   type="button"
                   onClick={() => onCollapsedChange(true)}
                   aria-label={t("shell.collapseSidebar")}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 >
                   <PanelLeftClose className="h-4 w-4" />
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 px-2 pb-3 pt-1">
-        <div className="space-y-0.5 pb-2">
-          {navItems.map((item) => (
-            <div key={item.id}>
-              {item.type === "group"
-                ? renderNavGroup(item)
-                : renderNavItem(item)}
+      <ScrollArea
+        className={cn("flex-1 pb-2 pt-1", collapsed ? "px-1" : "px-1.5")}
+      >
+        <div className="space-y-3 pb-2">
+          {navSections.map((section) => (
+            <div key={section.id} className="space-y-1">
+              {!collapsed && (
+                <p className="px-2.5 text-[11px] font-medium text-sidebar-foreground/60">
+                  {section.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const itemKey =
+                    item.type === "group"
+                      ? item.id
+                      : `${item.id}:${item.automationFlowPreset ?? "default"}`;
+                  return (
+                    <div key={itemKey}>
+                      {item.type === "group"
+                        ? renderNavGroup(item)
+                        : renderNavItem(item)}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
       </ScrollArea>
 
       {/* ── Footer ── */}
-      <div className="border-t border-border px-3 py-2.5">
+      <div
+        className={cn(
+          "border-t border-sidebar-border py-2.5",
+          collapsed ? "px-1.5" : "px-2.5",
+        )}
+      >
         {collapsed ? (
           isAuthenticated ? (
             <DropdownMenu
@@ -953,7 +1135,7 @@ function AppSidebarComponent({
                 <button
                   type="button"
                   disabled={isWorkspaceSwitching}
-                  className="mx-auto flex h-8 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-0 overflow-hidden"
+                  className="mx-auto flex h-7 w-7 items-center justify-center overflow-hidden rounded-full text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/70 focus-visible:ring-0"
                 >
                   {authAvatar ? (
                     <img
@@ -982,7 +1164,7 @@ function AppSidebarComponent({
                   type="button"
                   onClick={onSignIn}
                   disabled={isAuthBusy || !onSignIn}
-                  className="mx-auto flex h-8 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mx-auto flex h-7 w-7 items-center justify-center rounded-full text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/70 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <UserRound className="h-4 w-4" />
                 </button>
@@ -1003,7 +1185,7 @@ function AppSidebarComponent({
                 disabled={isWorkspaceSwitching}
                 className={SIDEBAR_TRIGGER_CLASS}
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
                   {authAvatar ? (
                     <img
                       src={authAvatar}
@@ -1021,23 +1203,51 @@ function AppSidebarComponent({
                       t("shell.workspaceSwitcher.placeholder")}
                   </p>
                   <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                    <p className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}>
+                    <p
+                      className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}
+                    >
                       {selectedWorkspaceSubLabel}
                     </p>
                     {selectedWorkspace && (
-                      <Badge
-                        variant={selectedWorkspacePlanBadge.variant}
-                        className={cn(
-                          "h-4 shrink-0 px-1 text-[9px]",
-                          selectedWorkspacePlanBadge.className,
-                        )}
-                      >
-                        {selectedWorkspacePlanLabel}
-                      </Badge>
+                      (() => {
+                        const hasUsageQuota =
+                          !preferPlanBadgeOnly &&
+                          typeof selectedWorkspace.profileLimit === "number" &&
+                          Number.isFinite(selectedWorkspace.profileLimit) &&
+                          selectedWorkspace.profileLimit > 0 &&
+                          typeof selectedWorkspace.profilesUsed === "number" &&
+                          Number.isFinite(selectedWorkspace.profilesUsed) &&
+                          selectedWorkspace.profilesUsed >= 0;
+                        if (hasUsageQuota) {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="h-4 shrink-0 rounded-full px-1 text-[9px] font-semibold"
+                            >
+                              {formatWorkspaceQuotaBadge(
+                                selectedWorkspace.profileLimit,
+                                selectedWorkspace.profilesUsed,
+                              )}
+                            </Badge>
+                          );
+                        }
+                        const selectedPlanBadge = resolveWorkspacePlanLabel(selectedWorkspace);
+                        return (
+                          <Badge
+                            variant="default"
+                            className={cn(
+                              "h-4 shrink-0 rounded-full px-1 text-[9px] font-semibold",
+                              resolvePlanToneClass(selectedPlanBadge),
+                            )}
+                          >
+                            {selectedPlanBadge}
+                          </Badge>
+                        );
+                      })()
                     )}
                   </div>
                 </div>
-                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/70 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent

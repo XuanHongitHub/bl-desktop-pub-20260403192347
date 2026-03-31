@@ -37,6 +37,7 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
     "unknown" | "testing" | "connected" | "error"
@@ -66,8 +67,10 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
       const healthUrl = `${url.replace(/\/$/, "")}/health`;
       const response = await fetch(healthUrl);
       setConnectionStatus(response.ok ? "connected" : "error");
+      return response.ok;
     } catch {
       setConnectionStatus("error");
+      return false;
     }
   }, []);
 
@@ -145,6 +148,32 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
       setIsSaving(false);
     }
   }, [onClose, serverUrl, t, token]);
+
+  const handleSyncNow = useCallback(async () => {
+    if (!serverUrl || !token) {
+      showErrorToast(t("sync.serverUrlRequired"));
+      return;
+    }
+
+    setIsSyncingNow(true);
+    setConnectionStatus("testing");
+    try {
+      await invoke("restart_sync_service");
+      const isHealthy = await testConnection(serverUrl);
+      if (isHealthy) {
+        showSuccessToast(t("sync.connectionSuccess"));
+      } else {
+        showErrorToast(t("sync.connectionFailed"));
+      }
+    } catch (error) {
+      setConnectionStatus("error");
+      showErrorToast(t("sync.restartFailed"), {
+        description: extractRootError(error),
+      });
+    } finally {
+      setIsSyncingNow(false);
+    }
+  }, [serverUrl, t, testConnection, token]);
 
   const handleDisconnect = useCallback(async () => {
     setIsSaving(true);
@@ -256,19 +285,19 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
               </div>
 
               {connectionStatus === "testing" && (
-                <div className="flex gap-2 items-center text-sm text-muted-foreground">
+                <div className="flex gap-2 items-center text-xs text-muted-foreground">
                   <div className="w-4 h-4 rounded-full border-2 border-current animate-spin border-t-transparent" />
                   {t("sync.status.syncing")}
                 </div>
               )}
               {connectionStatus === "connected" && (
-                <div className="flex gap-2 items-center text-sm text-muted-foreground">
+                <div className="flex gap-2 items-center text-xs text-muted-foreground">
                   <div className="w-2 h-2 rounded-full border border-border bg-muted" />
                   {t("sync.status.connected")}
                 </div>
               )}
               {connectionStatus === "error" && (
-                <div className="flex gap-2 items-center text-sm text-muted-foreground">
+                <div className="flex gap-2 items-center text-xs text-muted-foreground">
                   <div className="w-2 h-2 rounded-full border border-border bg-muted" />
                   {t("sync.status.disconnected")}
                 </div>
@@ -277,6 +306,14 @@ export function SyncConfigDialog({ isOpen, onClose }: SyncConfigDialogProps) {
 
             <DialogFooter className="flex gap-2 justify-between">
               <div className="flex gap-2">
+                <LoadingButton
+                  onClick={handleSyncNow}
+                  isLoading={isSyncingNow}
+                  disabled={!serverUrl || !token}
+                  variant="outline"
+                >
+                  {t("common.labels.sync")}
+                </LoadingButton>
                 <LoadingButton
                   onClick={handleTestConnection}
                   isLoading={isTesting}

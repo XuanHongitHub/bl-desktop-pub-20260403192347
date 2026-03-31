@@ -86,9 +86,9 @@ function SavedViewsMenu({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex h-[36px] items-center gap-2"
+                  className="flex h-8 items-center gap-1.5 px-2"
                 >
-                  <GoBookmark className="h-4 w-4" />
+                  <GoBookmark className="h-3.5 w-3.5" />
                 </Button>
               </span>
             </TooltipTrigger>
@@ -163,9 +163,9 @@ export function ProfilesWorkspaceHeaderActions({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex h-[36px] items-center gap-2"
+                    className="flex h-8 items-center gap-1.5 px-2"
                   >
-                    <GoKebabHorizontal className="h-4 w-4" />
+                    <GoKebabHorizontal className="h-3.5 w-3.5" />
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -241,9 +241,9 @@ export function ProfilesWorkspaceHeaderActions({
         onClick={() => {
           onCreateProfileDialogOpen(true);
         }}
-        className="flex h-[36px] items-center gap-2 px-3"
+        className="flex h-8 items-center gap-1.5 px-2.5 text-[11px]"
       >
-        <GoPlus className="h-4 w-4" />
+        <GoPlus className="h-3.5 w-3.5" />
         {t("header.createProfile")}
       </Button>
     </div>
@@ -269,15 +269,15 @@ export function ProfilesWorkspaceToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-sm min-w-[14rem]">
+      <div className="relative w-full max-w-[22rem] min-w-[13rem]">
         <Input
           type="text"
           placeholder={t("header.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
-          className="w-full pl-10 pr-8"
+          className="h-8 w-full pl-9 pr-8 text-xs"
         />
-        <LuSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <LuSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         {searchQuery && (
           <button
             type="button"
@@ -285,7 +285,7 @@ export function ProfilesWorkspaceToolbar({
             className="absolute right-2 top-1/2 rounded-sm p-1 transition-colors -translate-y-1/2 hover:bg-accent"
             aria-label={t("header.clearSearch")}
           >
-            <LuX className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            <LuX className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
           </button>
         )}
       </div>
@@ -305,13 +305,13 @@ export function ProfilesWorkspaceToolbar({
             <Button
               size="sm"
               variant={showPinnedOnly ? "default" : "outline"}
-              className="relative flex h-[36px] items-center gap-2 px-2.5"
+              className="relative flex h-8 items-center gap-1.5 px-2"
               onClick={onTogglePinnedOnly}
             >
               {showPinnedOnly ? (
-                <LuPinOff className="h-4 w-4" />
+                <LuPinOff className="h-3.5 w-3.5" />
               ) : (
-                <LuPin className="h-4 w-4" />
+                <LuPin className="h-3.5 w-3.5" />
               )}
               <span className="text-xs font-medium">
                 {t("profiles.actions.pinned")}
@@ -337,10 +337,10 @@ export function ProfilesWorkspaceToolbar({
             <Button
               size="sm"
               variant={profileViewMode === "archived" ? "default" : "outline"}
-              className="relative flex h-[36px] items-center gap-2"
+              className="relative flex h-8 items-center gap-1.5 px-2"
               onClick={onToggleProfileViewMode}
             >
-              <LuArchive className="h-4 w-4" />
+              <LuArchive className="h-3.5 w-3.5" />
               {archivedCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-4 text-primary-foreground">
                   {archivedCount}

@@ -10,6 +10,7 @@ import {
   mergeAppSettingsCache,
   readAppSettingsCache,
 } from "@/lib/app-settings-cache";
+import { writeLanguageCookie } from "@/lib/language-cookie";
 
 interface AppSettings {
   language?: string | null;
@@ -56,6 +57,7 @@ export function useLanguage() {
           }
         }
         await i18n.changeLanguage(nextLanguage);
+        writeLanguageCookie(nextLanguage);
         setCurrentLanguage(nextLanguage);
         mergeAppSettingsCache({
           language: language ?? nextLanguage,

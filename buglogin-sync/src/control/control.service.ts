@@ -194,7 +194,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   private getDefaultPlanProfileLimit(planId: BillingPlanId): number {
     if (planId === "starter") {
-      return 100;
+      return 50;
     }
     if (planId === "growth") {
       return 300;
@@ -202,35 +202,35 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "scale") {
       return 1000;
     }
-    return 2000;
+    return 5000;
   }
 
   private getPlanPriceUsd(planId: BillingPlanId, billingCycle: BillingCycle): number {
     if (planId === "starter") {
-      return billingCycle === "monthly" ? 5 : 4;
+      return billingCycle === "monthly" ? 9 : 90;
     }
     if (planId === "growth") {
-      return billingCycle === "monthly" ? 15 : 12;
+      return billingCycle === "monthly" ? 29 : 290;
     }
     if (planId === "scale") {
-      return billingCycle === "monthly" ? 49 : 39;
+      return billingCycle === "monthly" ? 79 : 790;
     }
-    return billingCycle === "monthly" ? 99 : 79;
+    return billingCycle === "monthly" ? 199 : 1990;
   }
 
   private getPlanStorageLimitMb(planId: BillingPlanId | null): number {
-    if (planId === "starter") return 2 * 1024;
-    if (planId === "growth") return 10 * 1024;
-    if (planId === "scale") return 30 * 1024;
-    if (planId === "custom") return 80 * 1024;
+    if (planId === "starter") return 5 * 1024;
+    if (planId === "growth") return 30 * 1024;
+    if (planId === "scale") return 120 * 1024;
+    if (planId === "custom") return 500 * 1024;
     return 0;
   }
 
   private getPlanProxyBandwidthLimitMb(planId: BillingPlanId | null): number {
     if (planId === "starter") return 2 * 1024;
-    if (planId === "growth") return 2 * 1024;
-    if (planId === "scale") return 2 * 1024;
-    if (planId === "custom") return 2 * 1024;
+    if (planId === "growth") return 20 * 1024;
+    if (planId === "scale") return 100 * 1024;
+    if (planId === "custom") return 500 * 1024;
     return 0;
   }
 
@@ -293,12 +293,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return "Starter";
     }
     if (planId === "growth") {
-      return "Growth";
+      return "Team";
     }
     if (planId === "scale") {
       return "Scale";
     }
-    return "Custom";
+    return "Enterprise";
   }
 
   private getPlanRank(planId: BillingPlanId | null): number {
@@ -1854,9 +1854,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const amountCents = Math.max(50, Math.round(amountUsd * 100));
 
     const params = new URLSearchParams();
-    params.set("mode", "payment");
+    params.set("mode", "subscription");
     params.set("success_url", successUrl.toString());
     params.set("cancel_url", cancelUrl.toString());
+    params.set("locale", "auto");
+    params.set("billing_address_collection", "auto");
+    params.set("customer_email", actor.email);
+    params.set("allow_promotion_codes", couponCode ? "false" : "true");
     params.set("metadata[workspace_id]", workspaceId);
     params.set("metadata[plan_id]", planId);
     params.set("metadata[billing_cycle]", billingCycle);
@@ -1867,6 +1871,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     params.set("line_items[0][quantity]", "1");
     params.set("line_items[0][price_data][currency]", "usd");
     params.set("line_items[0][price_data][unit_amount]", String(amountCents));
+    params.set(
+      "line_items[0][price_data][recurring][interval]",
+      billingCycle === "yearly" ? "year" : "month",
+    );
     params.set("line_items[0][price_data][product_data][name]", `BugLogin ${planLabel}`);
     params.set(
       "line_items[0][price_data][product_data][description]",

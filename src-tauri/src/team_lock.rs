@@ -2,10 +2,13 @@ use lazy_static::lazy_static;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::cloud_auth::{CloudAuthManager, CLOUD_API_URL, CLOUD_AUTH};
+
+const DEFAULT_LOCK_LEASE_SECONDS: i64 = 120;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileLockInfo {
@@ -29,6 +32,8 @@ struct AcquireLockResponse {
   locked_by: Option<String>,
   #[serde(rename = "lockedByEmail")]
   locked_by_email: Option<String>,
+  #[serde(rename = "expiresAt", default)]
+  expires_at: Option<String>,
 }
 
 pub struct TeamLockManager {
@@ -39,6 +44,26 @@ pub struct TeamLockManager {
 
 lazy_static! {
   pub static ref TEAM_LOCK: TeamLockManager = TeamLockManager::new();
+}
+
+fn parse_datetime_utc(raw: &str) -> Option<DateTime<Utc>> {
+  DateTime::parse_from_rfc3339(raw)
+    .ok()
+    .map(|dt| dt.with_timezone(&Utc))
+}
+
+fn is_lock_stale(lock: &ProfileLockInfo) -> bool {
+  let now = Utc::now();
+
+  if let Some(expires_at) = lock.expires_at.as_deref().and_then(parse_datetime_utc) {
+    return expires_at <= now;
+  }
+
+  if let Some(locked_at) = parse_datetime_utc(&lock.locked_at) {
+    return locked_at + ChronoDuration::seconds(DEFAULT_LOCK_LEASE_SECONDS) <= now;
+  }
+
+  false
 }
 
 impl TeamLockManager {
@@ -130,7 +155,7 @@ impl TeamLockManager {
           locked_by: user.user.id.clone(),
           locked_by_email: user.user.email.clone(),
           locked_at: chrono::Utc::now().to_rfc3339(),
-          expires_at: None,
+          expires_at: result.expires_at,
         },
       );
     }
@@ -154,11 +179,18 @@ impl TeamLockManager {
       "{}/api/teams/{}/locks/{}",
       *CLOUD_API_URL, team_id, profile_id
     );
-    let _ = client
+    let response = client
       .delete(&url)
       .header("Authorization", format!("Bearer {access_token}"))
       .send()
-      .await;
+      .await
+      .map_err(|e| format!("Failed to release lock: {e}"))?;
+
+    if !response.status().is_success() && response.status() != reqwest::StatusCode::NOT_FOUND {
+      let status = response.status();
+      let body = response.text().await.unwrap_or_default();
+      return Err(format!("Lock release failed ({status}): {body}"));
+    }
 
     {
       let mut locks = self.locks.write().await;
@@ -179,18 +211,21 @@ impl TeamLockManager {
   }
 
   pub async fn get_lock_status(&self, profile_id: &str) -> Option<ProfileLockInfo> {
-    let locks = self.locks.read().await;
-    locks.get(profile_id).cloned()
-  }
+    let lock = {
+      let locks = self.locks.read().await;
+      locks.get(profile_id).cloned()
+    };
 
-  pub async fn is_locked_by_another(&self, profile_id: &str) -> bool {
-    let locks = self.locks.read().await;
-    if let Some(lock) = locks.get(profile_id) {
-      if let Some(user) = CLOUD_AUTH.get_user().await {
-        return lock.locked_by != user.user.id;
+    if let Some(lock_info) = lock {
+      if is_lock_stale(&lock_info) {
+        let mut locks = self.locks.write().await;
+        locks.remove(profile_id);
+        return None;
       }
+      return Some(lock_info);
     }
-    false
+
+    None
   }
 
   async fn fetch_initial_locks(&self, team_id: &str) -> Result<(), String> {
@@ -218,7 +253,9 @@ impl TeamLockManager {
     let mut locks = self.locks.write().await;
     locks.clear();
     for lock in lock_list {
-      locks.insert(lock.profile_id.clone(), lock);
+      if !is_lock_stale(&lock) {
+        locks.insert(lock.profile_id.clone(), lock);
+      }
     }
 
     Ok(())
@@ -259,11 +296,28 @@ impl TeamLockManager {
               "{}/api/teams/{}/locks/{}/heartbeat",
               *CLOUD_API_URL, team_id, profile_id
             );
-            let _ = client
+            match client
               .post(&url)
               .header("Authorization", format!("Bearer {token}"))
               .send()
-              .await;
+              .await
+            {
+              Ok(response) if response.status().is_success() => {}
+              Ok(response) if response.status() == reqwest::StatusCode::NOT_FOUND => {
+                let mut locks = TEAM_LOCK.locks.write().await;
+                locks.remove(&profile_id);
+              }
+              Ok(response) => {
+                log::debug!(
+                  "Heartbeat failed for profile {} with status {}",
+                  profile_id,
+                  response.status()
+                );
+              }
+              Err(e) => {
+                log::debug!("Heartbeat request failed for profile {}: {}", profile_id, e);
+              }
+            }
           }
         }
 
@@ -297,16 +351,6 @@ pub async fn acquire_team_lock_if_needed(
     return Ok(());
   }
 
-  if TEAM_LOCK
-    .is_locked_by_another(&profile.id.to_string())
-    .await
-  {
-    if let Some(lock) = TEAM_LOCK.get_lock_status(&profile.id.to_string()).await {
-      return Err(format!("Profile is in use by {}", lock.locked_by_email));
-    }
-    return Err("Profile is in use by another team member".to_string());
-  }
-
   TEAM_LOCK.acquire_lock(&profile.id.to_string()).await
 }
 
@@ -325,6 +369,45 @@ pub async fn release_team_lock_if_needed(profile: &crate::profile::BrowserProfil
       "Failed to release team lock for profile {}: {e}",
       profile.id
     );
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn sample_lock(locked_at: DateTime<Utc>, expires_at: Option<DateTime<Utc>>) -> ProfileLockInfo {
+    ProfileLockInfo {
+      profile_id: "profile-1".to_string(),
+      locked_by: "user-1".to_string(),
+      locked_by_email: "user@example.com".to_string(),
+      locked_at: locked_at.to_rfc3339(),
+      expires_at: expires_at.map(|value| value.to_rfc3339()),
+    }
+  }
+
+  #[test]
+  fn lock_with_expired_explicit_lease_is_stale() {
+    let lock = sample_lock(
+      Utc::now() - ChronoDuration::seconds(10),
+      Some(Utc::now() - ChronoDuration::seconds(1)),
+    );
+    assert!(is_lock_stale(&lock));
+  }
+
+  #[test]
+  fn lock_without_explicit_expiry_uses_default_lease_window() {
+    let lock = sample_lock(
+      Utc::now() - ChronoDuration::seconds(DEFAULT_LOCK_LEASE_SECONDS + 10),
+      None,
+    );
+    assert!(is_lock_stale(&lock));
+  }
+
+  #[test]
+  fn recent_lock_without_expiry_is_not_stale() {
+    let lock = sample_lock(Utc::now() - ChronoDuration::seconds(5), None);
+    assert!(!is_lock_stale(&lock));
   }
 }
 

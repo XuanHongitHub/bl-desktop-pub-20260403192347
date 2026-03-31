@@ -268,7 +268,8 @@ pub async fn start_proxy_process_with_profile(
   // Since we pre-allocated the port, the worker should bind immediately
   // We check quickly with short intervals to make startup fast
   let mut attempts = 0;
-  let max_attempts = 40; // 4 seconds max (40 * 100ms) - give it more time to start
+  // Keep startup responsiveness for preflight checks. Launch path uses dedicated local proxy startup.
+  let max_attempts = 20; // 2 seconds max (20 * 100ms)
 
   loop {
     // Use shorter sleep for faster startup

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
+import { usePathname } from "next/navigation";
 import { PortalFooter } from "@/components/portal/portal-footer";
 import {
   MARKETING_SHELL_WIDTH_CLASS,
@@ -25,16 +26,20 @@ export function WebsiteShell({
   variant?: WebsiteShellVariant;
 }) {
   const isNestedShell = useContext(WebsiteShellContext);
+  const pathname = usePathname();
 
   if (isNestedShell) {
     return <>{children}</>;
   }
 
+  const isAuthLikeRoute =
+    pathname === "/auth" || pathname === "/signin" || pathname === "/signup";
+
   const shellWidthClass =
     variant === "marketing" ? MARKETING_SHELL_WIDTH_CLASS : PORTAL_SHELL_WIDTH_CLASS;
   const railWidthClass =
     variant === "marketing" ? "" : PORTAL_RAIL_WIDTH_CLASS;
-  const showShellChrome = variant === "marketing";
+  const showShellChrome = variant === "marketing" && !isAuthLikeRoute;
 
   return (
     <WebsiteShellContext.Provider value>

@@ -1,0 +1,70 @@
+{
+  "started_at": "2026-03-30T13:54:29.625625",
+  "phone": "15097533407",
+  "api_phone_url": "https://api.sms8.net/api/record?token=3mf0dkdffnr4lkhfef4eqc53lvia9d74ri2s",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.183.118.9:50081",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T13:54:36.900170",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T13:54:36.914102",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T13:54:38.313981",
+      "ok": true
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T13:54:39.627723",
+      "ok": true,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T13:54:40.039574",
+      "ok": true,
+      "local_phone": "5097533407"
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T13:54:41.780393",
+      "auto_click_send_code": true,
+      "clicked": true,
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "poll_otp",
+      "ts": "2026-03-30T13:54:42.785885",
+      "found": true,
+      "code": "366082",
+      "attempts": 1,
+      "preview": "{\"code\":1,\"msg\":\"ok\",\"data\":{\"code\":\"[TikTok] 366082 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.\",\"code_time\":\"2026-03-30 14:53:31\",\"expired_date\":\"2026-04-21 00:00:00\"}}"
+    },
+    {
+      "step": "submit_otp",
+      "ts": "2026-03-30T13:54:45.992784",
+      "otp_filled": true,
+      "auto_click_next": true,
+      "clicked": true,
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T13:54:46.000492",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": true
+    }
+  ],
+  "ended_at": "2026-03-30T13:54:46.071872"
+}

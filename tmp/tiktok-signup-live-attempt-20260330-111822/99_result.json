@@ -1,0 +1,51 @@
+{
+  "started_at": "2026-03-30T11:18:23.767157",
+  "phone": "15097533407",
+  "api_phone_url": "https://api.sms8.net/api/record?token=3mf0dkdffnr4lkhfef4eqc53lvia9d74ri2s",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T11:18:27.492386",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T11:18:27.548173",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T11:18:30.619657",
+      "ok": true
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T11:18:31.570314",
+      "ok": true,
+      "local_phone": "5097533407"
+    },
+    {
+      "step": "click_send_code",
+      "ts": "2026-03-30T11:18:33.770425",
+      "clicked": true,
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "poll_otp",
+      "ts": "2026-03-30T11:20:38.470707",
+      "found": false,
+      "code": null,
+      "preview": "error=HTTP Error 403: Forbidden"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T11:20:38.481335",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": false
+    }
+  ],
+  "ended_at": "2026-03-30T11:20:38.560682"
+}

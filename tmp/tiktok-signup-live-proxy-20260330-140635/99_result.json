@@ -1,0 +1,87 @@
+{
+  "started_at": "2026-03-30T14:06:36.981373",
+  "phone": "15097533407",
+  "api_phone_url": "https://api.sms8.net/api/record?token=3mf0dkdffnr4lkhfef4eqc53lvia9d74ri2s",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.183.118.9:50081",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T14:06:42.354248",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "form_ready_check",
+      "ts": "2026-03-30T14:06:42.376027",
+      "ready": true
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T14:06:42.388020",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T14:06:43.633205",
+      "ok": true
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T14:06:44.842726",
+      "ok": true,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T14:06:45.257374",
+      "ok": true,
+      "local_phone": "5097533407"
+    },
+    {
+      "step": "otp_pre_send_snapshot",
+      "ts": "2026-03-30T14:06:46.261097",
+      "previous_code": "221595",
+      "previous_code_time": "2026-03-30 15:04:25"
+    },
+    {
+      "step": "send_code_ready_check",
+      "ts": "2026-03-30T14:06:46.295653",
+      "ready": true,
+      "reason": "send_button_ready"
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T14:07:12.321829",
+      "auto_click_send_code": true,
+      "clicked": true,
+      "send_state": "timeout",
+      "send_reason": "button_enabled_no_confirmation",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "send_code_reconcile",
+      "ts": "2026-03-30T14:09:42.427112",
+      "reconciled_send_state": "timeout",
+      "reconciled_send_reason": "button_enabled_no_confirmation"
+    },
+    {
+      "step": "poll_otp",
+      "ts": "2026-03-30T14:09:42.427112",
+      "found": false,
+      "code": null,
+      "attempts": 25,
+      "preview": "{\"code\":1,\"msg\":\"ok\",\"data\":{\"code\":\"[TikTok] 221595 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.\",\"code_time\":\"2026-03-30 15:06:57\",\"expired_date\":\"2026-04-21 00:00:00\"}}"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T14:09:42.434668",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": false,
+      "advanced": false
+    }
+  ],
+  "ended_at": "2026-03-30T14:09:42.496099"
+}

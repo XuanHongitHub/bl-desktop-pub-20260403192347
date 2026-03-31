@@ -10,9 +10,21 @@ use crate::proxy_manager::PROXY_MANAGER;
 use crate::wayfern_manager::{WayfernConfig, WayfernManager};
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::System;
 use url::Url;
+
+static TEMP_PROXY_PID_COUNTER: AtomicU32 = AtomicU32::new(2_000_000_000);
+
+fn next_temp_proxy_pid() -> u32 {
+  let next = TEMP_PROXY_PID_COUNTER.fetch_add(1, Ordering::Relaxed);
+  if next == u32::MAX {
+    TEMP_PROXY_PID_COUNTER.store(2_000_000_000, Ordering::Relaxed);
+    return 2_000_000_000;
+  }
+  next
+}
 pub struct BrowserRunner {
   pub profile_manager: &'static ProfileManager,
   pub downloaded_browsers_registry: &'static DownloadedBrowsersRegistry,
@@ -265,11 +277,12 @@ impl BrowserRunner {
       // Start the proxy and get local proxy settings
       // If proxy startup fails, DO NOT launch Camoufox - it requires local proxy
       let profile_id_str = profile.id.to_string();
+      let temp_pid = next_temp_proxy_pid();
       let local_proxy = PROXY_MANAGER
         .start_proxy(
           app_handle.clone(),
           upstream_proxy.as_ref(),
-          0, // Use 0 as temporary PID, will be updated later
+          temp_pid,
           Some(&profile_id_str),
           profile.proxy_bypass_rules.clone(),
         )
@@ -376,10 +389,14 @@ impl BrowserRunner {
       );
 
       // Update the proxy manager with the correct PID
-      if let Err(e) = PROXY_MANAGER.update_proxy_pid(0, process_id) {
+      if let Err(e) = PROXY_MANAGER.update_proxy_pid(temp_pid, process_id) {
         log::warn!("Warning: Failed to update proxy PID mapping: {e}");
       } else {
-        log::info!("Updated proxy PID mapping from temp (0) to actual PID: {process_id}");
+        log::info!(
+          "Updated proxy PID mapping from temp ({}) to actual PID: {}",
+          temp_pid,
+          process_id
+        );
       }
 
       // Save the updated profile (includes new fingerprint if randomize is enabled)
@@ -394,10 +411,6 @@ impl BrowserRunner {
           .unwrap_or(0)
       );
       self.save_process_info(&updated_profile)?;
-      // Ensure tag suggestions include any tags from this profile
-      let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
-        let _ = tm.rebuild_from_profiles(&self.profile_manager.list_profiles().unwrap_or_default());
-      });
       log::info!(
         "Successfully saved profile with process info: {}",
         updated_profile.name
@@ -496,11 +509,12 @@ impl BrowserRunner {
       // Start the proxy and get local proxy settings
       // If proxy startup fails, DO NOT launch Wayfern - it requires local proxy
       let profile_id_str = profile.id.to_string();
+      let temp_pid = next_temp_proxy_pid();
       let local_proxy = PROXY_MANAGER
         .start_proxy(
           app_handle.clone(),
           upstream_proxy.as_ref(),
-          0, // Use 0 as temporary PID, will be updated later
+          temp_pid,
           Some(&profile_id_str),
           profile.proxy_bypass_rules.clone(),
         )
@@ -599,10 +613,14 @@ impl BrowserRunner {
       self.schedule_profile_window_identity_with_url(&updated_profile, url.as_deref());
 
       // Update the proxy manager with the correct PID
-      if let Err(e) = PROXY_MANAGER.update_proxy_pid(0, process_id) {
+      if let Err(e) = PROXY_MANAGER.update_proxy_pid(temp_pid, process_id) {
         log::warn!("Warning: Failed to update proxy PID mapping: {e}");
       } else {
-        log::info!("Updated proxy PID mapping from temp (0) to actual PID: {process_id}");
+        log::info!(
+          "Updated proxy PID mapping from temp ({}) to actual PID: {}",
+          temp_pid,
+          process_id
+        );
       }
 
       // Save the updated profile
@@ -617,9 +635,6 @@ impl BrowserRunner {
           .unwrap_or(0)
       );
       self.save_process_info(&updated_profile)?;
-      let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
-        let _ = tm.rebuild_from_profiles(&self.profile_manager.list_profiles().unwrap_or_default());
-      });
       log::info!(
         "Successfully saved profile with process info: {}",
         updated_profile.name
@@ -859,9 +874,6 @@ impl BrowserRunner {
     );
 
     self.save_process_info(&updated_profile)?;
-    let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
-      let _ = tm.rebuild_from_profiles(&self.profile_manager.list_profiles().unwrap_or_default());
-    });
 
     // Apply proxy settings if needed (for Firefox-based browsers)
     if profile.proxy_id.is_some()
@@ -1188,8 +1200,8 @@ impl BrowserRunner {
       .as_ref()
       .and_then(|id| PROXY_MANAGER.get_proxy_settings_by_id(id));
 
-    // Use a temporary PID (1) to start the proxy, we'll update it after browser launch
-    let temp_pid = 1u32;
+    // Use an isolated temporary PID placeholder, then remap to the real browser PID
+    let temp_pid = next_temp_proxy_pid();
     let profile_id_str = profile.id.to_string();
 
     // Start local proxy - if this fails, DO NOT launch browser
@@ -1492,6 +1504,40 @@ impl BrowserRunner {
         )
         .await
     }
+  }
+
+  fn set_profile_runtime_state(
+    &self,
+    profile_id: uuid::Uuid,
+    runtime_state: RuntimeState,
+  ) -> Result<Option<BrowserProfile>, String> {
+    let Some(mut latest) = self
+      .profile_manager
+      .get_profile_by_id(&profile_id)
+      .map_err(|e| format!("Failed to load profile while updating runtime state: {e}"))?
+    else {
+      return Ok(None);
+    };
+
+    if latest.runtime_state == runtime_state {
+      return Ok(Some(latest));
+    }
+
+    latest.runtime_state = runtime_state;
+    self
+      .save_process_info(&latest)
+      .map_err(|e| format!("Failed to save runtime state: {e}"))?;
+
+    let _ = events::emit("profile-updated", &latest);
+    let _ = events::emit(
+      "profile-runtime-state-changed",
+      serde_json::json!({
+        "id": latest.id.to_string(),
+        "runtime_state": format!("{:?}", latest.runtime_state).to_lowercase()
+      }),
+    );
+
+    Ok(Some(latest))
   }
 
   fn save_process_info(
@@ -2723,14 +2769,49 @@ impl BrowserRunner {
 
     log::info!("Opening URL '{url}' with profile '{profile_id}'");
 
+    let was_running = self
+      .check_browser_status(app_handle.clone(), &profile)
+      .await
+      .unwrap_or(false);
+
+    let mut should_release_lock_on_error = false;
+    if !was_running {
+      crate::team_lock::acquire_team_lock_if_needed(&profile).await?;
+      should_release_lock_on_error =
+        profile.is_sync_enabled() && crate::cloud_auth::CLOUD_AUTH.is_on_team_plan().await;
+
+      if let Err(e) = self.set_profile_runtime_state(profile.id, RuntimeState::Starting) {
+        log::debug!(
+          "Failed to persist Starting state for profile {}: {}",
+          profile.id,
+          e
+        );
+      }
+    }
+
     // Use launch_or_open_url which handles both launching new instances and opening in existing ones
-    self
+    let updated_profile = match self
       .launch_or_open_url(app_handle, &profile, Some(url.clone()), None)
       .await
-      .map_err(|e| {
+    {
+      Ok(updated) => updated,
+      Err(e) => {
         log::info!("Failed to open URL with profile '{profile_id}': {e}");
-        format!("Failed to open URL with profile: {e}")
-      })?;
+        let _ = self.set_profile_runtime_state(profile.id, RuntimeState::Error);
+        if should_release_lock_on_error {
+          crate::team_lock::release_team_lock_if_needed(&profile).await;
+        }
+        return Err(format!("Failed to open URL with profile: {e}"));
+      }
+    };
+
+    if !was_running && updated_profile.is_sync_enabled() {
+      if let Some(scheduler) = crate::sync::get_global_scheduler() {
+        let profile_id = updated_profile.id.to_string();
+        scheduler.mark_profile_running(&profile_id).await;
+        scheduler.queue_profile_sync(profile_id).await;
+      }
+    }
 
     log::info!("Successfully opened URL '{url}' with profile '{profile_id}'");
     Ok(())
@@ -2902,15 +2983,9 @@ pub async fn launch_browser_profile(
     ));
   }
 
-  // Team lock check: if profile is sync-enabled and user is on a team, acquire lock
-  crate::team_lock::acquire_team_lock_if_needed(&profile).await?;
-
   let browser_runner = BrowserRunner::instance();
 
-  // Store the internal proxy settings for passing to launch_browser
-  let mut internal_proxy_settings: Option<ProxySettings> = None;
-
-  // Resolve the most up-to-date profile from disk by ID to avoid using stale proxy_id/browser state
+  // Resolve the most up-to-date profile from disk by ID before lock checks.
   let profile_for_launch = match browser_runner
     .profile_manager
     .list_profiles()
@@ -2920,9 +2995,7 @@ pub async fn launch_browser_profile(
       .into_iter()
       .find(|p| p.id == profile.id)
       .unwrap_or_else(|| profile.clone()),
-    Err(e) => {
-      return Err(e);
-    }
+    Err(e) => return Err(e),
   };
 
   log::info!(
@@ -2931,7 +3004,27 @@ pub async fn launch_browser_profile(
     profile_for_launch.id
   );
 
+  // Enforce lock in backend against fresh profile metadata (not stale UI payload).
+  crate::team_lock::acquire_team_lock_if_needed(&profile_for_launch).await?;
+  let should_release_lock_on_error =
+    profile_for_launch.is_sync_enabled() && crate::cloud_auth::CLOUD_AUTH.is_on_team_plan().await;
+
+  if let Err(e) =
+    browser_runner.set_profile_runtime_state(profile_for_launch.id, RuntimeState::Starting)
+  {
+    log::debug!(
+      "Failed to persist Starting state for profile {}: {}",
+      profile_for_launch.id,
+      e
+    );
+  }
+
+  let launch_result: Result<(BrowserProfile, Option<u32>), String> = async {
   preflight_check_profile_proxy(&profile_for_launch).await?;
+
+    // Store the internal proxy settings for passing to launch_browser
+    let mut internal_proxy_settings: Option<ProxySettings> = None;
+    let mut temp_proxy_pid: Option<u32> = None;
 
   // Always start a local proxy before launching (non-Camoufox/Wayfern handled here; they have their own flow)
   // This ensures all traffic goes through the local proxy for monitoring and future features
@@ -2965,9 +3058,10 @@ pub async fn launch_browser_profile(
       }
     }
 
-    // Use a temporary PID (1) to start the proxy, we'll update it after browser launch
-    let temp_pid = 1u32;
-    let profile_id_str = profile.id.to_string();
+      // Use an isolated temporary PID placeholder, then remap to the real browser PID
+      let temp_pid = next_temp_proxy_pid();
+      temp_proxy_pid = Some(temp_pid);
+      let profile_id_str = profile_for_launch.id.to_string();
 
     // Always start a local proxy, even if there's no upstream proxy
     // This allows for traffic monitoring and future features
@@ -3006,7 +3100,11 @@ pub async fn launch_browser_profile(
 
           browser_runner
             .profile_manager
-            .apply_proxy_settings_to_profile(&profile_path, &dummy_upstream, Some(&internal_proxy))
+              .apply_proxy_settings_to_profile(
+                &profile_path,
+                &dummy_upstream,
+                Some(&internal_proxy),
+              )
             .map_err(|e| format!("Failed to update profile proxy: {e}"))?;
         }
 
@@ -3036,41 +3134,70 @@ pub async fn launch_browser_profile(
   );
 
   // Launch browser or open URL in existing instance
-  let updated_profile = browser_runner.launch_or_open_url(app_handle.clone(), &profile_for_launch, url, internal_proxy_settings.as_ref()).await.map_err(|e| {
-    log::info!("Browser launch failed for profile: {}, error: {}", profile_for_launch.name, e);
+    let updated_profile = browser_runner
+      .launch_or_open_url(
+        app_handle.clone(),
+        &profile_for_launch,
+        url,
+        internal_proxy_settings.as_ref(),
+      )
+      .await
+      .map_err(|e| {
+        if let Some(io_error) = e.downcast_ref::<std::io::Error>() {
+          if io_error.kind() == std::io::ErrorKind::Other
+            && io_error.to_string().contains("Exec format error")
+          {
+            return format!(
+              "Failed to launch browser: Executable format error. This browser version is not compatible with your system architecture ({}). Please try a different browser or version that supports your platform.",
+              std::env::consts::ARCH
+            );
+          }
+        }
+        format!("Failed to launch browser or open URL: {e}")
+      })?;
+
+    Ok((updated_profile, temp_proxy_pid))
+  }
+  .await;
+
+  let (updated_profile, temp_proxy_pid) = match launch_result {
+    Ok(result) => result,
+    Err(error_message) => {
+      log::info!(
+        "Browser launch failed for profile: {}, error: {}",
+        profile_for_launch.name,
+        error_message
+      );
     if let Err(audit_err) = events::emit_audit_event(
       "run",
       "profile",
       Some(&profile_for_launch.id.to_string()),
       "failed",
-      Some(&format!("Failed to launch profile '{}': {}", profile_for_launch.name, e)),
+        Some(&format!(
+          "Failed to launch profile '{}': {}",
+          profile_for_launch.name, error_message
+        )),
     ) {
       log::warn!("Failed to emit audit event for profile launch failure: {audit_err}");
     }
 
-    // Emit a failure event to clear loading states in the frontend
-    #[derive(serde::Serialize)]
-    struct RunningChangedPayload {
-      id: String,
-      is_running: bool,
-    }
-    let payload = RunningChangedPayload {
-      id: profile_for_launch.id.to_string(),
-      is_running: false,
-    };
+      let _ = events::emit(
+        "profile-running-changed",
+        serde_json::json!({
+          "id": profile_for_launch.id.to_string(),
+          "is_running": false
+        }),
+      );
 
-    if let Err(e) = events::emit("profile-running-changed", &payload) {
-      log::warn!("Warning: Failed to emit profile running changed event: {e}");
-    }
+      let _ = browser_runner.set_profile_runtime_state(profile_for_launch.id, RuntimeState::Error);
 
-    // Check if this is an architecture compatibility issue
-    if let Some(io_error) = e.downcast_ref::<std::io::Error>() {
-      if io_error.kind() == std::io::ErrorKind::Other && io_error.to_string().contains("Exec format error") {
-        return format!("Failed to launch browser: Executable format error. This browser version is not compatible with your system architecture ({}). Please try a different browser or version that supports your platform.", std::env::consts::ARCH);
+      if should_release_lock_on_error {
+        crate::team_lock::release_team_lock_if_needed(&profile_for_launch).await;
       }
+
+      return Err(error_message);
     }
-    format!("Failed to launch browser or open URL: {e}")
-  })?;
+  };
 
   log::info!(
     "Browser launch completed for profile: {} (ID: {})",
@@ -3087,10 +3214,17 @@ pub async fn launch_browser_profile(
     log::warn!("Failed to emit audit event for profile launch: {e}");
   }
 
-  // Now update the proxy with the correct PID if we have one
-  if let Some(actual_pid) = updated_profile.process_id {
-    // Update the proxy manager with the correct PID (we always started with temp pid 1 for non-Camoufox)
-    let _ = PROXY_MANAGER.update_proxy_pid(1u32, actual_pid);
+  // Now update the proxy with the correct PID if we have one.
+  if let (Some(actual_pid), Some(temp_pid)) = (updated_profile.process_id, temp_proxy_pid) {
+    let _ = PROXY_MANAGER.update_proxy_pid(temp_pid, actual_pid);
+  }
+
+  if updated_profile.is_sync_enabled() {
+    if let Some(scheduler) = crate::sync::get_global_scheduler() {
+      let profile_id = updated_profile.id.to_string();
+      scheduler.mark_profile_running(&profile_id).await;
+      scheduler.queue_profile_sync(profile_id).await;
+    }
   }
 
   Ok(updated_profile)
@@ -3132,8 +3266,11 @@ pub async fn park_browser_profile(
   if !is_running {
     // Keep stop UX resilient when runtime metadata says the profile is live but
     // a transient status probe misses the process.
-    let optimistic_live =
-      latest.process_id.is_some() || matches!(latest.runtime_state, RuntimeState::Running);
+    let optimistic_live = latest.process_id.is_some()
+      || matches!(
+        latest.runtime_state,
+        RuntimeState::Running | RuntimeState::Starting | RuntimeState::Stopping
+      );
     if !optimistic_live {
       return Err("Cannot park profile because browser is not running".to_string());
     }
@@ -3187,6 +3324,7 @@ pub async fn kill_browser_profile(
   );
 
   let browser_runner = BrowserRunner::instance();
+  let _ = browser_runner.set_profile_runtime_state(profile.id, RuntimeState::Stopping);
 
   match browser_runner
     .kill_browser_process(app_handle.clone(), &profile)
@@ -3208,8 +3346,27 @@ pub async fn kill_browser_profile(
         log::warn!("Failed to emit audit event for profile stop: {e}");
       }
 
+      let _ = browser_runner.set_profile_runtime_state(profile.id, RuntimeState::Stopped);
+
+      if profile.is_sync_enabled() {
+        if let Some(scheduler) = crate::sync::get_global_scheduler() {
+          let profile_id = profile.id.to_string();
+          scheduler.mark_profile_stopped(&profile_id).await;
+          scheduler.queue_profile_sync_immediate(profile_id).await;
+        }
+      }
+
       // Release team lock if applicable
-      crate::team_lock::release_team_lock_if_needed(&profile).await;
+      let latest_for_lock_release = browser_runner
+        .profile_manager
+        .get_profile_by_id(&profile.id)
+        .ok()
+        .flatten();
+      if let Some(latest) = latest_for_lock_release.as_ref() {
+        crate::team_lock::release_team_lock_if_needed(latest).await;
+      } else {
+        crate::team_lock::release_team_lock_if_needed(&profile).await;
+      }
 
       // Auto-update non-running profiles and cleanup unused binaries
       let browser_for_update = profile.browser.clone();
@@ -3287,6 +3444,8 @@ pub async fn kill_browser_profile(
         log::warn!("Warning: Failed to emit profile running changed event: {e}");
       }
 
+      let _ = browser_runner.set_profile_runtime_state(profile.id, RuntimeState::Error);
+
       Err(format!("Failed to kill browser: {e}"))
     }
   }
@@ -3308,10 +3467,48 @@ pub async fn launch_browser_profile_with_debugging(
   }
 
   let browser_runner = BrowserRunner::instance();
-  browser_runner
-    .launch_browser_with_debugging(app_handle, &profile, url, remote_debugging_port, headless)
-    .await
-    .map_err(|e| format!("Failed to launch browser with debugging: {e}"))
+  let latest_profile = browser_runner
+    .profile_manager
+    .list_profiles()
+    .ok()
+    .and_then(|profiles| profiles.into_iter().find(|p| p.id == profile.id))
+    .unwrap_or(profile);
+
+  crate::team_lock::acquire_team_lock_if_needed(&latest_profile).await?;
+  let should_release_lock_on_error =
+    latest_profile.is_sync_enabled() && crate::cloud_auth::CLOUD_AUTH.is_on_team_plan().await;
+
+  let _ = browser_runner.set_profile_runtime_state(latest_profile.id, RuntimeState::Starting);
+
+  let result = browser_runner
+    .launch_browser_with_debugging(
+      app_handle,
+      &latest_profile,
+      url,
+      remote_debugging_port,
+      headless,
+    )
+    .await;
+
+  match result {
+    Ok(updated_profile) => {
+      if updated_profile.is_sync_enabled() {
+        if let Some(scheduler) = crate::sync::get_global_scheduler() {
+          let profile_id = updated_profile.id.to_string();
+          scheduler.mark_profile_running(&profile_id).await;
+          scheduler.queue_profile_sync(profile_id).await;
+        }
+      }
+      Ok(updated_profile)
+    }
+    Err(e) => {
+      let _ = browser_runner.set_profile_runtime_state(latest_profile.id, RuntimeState::Error);
+      if should_release_lock_on_error {
+        crate::team_lock::release_team_lock_if_needed(&latest_profile).await;
+      }
+      Err(format!("Failed to launch browser with debugging: {e}"))
+    }
+  }
 }
 
 #[tauri::command]

@@ -54,6 +54,7 @@ export function getPlanTier(planLabel?: string | null): PlanTier {
   if (
     normalized.includes("silver") ||
     normalized.includes("growth") ||
+    normalized.includes("team") ||
     normalized.includes("pro") ||
     normalized.includes("ag")
   ) {
@@ -124,11 +125,11 @@ export function getPlanTierDisplayLabel(planLabel?: string | null): string {
     case "bronze":
       return "Bronze";
     case "silver":
-      return "Ag";
+      return "Team";
     case "gold":
       return "Gold";
     case "platinum":
-      return "Platinum";
+      return "Enterprise";
     default:
       return "Free";
   }

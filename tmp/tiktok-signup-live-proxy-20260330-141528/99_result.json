@@ -1,0 +1,86 @@
+{
+  "started_at": "2026-03-30T14:15:31.312236",
+  "phone": "13609542257",
+  "api_phone_url": "https://api.sms8.net/api/record?token=k86hm8zpw59tkb8of88js6cnzitxvkrk0sfk",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.183.118.9:50081",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T14:15:37.371300",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "form_ready_check",
+      "ts": "2026-03-30T14:15:37.453585",
+      "ready": true
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T14:15:37.489696",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T14:15:39.581034",
+      "ok": true
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T14:15:41.138271",
+      "ok": true,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T14:15:41.582710",
+      "ok": true,
+      "local_phone": "3609542257"
+    },
+    {
+      "step": "otp_pre_send_snapshot",
+      "ts": "2026-03-30T14:15:42.567395",
+      "previous_code": null,
+      "previous_code_time": null
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T14:15:47.589907",
+      "auto_click_send_code": true,
+      "clicked": true,
+      "send_state": "sent",
+      "send_reason": "button_resend_60s",
+      "send_attempts_used": 1,
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "poll_otp",
+      "ts": "2026-03-30T14:15:48.582744",
+      "found": true,
+      "code": "511164",
+      "attempts": 1,
+      "preview": "{\"code\":1,\"msg\":\"ok\",\"data\":{\"code\":\"[TikTok] 511164 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.\",\"code_time\":\"2026-03-30 15:15:48\",\"expired_date\":\"2026-04-15 00:00:00\"}}"
+    },
+    {
+      "step": "submit_otp",
+      "ts": "2026-03-30T14:15:52.193897",
+      "otp_filled": true,
+      "auto_click_next": true,
+      "clicked": true,
+      "advanced": true,
+      "url": "https://www.tiktok.com/signup/create-password",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T14:15:52.210719",
+      "url": "https://www.tiktok.com/signup/create-password",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": true,
+      "advanced": true
+    }
+  ],
+  "ended_at": "2026-03-30T14:15:52.292728"
+}

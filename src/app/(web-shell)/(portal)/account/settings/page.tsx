@@ -1,85 +1,89 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Bell, Globe2, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
+import { PortalHeaderControls } from "@/components/portal/portal-header-controls";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
-
-function SettingRow({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="flex items-start gap-4 rounded-2xl border border-border/70 bg-card/70 p-5">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background/80 text-muted-foreground">
-        {icon}
-      </span>
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
-      </div>
-    </article>
-  );
-}
 
 export default function AccountSettingsPage() {
   const { t } = useTranslation();
-  const { session, selectedWorkspace } = usePortalBillingData();
+  const { session, selectedWorkspace, billingState } = usePortalBillingData();
 
   return (
     <PortalSettingsPage
       eyebrow={t("portalSite.account.eyebrow")}
       title={t("portalSite.account.nav.settings")}
       description={t("portalSite.account.settingsDescription")}
+      actions={
+        <Button asChild size="sm" variant="outline">
+          <Link href="/account">{t("portalSite.account.nav.overview")}</Link>
+        </Button>
+      }
     >
-      <section className="grid gap-4 xl:grid-cols-2">
-        <article className="rounded-2xl border border-border/70 bg-card/70 p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            {t("portalSite.account.profileTitle")}
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-foreground">
-            {session?.user.name || session?.user.email || t("portalSite.account.workspaceEmpty")}
-          </h2>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            {selectedWorkspace?.name || t("portalSite.account.workspaceEmpty")}
-          </p>
-        </article>
-
-        <article className="rounded-2xl border border-border/70 bg-card/70 p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            {t("portalSite.account.securityTitle")}
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-foreground">
-            {t("portalSite.account.securityDescription")}
-          </h2>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            {t("portalSite.account.paymentMethodDescription")}
-          </p>
-        </article>
+      <section className="rounded-xl border border-border bg-card/70 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
+          {t("portalSite.account.profileTitle")}
+        </h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+            <p className="text-xs text-muted-foreground">{t("portalSite.account.profileTitle")}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {session?.user.name || "BugLogin"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {session?.user.email || t("portalSite.account.notAvailable")}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+            <p className="text-xs text-muted-foreground">{t("portalSite.account.accountRole")}</p>
+            <div className="mt-1">
+              <Badge variant="secondary">
+                {session?.user.platformRole === "platform_admin"
+                  ? t("shell.roles.platform_admin")
+                  : t("shell.roles.member")}
+              </Badge>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border/70 bg-background/70 p-3 md:col-span-2">
+            <p className="text-xs text-muted-foreground">{t("portalSite.account.currentWorkspace")}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {selectedWorkspace?.name || t("portalSite.account.workspaceEmpty")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.status")}:{" "}
+              <span className="text-foreground">
+                {billingState?.subscription.status || t("portalSite.account.notAvailable")}
+              </span>
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="grid gap-4">
-        <SettingRow
-          icon={<Globe2 className="h-4 w-4" />}
-          title={t("portalSite.account.languageTitle")}
-          description={t("portalSite.account.languageDescription")}
-        />
-        <SettingRow
-          icon={<Bell className="h-4 w-4" />}
-          title={t("portalSite.account.notificationsTitle")}
-          description={t("portalSite.account.notificationsDescription")}
-        />
-        <SettingRow
-          icon={<ShieldCheck className="h-4 w-4" />}
-          title={t("portalSite.account.securityTitle")}
-          description={t("portalSite.account.securityDescription")}
-        />
+      <section className="rounded-xl border border-border bg-card/70 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
+          {t("portalSite.account.preferencesTitle")}
+        </h2>
+        <p className="mb-3 text-sm text-muted-foreground">{t("portalSite.account.languageDescription")}</p>
+        <PortalHeaderControls showAccount={false} />
+        <div className="mt-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2.5 text-sm text-muted-foreground">
+          {t("portalSite.account.notificationsDescription")}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href="/account/billing">{t("portalSite.account.nav.billing")}</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/account/invoices">{t("portalSite.account.nav.invoices")}</Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-background/70 p-4">
+        <h2 className="text-sm font-semibold text-foreground">{t("portalSite.account.securityTitle")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("portalSite.account.securityDescription")}</p>
       </section>
     </PortalSettingsPage>
   );

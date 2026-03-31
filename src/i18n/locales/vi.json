@@ -28,7 +28,8 @@
       "export": "Xuất",
       "refresh": "Làm mới",
       "loading": "Đang tải...",
-      "saveSettings": "Lưu cài đặt"
+      "saveSettings": "Lưu cài đặt",
+      "rename": "Đổi tên"
     },
     "status": {
       "active": "Đang hoạt động",
@@ -828,7 +829,6 @@
     "launchAfterCreate": "Launch browser after create",
     "sections": {
       "basic": "Cơ bản",
-      "proxy": "Proxy",
       "advanced": "Nâng cao",
       "basicHint": "Đặt tên profile và các thiết lập cơ bản cần thiết.",
       "proxyHint": "Chọn proxy có sẵn hoặc quick add proxy mới.",
@@ -1832,8 +1832,7 @@
     "featureProfiles": "{{count}} profile quản lý",
     "featureMembers": "{{count}} thành viên",
     "featureStorage": "{{count}} GB dung lượng sync",
-    "featureProxy": "{{count}} GB resident proxy",
-    "featureSupport": "Hỗ trợ {{level}}",
+        "featureSupport": "Hỗ trợ {{level}}",
     "support": {
       "email": "Email",
       "priority": "Ưu tiên",
@@ -1869,16 +1868,16 @@
         "description": "Phù hợp cá nhân và thao tác hằng ngày."
       },
       "growth": {
-        "name": "Growth",
-        "description": "Phù hợp team đang mở rộng và vận hành chung workspace."
+        "name": "Team",
+        "description": "Phù hợp team nhỏ và vừa vận hành chung một workspace."
       },
       "scale": {
         "name": "Scale",
         "description": "Cho vận hành lớn với dung lượng và sản lượng cao."
       },
       "custom": {
-        "name": "Custom",
-        "description": "Giới hạn profile tuỳ chỉnh và hỗ trợ nội bộ chuyên trách."
+        "name": "Enterprise",
+        "description": "Phù hợp tổ chức cần quota, governance và billing theo hợp đồng."
       }
     },
     "tabs": {
@@ -2252,9 +2251,9 @@
       "planMenuPricing": "Giá & trạng thái",
       "planMenuUsage": "Giới hạn sử dụng",
       "planMenuExperience": "Trải nghiệm gói",
-      "customPlanTitle": "Điều khiển custom plan",
-      "customPlanDescription": "Cấu hình giá và giới hạn cho custom plan phục vụ vận hành nội bộ.",
-      "customPlanEnabled": "Hiển thị custom plan",
+      "customPlanTitle": "Điều khiển gói Enterprise",
+      "customPlanDescription": "Cấu hình giá và giới hạn cho gói Enterprise phục vụ vận hành nội bộ.",
+      "customPlanEnabled": "Hiển thị gói Enterprise",
       "customPlanEnabledYes": "Bật",
       "customPlanEnabledNo": "Tắt",
       "customPlanMonthly": "Giá theo tháng ($)",
@@ -2263,14 +2262,13 @@
       "customPlanProfiles": "Profile quản lý",
       "customPlanMembers": "Thành viên",
       "customPlanStorage": "Dung lượng sync (GB)",
-      "customPlanProxy": "Resident proxy (GB)",
-      "customPlanRecommended": "Gắn nhãn khuyến nghị",
+            "customPlanRecommended": "Gắn nhãn khuyến nghị",
       "customPlanRecommendedYes": "Có",
       "customPlanRecommendedNo": "Không",
-      "customPlanSaveAction": "Lưu custom plan",
+      "customPlanSaveAction": "Lưu gói Enterprise",
       "customPlanResetAction": "Khôi phục mặc định",
-      "customPlanSaved": "Đã cập nhật custom plan.",
-      "customPlanReset": "Đã reset custom plan về mặc định.",
+      "customPlanSaved": "Đã cập nhật gói Enterprise.",
+      "customPlanReset": "Đã reset gói Enterprise về mặc định.",
       "sourceInternal": "Nội bộ",
       "sourceStripe": "Liên kết Stripe",
       "couponCode": "Mã coupon",
@@ -2339,6 +2337,11 @@
         "apiPhoneEndpointPlaceholder": "https://.../phones",
         "apiPhoneEndpointRequired": "Cần nhập endpoint API phone.",
         "apiPhoneFailed": "Không lấy được danh sách phone từ API.",
+        "captchaService": "Dịch vụ captcha",
+        "captchaServiceNone": "Tắt",
+        "captchaServiceOmocaptcha": "OMOcaptcha",
+        "captchaApiKey": "Captcha API key",
+        "captchaApiKeyPlaceholder": "Nhập API key dịch vụ captcha",
         "rotationLink": "Link xoay (optional)",
         "rotationLinkPlaceholder": "https://... (nếu có)",
         "rotationInterval": "Thời gian xoay (phút, optional - mặc định 5)",
@@ -2407,6 +2410,7 @@
           "sync": "Sync (2 chiều)",
           "editBrowser": "Sửa browser",
           "openApiPhone": "Mở URL API Phone",
+          "openCaptchaService": "Mở dịch vụ captcha",
           "fetchOtp": "Lấy mã OTP",
           "disable": "Disable profile",
           "enable": "Enable profile",
@@ -2486,6 +2490,7 @@
         "browserVersionRequired": "Không có phiên bản trình duyệt đã tải cho lựa chọn hiện tại.",
         "browserUpdated": "Đã cập nhật browser ưu tiên sang {{browser}} cho profile {{profile}}.",
         "apiPhoneMissing": "Profile này chưa có URL API Phone.",
+        "captchaServiceMissing": "Profile này chưa cấu hình dịch vụ captcha.",
         "createBatchSuccess": "Đã tạo {{count}} profile với proxy {{proxy}}.",
         "createBatchFailed": "Không thể tạo batch profile.",
         "startProfileSuccess": "Đã mở browser profile {{profile}}.",
@@ -2493,6 +2498,8 @@
         "signupCredentialReady": "Thông tin đăng nhập của {{profile}}: {{username}} / {{password}}",
         "openApiPhoneSuccess": "Đã mở URL API Phone cho profile {{profile}}.",
         "openApiPhoneFailed": "Không thể mở URL API Phone cho profile này.",
+        "openCaptchaServiceSuccess": "Đã mở dịch vụ captcha cho profile {{profile}}.",
+        "openCaptchaServiceFailed": "Không thể mở dịch vụ captcha cho profile này.",
         "otpDetectedCopied": "Đã copy OTP cho profile {{profile}}: {{code}}",
         "otpNotFound": "Chưa lấy được mã OTP.",
         "otpNotFoundDescription": "API Phone chưa trả về mã TikTok 6 số hợp lệ.",
@@ -2664,11 +2671,11 @@
       "operationQueueEmpty": "Hiện chưa có workspace cần can thiệp khẩn.",
       "actionStabilizeSync": "Ổn định luồng sync",
       "actionRecoverBilling": "Xử lý thu hồi thanh toán",
-      "actionReviewCapacity": "Rà soát dung lượng storage/proxy",
+      "actionReviewCapacity": "Rà soát dung lượng storage",
       "actionReviewAccess": "Rà soát chính sách truy cập",
       "reasonHighRisk": "Mức rủi ro cao, cần triage ngay.",
       "reasonPastDue": "Subscription quá hạn, có thể ảnh hưởng entitlement.",
-      "reasonCapacity": "Mức dùng storage hoặc proxy đang gần giới hạn cấu hình.",
+      "reasonCapacity": "Mức dùng storage đang gần giới hạn cấu hình.",
       "reasonShareAndInvite": "Cần rà soát trạng thái share và invite trước khi mở rộng.",
       "currentWorkspace": "Workspace hiện tại",
       "createWorkspaceDescription": "Tạo workspace tách biệt mới và bắt đầu quản trị ngay.",
@@ -2731,11 +2738,17 @@
     "sections": {
       "profiles": "Profiles",
       "automation": "Automation",
+      "automationSignupTiktok": "Sign Up Tiktok",
+      "automationUpdateCookies": "Update Cookies",
       "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy & VPN",
       "pricing": "Bảng giá",
       "settings": "Cài đặt",
       "integrations": "Tích hợp",
+      "accountOverview": "Tổng quan",
+      "accountBilling": "Thanh toán",
+      "accountInvoices": "Hóa đơn",
+      "accountSettings": "Cài đặt",
       "admin": "Admin Workspace",
       "adminPanel": "Admin Panel",
       "superAdminPanel": "Super Admin Panel",
@@ -2849,6 +2862,10 @@
       "addWorkspace": "Thêm workspace",
       "panels": "Panel quản trị"
     },
+    "navigationGroups": {
+      "platform": "Nền tảng",
+      "projects": "Khu vực"
+    },
     "webPortal": {
       "movedDescription": "Chức năng này đã chuyển sang web portal. Desktop app chỉ còn tập trung cho runtime vận hành.",
       "superAdminDescription": "Quản trị cấp nền tảng đã chuyển sang Super Admin Portal trên web.",
@@ -2919,17 +2936,16 @@
     "compareProfiles": "Profile quản lý",
     "compareMembers": "Thành viên",
     "compareStorage": "Dung lượng sync",
-    "compareProxy": "Resident proxy",
-    "compareAutomation": "Năng lực automation",
+        "compareAutomation": "Năng lực automation",
     "compareAutomationStarter": "Cơ bản",
     "compareAutomationGrowth": "Tiêu chuẩn",
     "compareAutomationScale": "Nâng cao",
-    "compareAutomationCustom": "Workflow tuỳ chỉnh",
+    "compareAutomationCustom": "Workflow Enterprise",
     "compareSecurity": "Mức kiểm soát bảo mật",
     "compareSecurityStarter": "Tiêu chuẩn",
     "compareSecurityGrowth": "Phân quyền theo vai trò",
     "compareSecurityScale": "Chính sách tuỳ chỉnh",
-    "compareSecurityCustom": "Chính sách tuỳ chỉnh + kiểm duyệt nội bộ",
+    "compareSecurityCustom": "Chính sách Enterprise + kiểm duyệt nội bộ",
     "compareSupport": "Mức hỗ trợ",
     "comparisonNote": "Nếu cần bảo mật/compliance tuỳ chỉnh, hãy liên hệ để được onboarding enterprise.",
     "enterpriseLabel": "Enterprise",
@@ -2942,10 +2958,10 @@
     "faq2A": "Gói năm áp dụng mức giá ưu đãi cho cả năm nhưng vẫn giữ nguyên giới hạn tính năng và mức hỗ trợ.",
     "faq3Q": "Stripe chưa sẵn sàng thì có chọn gói trước được không?",
     "faq3A": "Được. Bạn có thể chọn trước gói ngay bây giờ và bật checkout đầy đủ khi Stripe cấu hình xong.",
-    "currentPlanBadge": "Quản lý",
+    "currentPlanBadge": "Gói hiện tại",
     "pendingPlanShortBadge": "Chờ xử lý",
     "freePlanLabel": "Free",
-    "customPlanBadge": "Custom nội bộ",
+    "customPlanBadge": "Enterprise nội bộ",
     "ctaBadge": "Luồng đề xuất",
     "ctaTitle": "Cần hỗ trợ chọn gói phù hợp?",
     "ctaDescription": "Chọn gói đề xuất trước, sau đó vào các trang Checkout/Coupon/License để hoàn tất thanh toán.",
@@ -3341,47 +3357,97 @@
     "nav": {
       "home": "Trang chủ",
       "product": "Sản phẩm",
-      "teams": "Teams",
+      "teams": "Nhóm",
       "resources": "Tài nguyên",
       "community": "Cộng đồng",
       "support": "Hỗ trợ",
-      "enterprise": "Enterprise",
-      "dashboard": "Dashboard",
-      "pricing": "Pricing",
+      "enterprise": "Doanh nghiệp",
+      "dashboard": "Bảng điều khiển",
+      "account": "Tài khoản",
+      "pricing": "Bảng giá",
+      "docs": "Tài liệu",
       "auth": "Đăng nhập",
       "help": "Hỗ trợ",
-      "billing": "Billing",
-      "admin": "Super Admin",
-      "brand": "Antidetect Browser Control",
-      "download": "Tải app",
+      "status": "Trạng thái",
+      "contact": "Liên hệ",
+      "billing": "Thanh toán",
+      "admin": "Quản trị nền tảng",
+      "brand": "Trung tâm điều khiển trình duyệt Antidetect",
+      "download": "Tải xuống",
       "signIn": "Đăng nhập",
       "signUp": "Đăng ký",
       "signOut": "Đăng xuất",
-      "superAdmin": "Super Admin",
+      "superAdmin": "Quản trị nền tảng",
       "openMenu": "Mở menu"
     },
     "footer": {
-      "title": "BugLogin Portal",
+      "title": "Cổng BugLogin",
       "description": "Website điều phối toàn bộ hành trình mua gói, xác thực, thanh toán và vận hành admin cho BugLogin.",
-      "cta": "Xem pricing",
+      "cta": "Xem bảng giá",
       "product": "Sản phẩm",
       "resources": "Tài nguyên",
       "operations": "Vận hành",
       "terms": "Điều khoản",
       "privacy": "Quyền riêng tư",
-      "refund": "Hoàn tiền"
+      "refund": "Hoàn tiền",
+      "copyright": "© {{year}} BugLogin. Đã đăng ký bản quyền."
     },
     "home": {
-      "reportLabel": "State of Sites ’26",
+      "reportLabel": "Báo cáo Sites ’26",
       "reportCta": "Mở báo cáo ngay",
       "eyebrow": "Antidetect browser cho team vận hành",
-      "linearTitleLine1": "Hệ antidetect browser",
-      "linearTitleLine2": "dành cho team và operator",
-      "linearSubtitle": "Thiết kế riêng cho profile isolation, workspace controls và billing operations.",
+      "linearTitleLine1": "Vận hành profile",
+      "linearTitleLine2": "ở quy mô lớn",
+      "linearSubtitle": "Runtime ổn định, sync chuẩn, governance rõ ràng.",
       "title": "Điều phối browser, workspace và billing trên cùng một mặt điều khiển.",
       "description": "BugLogin kết hợp desktop antidetect browser với control layer trên web để bán gói, xác thực tài khoản, quản lý subscription và vận hành platform admin mà không làm rối trải nghiệm trong app.",
       "primaryCta": "Tải desktop app",
-      "secondaryCta": "Xem pricing",
+      "secondaryCta": "Xem demo workspace",
+      "demoWorkspace": {
+        "eyebrow": "Demo workspace",
+        "title": "Một màn hình cho profile runtime, proxy và VPN",
+        "description": "Preview thao tác vận hành thực tế: launch profile, bind proxy, kiểm tra tunnel và sync.",
+        "kpiProfiles": "Profiles đã scale",
+        "kpiQueue": "Queue hiện tại",
+        "kpiSync": "Tỷ lệ sync",
+        "leftTitle": "Menu workspace",
+        "leftSignup": "Proxy",
+        "leftUpdate": "VPN",
+        "leftProxy": "Proxy",
+        "leftVpn": "VPN",
+        "leftProfiles": "Profiles",
+        "sidebarPlatform": "Nền tảng",
+        "sidebarProjects": "Dự án",
+        "tabTitleProfiles": "Không gian hồ sơ",
+        "tabTitleProxy": "Trung tâm Proxy",
+        "tabTitleVpn": "Trung tâm VPN",
+        "centerTitle": "Hàng đợi runtime",
+        "searchHint": "Lọc profile, proxy, endpoint...",
+        "colEntity": "Đối tượng",
+        "colStatus": "Trạng thái",
+        "colEndpoint": "Điểm cuối",
+        "colUpdated": "Cập nhật",
+        "colAction": "Thao tác",
+        "filterAll": "tất cả",
+        "filterRunning": "đang chạy",
+        "filterQueued": "đang chờ",
+        "rowQueued": "BugIdeaSync A-02 · chờ launch",
+        "rowRunning": "BugIdeaSync A-03 · đang chạy",
+        "rowDone": "BugIdeaSync A-01 · đã sync",
+        "rightTitle": "Nhật ký bước",
+        "log1": "18:50 · Launch profile + attach proxy",
+        "log2": "18:51 · OTP fetched · form advanced",
+        "log3": "18:52 · Cookie extracted · outbox synced",
+        "profilesLog1": "18:50 · Launch profile + attach local proxy",
+        "profilesLog2": "18:51 · Camoufox PID mapped + state running",
+        "profilesLog3": "18:52 · Close profile + outbox replay ok",
+        "proxyLog1": "18:50 · Proxy worker boot + port reserved",
+        "proxyLog2": "18:51 · Upstream healthcheck fallback passed",
+        "proxyLog3": "18:52 · Rotation window updated (5m)",
+        "vpnLog1": "18:50 · VPN tunnel handshake initialized",
+        "vpnLog2": "18:51 · GeoIP timezone matched to endpoint",
+        "vpnLog3": "18:52 · Tunnel stable + keepalive active"
+      },
       "metrics": {
         "profiles": {
           "value": "1,000+",
@@ -3389,7 +3455,7 @@
         },
         "teams": {
           "value": "25",
-          "label": "seat tối đa cho gói custom"
+          "label": "seat tối đa cho gói Enterprise"
         },
         "ops": {
           "value": "24/7",
@@ -3397,9 +3463,9 @@
         }
       },
       "mockup": {
-        "windowLabel": "Portal",
+        "windowLabel": "Cổng",
         "windowTitle": "Control plane cho BugLogin",
-        "status": "Live",
+        "status": "Đang hoạt động",
         "sidebar": {
           "team": "Workspace đang theo dõi",
           "active": "Profile hoạt động",
@@ -3456,40 +3522,40 @@
           "billing": "Billing"
         }
       },
-      "capabilitiesEyebrow": "Năng lực cốt lõi",
-      "capabilitiesTitle": "Website bán hàng nhưng vẫn vận hành như một product thực thụ.",
-      "capabilitiesDescription": "Landing, pricing, auth, checkout, account billing và super admin dùng chung contract với desktop thay vì tách thành các bề mặt rời rạc.",
+      "capabilitiesEyebrow": "Vì sao trang này khác biệt",
+      "capabilitiesTitle": "Một bề mặt sản phẩm thật, không phải landing toàn card.",
+      "capabilitiesDescription": "Dùng visual từ sản phẩm thật, copy tập trung, và CTA đi thẳng vào auth, pricing, và điều phối workspace.",
       "features": {
         "stealth": {
-          "title": "Antidetect browser được đặt làm trọng tâm",
-          "description": "Hero, pricing và auth đều nhấn đúng giá trị sản phẩm cốt lõi thay vì biến web thành một billing microsite chung chung."
+          "title": "Runtime trình duyệt vẫn là trọng tâm",
+          "description": "Landing và auth thể hiện trực tiếp bối cảnh vận hành profile thay vì ngôn ngữ SaaS chung chung."
         },
         "workspace": {
-          "title": "Portal nối trực tiếp vào workspace thật",
-          "description": "Mọi gói, hóa đơn và trạng thái entitlement đều lấy từ cùng Control API và DB đang phục vụ desktop app."
+          "title": "Portal web đọc trạng thái workspace thật",
+          "description": "Plan, invoice và entitlement đều lấy từ cùng authority đang phục vụ desktop runtime."
         },
         "billing": {
-          "title": "Stripe checkout và account billing gọn, an toàn",
-          "description": "User xử lý mua gói, invoice, gia hạn và trạng thái subscription trên web mà không cần nhúng logic thanh toán nặng vào app."
+          "title": "Checkout tách rõ khỏi runtime",
+          "description": "Thanh toán và billing ở web; desktop tập trung cho thực thi profile runtime."
         }
       },
       "steps": {
         "signin": {
-          "title": "Xác thực theo một auth hub thống nhất",
-          "description": "Email/password, OTP, Google OAuth và invite flow cùng hội tụ trên một màn auth duy nhất."
+          "title": "Xác thực một lần qua auth hub thống nhất",
+          "description": "Email/password, OTP, Google OAuth và invite cùng hội tụ về một điểm vào."
         },
         "checkout": {
-          "title": "Chọn workspace rồi checkout",
-          "description": "Website buộc gắn plan với workspace thật trước khi tạo Stripe session để không làm lệch entitlement."
+          "title": "Gắn workspace trước khi checkout",
+          "description": "Mỗi Stripe session đều gắn vào workspace thật trước, tránh lệch trạng thái entitlement."
         },
         "operate": {
-          "title": "Vận hành sau mua trên web, chạy việc trong app",
-          "description": "User về desktop để làm việc; account billing và super admin ở lại trên website để tách lớp vận hành khỏi runtime browser."
+          "title": "Điều phối trên web, thực thi trên desktop",
+          "description": "Billing và admin ở web; runtime profile nặng vẫn nằm trong desktop app."
         }
       },
-      "splitEyebrow": "Dual-tone product",
-      "splitTitle": "Public pages mềm, vùng sau đăng nhập đậm tính vận hành.",
-      "splitDescription": "Phong cách tổng thể vẫn premium và sạch, nhưng sau login giao diện chuyển nhịp sang shell ứng dụng để đọc dữ liệu nhanh hơn.",
+      "splitEyebrow": "Từ quan tâm đến vận hành",
+      "splitTitle": "Một luồng liền mạch từ lần truy cập đầu tới workspace production.",
+      "splitDescription": "Đăng nhập, gắn workspace, rồi vận hành với ranh giới rõ ràng giữa web control và desktop runtime.",
       "splitCards": {
         "account": {
           "title": "Account billing cho user thật",
@@ -3516,81 +3582,101 @@
         }
       }
     },
-  "pricing": {
-    "eyebrow": "Public pricing",
-    "title": "Pricing công khai, rõ workspace limit và đủ mạnh để chốt mua ngay.",
-    "description": "Bảng giá mới bán đúng core offer của BugLogin: antidetect browser cho cá nhân và team, kèm cloud sync, billing và lớp quản trị vận hành trên web.",
-    "perMonthBilledYearly": "/ tháng, thanh toán theo năm",
-    "perMonthBilledMonthly": "/ tháng, thanh toán theo tháng",
-    "saveBadge": "Tiết kiệm 25%",
-    "getStarted": "Bắt đầu",
-    "selectPlan": "Chọn gói",
-    "contactSales": "Liên hệ sales",
-    "compareTitle": "So sánh giới hạn từng gói",
-    "compareHeading": "Xem chính xác mỗi gói BugLogin mở được những gì.",
-    "compareDescription": "Đối chiếu workspace limits, số thành viên, storage, proxy quota và mức hỗ trợ trước khi đưa user vào checkout.",
-    "linearSubtitle": "Chọn tier workspace phù hợp với quy mô team và nhu cầu runtime.",
-    "trustedBy": "Được tin dùng bởi team product, growth và vận hành anti-detect.",
-    "mostPopular": "Phổ biến nhất",
-    "customPriceLabel": "báo giá riêng",
-    "supportLabel": "Hỗ trợ",
-    "finalCtaEyebrow": "Checkout sẵn sàng chạy",
-    "finalCtaTitle": "Bắt đầu bằng một workspace tier đủ sức gánh browser operations hằng ngày.",
-    "finalCtaDescription": "Dùng public checkout cho Starter hoặc Scale, sau đó quản lý billing, invoice và trạng thái gói ngay trên web portal mà không phải quay lại desktop app.",
-    "plans": {
-      "free": {
-        "name": "Free",
-        "audience": "Thử nghiệm cá nhân và setup profile ban đầu"
+    "pricing": {
+      "eyebrow": "Bảng giá công khai",
+      "title": "Bảng giá",
+      "titleLine1": "Mở khóa tất cả",
+      "titleLine2": "tính năng nâng cao",
+      "description": "Chọn gói phù hợp với nhu cầu của bạn.",
+      "heroDiscountBadge": "Tiết kiệm theo năm",
+      "perMonthBilledYearly": "/ tháng, thanh toán theo năm",
+      "perMonthBilledMonthly": "/ tháng, thanh toán theo tháng",
+      "saveBadge": "Tiết kiệm",
+      "freeLabel": "Miễn phí",
+      "getStarted": "Bắt đầu",
+      "selectPlan": "Chọn gói",
+      "startTrial": "Dùng thử miễn phí",
+      "contactSales": "Liên hệ sales",
+      "compareTitle": "So sánh giới hạn từng gói",
+      "compareHeading": "Xem chính xác mỗi gói BugLogin mở được những gì.",
+      "compareDescription": "Đối chiếu workspace limits, số thành viên, storage và mức hỗ trợ trước khi đưa user vào checkout.",
+      "linearSubtitle": "Thanh toán theo tháng hoặc năm, chọn gói phù hợp.",
+      "trustedBy": "Được tin dùng bởi team product, growth và vận hành anti-detect.",
+      "mostPopular": "Phổ biến nhất",
+      "trialBadge": "Dùng thử",
+      "trialPeriodLabel": "Dùng thử 7 ngày",
+      "freePlanPriceLine": "Gói miễn phí",
+      "addons": {
+        "profiles": "Hồ sơ",
+        "members": "Thành viên"
       },
-      "starter": {
-        "name": "Starter",
-        "audience": "Team operator nhỏ chạy chung một workspace"
+      "customPriceLabel": "báo giá Enterprise",
+      "supportLabel": "Hỗ trợ",
+      "finalCtaEyebrow": "Checkout sẵn sàng chạy",
+      "finalCtaTitle": "Bắt đầu bằng một workspace tier đủ sức gánh browser operations hằng ngày.",
+      "finalCtaDescription": "Dùng public checkout cho Starter hoặc Scale, sau đó quản lý billing, invoice và trạng thái gói ngay trên web portal mà không phải quay lại desktop app.",
+      "plans": {
+        "trial": {
+          "name": "Free Trial",
+          "audience": "Trải nghiệm luồng cốt lõi trước khi chọn gói trả phí"
+        },
+        "free": {
+          "name": "Free",
+          "audience": "Thử nghiệm cá nhân và setup profile ban đầu"
+        },
+        "starter": {
+          "name": "Starter",
+          "audience": "Team operator nhỏ chạy chung một workspace"
+        },
+        "growth": {
+          "name": "Team",
+          "audience": "Team nhỏ và vừa cần workspace chung, quota rộng hơn để vận hành ổn định"
+        },
+        "scale": {
+          "name": "Scale",
+          "audience": "Vận hành production với concurrency cao hơn và cloud sync"
+        },
+        "custom": {
+          "name": "Enterprise",
+          "audience": "Tổ chức cần quota, governance và chính sách billing theo hợp đồng"
+        }
       },
-      "growth": {
-        "name": "Growth",
-        "audience": "Team đang mở rộng cần thêm profile, thành viên và dung lượng vận hành"
-      },
-      "scale": {
-        "name": "Scale",
-        "audience": "Vận hành production với concurrency cao hơn và cloud sync"
-      },
-      "custom": {
-        "name": "Custom",
-        "audience": "Team nâng cao cần quota, storage và billing tùy chỉnh"
-      }
-    },
-    "support": {
-      "community": "Hỗ trợ cộng đồng",
-      "email": "Email support",
-        "priority": "Priority support",
-        "dedicated": "Dedicated support"
+      "support": {
+        "community": "Hỗ trợ cộng đồng",
+        "email": "Hỗ trợ qua email",
+        "priority": "Hỗ trợ ưu tiên",
+        "dedicated": "Hỗ trợ chuyên trách"
       },
       "table": {
         "feature": "Tính năng",
         "profiles": "Profiles",
         "members": "Thành viên",
-        "storage": "Storage",
-        "proxy": "Proxy"
+        "storage": "Storage"
       },
       "tableDescriptions": {
         "profiles": "Số lượng browser profile cô lập tối đa có thể dùng trong workspace.",
         "members": "Số ghế thành viên có thể dùng chung billing và quyền truy cập workspace.",
         "storage": "Dung lượng cloud storage dành cho profile, session và dữ liệu sync.",
-        "proxy": "Quota băng thông proxy đã bao gồm trong gói.",
         "support": "Mức hỗ trợ và kênh xử lý đi kèm với từng tier."
-      }
+      },
+      "currentPlanBadge": "Gói hiện tại",
+      "managePlanCta": "Quản lý gói",
+      "currentWorkspacePlanHint": "Workspace {{workspace}} đang dùng gói {{plan}}",
+      "downgradeDisabled": "Không thể hạ gói theo chế độ tự phục vụ.",
+      "downgradeDisabledHint": "Hạ gói được xử lý thủ công qua Billing Support.",
+      "downgradeTo": "Hạ xuống {{plan}}"
     },
     "auth": {
-      "eyebrow": "Auth hub",
+      "eyebrow": "Trung tâm xác thực",
       "title": "Một cửa đăng nhập cho web portal của BugLogin.",
       "description": "Flow này gom password auth, OTP, Google OAuth và invite accept vào cùng một entry point để giảm ma sát trước checkout hoặc account billing.",
-      "hub": "Portal auth",
+      "hub": "Xác thực portal",
       "login": "Đăng nhập",
       "register": "Tạo tài khoản",
       "otp": "OTP",
-      "invite": "Invite",
+      "invite": "Lời mời",
       "requestOtp": "Gửi OTP",
-      "inviteToken": "Invite token",
+      "inviteToken": "Mã lời mời",
       "invitePlaceholder": "Nhập token được cấp",
       "acceptAfterLogin": "Đăng nhập rồi chấp nhận invite",
       "google": "Tiếp tục với Google",
@@ -3618,7 +3704,7 @@
       }
     },
     "checkout": {
-      "eyebrow": "Stripe checkout",
+      "eyebrow": "Thanh toán Stripe",
       "title": "Checkout gắn trực tiếp với workspace thật.",
       "description": "User chọn gói, chu kỳ và workspace rồi website tạo Stripe session trên đúng authority đang dùng chung với desktop.",
       "loading": "Đang chuẩn bị checkout...",
@@ -3646,14 +3732,23 @@
       "cancelTitle": "Checkout đã bị hủy",
       "cancelDescription": "Bạn có thể quay lại pricing hoặc mở lại checkout bất kỳ lúc nào.",
       "returning": "Đang quay lại billing portal.",
-      "openBilling": "Mở billing"
+      "openBilling": "Mở billing",
+      "openInvoices": "Mở hóa đơn",
+      "checkoutSession": "Checkout session",
+      "latestInvoice": "Hóa đơn mới nhất",
+      "invoicePending": "Hóa đơn đang được đồng bộ. Vui lòng kiểm tra lại billing sau vài giây.",
+      "syncingPayment": "Đang đồng bộ xác nhận thanh toán...",
+      "syncComplete": "Thanh toán đã xác nhận. Subscription và hóa đơn đã cập nhật.",
+      "syncPending": "Thanh toán vẫn đang chờ xác nhận từ Stripe.",
+      "syncFailed": "Không thể tự xác minh thanh toán. Hãy mở Billing để thử lại.",
+      "syncCompleteToast": "Đã xác nhận thanh toán và cập nhật billing."
     },
     "account": {
-      "eyebrow": "Account billing",
+      "eyebrow": "Thanh toán tài khoản",
       "title": "Quản lý subscription, invoice và usage theo workspace.",
       "description": "Khu account giữ mọi thứ liên quan tới plan và thanh toán trên web, trong khi desktop tập trung vào runtime và profile operations.",
       "dashboardTitle": "Tổng quan tài khoản",
-      "dashboardDescription": "Bảng điều khiển gọn cho workspace billing, lịch sử hóa đơn và các cài đặt tài khoản.",
+      "dashboardDescription": "Một màn hình cho billing, usage, hóa đơn và hành động tiếp theo.",
       "loading": "Đang tải billing account...",
       "loadWorkspacesFailed": "Không thể tải danh sách workspace.",
       "loadBillingFailed": "Không thể tải trạng thái billing.",
@@ -3662,48 +3757,90 @@
       "workspace": "Workspace",
       "workspaceHint": "Chọn workspace cần kiểm tra trạng thái plan và hóa đơn.",
       "workspacePlaceholder": "Chọn workspace",
+      "workspaceSearchPlaceholder": "Tìm workspace...",
       "workspaceStatus": "Trạng thái workspace",
-      "workspaceMeta": "Mode: {{mode}} · Billing: {{status}}",
+      "workspaceMeta": "Chế độ: {{mode}} · Thanh toán: {{status}}",
+      "workspaceMode": "Loại workspace",
       "workspaceEmpty": "Không có workspace khả dụng trong session hiện tại.",
+      "currentWorkspace": "Workspace hiện tại",
       "quickActions": "Thao tác nhanh",
+      "quickActionsBillingHint": "Quản lý trạng thái gói, gia hạn và hủy.",
+      "quickActionsInvoicesHint": "Xem lịch sử thanh toán và dữ liệu cho kế toán.",
+      "quickActionsPricingHint": "So sánh giới hạn trước khi nâng cấp quota workspace.",
+      "openBilling": "Mở billing",
+      "openInvoices": "Mở hóa đơn",
+      "openSettings": "Mở cài đặt",
+      "openPricing": "Mở pricing",
+      "goToCheckout": "Đi tới checkout",
       "membersLabel": "Giới hạn workspace",
       "membersDetail": "Sức chứa profile đang hiển thị cho seat billing hiện tại.",
       "settingsDescription": "Tuỳ chọn tài khoản, mặc định của workspace và các kiểm soát an toàn nên nằm trên web thay vì làm nặng desktop runtime.",
       "profileTitle": "Hồ sơ",
+      "accountRole": "Vai trò tài khoản",
+      "preferencesTitle": "Tùy chọn",
       "securityTitle": "Bảo mật và quyền truy cập",
       "securityDescription": "Quyền billing, payment actions và quản trị workspace được giới hạn theo role của portal hiện tại.",
+      "paymentSecurityNote": "Bảo mật thanh toán",
+      "paymentSecurityHint": "Checkout và phương thức thanh toán chỉ được xử lý trên luồng Stripe bảo mật.",
       "languageTitle": "Ngôn ngữ",
       "languageDescription": "Ngôn ngữ website đi theo thiết lập portal để account và admin luôn đồng nhất với public web shell.",
       "notificationsTitle": "Thông báo",
       "notificationsDescription": "Các cập nhật billing và hóa đơn nên nằm trên web, còn desktop app tập trung cho runtime work.",
+      "usageSnapshot": "Tổng quan sử dụng",
+      "usageUpdatedAt": "Cập nhật lúc",
+      "latestInvoices": "Hóa đơn gần nhất",
+      "invoicesCount": "Số hóa đơn",
+      "billedAmount": "Tổng đã xuất",
+      "totalPaid": "Tổng đã thanh toán",
+      "lastInvoiceAt": "Hóa đơn gần nhất",
+      "noInvoicesYet": "Workspace này chưa có hóa đơn.",
+      "searchInvoices": "Tìm kiếm hóa đơn...",
+      "noMatchInvoices": "Không có hóa đơn khớp bộ lọc.",
       "nav": {
         "overview": "Tổng quan",
-        "billing": "Billing",
+        "billing": "Thanh toán",
         "invoices": "Hóa đơn",
         "settings": "Cài đặt"
       },
-      "plan": "Plan",
+      "plan": "Gói",
       "status": "Trạng thái",
       "cycle": "Chu kỳ",
       "renewal": "Gia hạn / hết hạn",
       "notAvailable": "Không có dữ liệu",
       "noPlan": "Chưa có plan trả phí",
+      "selectPlan": "Chọn gói",
+      "planMenu": "Gói",
+      "planRequiredHint": "Bạn đang ở gói Free. Hãy chọn gói trả phí để dùng các thao tác hủy/gia hạn.",
+      "queue": {
+        "title": "Hàng đợi vận hành",
+        "empty": "Hiện không có thao tác billing nào cần xử lý.",
+        "issue": "Vấn đề",
+        "severity": "Mức độ",
+        "planRequiredDetail": "Workspace vẫn ở gói Free. Nâng gói để mở khóa thao tác hủy và gia hạn.",
+        "cancelScheduled": "Đã lên lịch hủy gói",
+        "cancelScheduledDetail": "Mở Billing nếu cần kích hoạt lại trước khi hết chu kỳ hiện tại.",
+        "capacityWarning": "Mức sử dụng sắp chạm giới hạn gói",
+        "capacityWarningDetail": "Storage đã vượt 80%. Nên nâng gói trước khi runtime bị giới hạn.",
+        "invoicePending": "Trạng thái hóa đơn cần xác nhận thêm",
+        "invoicePendingDetail": "Mở danh sách hóa đơn để kiểm tra trạng thái đồng bộ thanh toán mới nhất."
+      },
       "changePlan": "Xem pricing",
       "subscriptionTitle": "Subscription hiện tại",
-      "subscriptionDescription": "Portal cho phép đổi gói, khởi chạy checkout lại và điều khiển trạng thái subscription của workspace đang chọn.",
+      "subscriptionDescription": "Quản lý vòng đời gói: gia hạn, hủy, kích hoạt lại và checkout.",
       "managePayment": "Mở secure checkout",
       "upgrade": "Nâng cấp / thanh toán lại",
-      "storageUsage": "Storage usage",
-      "proxyUsage": "Proxy usage",
+      "storageUsage": "Mức dùng lưu trữ",
+      "proxyUsage": "Mức dùng proxy",
       "cancelAtPeriodEnd": "Hủy cuối chu kỳ",
       "cancelNow": "Hủy ngay",
       "reactivate": "Kích hoạt lại",
       "actionSuccess": "Đã cập nhật subscription.",
       "actionFailed": "Không thể cập nhật subscription.",
       "invoiceTitle": "Invoice và lịch sử billing",
-      "invoiceDescription": "Danh sách hóa đơn gần nhất được đọc trực tiếp từ billing state hiện có.",
+      "invoiceDescription": "Lịch sử hóa đơn lấy trực tiếp từ billing API, sẵn cho đối soát.",
       "invoiceDate": "Ngày",
-      "invoicePlan": "Plan",
+      "invoiceId": "Mã hóa đơn",
+      "invoicePlan": "Gói",
       "invoiceAmount": "Số tiền",
       "invoiceMethod": "Phương thức",
       "invoiceStatus": "Trạng thái",
@@ -3716,7 +3853,7 @@
       "checkoutCancelDescription": "Plan hiện tại không thay đổi. Bạn có thể mở lại checkout bất kỳ lúc nào."
     },
     "admin": {
-      "eyebrow": "Super admin control",
+      "eyebrow": "Bảng điều khiển quản trị nền tảng",
       "loading": "Đang tải super admin panel...",
       "refresh": "Làm mới",
       "overview": {
@@ -3729,32 +3866,31 @@
       },
       "nav": {
         "overview": "Tổng quan",
-        "commandCenter": "Command Center",
-        "workspaces": "Workspaces",
-        "revenue": "Revenue",
-        "audit": "Audit",
-        "auditLog": "Audit log",
-        "system": "System"
+        "commandCenter": "Trung tâm điều hành",
+        "workspaces": "Workspace",
+        "revenue": "Doanh thu",
+        "audit": "Kiểm tra",
+        "auditLog": "Nhật ký kiểm tra",
+        "system": "Hệ thống"
       },
       "metrics": {
-        "workspaces": "Workspaces",
+        "workspaces": "Workspace",
         "audits": "Audit 24h",
         "activeRevenue": "Subscription hoạt động",
         "highRisk": "Workspace rủi ro cao"
       },
       "columns": {
         "workspace": "Workspace",
-        "plan": "Plan",
-        "risk": "Risk",
+        "plan": "Gói",
+        "risk": "Mức rủi ro",
         "status": "Trạng thái",
-        "members": "Members",
-        "storage": "Storage",
-        "proxy": "Proxy",
+        "members": "Thành viên",
+        "storage": "Lưu trữ",
         "latestInvoice": "Invoice gần nhất",
         "time": "Thời gian",
-        "action": "Action",
-        "actor": "Actor",
-        "reason": "Reason"
+        "action": "Thao tác",
+        "actor": "Người thực hiện",
+        "reason": "Lý do"
       },
       "risk": {
         "low": "Thấp",
@@ -3765,6 +3901,11 @@
         "title": "Command Center cho toàn bộ control plane.",
         "description": "Màn tổng quan dành cho platform admin để đọc nhanh tình trạng workspace, queue vận hành và độ sẵn sàng của hệ thống.",
         "queueTitle": "Queue ưu tiên",
+        "queueEmpty": "Hiện không có workspace cần xử lý thủ công.",
+        "runbookTitle": "Runbook vận hành",
+        "runbookBilling": "Rà soát workspace past-due trước đợt gia hạn kế tiếp.",
+        "runbookAudit": "Kiểm tra audit trail khi có thay đổi gói hoặc billing bất thường.",
+        "runbookSync": "Kiểm tra độ mới của sync nếu entitlement hoặc usage bị trễ.",
         "queueDescription": "Các workspace cần chú ý được gom lại theo tín hiệu risk, billing và trạng thái subscription.",
         "systemTitle": "Trạng thái nền tảng",
         "systemDescription": "Tổng hợp ngắn gọn readiness của auth, Stripe và sync runtime."
@@ -3772,8 +3913,11 @@
       "workspaces": {
         "title": "Workspaces trên toàn hệ thống.",
         "description": "Danh sách này giúp platform admin nhìn nhanh health, limit và mức dùng của từng workspace.",
-        "tableTitle": "Workspace health",
-        "tableDescription": "Dữ liệu được kéo trực tiếp từ admin workspace health endpoint."
+        "tableTitle": "Sức khỏe workspace",
+        "tableDescription": "Dữ liệu được kéo trực tiếp từ admin workspace health endpoint.",
+        "canceled": "Workspace đã hủy",
+        "searchPlaceholder": "Tìm workspace...",
+        "allStatuses": "Tất cả trạng thái"
       },
       "revenue": {
         "title": "Revenue signals và tình trạng entitlement.",
@@ -3783,12 +3927,13 @@
         "entitlementActive": "Entitlement active",
         "pastDue": "Workspace past due",
         "latestTitle": "Hoạt động billing gần nhất",
-        "latestDescription": "Danh sách workspace có invoice gần nhất để theo dõi nhịp doanh thu và gia hạn."
+        "latestDescription": "Danh sách workspace có invoice gần nhất để theo dõi nhịp doanh thu và gia hạn.",
+        "planMixTitle": "Phân bổ workspace theo gói"
       },
       "audit": {
         "title": "Audit trail cho các thao tác quản trị.",
         "description": "Mọi thay đổi quản trị quan trọng có thể được rà soát ngay trong website mà không cần quay lại tooling nội bộ khác.",
-        "tableTitle": "Audit log",
+        "tableTitle": "Nhật ký kiểm tra",
         "tableDescription": "Các bản ghi mới nhất từ control plane được render trực tiếp trong bảng."
       },
       "system": {
@@ -3796,13 +3941,14 @@
         "description": "Màn này tập trung vào tình trạng kết nối control plane, token và readiness của các thành phần cốt lõi.",
         "runtimeTitle": "Runtime hiện tại",
         "runtimeDescription": "Portal dùng chung runtime contract với desktop, nhưng đọc trạng thái theo ngữ cảnh web.",
+        "serviceColumn": "Dịch vụ",
         "operationsTitle": "Checklist vận hành",
         "operationsDescription": "Các gợi ý ngắn để kiểm tra nhanh khi auth, billing hoặc sync có dấu hiệu lệch trạng thái.",
-        "baseUrl": "Control base URL",
-        "controlToken": "Control token",
-        "auth": "Auth service",
-        "stripe": "Stripe service",
-        "sync": "Sync service",
+        "baseUrl": "URL gốc Control",
+        "controlToken": "Token Control",
+        "auth": "Dịch vụ xác thực",
+        "stripe": "Dịch vụ Stripe",
+        "sync": "Dịch vụ đồng bộ",
         "ready": "Sẵn sàng",
         "pending": "Chưa sẵn sàng",
         "hintAuthTitle": "Kiểm tra public auth routes",
@@ -3832,12 +3978,104 @@
         "security": {
           "title": "Cùng authority với desktop",
           "description": "Portal không tạo DB hay API riêng; nó đọc ghi trên cùng authority đang dùng cho auth, billing và workspace control."
+        }
+      },
+      "settingsShell": {
+        "workspace": "Workspace hiện tại"
       }
     },
-    "settingsShell": {
-      "workspace": "Workspace hiện tại"
-    }
-  },
+    "docsPage": {
+      "badge": "Tài liệu",
+      "title": "Tài liệu dành cho operator và team.",
+      "description": "Hướng dẫn setup và runbook để vận hành ổn định mỗi ngày.",
+      "cards": {
+        "quickstart": {
+          "title": "Bắt đầu nhanh",
+          "description": "Cài desktop app, kết nối workspace và launch profile đầu tiên."
+        },
+        "api": {
+          "title": "API và webhooks",
+          "description": "Kết nối sự kiện workspace với hệ thống nội bộ của bạn."
+        },
+        "security": {
+          "title": "Hướng dẫn bảo mật",
+          "description": "Best practices cho phân quyền, bảo vệ session và thông tin truy cập."
+        },
+        "runbook": {
+          "title": "Runbook vận hành",
+          "description": "Quy trình xử lý sự cố auth, sync và billing theo từng tình huống."
+        }
+      }
+    },
+    "downloadPage": {
+      "badge": "Tải xuống",
+      "title": "Tải BugLogin desktop app.",
+      "description": "Nhận runtime app và đồng bộ entitlement từ web portal.",
+      "cards": {
+        "windows": {
+          "title": "Bản Windows sẵn sàng",
+          "description": "Build production cho máy vận hành profile và sync hàng ngày."
+        },
+        "channels": {
+          "title": "Kênh phát hành",
+          "description": "Stable và preview để rollout có kiểm soát theo từng team."
+        },
+        "integrity": {
+          "title": "Artifact xác thực",
+          "description": "Gói cài đặt ký số và checksum để triển khai an toàn."
+        },
+        "release": {
+          "title": "Ghi chú phát hành",
+          "description": "Theo dõi fix, nâng cấp runtime và thay đổi tương thích theo phiên bản."
+        }
+      }
+    },
+    "statusPage": {
+      "badge": "Trạng thái",
+      "title": "Tình trạng dịch vụ hiện tại.",
+      "description": "Chỉ báo auth, billing và sync của lớp điều phối web.",
+      "cards": {
+        "auth": {
+          "title": "Xác thực",
+          "description": "Tình trạng sign-in portal, OTP và callback Google OAuth."
+        },
+        "billing": {
+          "title": "Thanh toán",
+          "description": "Tạo checkout, đồng bộ hóa đơn và xử lý trạng thái subscription."
+        },
+        "sync": {
+          "title": "Đồng bộ",
+          "description": "Control API và luồng đồng bộ trạng thái giữa web và desktop."
+        },
+        "uptime": {
+          "title": "Uptime gần đây",
+          "description": "Ảnh chụp nhanh mức sẵn sàng của các luồng web-facing."
+        }
+      }
+    },
+    "contactPage": {
+      "badge": "Liên hệ",
+      "title": "Trao đổi trực tiếp với đội ngũ BugLogin.",
+      "description": "Chọn đúng kênh cho sales, support hoặc security response.",
+      "cards": {
+        "sales": {
+          "title": "Kinh doanh",
+          "description": "Tư vấn gói, quota enterprise và hỗ trợ mua sắm doanh nghiệp."
+        },
+        "support": {
+          "title": "Hỗ trợ",
+          "description": "Hỗ trợ vấn đề tài khoản, billing và điều phối workspace."
+        },
+        "security": {
+          "title": "Bảo mật",
+          "description": "Kênh tiếp nhận responsible disclosure và escalation sự cố."
+        },
+        "partnership": {
+          "title": "Đối tác",
+          "description": "Hợp tác tích hợp và chương trình phát triển hệ sinh thái."
+        }
+      }
+    },
     "legal": {
       "terms": {
         "title": "Điều khoản sử dụng",
@@ -3891,6 +4129,608 @@
             "title": "Ảnh hưởng tới entitlement",
             "body": "Sau khi hoàn tiền hoặc hủy gói, entitlement của workspace có thể được cập nhật lại theo policy active, grace hoặc read-only."
           }
+        }
+      }
+    }
+  },
+  "frontendBaseline": {
+    "empty": "Không có profile phù hợp bộ lọc hiện tại.",
+    "syncedAgo": "{{value}} trước",
+    "status": {
+      "running": "Đang chạy",
+      "syncing": "Đang đồng bộ",
+      "stopped": "Đã dừng",
+      "locked": "Đang khóa"
+    },
+    "actions": {
+      "patchBurst": "Áp dụng cập nhật tăng dần",
+      "searchPlaceholder": "Tìm profile"
+    },
+    "metrics": {
+      "totalProfiles": "Tổng profile",
+      "visibleRows": "Số dòng hiển thị"
+    },
+    "desktop": {
+      "shell": "App Baseline",
+      "navProfiles": "Profiles Workspace",
+      "navAutomation": "Automation Flow",
+      "navSync": "Sync Monitor",
+      "navMonitoring": "Runtime Signals",
+      "title": "Desktop Baseline PHASE A (nền Shadcn)",
+      "subtitle": "Bản nền độc lập để duyệt trước khi code UX/business layout tuỳ biến.",
+      "badgePhaseA": "PHASE A"
+    },
+    "web": {
+      "badge": "Web Baseline",
+      "badgeShadcn": "Phong cách Shadcn gốc",
+      "title": "Web Baseline PHASE A cho BugLogin",
+      "subtitle": "Bề mặt web được dựng lại từ baseline shadcn độc lập. Chưa áp dụng layout business tuỳ biến.",
+      "cards": {
+        "foundation": "Kiến trúc ưu tiên nền tảng",
+        "readyForScale": "Mục tiêu scale: 2000+ profiles",
+        "stateSafety": "State update tăng dần, an toàn",
+        "crossSurface": "Baseline đồng nhất Desktop + Web"
+      },
+      "previewListTitle": "Preview danh sách profile baseline"
+    },
+    "benchmark": {
+      "title": "Benchmark Frontend (Trước vs Sau)",
+      "run": "Chạy benchmark 50/500/2000/5000",
+      "running": "Đang chạy benchmark...",
+      "legacyTab": "Trước (Legacy Strategy)",
+      "optimizedTab": "Sau (Optimized Strategy)",
+      "legacyTitle": "Trước: thay full mảng + render full danh sách",
+      "optimizedTitle": "Sau: patch tăng dần + virtualized windowing",
+      "resultsTitle": "Kết quả đo thực tế",
+      "noResults": "Chưa có dữ liệu benchmark.",
+      "columns": {
+        "mode": "Mode",
+        "size": "Số profile",
+        "render": "Độ trễ render",
+        "interaction": "Độ trễ tương tác",
+        "scrollFps": "FPS cuộn (tb/min)",
+        "cpu": "CPU bận",
+        "memory": "Bộ nhớ"
+      }
+    }
+  },
+  "frontendV2": {
+    "header": {
+      "title": "BugLogin Workspace V2",
+      "subtitle": "Cockpit profile realtime được dựng lại từ baseline đã duyệt.",
+      "phase": "PHASE B"
+    },
+    "metrics": {
+      "total": "Tổng profile",
+      "visible": "Hiển thị sau lọc",
+      "running": "Đang chạy",
+      "syncing": "Đang đồng bộ",
+      "locked": "Bị khóa bởi team",
+      "syncEnabled": "Đã bật sync"
+    },
+    "tabs": {
+      "profiles": "Profiles",
+      "automation": "Automation",
+      "runtime": "Runtime"
+    },
+    "actions": {
+      "searchPlaceholder": "Tìm theo tên, note, hoặc tag",
+      "toggleSync": "Sync"
+    },
+    "labels": {
+      "noNote": "Chưa có ghi chú",
+      "locked": "Đang khóa",
+      "empty": "Không có profile phù hợp bộ lọc hiện tại."
+    },
+    "automation": {
+      "title": "Automation lane (khung PHASE B)",
+      "description": "Khu vực này đã sẵn sàng cho bước tiếp theo: điều phối chạy profile và tác vụ automation trên cùng một bề mặt.",
+      "hint": "Realtime state của profile trong tab Profiles đã được nối qua event backend và runtime state dùng chung."
+    },
+    "runtime": {
+      "title": "Tổng quan runtime telemetry",
+      "description": "Trạng thái Running/Lock/Sync được nhận từ event backend và render theo kiểu tăng dần, không thay full mảng profile.",
+      "itemRunning": "Profile đang chạy: {{value}}",
+      "itemLocked": "Profile đang khóa: {{value}}",
+      "itemSyncing": "Profile đang đồng bộ: {{value}}"
+    },
+    "toasts": {
+      "refreshed": "Đã làm mới trạng thái workspace",
+      "loadFailed": "Không thể tải trạng thái realtime của profile",
+      "stopQueued": "Đã gửi lệnh dừng profile"
+    },
+    "web": {
+      "badge": "Web View V2",
+      "badgeRealtime": "Realtime Workspace",
+      "title": "Bề mặt Web BugLogin (PHASE B)",
+      "subtitle": "Bề mặt web mới dẫn trực tiếp tới workspace desktop đã rebuild và benchmark lab để kiểm chứng scale.",
+      "openApp": "Mở App V2",
+      "openBenchmark": "Mở Benchmark Lab",
+      "cards": {
+        "isolation": "Kiến trúc frontend tách biệt",
+        "isolationBody": "Bề mặt mới chạy trong namespace riêng, không chắp vá trực tiếp component desktop legacy.",
+        "realtime": "Realtime state từ backend",
+        "realtimeBody": "Tín hiệu Running, lock và sync được stream từ backend event để giữ trạng thái hiển thị đồng bộ.",
+        "incremental": "Cập nhật tăng dần",
+        "incrementalBody": "Profile update chỉ patch entity thay đổi thay vì thay full mảng lớn ở mỗi event.",
+        "windowing": "Sẵn sàng windowing",
+        "windowingBody": "Virtualized list giữ khối lượng render hữu hạn khi số profile tăng lên hàng nghìn."
+      }
+    }
+  },
+  "webShadcn": {
+    "brand": "BugLogin Web Shadcn",
+    "migrationBadge": "Shadcn Web",
+    "searchPlaceholder": "Tìm route...",
+    "routesTitle": "Danh mục Web Route",
+    "routesDescription": "Toàn bộ web routes cũ đã được remap sang shell mới dựa trên shadcn.",
+    "groups": {
+      "marketing": "Marketing",
+      "legal": "Pháp lý",
+      "account": "Tài khoản",
+      "checkout": "Checkout",
+      "admin": "Quản trị",
+      "lab": "Lab"
+    },
+    "shellTitle": "Frontend Web BugLogin (Shadcn)",
+    "shellDescription": "Route này đang chạy trên web shell mới. Đường dẫn hiện tại: {{path}}.",
+    "currentRouteLabel": "Route hiện tại",
+    "groupLabel": "Nhóm route",
+    "componentTitle": "Bộ Component Đã Clone",
+    "componentDescription": "Các khối xây dựng cốt lõi lấy từ bộ shadcn primitives đã clone.",
+    "nextTitle": "Điều hướng",
+    "nextDescription": "Tiếp tục tới auth hoặc mở clone gallery cho bề mặt web/desktop."
+  },
+  "shadcnCloneDemo": {
+    "header": {
+      "title": "Shadcn UI Clone Workspace",
+      "subtitle": "Baseline từ ai-website-cloner-template với full showcase registry của shadcn.",
+      "badge": "Shadcn Original Clone",
+      "components": "components",
+      "searchPlaceholder": "Tìm component...",
+      "actions": "Thao tác",
+      "notifications": "Thông báo",
+      "themeSync": "Đồng bộ theme",
+      "mobile": "Di động",
+      "desktop": "Desktop",
+      "web": "Web"
+    },
+    "nav": {
+      "foundation": "Nền tảng",
+      "primitives": "Primitives",
+      "data": "Tầng dữ liệu",
+      "registry": "Kho component",
+      "overview": "Tổng quan",
+      "forms": "Biểu mẫu",
+      "overlays": "Overlay",
+      "system": "Hệ thống"
+    },
+    "breadcrumb": {
+      "baseline": "Web Baseline",
+      "showcase": "Shadcn Full Showcase"
+    },
+    "sections": {
+      "actions": {
+        "title": "Primitives & Actions",
+        "description": "Button, toggle, badge, alert và thao tác nhanh cốt lõi."
+      },
+      "overlays": {
+        "title": "Overlays & Menus",
+        "description": "Dialog, drawer, sheet, menu surface và lớp tương tác theo ngữ cảnh."
+      },
+      "form": {
+        "title": "Inputs & Form Controls",
+        "description": "Input, select, checkbox, switch, radio, slider và OTP controls.",
+        "controlsTitle": "Input nâng cao",
+        "controlsDescription": "Combobox, OTP, switch, radio, checkbox và slider."
+      },
+      "mixed": {
+        "title": "Mixed Components",
+        "description": "Calendar, carousel, command palette và các block tỷ lệ hiển thị."
+      },
+      "data": {
+        "title": "Data Presentation",
+        "description": "Table, accordion, item pattern, progress và skeleton state."
+      },
+      "metrics": {
+        "title": "Metrics & Empty States",
+        "description": "Chart, pagination, avatar và empty-state patterns."
+      },
+      "registry": {
+        "title": "Registry Component Inventory",
+        "description": "Bộ component đã clone vào src/frontend-shadcn/ui.",
+        "footer": "Tổng số component đã clone: {{value}}."
+      },
+      "navigation": {
+        "title": "Điều hướng & Command",
+        "description": "Navigation menu, menubar và command primitives."
+      }
+    },
+    "actions": {
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "outline": "Outline",
+      "ghost": "Ghost",
+      "left": "Left",
+      "center": "Center",
+      "right": "Right",
+      "search": "Search",
+      "searchPlaceholder": "Lọc theo từ khóa",
+      "toggleA": "Toggle sparkle",
+      "toggleGroup": "Toggle group",
+      "filters": "Filters",
+      "rules": "Rules",
+      "sync": "Sync",
+      "commandKey": "Ctrl+K"
+    },
+    "alert": {
+      "title": "Hệ token an toàn cho theme",
+      "description": "Showcase này dùng design token và shadcn primitives, không hardcode giá trị màu."
+    },
+    "overlays": {
+      "dialog": "Dialog",
+      "dialogTitle": "Ví dụ Dialog",
+      "dialogDescription": "Tương tác modal theo lớp với styling dựa trên token.",
+      "sheet": "Sheet",
+      "sheetTitle": "Sheet Panel",
+      "sheetDescription": "Preview panel bên phải theo phong cách shadcn gốc.",
+      "drawer": "Drawer",
+      "drawerTitle": "Drawer Panel",
+      "drawerDescription": "Tương tác bottom sheet với action gọn.",
+      "alertDialog": "Alert Dialog",
+      "alertTitle": "Xác nhận hành động quan trọng",
+      "alertDescription": "Mô phỏng luồng xác nhận thao tác mang tính phá hủy.",
+      "popover": "Popover",
+      "popoverBody": "Popover inline render bởi Radix + shadcn primitives.",
+      "hoverCard": "Hover Card",
+      "hoverBody": "Hover card phù hợp cho preview entity nhanh.",
+      "tooltip": "Tooltip",
+      "tooltipBody": "Nội dung tooltip",
+      "dropdown": "Dropdown",
+      "quickActions": "Thao tác nhanh",
+      "menuFile": "File",
+      "contextHint": "Chuột phải vào vùng này"
+    },
+    "form": {
+      "handlePlaceholder": "workspace-handle",
+      "titleLabel": "Tiêu đề",
+      "titlePlaceholder": "Luồng kiểm tra shadcn clone",
+      "noteLabel": "Ghi chú",
+      "notePlaceholder": "Giữ màn này làm web starter có thể tái sử dụng.",
+      "modeLabel": "Chế độ thông báo",
+      "modePlaceholder": "Chọn chế độ",
+      "modeUpdates": "Cập nhật realtime",
+      "modeDigest": "Tổng hợp hằng ngày",
+      "modeCritical": "Chỉ cảnh báo quan trọng",
+      "syncLabel": "Tự động đồng bộ",
+      "shadowLabel": "Bật chạy shadow",
+      "safe": "An toàn",
+      "fast": "Nhanh",
+      "volume": "Mức runtime",
+      "otpLabel": "OTP bảo mật",
+      "regionLabel": "Khu vực",
+      "nativeLabel": "Native select",
+      "emailLabel": "Email chủ sở hữu",
+      "syncHelp": "Giữ trạng thái local và cloud đồng bộ.",
+      "titleHelp": "Dùng nhãn ngắn cho preset showcase này.",
+      "comboboxLabel": "Framework",
+      "comboboxPlaceholder": "Chọn framework",
+      "comboboxEmpty": "Không tìm thấy framework."
+    },
+    "mixed": {
+      "aspectRatio": "Aspect ratio primitive",
+      "calendar": "Calendar",
+      "carousel": "Carousel",
+      "slideA": "Slide A: profile orchestration",
+      "slideB": "Slide B: sync telemetry",
+      "slideC": "Slide C: workflow controls",
+      "commandPlaceholder": "Nhập lệnh hoặc tìm kiếm...",
+      "commandEmpty": "Không có kết quả.",
+      "commandHeading": "Gợi ý",
+      "commandItemA": "Mở workspace",
+      "commandItemB": "Mở cài đặt",
+      "commandHeadingB": "Tín hiệu",
+      "commandItemC": "Sự kiện chưa đọc"
+    },
+    "data": {
+      "tabs": {
+        "table": "Table",
+        "accordion": "Accordion",
+        "items": "Items"
+      },
+      "table": {
+        "component": "Component",
+        "status": "Trạng thái",
+        "version": "Version"
+      },
+      "ready": "Sẵn sàng",
+      "accordion": {
+        "itemA": "Vì sao tách clone này?",
+        "bodyA": "Tách biệt giúp baseline UI độc lập khỏi implementation legacy.",
+        "itemB": "Mở rộng starter này ra sao?",
+        "bodyB": "Dùng route này làm nguồn cho các layout web BugLogin tuỳ biến sau này."
+      },
+      "items": {
+        "titleA": "Khung item có cấu trúc",
+        "bodyA": "Item primitives giúp card và list giữ tính nhất quán.",
+        "titleB": "Card gắn lịch",
+        "bodyB": "Kết hợp item + schedule components cho timeline workflow."
+      },
+      "progress": "Mức độ áp dụng registry",
+      "collapseTrigger": "Hiện loading skeleton"
+    },
+    "metrics": {
+      "avatarTitle": "shadcn-ui/ui",
+      "avatarSubtitle": "Nguồn star cao nhất đã chọn cho baseline clone.",
+      "emptyTitle": "Chưa nạp block bổ sung",
+      "emptyDescription": "Bạn có thể tiếp tục phát triển web UX tùy biến từ starter này.",
+      "emptyAction": "Tạo block",
+      "leftPane": "Khung trái có thể resize",
+      "rightPane": "Khung phải có thể resize"
+    },
+    "toasts": {
+      "saved": "Lưu thành công.",
+      "toastPreview": "Toast mẫu từ Sonner.",
+      "previewButton": "Hiện toast"
+    }
+  },
+  "shadcnCloneSkill": {
+    "header": {
+      "mainNav": {
+        "docs": "Docs",
+        "components": "Components",
+        "blocks": "Blocks",
+        "charts": "Charts",
+        "directory": "Directory",
+        "create": "Create"
+      },
+      "subNav": {
+        "examples": "Examples",
+        "dashboard": "Dashboard",
+        "tasks": "Tasks",
+        "playground": "Playground",
+        "authentication": "Authentication",
+        "rtl": "RTL"
+      },
+      "searchPlaceholder": "Tìm kiếm tài liệu...",
+      "new": "Mới",
+      "neutral": "Neutral",
+      "sectionHint": "Khám phá các phần đã clone từ ui.shadcn.com qua docs, components, blocks và charts."
+    },
+    "sidebar": {
+      "orgName": "Acme Inc.",
+      "home": "Trang chính",
+      "documents": "Tài liệu",
+      "top": {
+        "dashboard": "Dashboard",
+        "lifecycle": "Lifecycle",
+        "analytics": "Analytics",
+        "projects": "Projects",
+        "team": "Team"
+      },
+      "bottom": {
+        "dataLibrary": "Data Library",
+        "reports": "Reports",
+        "wordAssistant": "Word Assistant",
+        "more": "More"
+      }
+    },
+    "content": {
+      "title": "Documents",
+      "quickCreate": "Quick Create"
+    },
+    "stats": {
+      "revenue": {
+        "title": "Total Revenue",
+        "description": "Tăng trưởng tốt trong tháng này",
+        "subDescription": "Lượng truy cập trong 6 tháng gần nhất"
+      },
+      "customers": {
+        "title": "New Customers",
+        "description": "Giảm 20% trong giai đoạn này",
+        "subDescription": "Khâu thu hút khách cần chú ý"
+      },
+      "accounts": {
+        "title": "Active Accounts",
+        "description": "Giữ chân người dùng tốt",
+        "subDescription": "Mức tương tác vượt mục tiêu"
+      },
+      "growth": {
+        "title": "Growth Rate",
+        "description": "Hiệu suất tăng trưởng ổn định",
+        "subDescription": "Đáp ứng mục tiêu tăng trưởng"
+      }
+    },
+    "chart": {
+      "title": "Total Visitors",
+      "description": "Tổng cho 3 tháng gần nhất",
+      "range": {
+        "3m": "3 tháng gần nhất",
+        "30d": "30 ngày gần nhất",
+        "7d": "7 ngày gần nhất"
+      }
+    },
+    "pages": {
+      "tasks": {
+        "title": "Tasks",
+        "action": "Create Task",
+        "tableTitle": "Task Queue",
+        "tableDescription": "Các tác vụ vận hành được đồng bộ từ luồng dashboard clone.",
+        "chartTitle": "Task Throughput",
+        "columns": {
+          "task": "Task",
+          "status": "Status",
+          "priority": "Priority"
+        }
+      },
+      "playground": {
+        "title": "Playground",
+        "controls": "Bề mặt điều khiển",
+        "searchLabel": "Tìm block",
+        "searchPlaceholder": "Gõ để lọc block đã clone...",
+        "liveSync": "Trạng thái đồng bộ realtime",
+        "includeAssets": "Bao gồm toàn bộ assets đã tải",
+        "preview": "Preview Pool",
+        "previewDescription": "Danh sách component mẫu sẵn sàng ghép section."
+      },
+      "authentication": {
+        "signInTitle": "Sign in",
+        "signInDescription": "Biến thể màn hình auth sẵn sàng cho clone.",
+        "signUpTitle": "Create account",
+        "signUpDescription": "Layout auth thứ hai trong cùng design language.",
+        "email": "Email",
+        "password": "Password",
+        "name": "Name",
+        "namePlaceholder": "Họ và tên",
+        "signInButton": "Continue",
+        "signUpButton": "Create account"
+      },
+      "rtl": {
+        "title": "RTL",
+        "cardTitle": "Bản xem trước RTL",
+        "cardDescription": "Kiểm tra layout đảo chiều cho clone đa ngôn ngữ.",
+        "body": "Panel này xác nhận hành vi direction trước khi rollout production."
+      }
+    },
+    "components": {
+      "title": "Components Directory",
+      "description": "Phủ đầy đủ registry từ bộ component shadcn đã clone."
+    },
+    "charts": {
+      "title": "Charts",
+      "visitors": "Visitors Trend",
+      "tasks": "Tasks Trend"
+    },
+    "directory": {
+      "title": "Directory",
+      "component": "Component",
+      "path": "Path",
+      "description": "Đã cào {{value}} URL nội bộ của shadcn (docs/components/examples/blocks/charts).",
+      "category": "Nhóm",
+      "url": "URL"
+    },
+    "create": {
+      "title": "Create",
+      "cardTitle": "Tạo Clone Job mới",
+      "cardDescription": "Cấu hình target mới và tái sử dụng shell clone này.",
+      "projectName": "Tên dự án",
+      "targetUrl": "Target URL",
+      "includeAssets": "Bao gồm assets hình ảnh/video",
+      "button": "Bắt đầu cloning"
+    },
+    "docs": {
+      "title": "Documentation",
+      "cardTitle": "Ghi chú quy trình clone",
+      "cardDescription": "Mapping từ flow thực thi của ai-website-cloner-template.",
+      "bulletA": "1. Thu thập reference và hành vi tương tác.",
+      "bulletB": "2. Dựng lại section theo design-token tương đương.",
+      "bulletC": "3. Kiểm thử lại cả web và desktop."
+    },
+    "routeViewer": {
+      "sidebarTitle": "Danh mục Clone Route",
+      "searchPlaceholder": "Tìm đường dẫn shadcn đã clone...",
+      "previewTitle": "Source Mirror",
+      "previewDescription": "Đang xem {{path}} từ ui.shadcn.com trong clone route này.",
+      "groups": {
+        "examples": "Examples",
+        "components": "Components",
+        "blocks": "Blocks",
+        "charts": "Charts",
+        "docs": "Docs",
+        "themes": "Themes",
+        "other": "Other"
+      },
+      "actions": {
+        "allRoutes": "Tất cả routes",
+        "openWeb": "Mở Web",
+        "openDesktop": "Mở Desktop",
+        "openSource": "Mở Source"
+      }
+    },
+    "footer": {
+      "source": "Clone theo flow ai-website-cloner-template · target: ui.shadcn.com/examples/dashboard"
+    }
+  },
+  "bugloginHome": {
+    "logoAlt": "Logo toàn cục BugLogin",
+    "searchPlaceholder": "Tìm profile, workflow, cài đặt...",
+    "header": {
+      "title": "BugLogin Global Workspace",
+      "subtitle": "Trang chủ nền tảng theo shadcn cho web BugLogin.",
+      "notifications": "Thông báo",
+      "refresh": "Đồng bộ ngay",
+      "newProfile": "Tạo profile"
+    },
+    "tabs": {
+      "overview": "Tổng quan",
+      "activity": "Hoạt động",
+      "resources": "Tài nguyên"
+    },
+    "sidebar": {
+      "group": "Workspace",
+      "overview": "Tổng quan",
+      "profiles": "Profiles",
+      "automation": "Automation",
+      "sync": "Trung tâm sync",
+      "settings": "Cài đặt",
+      "statusLabel": "Trạng thái hệ thống",
+      "statusValue": "Tất cả dịch vụ ổn định"
+    },
+    "metrics": {
+      "profiles": {
+        "label": "Tổng số profile",
+        "hint": "Tổng profile khả dụng trên toàn workspace"
+      },
+      "running": {
+        "label": "Đang chạy",
+        "hint": "Profile đang hoạt động thời gian thực"
+      },
+      "successRate": {
+        "label": "Tỉ lệ automation thành công",
+        "hint": "Tỉ lệ hoàn tất trung bình trong 24 giờ qua"
+      },
+      "syncLatency": {
+        "label": "Độ trễ sync realtime",
+        "hint": "Độ trễ phát event hiện tại"
+      }
+    },
+    "workspace": {
+      "title": "Profiles workspace",
+      "description": "Điều phối tập profile lớn bằng shadcn primitives và table pattern có thể scale.",
+      "actions": {
+        "profiles": "Quản lý profile",
+        "automation": "Mở automation",
+        "analytics": "Xem analytics"
+      }
+    },
+    "table": {
+      "columns": {
+        "profile": "Profile",
+        "state": "Trạng thái",
+        "lastSync": "Lần sync cuối",
+        "health": "Sức khỏe"
+      },
+      "state": {
+        "running": "Đang chạy",
+        "idle": "Rảnh",
+        "locked": "Bị khóa"
+      },
+      "health": {
+        "ok": "Ổn định",
+        "warning": "Cần kiểm tra"
+      }
+    },
+    "insights": {
+      "title": "Operational insights",
+      "description": "Góc nhìn nhanh cho automation và độ ổn định workspace.",
+      "cards": {
+        "running": {
+          "title": "Giám sát phiên chạy",
+          "body": "Giữ session ổn định trước khi scale từ 500 lên 2000+ profiles."
+        },
+        "flow": {
+          "title": "Sẵn sàng flow",
+          "body": "Dùng shell baseline này làm điểm xuất phát cho các phase UX BugLogin tiếp theo."
         }
       }
     }

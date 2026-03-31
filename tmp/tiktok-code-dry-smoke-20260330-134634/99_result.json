@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-03-30T13:46:34.133175",
+  "target_url": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "proxy_server": "http://103.183.118.9:50081",
+  "dry_code": "123456",
+  "fill_ok": true,
+  "fill_selector": "placeholder-6digit",
+  "next_enabled_after_fill": false,
+  "final_url": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "title": "Sign up | TikTok"
+}

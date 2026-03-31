@@ -15,8 +15,12 @@ pub enum SyncStatus {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RuntimeState {
+  Starting,
   Running,
   Parked,
+  Stopping,
+  Syncing,
+  Error,
   #[default]
   Stopped,
   Crashed,

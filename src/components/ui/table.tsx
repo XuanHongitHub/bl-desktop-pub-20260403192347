@@ -9,7 +9,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <div data-slot="table-container" className="overflow-visible w-full">
       <table
         data-slot="table"
-        className={cn("w-full text-sm caption-bottom", className)}
+        className={cn("w-full text-xs caption-bottom", className)}
         {...props}
       />
     </div>
@@ -92,7 +92,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
+      className={cn("mt-4 text-xs text-muted-foreground", className)}
       {...props}
     />
   );

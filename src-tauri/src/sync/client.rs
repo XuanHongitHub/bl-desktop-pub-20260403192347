@@ -127,6 +127,10 @@ impl SyncClient {
   }
 
   pub async fn list(&self, prefix: &str) -> SyncResult<ListResponse> {
+    let mut continuation_token: Option<String> = None;
+    let mut objects = Vec::new();
+
+    loop {
     let response = self
       .client
       .post(self.url("list"))
@@ -134,7 +138,7 @@ impl SyncClient {
       .json(&ListRequest {
         prefix: prefix.to_string(),
         max_keys: Some(1000),
-        continuation_token: None,
+          continuation_token: continuation_token.clone(),
       })
       .send()
       .await
@@ -146,10 +150,36 @@ impl SyncClient {
       return Err(SyncError::AuthError(format!("({status}) {body}")));
     }
 
-    response
+      let mut page: ListResponse = response
       .json()
       .await
-      .map_err(|e| SyncError::SerializationError(e.to_string()))
+        .map_err(|e| SyncError::SerializationError(e.to_string()))?;
+
+      objects.append(&mut page.objects);
+
+      if !page.is_truncated {
+        return Ok(ListResponse {
+          objects,
+          is_truncated: false,
+          next_continuation_token: None,
+        });
+      }
+
+      let Some(next_token) = page.next_continuation_token else {
+        return Ok(ListResponse {
+          objects,
+          is_truncated: false,
+          next_continuation_token: None,
+        });
+      };
+
+      if continuation_token.as_deref() == Some(next_token.as_str()) {
+        return Err(SyncError::NetworkError(
+          "List pagination stalled due to repeated continuation token".to_string(),
+        ));
+      }
+      continuation_token = Some(next_token);
+    }
   }
 
   pub async fn upload_bytes(

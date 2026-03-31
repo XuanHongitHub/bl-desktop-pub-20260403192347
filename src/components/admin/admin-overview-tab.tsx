@@ -175,8 +175,7 @@ export function AdminOverviewTab({
       .map((row: ControlAdminWorkspaceHealthRow) => {
         const isPastDue = row.subscriptionStatus === "past_due";
         const isHighRisk = row.riskLevel === "high";
-        const isNearCapacity =
-          row.storagePercent >= 85 || row.proxyBandwidthPercent >= 85;
+        const isNearCapacity = row.storagePercent >= 85;
 
         let priority: keyof typeof priorityRank = "review";
         let actionKey = "actionReviewAccess";

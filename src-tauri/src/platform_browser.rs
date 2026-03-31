@@ -621,7 +621,7 @@ pub mod windows {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     let output = Command::new("taskkill")
-      .args(["/F", "/PID", &pid.to_string()])
+      .args(["/F", "/PID", &pid.to_string(), "/T"])
       .creation_flags(CREATE_NO_WINDOW)
       .output();
 

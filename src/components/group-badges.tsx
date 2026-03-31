@@ -88,9 +88,9 @@ export function GroupBadges({
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-        <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
+        <div className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
           <LuFolderOpen className="h-4 w-4 text-muted-foreground" />
           <span>{t("groups.title")}</span>
         </div>
@@ -114,7 +114,7 @@ export function GroupBadges({
         aria-label="Profile groups"
         className="app-scroll-gutter w-full"
       >
-        <div className="flex min-w-max items-stretch gap-2 p-1.5">
+        <div className="flex min-w-max items-stretch gap-1.5 p-1.5">
           {folderItems.map((group) => {
             const isSelected = normalizedSelectedGroupId === group.id;
             const FolderIcon = isSelected ? LuFolderOpen : LuFolder;
@@ -124,7 +124,7 @@ export function GroupBadges({
               <div
                 key={group.id}
                 className={cn(
-                  "group flex min-w-[180px] max-w-[220px] shrink-0 items-center gap-1 rounded-lg border px-1 py-1 transition-colors",
+                  "group flex min-w-[160px] max-w-[210px] shrink-0 items-center gap-1 rounded-md border px-1 py-1 transition-colors",
                   isSelected
                     ? "border-border bg-muted/55"
                     : "border-border/60 bg-background hover:bg-muted/45",
@@ -132,7 +132,7 @@ export function GroupBadges({
               >
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left"
                   onClick={() => {
                     if (group.isAll) {
                       onGroupSelect(ALL_GROUP_ID);
@@ -147,13 +147,13 @@ export function GroupBadges({
                       isSelected ? "text-foreground" : "text-muted-foreground",
                     )}
                   />
-                  <p className="truncate text-sm font-medium text-foreground">
+                  <p className="truncate text-xs font-medium text-foreground">
                     {group.name}
                   </p>
                 </button>
                 <span
                   className={cn(
-                    "rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground",
+                    "rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground",
                     isSelected && "text-foreground",
                   )}
                 >

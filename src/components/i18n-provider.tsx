@@ -9,6 +9,7 @@ import {
   mergeAppSettingsCache,
   readAppSettingsCache,
 } from "@/lib/app-settings-cache";
+import { writeLanguageCookie } from "@/lib/language-cookie";
 
 interface AppSettings {
   language?: string | null;
@@ -23,6 +24,16 @@ export function I18nProvider({ children }: I18nProviderProps) {
   useEffect(() => {
     let isCancelled = false;
 
+    const setLanguageReady = (ready: boolean) => {
+      if (typeof document === "undefined") {
+        return;
+      }
+      document.documentElement.setAttribute(
+        "data-i18n-ready",
+        ready ? "1" : "0",
+      );
+    };
+
     const applyDocumentLanguage = (language: string) => {
       if (typeof document === "undefined") {
         return;
@@ -31,6 +42,7 @@ export function I18nProvider({ children }: I18nProviderProps) {
       html.lang = language;
       html.setAttribute("data-language", language);
       html.dir = "ltr";
+      writeLanguageCookie(language);
     };
 
     const applyLanguage = async (language: string) => {
@@ -47,15 +59,21 @@ export function I18nProvider({ children }: I18nProviderProps) {
 
     const initializeLanguage = async () => {
       try {
+        setLanguageReady(false);
         const cachedLanguage = readAppSettingsCache()?.language;
         if (!isTauri()) {
           const languageFromCache =
             typeof cachedLanguage === "string" ? cachedLanguage : null;
+          const languageFromDocument =
+            typeof document !== "undefined"
+              ? document.documentElement?.lang
+              : null;
           const resolvedLanguage = getLanguageWithFallback(
-            languageFromCache || "vi",
+            languageFromCache || languageFromDocument || "vi",
           );
           mergeAppSettingsCache({ language: resolvedLanguage });
           await applyLanguage(resolvedLanguage);
+          setLanguageReady(true);
           return;
         }
 
@@ -86,12 +104,14 @@ export function I18nProvider({ children }: I18nProviderProps) {
         }
 
         await applyLanguage(resolvedLanguage);
+        setLanguageReady(true);
       } catch {
         if (isCancelled) {
           return;
         }
         mergeAppSettingsCache({ language: "vi" });
         await applyLanguage("vi");
+        setLanguageReady(true);
       }
     };
 
@@ -100,6 +120,7 @@ export function I18nProvider({ children }: I18nProviderProps) {
     const handleLanguageChanged = (language: string) => {
       const resolvedLanguage = getLanguageWithFallback(language);
       applyDocumentLanguage(resolvedLanguage);
+      setLanguageReady(true);
     };
     i18n.on("languageChanged", handleLanguageChanged);
 

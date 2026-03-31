@@ -76,6 +76,10 @@ pub struct CamoufoxManager {
 }
 
 impl CamoufoxManager {
+  fn normalize_path_like(value: &str) -> String {
+    value.replace('\\', "/").to_lowercase()
+  }
+
   fn new() -> Self {
     Self {
       inner: Arc::new(AsyncMutex::new(CamoufoxManagerInner {
@@ -578,7 +582,7 @@ impl CamoufoxManager {
       use std::os::windows::process::CommandExt;
       const CREATE_NO_WINDOW: u32 = 0x08000000;
       let result = std::process::Command::new("taskkill")
-        .args(["/PID", &pid.to_string(), "/T"])
+        .args(["/F", "/PID", &pid.to_string(), "/T"])
         .creation_flags(CREATE_NO_WINDOW)
         .status();
 
@@ -617,7 +621,15 @@ impl CamoufoxManager {
             .canonicalize()
             .unwrap_or_else(|_| std::path::Path::new(instance_profile_path).to_path_buf());
 
-          if instance_path == target_path {
+          let instance_matches = if instance_path == target_path {
+            true
+          } else {
+            let target_norm = Self::normalize_path_like(&target_path.to_string_lossy());
+            let instance_norm = Self::normalize_path_like(&instance_path.to_string_lossy());
+            instance_norm == target_norm
+          };
+
+          if instance_matches {
             // Verify the server is actually running by checking the process
             if let Some(process_id) = instance.process_id {
               if self.is_server_running(process_id).await {
@@ -643,7 +655,7 @@ impl CamoufoxManager {
 
     // If not found in in-memory instances, scan system processes
     // This handles the case where the app was restarted but Camoufox is still running
-    if let Some((pid, found_profile_path)) = self.find_camoufox_process_by_profile(&target_path) {
+    if let Some((pid, _found_profile_path)) = self.find_camoufox_process_by_profile(&target_path) {
       log::info!(
         "Found running Camoufox process (PID: {}) for profile path via system scan",
         pid
@@ -651,13 +663,14 @@ impl CamoufoxManager {
 
       // Register this instance in our tracking
       let instance_id = format!("recovered_{}", pid);
+      let canonical_profile_path = target_path.to_string_lossy().to_string();
       let mut inner = self.inner.lock().await;
       inner.instances.insert(
         instance_id.clone(),
         CamoufoxInstance {
           id: instance_id.clone(),
           process_id: Some(pid),
-          profile_path: Some(found_profile_path.clone()),
+          profile_path: Some(canonical_profile_path.clone()),
           url: None,
         },
       );
@@ -665,7 +678,7 @@ impl CamoufoxManager {
       return Ok(Some(CamoufoxLaunchResult {
         id: instance_id,
         processId: Some(pid),
-        profilePath: Some(found_profile_path),
+        profilePath: Some(canonical_profile_path),
         url: None,
       }));
     }
@@ -680,16 +693,12 @@ impl CamoufoxManager {
   ) -> Option<(u32, String)> {
     use sysinfo::{ProcessRefreshKind, RefreshKind, System};
 
-    fn normalize_path_like(value: &str) -> String {
-      value.replace('\\', "/").to_lowercase()
-    }
-
     let system = System::new_with_specifics(
       RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
     );
 
     let target_path_str = target_path.to_string_lossy();
-    let target_path_norm = normalize_path_like(&target_path_str);
+    let target_path_norm = Self::normalize_path_like(&target_path_str);
 
     for (pid, process) in system.processes() {
       let cmd = process.cmd();
@@ -717,7 +726,7 @@ impl CamoufoxManager {
                 .canonicalize()
                 .unwrap_or_else(|_| std::path::Path::new(next_arg).to_path_buf());
 
-              let cmd_path_norm = normalize_path_like(&cmd_path.to_string_lossy());
+              let cmd_path_norm = Self::normalize_path_like(&cmd_path.to_string_lossy());
               if cmd_path_norm == target_path_norm {
                 return Some((pid.as_u32(), next_arg.to_string()));
               }
@@ -725,7 +734,7 @@ impl CamoufoxManager {
           }
 
           // Also check if the argument contains the profile path directly
-          if normalize_path_like(arg_str).contains(&target_path_norm) {
+          if Self::normalize_path_like(arg_str).contains(&target_path_norm) {
             return Some((pid.as_u32(), target_path_str.to_string()));
           }
         }

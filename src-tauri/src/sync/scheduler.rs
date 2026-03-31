@@ -2,10 +2,13 @@ use super::engine::SyncEngine;
 use super::subscription::SyncWorkItem;
 use crate::events;
 use crate::profile::ProfileManager;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -22,12 +25,45 @@ pub fn set_global_scheduler(scheduler: Arc<SyncScheduler>) {
   }
 }
 
+fn now_ms() -> u64 {
+  SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .unwrap_or_default()
+    .as_millis() as u64
+}
+
+fn profile_outbox_path() -> PathBuf {
+  crate::app_dirs::profiles_dir().join(".sync_profile_outbox.json")
+}
+
+fn compute_retry_delay_ms(attempts: u32) -> u64 {
+  let exp = attempts.saturating_sub(1).min(10);
+  let delay = PROFILE_SYNC_INITIAL_RETRY_MS.saturating_mul(1u64 << exp);
+  delay.min(PROFILE_SYNC_MAX_RETRY_MS)
+}
+
 #[derive(Debug, Clone)]
 struct ProfileStopTime {
-  #[allow(dead_code)]
-  stopped_at: Instant,
+  idempotency_key: String,
+  attempts: u32,
+  next_attempt_at_ms: u64,
+  reason: String,
   queued: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedProfileOutbox {
+  idempotency_key: String,
+  attempts: u32,
+  next_attempt_at_ms: u64,
+  reason: String,
+  queued: bool,
+}
+
+const PROFILE_SYNC_CONCURRENCY_LIMIT: usize = 4;
+const PROFILE_SYNC_INITIAL_RETRY_MS: u64 = 1_000;
+const PROFILE_SYNC_MAX_RETRY_MS: u64 = 60_000;
+const PROFILE_OUTBOX_PERSIST_DEBOUNCE_MS: u64 = 250;
 
 pub struct SyncScheduler {
   running: Arc<AtomicBool>,
@@ -40,6 +76,8 @@ pub struct SyncScheduler {
   pending_tombstones: Arc<Mutex<Vec<(String, String)>>>,
   running_profiles: Arc<Mutex<HashSet<String>>>,
   in_flight_profiles: Arc<Mutex<HashSet<String>>>,
+  profile_outbox_dirty: Arc<AtomicBool>,
+  profile_outbox_last_flush_ms: Arc<AtomicU64>,
 }
 
 impl Default for SyncScheduler {
@@ -61,6 +99,8 @@ impl SyncScheduler {
       pending_tombstones: Arc::new(Mutex::new(Vec::new())),
       running_profiles: Arc::new(Mutex::new(HashSet::new())),
       in_flight_profiles: Arc::new(Mutex::new(HashSet::new())),
+      profile_outbox_dirty: Arc::new(AtomicBool::new(false)),
+      profile_outbox_last_flush_ms: Arc::new(AtomicU64::new(0)),
     }
   }
 
@@ -70,6 +110,128 @@ impl SyncScheduler {
 
   pub fn stop(&self) {
     self.running.store(false, Ordering::SeqCst);
+  }
+
+  async fn persist_profile_outbox(&self) -> bool {
+    let pending = self.pending_profiles.lock().await;
+    let serializable: HashMap<String, PersistedProfileOutbox> = pending
+      .iter()
+      .map(|(id, item)| {
+        (
+          id.clone(),
+          PersistedProfileOutbox {
+            idempotency_key: item.idempotency_key.clone(),
+            attempts: item.attempts,
+            next_attempt_at_ms: item.next_attempt_at_ms,
+            reason: item.reason.clone(),
+            queued: item.queued,
+          },
+        )
+      })
+      .collect();
+    drop(pending);
+
+    let outbox_path = profile_outbox_path();
+    if let Some(parent) = outbox_path.parent() {
+      if let Err(e) = fs::create_dir_all(parent) {
+        log::warn!(
+          "Failed to ensure sync profile outbox parent directory {}: {}",
+          parent.display(),
+          e
+        );
+        return false;
+      }
+    }
+
+    match serde_json::to_string_pretty(&serializable) {
+      Ok(json) => {
+        if let Err(e) = fs::write(&outbox_path, json) {
+          log::warn!(
+            "Failed to persist sync profile outbox at {}: {}",
+            outbox_path.display(),
+            e
+          );
+          return false;
+        }
+        true
+      }
+      Err(e) => {
+        log::warn!("Failed to serialize sync profile outbox: {e}");
+        false
+      }
+    }
+  }
+
+  fn mark_profile_outbox_dirty(&self) {
+    self.profile_outbox_dirty.store(true, Ordering::SeqCst);
+  }
+
+  async fn maybe_persist_profile_outbox(&self, force: bool) {
+    if !self.profile_outbox_dirty.load(Ordering::SeqCst) {
+      return;
+    }
+
+    let now = now_ms();
+    let last_flush = self.profile_outbox_last_flush_ms.load(Ordering::SeqCst);
+    if !force && now.saturating_sub(last_flush) < PROFILE_OUTBOX_PERSIST_DEBOUNCE_MS {
+      return;
+    }
+
+    if !self.profile_outbox_dirty.swap(false, Ordering::SeqCst) {
+      return;
+    }
+
+    if self.persist_profile_outbox().await {
+      self
+        .profile_outbox_last_flush_ms
+        .store(now_ms(), Ordering::SeqCst);
+    } else {
+      self.profile_outbox_dirty.store(true, Ordering::SeqCst);
+    }
+  }
+
+  async fn replay_profile_outbox(&self) {
+    let outbox_path = profile_outbox_path();
+    let content = match fs::read_to_string(&outbox_path) {
+      Ok(content) => content,
+      Err(_) => return,
+    };
+
+    let persisted: HashMap<String, PersistedProfileOutbox> = match serde_json::from_str(&content) {
+      Ok(data) => data,
+      Err(e) => {
+        log::warn!(
+          "Failed to parse sync profile outbox {}: {}",
+          outbox_path.display(),
+          e
+        );
+        return;
+      }
+    };
+
+    if persisted.is_empty() {
+      return;
+    }
+
+    let mut pending = self.pending_profiles.lock().await;
+    for (profile_id, item) in persisted {
+      pending.insert(
+        profile_id,
+        ProfileStopTime {
+          idempotency_key: item.idempotency_key,
+          attempts: item.attempts,
+          next_attempt_at_ms: item.next_attempt_at_ms,
+          reason: item.reason,
+          queued: item.queued,
+        },
+      );
+    }
+    drop(pending);
+
+    log::info!(
+      "Replayed {} profile sync entries from outbox",
+      self.pending_profiles.lock().await.len()
+    );
   }
 
   /// Check if any sync operation is currently in progress
@@ -136,19 +298,19 @@ impl SyncScheduler {
     log::debug!("Marked profile {} as stopped", profile_id);
 
     let mut pending = self.pending_profiles.lock().await;
-    if pending.contains_key(profile_id) {
-      // Set stopped_at to past so it syncs immediately
-      pending.insert(
-        profile_id.to_string(),
-        ProfileStopTime {
-          stopped_at: Instant::now() - Duration::from_secs(3),
-          queued: true,
-        },
-      );
+    if let Some(item) = pending.get_mut(profile_id) {
+      item.queued = true;
+      item.next_attempt_at_ms = now_ms();
+      item.reason = "stopped".to_string();
       log::debug!(
         "Profile {} has pending sync, will execute immediately",
         profile_id
       );
+    }
+    drop(pending);
+    self.mark_profile_outbox_dirty();
+    if !self.running.load(Ordering::SeqCst) {
+      self.maybe_persist_profile_outbox(true).await;
     }
   }
 
@@ -162,50 +324,72 @@ impl SyncScheduler {
 
     // Also check the actual profile state from ProfileManager
     let profile_manager = ProfileManager::instance();
-    if let Ok(profiles) = profile_manager.list_profiles() {
-      if let Some(profile) = profiles.iter().find(|p| p.id.to_string() == profile_id) {
-        return profile.process_id.is_some();
-      }
+    if let Ok(Some(profile)) = profile_manager.get_profile_by_id_str(profile_id) {
+      return profile.process_id.is_some();
     }
 
     false
   }
 
   pub async fn queue_profile_sync(&self, profile_id: String) {
-    self.queue_profile_sync_internal(profile_id).await;
+    self
+      .queue_profile_sync_internal(profile_id, "queued".to_string(), false)
+      .await;
   }
 
   pub async fn queue_profile_sync_immediate(&self, profile_id: String) {
-    self.queue_profile_sync_internal(profile_id).await;
+    self
+      .queue_profile_sync_internal(profile_id, "immediate".to_string(), true)
+      .await;
   }
 
-  async fn queue_profile_sync_internal(&self, profile_id: String) {
+  async fn queue_profile_sync_internal(
+    &self,
+    profile_id: String,
+    reason: String,
+    force_immediate: bool,
+  ) {
     let is_running = self.is_profile_running(&profile_id).await;
     let mut pending = self.pending_profiles.lock().await;
+    let entry = pending
+      .entry(profile_id.clone())
+      .or_insert_with(|| ProfileStopTime {
+        idempotency_key: uuid::Uuid::new_v4().to_string(),
+        attempts: 0,
+        next_attempt_at_ms: now_ms(),
+        reason: reason.clone(),
+        queued: true,
+      });
+    entry.attempts = 0;
 
     if is_running {
-      // Profile is running - queue for after it stops
-      pending.insert(
-        profile_id.clone(),
-        ProfileStopTime {
-          stopped_at: Instant::now(),
-          queued: true,
-        },
-      );
+      // Profile is running - queue for after it stops.
+      entry.queued = true;
+      entry.reason = reason;
+      entry.next_attempt_at_ms = now_ms();
       log::debug!(
         "Profile {} is running, queued sync for after stop",
         profile_id
       );
     } else {
-      // Profile is not running - sync immediately (set stopped_at to past)
-      pending.insert(
-        profile_id.clone(),
-        ProfileStopTime {
-          stopped_at: Instant::now() - Duration::from_secs(3),
-          queued: true,
-        },
+      // Profile is not running - sync now unless caller explicitly wants delayed retry semantics.
+      entry.queued = true;
+      entry.reason = reason;
+      if force_immediate {
+        entry.next_attempt_at_ms = now_ms();
+      } else {
+        entry.next_attempt_at_ms = entry.next_attempt_at_ms.min(now_ms());
+      }
+      log::debug!(
+        "Profile {} queued for sync with idempotency key {}",
+        profile_id,
+        entry.idempotency_key
       );
-      log::debug!("Profile {} queued for immediate sync", profile_id);
+    }
+    drop(pending);
+    self.mark_profile_outbox_dirty();
+    if !self.running.load(Ordering::SeqCst) {
+      self.maybe_persist_profile_outbox(true).await;
     }
   }
 
@@ -286,8 +470,29 @@ impl SyncScheduler {
         }),
       );
 
-      // Queue for immediate sync (or wait if running)
-      self.queue_profile_sync_immediate(profile_id).await;
+      let mut pending = self.pending_profiles.lock().await;
+      let entry = pending
+        .entry(profile_id.clone())
+        .or_insert_with(|| ProfileStopTime {
+          idempotency_key: uuid::Uuid::new_v4().to_string(),
+          attempts: 0,
+          next_attempt_at_ms: now_ms(),
+          reason: "initial".to_string(),
+          queued: true,
+        });
+      entry.attempts = 0;
+      entry.queued = true;
+      entry.reason = if is_running {
+        "initial-wait-running".to_string()
+      } else {
+        "initial".to_string()
+      };
+      entry.next_attempt_at_ms = now_ms();
+    }
+
+    self.mark_profile_outbox_dirty();
+    if !self.running.load(Ordering::SeqCst) {
+      self.maybe_persist_profile_outbox(true).await;
     }
   }
 
@@ -299,6 +504,8 @@ impl SyncScheduler {
     if self.running.swap(true, Ordering::SeqCst) {
       return;
     }
+
+    self.replay_profile_outbox().await;
 
     let scheduler = self.clone();
     let app_handle_clone = app_handle.clone();
@@ -318,9 +525,11 @@ impl SyncScheduler {
                 scheduler.queue_tombstone(entity_type, entity_id).await
               }
             }
+            scheduler.maybe_persist_profile_outbox(false).await;
           }
           _ = sleep(Duration::from_millis(500)) => {
             scheduler.process_pending(&app_handle_clone).await;
+            scheduler.maybe_persist_profile_outbox(false).await;
           }
         }
       }
@@ -340,118 +549,191 @@ impl SyncScheduler {
   }
 
   async fn process_pending_profiles(&self, app_handle: &tauri::AppHandle) {
-    let profiles_to_sync: Vec<String> = {
-      let mut pending = self.pending_profiles.lock().await;
+    let now = now_ms();
+    let profiles_to_sync: Vec<(String, String)> = {
+      let pending = self.pending_profiles.lock().await;
       let running = self.running_profiles.lock().await;
       let in_flight = self.in_flight_profiles.lock().await;
 
-      // Sync immediately if not running and not in-flight (no delay check)
-      let ready: Vec<String> = pending
+      let mut ready: Vec<(String, String)> = pending
         .iter()
-        .filter(|(id, stop_time)| {
-          !running.contains(*id) && !in_flight.contains(*id) && stop_time.queued
+        .filter(|(id, item)| {
+          item.queued
+            && item.next_attempt_at_ms <= now
+            && !running.contains(*id)
+            && !in_flight.contains(*id)
         })
-        .map(|(id, _)| id.clone())
+        .map(|(id, item)| (id.clone(), item.idempotency_key.clone()))
         .collect();
-
-      for id in &ready {
-        pending.remove(id);
-      }
-
+      ready.sort_by(|a, b| a.0.cmp(&b.0));
+      ready.truncate(PROFILE_SYNC_CONCURRENCY_LIMIT);
       ready
     };
 
-    for profile_id in profiles_to_sync {
-      // Mark as in-flight to prevent duplicate syncs
-      {
-        let mut in_flight = self.in_flight_profiles.lock().await;
-        if in_flight.contains(&profile_id) {
-          log::debug!("Profile {} already in-flight, skipping", profile_id);
-          continue;
-        }
+    if profiles_to_sync.is_empty() {
+      return;
+    }
+
+    {
+      let mut in_flight = self.in_flight_profiles.lock().await;
+      for (profile_id, _) in &profiles_to_sync {
         in_flight.insert(profile_id.clone());
       }
+    }
 
-      log::info!("Executing queued sync for profile {}", profile_id);
+    for (profile_id, idempotency_key) in &profiles_to_sync {
+      log::info!(
+        "Executing queued sync for profile {} (idempotency={})",
+        profile_id,
+        idempotency_key
+      );
       let _ = events::emit(
         "profile-sync-status",
         serde_json::json!({
           "profile_id": profile_id,
-          "status": "syncing"
+          "status": "syncing",
+          "idempotency_key": idempotency_key
         }),
       );
+    }
 
-      let profile_to_sync = {
-        let profile_manager = ProfileManager::instance();
-        profile_manager.list_profiles().ok().and_then(|profiles| {
-          profiles
-            .into_iter()
-            .find(|p| p.id.to_string() == profile_id && p.is_sync_enabled() && !p.is_cross_os())
-        })
-      };
+    let profiles_snapshot = Arc::new({
+      let profile_manager = ProfileManager::instance();
+      profile_manager
+        .list_profiles()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|profile| profile.is_sync_enabled() && !profile.is_cross_os())
+        .map(|profile| (profile.id.to_string(), profile))
+        .collect::<HashMap<_, _>>()
+    });
 
-      let Some(profile) = profile_to_sync else {
-        // Remove from in-flight
+    let app_handle_owned = app_handle.clone();
+    let shared_engine = match SyncEngine::create_from_settings(&app_handle_owned).await {
+      Ok(engine) => Some(Arc::new(engine)),
+      Err(e) => {
+        log::error!("Failed to create sync engine for profile batch: {e}");
+        None
+      }
+    };
+
+    let sync_tasks = profiles_to_sync.iter().map(|(profile_id, idempotency_key)| {
+      let profile_id = profile_id.clone();
+      let idempotency_key = idempotency_key.clone();
+      let app_handle = app_handle_owned.clone();
+      let profiles_snapshot = Arc::clone(&profiles_snapshot);
+      let shared_engine = shared_engine.clone();
+      async move {
+        let profile_to_sync = profiles_snapshot.get(&profile_id).cloned();
+
+        let result = if let Some(mut profile) = profile_to_sync {
+          profile.runtime_state = crate::profile::types::RuntimeState::Syncing;
+          let _ = ProfileManager::instance().save_profile(&profile);
+          let _ = events::emit("profile-updated", &profile);
+
+          let sync_result = if let Some(engine) = shared_engine.as_ref() {
+            engine.sync_profile(&app_handle, &profile).await
+          } else {
+            Err(super::types::SyncError::NotConfigured)
+          };
+
+          profile.runtime_state = if sync_result.is_ok() {
+            crate::profile::types::RuntimeState::Stopped
+          } else {
+            crate::profile::types::RuntimeState::Error
+          };
+          let _ = ProfileManager::instance().save_profile(&profile);
+          let _ = events::emit("profile-updated", &profile);
+
+          sync_result
+        } else {
+          Ok(())
+        };
+
+        (profile_id, idempotency_key, result)
+      }
+    });
+
+    let results = futures_util::future::join_all(sync_tasks).await;
+    let mut outbox_changed = false;
+
+    for (profile_id, idempotency_key, result) in results {
+      {
         let mut in_flight = self.in_flight_profiles.lock().await;
         in_flight.remove(&profile_id);
-        continue;
-      };
-
-      let result = match SyncEngine::create_from_settings(app_handle).await {
-        Ok(engine) => engine.sync_profile(app_handle, &profile).await,
-        Err(e) => {
-          log::error!("Failed to create sync engine: {}", e);
-          Err(super::types::SyncError::NotConfigured)
-        }
-      };
-
-      // Remove from in-flight and check if sync just completed
-      let sync_just_completed = {
-        let mut in_flight = self.in_flight_profiles.lock().await;
-        in_flight.remove(&profile_id);
-        // If this was the last in-flight profile and there are no pending profiles, sync just completed
-        in_flight.is_empty()
-          && self.pending_profiles.lock().await.is_empty()
-          && self.pending_proxies.lock().await.is_empty()
-          && self.pending_groups.lock().await.is_empty()
-          && self.pending_vpns.lock().await.is_empty()
-          && self.pending_extensions.lock().await.is_empty()
-          && self.pending_extension_groups.lock().await.is_empty()
-      };
+      }
 
       match result {
         Ok(()) => {
-          log::info!("Profile {} synced successfully", profile_id);
+          {
+            let mut pending = self.pending_profiles.lock().await;
+            if pending.remove(&profile_id).is_some() {
+              outbox_changed = true;
+            }
+          }
+
+          log::info!(
+            "Profile {} synced successfully (idempotency={})",
+            profile_id,
+            idempotency_key
+          );
           let _ = events::emit(
             "profile-sync-status",
             serde_json::json!({
               "profile_id": profile_id,
-              "status": "synced"
+              "status": "synced",
+              "idempotency_key": idempotency_key
             }),
           );
         }
         Err(e) => {
-          log::error!("Failed to sync profile {}: {}", profile_id, e);
+          let (attempts, retry_in_ms) = {
+            let mut pending = self.pending_profiles.lock().await;
+            if let Some(item) = pending.get_mut(&profile_id) {
+              item.attempts = item.attempts.saturating_add(1);
+              let delay_ms = compute_retry_delay_ms(item.attempts);
+              item.next_attempt_at_ms = now_ms().saturating_add(delay_ms);
+              item.reason = "retry".to_string();
+              outbox_changed = true;
+              (item.attempts, delay_ms)
+            } else {
+              (0, PROFILE_SYNC_INITIAL_RETRY_MS)
+            }
+          };
+
+          log::error!(
+            "Failed to sync profile {} (attempt {}, retry in {}ms): {}",
+            profile_id,
+            attempts,
+            retry_in_ms,
+            e
+          );
           let _ = events::emit(
             "profile-sync-status",
             serde_json::json!({
               "profile_id": profile_id,
               "status": "error",
-              "error": e.to_string()
+              "error": e.to_string(),
+              "idempotency_key": idempotency_key,
+              "attempt": attempts,
+              "retry_in_ms": retry_in_ms
             }),
           );
         }
       }
+    }
 
-      // Trigger cleanup after sync completes if this was the last profile
-      if sync_just_completed {
-        log::debug!("All profile syncs completed, triggering cleanup");
-        let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
-        if let Err(e) = registry.cleanup_unused_binaries() {
-          log::warn!("Cleanup after sync failed: {e}");
-        } else {
-          log::debug!("Cleanup after sync completed successfully");
-        }
+    if outbox_changed {
+      self.mark_profile_outbox_dirty();
+    }
+
+    if !self.is_sync_in_progress().await {
+      log::debug!("All profile syncs completed, triggering cleanup");
+      let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
+      if let Err(e) = registry.cleanup_unused_binaries() {
+        log::warn!("Cleanup after sync failed: {e}");
+      } else {
+        log::debug!("Cleanup after sync completed successfully");
       }
     }
   }
@@ -832,5 +1114,25 @@ impl SyncScheduler {
         _ => {}
       }
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn retry_delay_grows_exponentially_and_caps() {
+    assert_eq!(compute_retry_delay_ms(1), PROFILE_SYNC_INITIAL_RETRY_MS);
+    assert_eq!(compute_retry_delay_ms(2), PROFILE_SYNC_INITIAL_RETRY_MS * 2);
+    assert_eq!(compute_retry_delay_ms(3), PROFILE_SYNC_INITIAL_RETRY_MS * 4);
+    assert_eq!(compute_retry_delay_ms(20), PROFILE_SYNC_MAX_RETRY_MS);
+  }
+
+  #[test]
+  fn now_ms_is_monotonic_enough_for_scheduler() {
+    let first = now_ms();
+    let second = now_ms();
+    assert!(second >= first);
   }
 }

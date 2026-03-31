@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-03-30T11:16:41.699352",
+  "target": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "final_url": "https://www.tiktok.com/signup/phone-or-email/phone",
+  "title": "Sign up | TikTok",
+  "manual_wait": {
+    "waited_seconds": 15,
+    "finished_by_flag": false
+  },
+  "auto_signup_dob": {
+    "attempted": true,
+    "signup_opened": true,
+    "phone_form_opened": true,
+    "dob_set": true,
+    "final_url": "https://www.tiktok.com/signup/phone-or-email/phone"
+  },
+  "cookie_header_length": 394,
+  "cookie_header_preview": "msToken=UJkfcqMsqIdyRy61SMdgQKIJ-K4e7gTFs_cL_Igc5VfrvuYpLsOGjh2fmAKz4yxSQICpsB1RR8DU-OJt15AGaWVt1JvZ8IW9-6bfvCOb89npLbrkM5qY3VPrrH4Dp5VsKH_n777AlwbL; tiktok_webapp_theme=dark; tiktok_webapp_theme_source=auto; tt_csrf_token=sFAR5BgH-bSa3T1KQuhXz13OUVRi4qwb2bCc; ttwid=1%7CwsvwhT6ogn7DwXiqjwKlG4yoVMDCt",
+  "tiktok_cookie_count": 6,
+  "pushed": {
+    "skipped": true
+  }
+}

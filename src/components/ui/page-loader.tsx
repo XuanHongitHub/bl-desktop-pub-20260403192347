@@ -33,7 +33,7 @@ export function PageLoader({
         : "flex min-h-[220px] w-full items-center justify-center";
 
   return (
-    <div className={cn(placementClassName, className)} aria-busy="true">
+    <div className={cn(placementClassName, className)} aria-busy="true" suppressHydrationWarning>
       <Spinner size="lg" />
       {(title || description) && (
         <span className="sr-only">

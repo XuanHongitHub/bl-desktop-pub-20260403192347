@@ -8,7 +8,6 @@ export type BillingPlan = {
   profiles: number;
   members: number;
   storageGb: number;
-  proxyGb: number;
   support: "email" | "priority" | "dedicated";
   recommended?: boolean;
 };
@@ -20,7 +19,6 @@ export type CustomPlanOverride = {
   profiles: number;
   members: number;
   storageGb: number;
-  proxyGb: number;
   support: "email" | "priority" | "dedicated";
   recommended: boolean;
 };
@@ -28,43 +26,39 @@ export type CustomPlanOverride = {
 export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] = [
   {
     id: "starter",
-    monthlyPrice: 5,
-    yearlyPrice: 4,
-    profiles: 100,
-    members: 2,
-    storageGb: 2,
-    proxyGb: 2,
+    monthlyPrice: 9,
+    yearlyPrice: 9,
+    profiles: 50,
+    members: 1,
+    storageGb: 5,
     support: "email",
   },
   {
     id: "growth",
-    monthlyPrice: 15,
-    yearlyPrice: 12,
+    monthlyPrice: 29,
+    yearlyPrice: 29,
     profiles: 300,
     members: 5,
-    storageGb: 10,
-    proxyGb: 2,
+    storageGb: 30,
     support: "priority",
     recommended: true,
   },
   {
     id: "scale",
-    monthlyPrice: 49,
-    yearlyPrice: 39,
+    monthlyPrice: 79,
+    yearlyPrice: 79,
     profiles: 1000,
-    members: 10,
-    storageGb: 30,
-    proxyGb: 2,
+    members: 15,
+    storageGb: 120,
     support: "dedicated",
   },
   {
     id: "custom",
-    monthlyPrice: 99,
-    yearlyPrice: 79,
-    profiles: 2000,
-    members: 25,
-    storageGb: 80,
-    proxyGb: 2,
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    profiles: 5000,
+    members: 50,
+    storageGb: 500,
     support: "dedicated",
   },
 ];
@@ -95,7 +89,6 @@ export function mergeCustomPlanOverride(
           profiles: customOverride.profiles,
           members: customOverride.members,
           storageGb: customOverride.storageGb,
-          proxyGb: customOverride.proxyGb,
           support: customOverride.support,
           recommended: customOverride.recommended,
         }

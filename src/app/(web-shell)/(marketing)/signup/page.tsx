@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { PortalAuthPage } from "@/components/portal/auth/portal-auth-page";
 
 export default function SignUpPage() {
-  redirect("/auth?view=register");
+  return <PortalAuthPage forcedView="register" />;
 }

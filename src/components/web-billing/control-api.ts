@@ -1,5 +1,6 @@
 import type {
   ControlStripeCheckoutCreateResponse,
+  ControlStripeCheckoutConfirmResponse,
   ControlWorkspaceBillingState,
 } from "@/types";
 import type { BillingCycle } from "@/lib/billing-plans";
@@ -77,11 +78,13 @@ async function requestControl<T>(
     | "workspaces"
     | "workspaceBillingState"
     | "workspaceStripeCheckout"
+    | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
     | "workspaceReactivateSubscription",
   routeInput: {
     workspaceId?: string;
     scope?: "member";
+    checkoutSessionId?: string;
   },
   init: RequestInit,
 ): Promise<T> {
@@ -139,6 +142,21 @@ export async function createWorkspaceStripeCheckout(
     {
       method: "POST",
       body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function confirmWorkspaceStripeCheckout(
+  connection: WebBillingConnection,
+  workspaceId: string,
+  checkoutSessionId: string,
+): Promise<ControlStripeCheckoutConfirmResponse> {
+  return requestControl<ControlStripeCheckoutConfirmResponse>(
+    connection,
+    "workspaceStripeCheckoutConfirm",
+    { workspaceId, checkoutSessionId },
+    {
+      method: "POST",
     },
   );
 }

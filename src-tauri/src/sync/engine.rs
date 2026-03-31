@@ -432,7 +432,7 @@ impl SyncEngine {
     let profile_id = profile_id.to_string();
     let enc_key = encryption_key.copied();
 
-    let mut handles = Vec::new();
+    let mut handles: Vec<tokio::task::JoinHandle<SyncResult<()>>> = Vec::new();
 
     for file in files {
       let sem = semaphore.clone();
@@ -452,13 +452,19 @@ impl SyncEngine {
         .map(|m| m.to_string());
 
       handles.push(tokio::spawn(async move {
-        let _permit = sem.acquire().await.unwrap();
+        let _permit = sem
+          .acquire()
+          .await
+          .map_err(|e| SyncError::NetworkError(format!("Semaphore acquire failed: {e}")))?;
 
         let data = match fs::read(&file_path) {
           Ok(d) => d,
           Err(e) => {
-            log::warn!("Failed to read {}: {}", file_path.display(), e);
-            return;
+            return Err(SyncError::IoError(format!(
+              "Failed to read {}: {}",
+              file_path.display(),
+              e
+            )));
           }
         };
 
@@ -466,25 +472,44 @@ impl SyncEngine {
           match encryption::encrypt_bytes(key, &data) {
             Ok(encrypted) => encrypted,
             Err(e) => {
-              log::warn!("Failed to encrypt {}: {}", file_path.display(), e);
-              return;
+              return Err(SyncError::InvalidData(format!(
+                "Failed to encrypt {}: {}",
+                file_path.display(),
+                e
+              )));
             }
           }
         } else {
           data
         };
 
-        if let Err(e) = client
+        client
           .upload_bytes(&url, &upload_data, content_type.as_deref())
           .await
-        {
-          log::warn!("Failed to upload {}: {}", file_path.display(), e);
-        }
+          .map_err(|e| {
+            SyncError::NetworkError(format!("Failed to upload {}: {}", file_path.display(), e))
+          })?;
+
+        Ok(())
       }));
     }
 
+    let mut upload_errors: Vec<String> = Vec::new();
     for handle in handles {
-      let _ = handle.await;
+      match handle.await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => upload_errors.push(e.to_string()),
+        Err(e) => upload_errors.push(format!("Upload task join error: {e}")),
+      }
+    }
+
+    if !upload_errors.is_empty() {
+      return Err(SyncError::NetworkError(format!(
+        "Profile {} upload encountered {} failures: {}",
+        profile_id,
+        upload_errors.len(),
+        upload_errors.join("; ")
+      )));
     }
 
     let _ = events::emit(
@@ -541,7 +566,7 @@ impl SyncEngine {
     let profile_id = profile_id.to_string();
     let enc_key = encryption_key.copied();
 
-    let mut handles = Vec::new();
+    let mut handles: Vec<tokio::task::JoinHandle<SyncResult<()>>> = Vec::new();
 
     for file in files {
       let sem = semaphore.clone();
@@ -558,38 +583,56 @@ impl SyncEngine {
       let client = client.clone();
 
       handles.push(tokio::spawn(async move {
-        let _permit = sem.acquire().await.unwrap();
+        let _permit = sem
+          .acquire()
+          .await
+          .map_err(|e| SyncError::NetworkError(format!("Semaphore acquire failed: {e}")))?;
 
-        match client.download_bytes(&url).await {
-          Ok(data) => {
-            let write_data = if let Some(ref key) = enc_key {
-              match encryption::decrypt_bytes(key, &data) {
-                Ok(decrypted) => decrypted,
-                Err(e) => {
-                  log::warn!("Failed to decrypt {}, skipping: {}", remote_key, e);
-                  return;
-                }
-              }
-            } else {
-              data
-            };
+        let data = client.download_bytes(&url).await.map_err(|e| {
+          SyncError::NetworkError(format!("Failed to download {}: {}", remote_key, e))
+        })?;
 
-            if let Some(parent) = file_path.parent() {
-              let _ = fs::create_dir_all(parent);
-            }
-            if let Err(e) = fs::write(&file_path, &write_data) {
-              log::warn!("Failed to write {}: {}", file_path.display(), e);
-            }
-          }
-          Err(e) => {
-            log::warn!("Failed to download {}: {}", remote_key, e);
-          }
+        let write_data = if let Some(ref key) = enc_key {
+          encryption::decrypt_bytes(key, &data).map_err(|e| {
+            SyncError::InvalidData(format!("Failed to decrypt {}: {}", remote_key, e))
+          })?
+        } else {
+          data
+        };
+
+        if let Some(parent) = file_path.parent() {
+          fs::create_dir_all(parent).map_err(|e| {
+            SyncError::IoError(format!(
+              "Failed to create parent directory {}: {}",
+              parent.display(),
+              e
+            ))
+          })?;
         }
+        fs::write(&file_path, &write_data).map_err(|e| {
+          SyncError::IoError(format!("Failed to write {}: {}", file_path.display(), e))
+        })?;
+
+        Ok(())
       }));
     }
 
+    let mut download_errors: Vec<String> = Vec::new();
     for handle in handles {
-      let _ = handle.await;
+      match handle.await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => download_errors.push(e.to_string()),
+        Err(e) => download_errors.push(format!("Download task join error: {e}")),
+      }
+    }
+
+    if !download_errors.is_empty() {
+      return Err(SyncError::NetworkError(format!(
+        "Profile {} download encountered {} failures: {}",
+        profile_id,
+        download_errors.len(),
+        download_errors.join("; ")
+      )));
     }
 
     let _ = events::emit(
@@ -1646,6 +1689,20 @@ impl SyncEngine {
   ) -> SyncResult<Vec<String>> {
     log::info!("Checking for missing synced profiles...");
 
+    fn extract_profile_id_from_manifest_key<'a>(
+      key: &'a str,
+      expected_prefix: Option<&str>,
+    ) -> Option<&'a str> {
+      let normalized = if let Some(prefix) = expected_prefix {
+        key.strip_prefix(prefix).unwrap_or(key)
+      } else {
+        key
+      };
+      normalized
+        .strip_prefix("profiles/")
+        .and_then(|s| s.strip_suffix("/manifest.json"))
+    }
+
     // List personal profiles from S3
     let list_response = self.client.list("profiles/").await?;
 
@@ -1654,16 +1711,10 @@ impl SyncEngine {
     // Extract unique profile IDs with their key prefix
     let mut profiles_to_check: HashMap<String, String> = HashMap::new();
     for obj in list_response.objects {
-      if obj.key.starts_with("profiles/") && obj.key.ends_with("/manifest.json") {
-        if let Some(profile_id) = obj
-          .key
-          .strip_prefix("profiles/")
-          .and_then(|s| s.strip_suffix("/manifest.json"))
-        {
+      if let Some(profile_id) = extract_profile_id_from_manifest_key(&obj.key, None) {
           profiles_to_check.insert(profile_id.to_string(), String::new());
         }
       }
-    }
 
     // Also list team profiles if user is on a team
     if let Some(auth) = crate::cloud_auth::CLOUD_AUTH.get_user().await {
@@ -1672,11 +1723,8 @@ impl SyncEngine {
         let team_list_key = format!("{}profiles/", team_prefix);
         if let Ok(team_list) = self.client.list(&team_list_key).await {
           for obj in team_list.objects {
-            if obj.key.starts_with("profiles/") && obj.key.ends_with("/manifest.json") {
-              if let Some(profile_id) = obj
-                .key
-                .strip_prefix("profiles/")
-                .and_then(|s| s.strip_suffix("/manifest.json"))
+            if let Some(profile_id) =
+              extract_profile_id_from_manifest_key(&obj.key, Some(&team_prefix))
               {
                 profiles_to_check.insert(profile_id.to_string(), team_prefix.clone());
               }
@@ -1684,7 +1732,6 @@ impl SyncEngine {
           }
         }
       }
-    }
 
     log::info!(
       "Found {} profiles in remote storage, checking for missing ones...",

@@ -5,12 +5,11 @@ const CUSTOM_PLAN_EVENT_NAME = "buglogin:custom-plan-updated";
 
 const DEFAULT_CUSTOM_PLAN: CustomPlanOverride = {
   enabled: true,
-  monthlyPrice: 99,
+  monthlyPrice: 79,
   yearlyPrice: 79,
-  profiles: 2000,
-  members: 25,
-  storageGb: 80,
-  proxyGb: 2,
+  profiles: 5000,
+  members: 50,
+  storageGb: 500,
   support: "dedicated",
   recommended: false,
 };
@@ -60,7 +59,6 @@ function sanitize(raw: unknown): CustomPlanOverride {
       record.storageGb,
       DEFAULT_CUSTOM_PLAN.storageGb,
     ),
-    proxyGb: toPositiveInteger(record.proxyGb, DEFAULT_CUSTOM_PLAN.proxyGb),
     support,
     recommended:
       typeof record.recommended === "boolean"

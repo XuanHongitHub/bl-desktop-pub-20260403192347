@@ -23,6 +23,7 @@ import { FiWifi } from "react-icons/fi";
 import {
   LuArchive,
   LuCheck,
+  LuCircleStop,
   LuChevronDown,
   LuChevronUp,
   LuClock3,
@@ -40,7 +41,6 @@ import {
   LuPuzzle,
   LuSettings2,
   LuShieldAlert,
-  LuSquare,
   LuTrash2,
   LuUsers,
 } from "react-icons/lu";
@@ -159,6 +159,7 @@ const ProfileBypassRulesDialog = dynamic(
 const PROFILE_TRANSITION_RECONCILE_INTERVAL_MS = 4_000;
 const PROFILE_LAUNCH_TRANSITION_TIMEOUT_MS = 25_000;
 const PROFILE_STOP_TRANSITION_TIMEOUT_MS = 15_000;
+const PROXY_PRELAUNCH_CHECK_TTL_SECONDS = 300;
 
 function syncPendingTransitionTimestamps(
   activeIds: Set<string>,
@@ -1782,7 +1783,8 @@ export function ProfilesDataTable({
   );
 
   const getActionButtonClassName = React.useCallback(
-    () => "min-w-[96px] h-7 shadow-xs",
+    () =>
+      "min-w-[84px] h-7 rounded-md px-2 text-[11px] font-medium shadow-none",
     [],
   );
 
@@ -2191,32 +2193,40 @@ export function ProfilesDataTable({
               : null;
 
             if (effectiveProxy && !effectiveVpn) {
-              meta.setCheckingProfiles((prev: Set<string>) =>
-                new Set(prev).add(profile.id),
-              );
-              try {
-                const result = await invoke<ProxyCheckResult>(
-                  "check_proxy_validity",
-                  {
-                    proxyId: effectiveProxy.id,
-                    proxySettings: effectiveProxy.proxy_settings,
-                  },
+              const cached = meta.proxyCheckResults[effectiveProxy.id];
+              const nowSeconds = Math.floor(Date.now() / 1000);
+              const hasFreshProxyCheck =
+                Boolean(cached) &&
+                nowSeconds - (cached?.timestamp ?? 0) <=
+                  PROXY_PRELAUNCH_CHECK_TTL_SECONDS;
+
+              if (!hasFreshProxyCheck) {
+                meta.setCheckingProfiles((prev: Set<string>) =>
+                  new Set(prev).add(profile.id),
                 );
-                setProxyCheckResults((prev) => ({
-                  ...prev,
-                  [effectiveProxy.id]: result,
-                }));
-              } catch (error) {
-                showErrorToast(meta.t("toasts.error.profileLaunchFailed"), {
-                  description: extractRootError(error),
-                });
-                throw error;
-              } finally {
-                meta.setCheckingProfiles((prev: Set<string>) => {
-                  const next = new Set(prev);
-                  next.delete(profile.id);
-                  return next;
-                });
+                // Keep launch responsive: proxy precheck runs in background.
+                void invoke<ProxyCheckResult>("check_proxy_validity", {
+                  proxyId: effectiveProxy.id,
+                  proxySettings: effectiveProxy.proxy_settings,
+                })
+                  .then((result) => {
+                    setProxyCheckResults((prev) => ({
+                      ...prev,
+                      [effectiveProxy.id]: result,
+                    }));
+                  })
+                  .catch((error) => {
+                    showErrorToast(meta.t("toasts.error.profileLaunchFailed"), {
+                      description: extractRootError(error),
+                    });
+                  })
+                  .finally(() => {
+                    meta.setCheckingProfiles((prev: Set<string>) => {
+                      const next = new Set(prev);
+                      next.delete(profile.id);
+                      return next;
+                    });
+                  });
               }
             }
 
@@ -2241,13 +2251,15 @@ export function ProfilesDataTable({
                 <TooltipTrigger asChild>
                   <span className="inline-flex">
                     <RippleButton
-                      variant={isRunning ? "destructive" : "default"}
+                      variant={isRunning ? "outline" : "default"}
                       size="sm"
                       disabled={
                         !canLaunch || isLaunching || isStopping || isChecking
                       }
                       className={cn(
                         getActionButtonClassName(),
+                        isRunning &&
+                          "border-destructive/35 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
                         !canLaunch && "opacity-50 cursor-not-allowed",
                         canLaunch && "cursor-pointer",
                       )}
@@ -2262,17 +2274,17 @@ export function ProfilesDataTable({
                           <Spinner size="sm" className="text-current" />
                         </div>
                       ) : isRunning ? (
-                        <div className="flex gap-1 items-center">
-                          <LuSquare className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex gap-1.5 items-center">
+                          <LuCircleStop className="w-3.5 h-3.5 shrink-0" />
                           <span>{meta.t("profiles.actions.stop")}</span>
                         </div>
                       ) : isParked ? (
-                        <div className="flex gap-1 items-center">
+                        <div className="flex gap-1.5 items-center">
                           <BrowserIcon className="w-3.5 h-3.5 shrink-0" />
                           <span>{meta.t("profiles.actions.resume")}</span>
                         </div>
                       ) : (
-                        <div className="flex gap-1 items-center">
+                        <div className="flex gap-1.5 items-center">
                           <BrowserIcon className="w-3.5 h-3.5 shrink-0" />
                           <span>{meta.t("profiles.actions.launch")}</span>
                         </div>
@@ -2344,7 +2356,7 @@ export function ProfilesDataTable({
                   </>
                 ) : isStopping ? (
                   <>
-                    <LuSquare className="w-3 h-3" />
+                    <LuCircleStop className="w-3 h-3" />
                     <span>{meta.t("profiles.actions.stop")}</span>
                   </>
                 ) : isRunning ? (

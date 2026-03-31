@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createElement,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   getWorkspaceBillingState,
   listWorkspaces,
@@ -35,9 +44,11 @@ function parseGoogleProfile(raw: string | null): GooglePortalProfile | null {
   }
 }
 
-export function usePortalBillingData() {
+function usePortalBillingDataState() {
   const session = usePortalSessionStore();
-  const [workspaces, setWorkspaces] = useState<WebBillingWorkspaceListItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<WebBillingWorkspaceListItem[]>(
+    [],
+  );
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
   const [billingState, setBillingState] =
     useState<ControlWorkspaceBillingState | null>(null);
@@ -47,18 +58,32 @@ export function usePortalBillingData() {
   const [billingError, setBillingError] = useState<string | null>(null);
 
   const connection = useMemo<WebBillingConnection | null>(() => {
-    if (!session) {
+    const controlBaseUrl = session?.connection.controlBaseUrl?.trim() ?? "";
+    const controlToken = session?.connection.controlToken?.trim() ?? "";
+    const userId = session?.connection.userId?.trim() ?? "";
+    const userEmail = session?.connection.userEmail?.trim() ?? "";
+    const platformRole =
+      session?.connection.platformRole ?? session?.user.platformRole ?? null;
+
+    if (!controlBaseUrl || !controlToken || !userId || !userEmail) {
       return null;
     }
+
     return {
-      controlBaseUrl: session.connection.controlBaseUrl,
-      controlToken: session.connection.controlToken,
-      userId: session.connection.userId,
-      userEmail: session.connection.userEmail,
-      platformRole:
-        session.connection.platformRole ?? session.user.platformRole ?? null,
+      controlBaseUrl,
+      controlToken,
+      userId,
+      userEmail,
+      platformRole,
     };
-  }, [session]);
+  }, [
+    session?.connection.controlBaseUrl,
+    session?.connection.controlToken,
+    session?.connection.userId,
+    session?.connection.userEmail,
+    session?.connection.platformRole,
+    session?.user.platformRole,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -95,7 +120,7 @@ export function usePortalBillingData() {
         `${window.location.pathname}${window.location.search}`,
       );
       return;
-    };
+    }
   }, []);
 
   const loadWorkspaces = useCallback(
@@ -127,7 +152,8 @@ export function usePortalBillingData() {
           return items[0]?.id ?? "";
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "unknown_error";
+        const message =
+          error instanceof Error ? error.message : "unknown_error";
         setWorkspaces([]);
         setSelectedWorkspaceId("");
         setWorkspacesError(message);
@@ -155,7 +181,8 @@ export function usePortalBillingData() {
         );
         setBillingState(state);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "unknown_error";
+        const message =
+          error instanceof Error ? error.message : "unknown_error";
         setBillingState(null);
         setBillingError(message);
       } finally {
@@ -189,6 +216,39 @@ export function usePortalBillingData() {
     }
     void loadBilling(connection, selectedWorkspaceId);
   }, [connection, loadBilling, selectedWorkspaceId]);
+
+  useEffect(() => {
+    if (!billingState?.subscription || !selectedWorkspaceId) {
+      return;
+    }
+
+    setWorkspaces((current) =>
+      current.map((workspace) => {
+        if (workspace.id !== selectedWorkspaceId) {
+          return workspace;
+        }
+        const nextPlanLabel = billingState.subscription.planLabel || workspace.planLabel;
+        const nextBillingCycle = billingState.subscription.billingCycle;
+        const nextStatus = billingState.subscription.status;
+        const nextExpiresAt = billingState.subscription.expiresAt;
+        if (
+          workspace.planLabel === nextPlanLabel &&
+          workspace.billingCycle === nextBillingCycle &&
+          workspace.subscriptionStatus === nextStatus &&
+          workspace.expiresAt === nextExpiresAt
+        ) {
+          return workspace;
+        }
+        return {
+          ...workspace,
+          planLabel: nextPlanLabel,
+          billingCycle: nextBillingCycle,
+          subscriptionStatus: nextStatus,
+          expiresAt: nextExpiresAt,
+        };
+      }),
+    );
+  }, [billingState, selectedWorkspaceId]);
 
   const refreshWorkspaces = useCallback(async () => {
     if (!connection) {
@@ -257,4 +317,27 @@ export function usePortalBillingData() {
     refreshWorkspaces,
     refreshBilling,
   };
+}
+
+type PortalBillingDataValue = ReturnType<typeof usePortalBillingDataState>;
+
+const PortalBillingDataContext = createContext<PortalBillingDataValue | null>(
+  null,
+);
+
+export function PortalBillingDataProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const value = usePortalBillingDataState();
+  return createElement(PortalBillingDataContext.Provider, { value }, children);
+}
+
+export function usePortalBillingData(): PortalBillingDataValue {
+  const context = useContext(PortalBillingDataContext);
+  if (context) {
+    return context;
+  }
+  return usePortalBillingDataState();
 }

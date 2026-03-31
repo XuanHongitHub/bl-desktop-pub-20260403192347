@@ -11,12 +11,10 @@ import {
   Play,
   PlusCircle,
   RefreshCw,
-  Save,
   Square,
   Trash2,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import {
   type ChangeEvent,
   useDeferredValue,
@@ -26,7 +24,6 @@ import {
   useRef,
   useState,
 } from "react";
-import * as ReactDOM from "react-dom";
 import { useTranslation } from "react-i18next";
 import { LoadingButton } from "@/components/loading-button";
 import { OperationProgressCard } from "@/components/ui/operation-progress-card";
@@ -37,6 +34,12 @@ import {
   applyWorkflowCookiePreviewRecords,
   selectWorkflowCookieProfilesForHydration,
 } from "@/lib/tiktok-workflow-cookie-hydration";
+import {
+  buildWorkflowCaptchaSetupUrls,
+  resolveWorkflowApiPhoneAndCaptcha,
+  resolveWorkflowCaptchaContext,
+  type WorkflowCaptchaProvider,
+} from "@/lib/tiktok-workflow-captcha-service";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type {
@@ -226,13 +229,14 @@ type WorkflowMode = "single" | "multi";
 type WorkflowPhoneSource = "manual" | "list" | "file" | "api_phone";
 type WorkflowConfigTab = "basic" | "advanced";
 type WorkflowDataView = "results" | "queue" | "logs";
+type SignupListFilter = "active" | "all" | "done" | "running" | "blocked";
 type WorkflowSyncStatus =
   | "needs_sync"
   | "synced"
   | "missing_cookie"
   | "conflict"
   | "sync_error";
-type WorkflowStatusFilter = "all" | WorkflowSyncStatus;
+type UpdateCookieListFilter = "active" | "all" | "synced" | "missing_cookie";
 type WorkflowLaunchIntent = "shop_refresh" | "relogin";
 type SemiAutoTaskRow = AdminTiktokWorkflowRow & {
   browser: BrowserTypeString;
@@ -251,13 +255,20 @@ interface TiktokAccountCookieSourceRow {
   cookie: string;
 }
 
+interface WorkflowPhoneSeedRow {
+  phone: string;
+  apiPhone?: string;
+  proxy?: string;
+}
+
 const BUGIDEA_AUTOMATION_PROFILE_TAGS = new Set([
   "bugidea-automation",
   "bugidea-sync",
 ]);
 const COOKIE_TEST_FRESH_TTL_MS = 6 * 60 * 60 * 1000;
 const WORKFLOW_SHOP_REFRESH_RUNTIME_MS = 10_000;
-const WORKFLOW_COOKIE_HYDRATE_BATCH_SIZE = 4;
+const WORKFLOW_COOKIE_HYDRATE_BATCH_SIZE = 24;
+const AUTOMATION_FLOW_STORAGE_KEY = "buglogin.automation.flow";
 const workflowCookiePreviewCacheByWorkspace = new Map<
   string,
   Map<string, { preview: string; snapshot: string }>
@@ -803,6 +814,209 @@ function parsePhoneCandidates(raw: string): string[] {
     .filter(Boolean);
 }
 
+function detectDelimitedSeparator(line: string): "," | ";" | "\t" | null {
+  const commaCount = (line.match(/,/g) ?? []).length;
+  const semicolonCount = (line.match(/;/g) ?? []).length;
+  const tabCount = (line.match(/\t/g) ?? []).length;
+
+  if (commaCount === 0 && semicolonCount === 0 && tabCount === 0) {
+    return null;
+  }
+
+  if (tabCount >= commaCount && tabCount >= semicolonCount) {
+    return "\t";
+  }
+  if (commaCount >= semicolonCount) {
+    return ",";
+  }
+  return ";";
+}
+
+function splitDelimitedLine(line: string, separator: "," | ";" | "\t"): string[] {
+  const columns: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (char === "\"") {
+      if (inQuotes && line[index + 1] === "\"") {
+        current += "\"";
+        index += 1;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (!inQuotes && char === separator) {
+      columns.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  columns.push(current.trim());
+  return columns;
+}
+
+function normalizeDelimitedHeader(value: string): string {
+  return value
+    .trim()
+    .replace(/^\uFEFF/, "")
+    .replace(/^['"]+|['"]+$/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function findHeaderColumnIndex(
+  headers: string[],
+  candidates: Set<string>,
+): number {
+  return headers.findIndex((header) => candidates.has(header));
+}
+
+function parseWorkflowPhoneSeedRows(raw: string): WorkflowPhoneSeedRow[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const separator = detectDelimitedSeparator(lines[0]);
+  if (!separator) {
+    return parsePhoneCandidates(raw).map((phone) => ({ phone }));
+  }
+
+  const normalizedHeaders = splitDelimitedLine(lines[0], separator).map(
+    normalizeDelimitedHeader,
+  );
+  const phoneHeaderCandidates = new Set([
+    "phone",
+    "phone_number",
+    "phone_no",
+    "mobile",
+    "mobile_number",
+    "number",
+  ]);
+  const apiPhoneHeaderCandidates = new Set([
+    "api_phone",
+    "api_phone_url",
+    "api_endpoint",
+    "api_url",
+    "endpoint",
+  ]);
+  const proxyHeaderCandidates = new Set([
+    "proxy",
+    "proxy_raw",
+    "proxy_string",
+    "proxy_full",
+    "proxy_value",
+    "proxy_input",
+  ]);
+
+  const phoneColumnIndex = findHeaderColumnIndex(
+    normalizedHeaders,
+    phoneHeaderCandidates,
+  );
+  const apiPhoneColumnIndex = findHeaderColumnIndex(
+    normalizedHeaders,
+    apiPhoneHeaderCandidates,
+  );
+  const proxyColumnIndex = findHeaderColumnIndex(
+    normalizedHeaders,
+    proxyHeaderCandidates,
+  );
+  const hasHeader = phoneColumnIndex >= 0 || apiPhoneColumnIndex >= 0;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  const rows = dataLines
+    .map((line): WorkflowPhoneSeedRow | null => {
+      const columns = splitDelimitedLine(line, separator);
+      const fallbackPhone = columns[0]?.trim() ?? "";
+      const phone =
+        (phoneColumnIndex >= 0
+          ? columns[phoneColumnIndex]
+          : fallbackPhone) ?? "";
+      const rawApiPhone =
+        apiPhoneColumnIndex >= 0
+          ? columns[apiPhoneColumnIndex] ?? ""
+          : hasHeader
+            ? ""
+            : columns.slice(1).join(separator);
+      const apiPhone = rawApiPhone.trim();
+      const rawProxy =
+        proxyColumnIndex >= 0
+          ? columns[proxyColumnIndex] ?? ""
+          : "";
+      const proxy = rawProxy.trim();
+      const normalizedPhone = phone.trim();
+      if (!normalizedPhone) {
+        return null;
+      }
+      return {
+        phone: normalizedPhone,
+        apiPhone: apiPhone || undefined,
+        proxy: proxy || undefined,
+      };
+    })
+    .filter((row): row is WorkflowPhoneSeedRow => Boolean(row));
+
+  if (rows.length > 0) {
+    return rows;
+  }
+
+  return parsePhoneCandidates(raw).map((phone) => ({ phone }));
+}
+
+function normalizeProxyLookupValue(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function parseProxyInputCandidate(rawValue?: string | null): {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+} | null {
+  const raw = (rawValue ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const sanitized = raw
+    .replace(/^https?:\/\//i, "")
+    .replace(/^socks5?:\/\//i, "")
+    .replace(/^socks4:\/\//i, "")
+    .trim();
+
+  const parts = sanitized.split(":").map((part) => part.trim());
+  if (parts.length < 2) {
+    return null;
+  }
+  const host = parts[0] ?? "";
+  const portRaw = parts[1] ?? "";
+  const port = Number.parseInt(portRaw, 10);
+  if (!host || !Number.isFinite(port) || port <= 0) {
+    return null;
+  }
+  const username = parts[2] ?? "";
+  const password = parts[3] ?? "";
+  return {
+    host: host.toLowerCase(),
+    port,
+    username,
+    password,
+  };
+}
+
 function toWorkflowCredentialPhone(value?: string | null): string {
   return (value ?? "").replace(/\D/g, "");
 }
@@ -957,23 +1171,6 @@ function getWorkflowSyncStatusTone(status: WorkflowSyncStatus): string {
   }
 }
 
-function getWorkflowSyncStatusFilterTone(status: WorkflowSyncStatus): string {
-  switch (status) {
-    case "synced":
-      return "bg-chart-2/20 text-chart-2";
-    case "needs_sync":
-      return "bg-chart-1/20 text-chart-1";
-    case "missing_cookie":
-      return "bg-chart-4/20 text-chart-4";
-    case "conflict":
-      return "bg-chart-3/20 text-chart-3";
-    case "sync_error":
-      return "bg-destructive/20 text-destructive";
-    default:
-      return "bg-muted text-foreground";
-  }
-}
-
 function normalizeCookieSnapshotForCompare(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -1100,7 +1297,7 @@ function getWorkflowRuntimeBadgeClassName(input: {
 }
 
 function getWorkflowRunActionButtonClassName(): string {
-  return "min-w-[96px] h-7 shadow-xs";
+  return "min-w-[84px] h-7 px-2 text-[11px] shadow-xs";
 }
 
 function getRunStatusTone(status: TiktokAutomationRunStatus | null | undefined): string {
@@ -1163,8 +1360,16 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const [showWorkflowConfig, setShowWorkflowConfig] = useState(false);
   const [workflowPhoneSource, setWorkflowPhoneSource] =
     useState<WorkflowPhoneSource>("manual");
-  const [workflowStatusFilter, setWorkflowStatusFilter] =
-    useState<WorkflowStatusFilter>("all");
+  const [updateCookieListFilter, setUpdateCookieListFilter] =
+    useState<UpdateCookieListFilter>("all");
+  const [signupListFilter, setSignupListFilter] =
+    useState<SignupListFilter>("all");
+  const [signupFocusBatchId, setSignupFocusBatchId] = useState<string | null>(
+    null,
+  );
+  const [expandedSignupCredentialIds, setExpandedSignupCredentialIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [workflowSearchQuery, setWorkflowSearchQuery] = useState("");
   const [cookieSourceRows, setCookieSourceRows] = useState<
     TiktokAccountCookieSourceRow[]
@@ -1178,8 +1383,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   );
   const [profilePrefix, setProfilePrefix] = useState("ttshop");
   const [phoneListInput, setPhoneListInput] = useState("");
-  const [uploadedPhoneList, setUploadedPhoneList] = useState<string[]>([]);
+  const [uploadedPhoneList, setUploadedPhoneList] = useState<WorkflowPhoneSeedRow[]>(
+    [],
+  );
   const [apiPhoneEndpoint, setApiPhoneEndpoint] = useState("");
+  const [workflowCaptchaProvider, setWorkflowCaptchaProvider] =
+    useState<WorkflowCaptchaProvider>("none");
+  const [workflowCaptchaApiKey, setWorkflowCaptchaApiKey] = useState("");
   const [proxyCandidateInput, setProxyCandidateInput] = useState("");
   const [proxyKeyword, setProxyKeyword] = useState("5p");
   const [rotationLink, setRotationLink] = useState("");
@@ -1212,9 +1422,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const [autoWorkflowRun, setAutoWorkflowRun] =
     useState<AutoWorkflowRunState | null>(null);
   const [automationFlowType, setAutomationFlowType] =
-    useState<TiktokAutomationFlowType>("update_cookie");
-  const [automationRunMode, setAutomationRunMode] =
-    useState<TiktokAutomationRunMode>("semi");
+    useState<TiktokAutomationFlowType>("signup");
   const [activeAutomationRunId, setActiveAutomationRunId] = useState<
     string | null
   >(null);
@@ -1233,7 +1441,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   >([]);
   const [workflowPageIndex, setWorkflowPageIndex] = useState(0);
   const [workflowPageSize, setWorkflowPageSize] = useState(25);
-  const [isActionBarMounted, setIsActionBarMounted] = useState(false);
   const skipNextAdminSaveRef = useRef(false);
   const lastPersistedAdminStateRef = useRef("");
   const lastHydratedWorkspaceIdRef = useRef<string | null>(null);
@@ -1241,6 +1448,46 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const sortedWorkflowRowsRef = useRef<SemiAutoTaskRow[]>([]);
   const workspaceProfilesRef = useRef<BrowserProfile[]>([]);
   const lazyWorkspaceDataHydrationRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const persistedFlow = window.localStorage.getItem(AUTOMATION_FLOW_STORAGE_KEY);
+      if (persistedFlow === "signup" || persistedFlow === "update_cookie") {
+        setAutomationFlowType(persistedFlow);
+      }
+    } catch {
+      // Ignore storage read errors.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleFlowChanged = (event: Event) => {
+      const flow = (event as CustomEvent<unknown>).detail;
+      if (flow === "signup" || flow === "update_cookie") {
+        setAutomationFlowType(flow);
+      }
+    };
+    window.addEventListener("buglogin:automation-flow-changed", handleFlowChanged);
+    return () =>
+      window.removeEventListener("buglogin:automation-flow-changed", handleFlowChanged);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(AUTOMATION_FLOW_STORAGE_KEY, automationFlowType);
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [automationFlowType]);
   const autoWorkflowCloseGuardRef = useRef<string | null>(null);
   const manualWorkflowCloseGuardRef = useRef<string | null>(null);
   const openedWorkflowTabsRef = useRef<Map<string, Set<string>>>(new Map());
@@ -1406,6 +1653,48 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     return eligibleProxies[rotationCursor % eligibleProxies.length] ?? null;
   }, [eligibleProxies, rotationCursor]);
 
+  const resolveStoredProxyForSeed = useCallback(
+    (seedProxyValue?: string) => {
+      const normalizedSeed = normalizeProxyLookupValue(seedProxyValue);
+      if (!normalizedSeed) {
+        return null;
+      }
+
+      const parsed = parseProxyInputCandidate(seedProxyValue);
+      if (parsed) {
+        const matchedByEndpoint = storedProxies.find((proxy) => {
+          const settings = proxy.proxy_settings;
+          const host = normalizeProxyLookupValue(settings.host);
+          const port = settings.port;
+          const username = normalizeProxyLookupValue(settings.username);
+          const password = normalizeProxyLookupValue(settings.password);
+          if (host !== parsed.host || port !== parsed.port) {
+            return false;
+          }
+          if (parsed.username && username !== normalizeProxyLookupValue(parsed.username)) {
+            return false;
+          }
+          if (parsed.password && password !== normalizeProxyLookupValue(parsed.password)) {
+            return false;
+          }
+          return true;
+        });
+        if (matchedByEndpoint) {
+          return matchedByEndpoint;
+        }
+      }
+
+      return (
+        storedProxies.find((proxy) => {
+          const id = normalizeProxyLookupValue(proxy.id);
+          const name = normalizeProxyLookupValue(proxy.name);
+          return id === normalizedSeed || name === normalizedSeed;
+        }) ?? null
+      );
+    },
+    [storedProxies],
+  );
+
   useEffect(() => {
     sortedWorkflowRowsRef.current = sortedWorkflowRows;
   }, [sortedWorkflowRows]);
@@ -1464,9 +1753,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     }
   }, [manualWorkflowWatch?.profileId]);
 
-  useEffect(() => {
-    setIsActionBarMounted(true);
-  }, []);
 
   const stableWorkflowRowsSnapshot = useMemo(
     () => buildWorkflowRowsStableSnapshot(workflowRows),
@@ -1794,6 +2080,10 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       );
       const localCookie = resolveWorkflowLocalCookieSnapshot(row);
       const remoteCookie = remoteRecord?.cookie?.trim() || "";
+      if (!remoteRecord && localCookie.length === 0) {
+        // First paint can arrive before cookie datasets are hydrated; avoid stale red flash.
+        return "needs_sync";
+      }
       const sameCookie =
         localCookie.length > 0 &&
         remoteCookie.length > 0 &&
@@ -1856,22 +2146,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         : "";
       const localCookieSnapshot = resolveWorkflowLocalCookieSnapshot(row);
       const localCookiePreview = toWorkflowCookiePreview(localCookieSnapshot) ?? "";
-      const remoteCookie = remoteCookieRecord?.cookie?.trim() || "";
       const isRuntimeRunning =
         row.status === "started" ||
         automationAccount?.status === "running" ||
         automationAccount?.status === "manual_pending";
-      const remoteSyncStatus = mapRemoteCookieStatusToWorkflowSyncStatus(
-        remoteCookieRecord?.status,
-      );
       const workflowSyncStatus = isRuntimeRunning
         ? "needs_sync"
-        : remoteSyncStatus ??
-          resolveWorkflowSyncStatus({
-            internalStatus: row.status,
-            localCookie: localCookieSnapshot,
-            remoteCookie,
-          });
+        : resolveWorkflowSyncStatusForRow(row);
       const searchBlob = [
         row.profileName,
         row.profileId,
@@ -1902,9 +2183,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     return map;
   }, [
     resolveAutomationAccountForWorkflow,
-    resolveCookieSourceRowForWorkflow,
     resolveRemoteCookieRecordForWorkflow,
     resolveWorkflowLocalCookieSnapshot,
+    resolveWorkflowSyncStatusForRow,
     remoteCookiePreviewById,
     sortedWorkflowRows,
   ]);
@@ -2006,6 +2287,24 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       ),
     );
   }, [sortedWorkflowRows]);
+
+  useEffect(() => {
+    if (signupFocusBatchId) {
+      const stillExists = sortedWorkflowRows.some(
+        (row) => row.batchId === signupFocusBatchId,
+      );
+      if (!stillExists) {
+        setSignupFocusBatchId(null);
+      }
+      return;
+    }
+    const latestBatchRow = sortedWorkflowRows.find(
+      (row) => row.batchId && row.batchId !== "imported",
+    );
+    if (latestBatchRow?.batchId) {
+      setSignupFocusBatchId(latestBatchRow.batchId);
+    }
+  }, [signupFocusBatchId, sortedWorkflowRows]);
 
   useEffect(() => {
     if (props.tiktokAutomationAccounts.length === 0) {
@@ -2120,24 +2419,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     });
   };
 
-  const persistBearerKey = () => {
-    const normalized = bugIdeaBearerKey.trim();
-    if (!normalized) {
-      showErrorToast(t("adminWorkspace.tiktokCookies.bearerRequired"));
-      return false;
-    }
-    showSuccessToast(t("adminWorkspace.tiktokCookies.bearerSaved"));
-    return true;
-  };
-
-  const ensureBearerKeyReady = (): string | null => {
-    const normalized = bugIdeaBearerKey.trim();
-    if (!normalized) {
-      showErrorToast(t("adminWorkspace.tiktokCookies.bearerRequired"));
-      return null;
-    }
-    return normalized;
-  };
+  const ensureBearerKeyReady = (): string => bugIdeaBearerKey.trim();
 
   const toggleWorkflowRowSelection = (profileId: string, checked: boolean) => {
     setSelectedWorkflowProfileIds((current) => {
@@ -2188,14 +2470,18 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     .toLowerCase();
   const filteredWorkflowRows = useMemo(
     () => {
-      let rows =
-        workflowStatusFilter === "all"
-          ? sortedWorkflowRows
-          : sortedWorkflowRows.filter(
-              (row) =>
-                (workflowDerivedByProfileId.get(row.profileId)?.workflowSyncStatus ??
-                  resolveWorkflowSyncStatusForRow(row)) === workflowStatusFilter,
-            );
+      let rows = sortedWorkflowRows;
+      if (updateCookieListFilter !== "all") {
+        rows = rows.filter((row) => {
+          const syncStatus =
+            workflowDerivedByProfileId.get(row.profileId)?.workflowSyncStatus ??
+            resolveWorkflowSyncStatusForRow(row);
+          if (updateCookieListFilter === "active") {
+            return syncStatus !== "synced";
+          }
+          return syncStatus === updateCookieListFilter;
+        });
+      }
 
       if (!normalizedWorkflowSearchQuery) {
         return rows;
@@ -2211,10 +2497,10 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     },
     [
       normalizedWorkflowSearchQuery,
+      updateCookieListFilter,
       resolveWorkflowSyncStatusForRow,
       sortedWorkflowRows,
       workflowDerivedByProfileId,
-      workflowStatusFilter,
     ],
   );
   const workflowTotalRows = filteredWorkflowRows.length;
@@ -2241,36 +2527,146 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     return map;
   }, [activeAutomationRunItems]);
 
+  const workflowRowByProfileId = useMemo(() => {
+    const map = new Map<string, SemiAutoTaskRow>();
+    for (const row of sortedWorkflowRows) {
+      if (!row.profileId?.trim() || map.has(row.profileId)) {
+        continue;
+      }
+      map.set(row.profileId, row);
+    }
+    return map;
+  }, [sortedWorkflowRows]);
+
+  const workflowRowByApiPhone = useMemo(() => {
+    const map = new Map<string, SemiAutoTaskRow>();
+    for (const row of sortedWorkflowRows) {
+      const key = row.apiPhone?.trim() ?? "";
+      if (!key || map.has(key)) {
+        continue;
+      }
+      map.set(key, row);
+    }
+    return map;
+  }, [sortedWorkflowRows]);
+
+  const workflowRowByPhone = useMemo(() => {
+    const map = new Map<string, SemiAutoTaskRow>();
+    for (const row of sortedWorkflowRows) {
+      const key = normalizeWorkflowPhoneLookup(row.phoneNumber);
+      if (!key || map.has(key)) {
+        continue;
+      }
+      map.set(key, row);
+    }
+    return map;
+  }, [sortedWorkflowRows]);
+
   const signupRows = useMemo(
     () =>
       [...props.tiktokAutomationAccounts]
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .sort((left, right) => {
+          const sourceOrder: Record<TiktokAutomationAccountRecord["source"], number> = {
+            manual: 0,
+            excel_import: 1,
+            bugidea_pull: 2,
+          };
+          const sourceDelta = sourceOrder[left.source] - sourceOrder[right.source];
+          if (sourceDelta !== 0) {
+            return sourceDelta;
+          }
+          return right.updatedAt.localeCompare(left.updatedAt);
+        })
         .map((account) => {
           const matchedRunItem = activeRunItemByAccountId.get(account.id) ?? null;
+          const normalizedAccountPhone = normalizeWorkflowPhoneLookup(account.phone);
+          const matchedWorkflowRow =
+            (account.profileId
+              ? workflowRowByProfileId.get(account.profileId) ?? null
+              : null) ??
+            (account.apiPhone.trim()
+              ? workflowRowByApiPhone.get(account.apiPhone.trim()) ?? null
+              : null) ??
+            (normalizedAccountPhone
+              ? workflowRowByPhone.get(normalizedAccountPhone) ?? null
+              : null);
+          const stepValue = matchedRunItem?.step ?? account.lastStep ?? "-";
+          const cookiePreview =
+            toWorkflowCookiePreview(matchedRunItem?.cookiePreview) ||
+            toWorkflowCookiePreview(account.cookie) ||
+            null;
+          const baseStatus = matchedRunItem?.status ?? account.status;
+          const normalizedStep = stepValue.trim().toLowerCase();
+          const stepIndicatesDone =
+            normalizedStep.includes("signup_done_") ||
+            normalizedStep.includes("cookie_updated") ||
+            normalizedStep === "done";
+          const resolvedStatus: TiktokAutomationItemStatus =
+            stepIndicatesDone ||
+            (Boolean(cookiePreview) &&
+              (baseStatus === "queued" ||
+                baseStatus === "running" ||
+                baseStatus === "manual_pending"))
+              ? "done"
+              : baseStatus;
           return {
             account,
             matchedRunItem,
-            status: matchedRunItem?.status ?? account.status,
-            step: matchedRunItem?.step ?? account.lastStep ?? "-",
+            status: resolvedStatus,
+            step: stepValue,
             lastError:
               matchedRunItem?.errorMessage ??
               matchedRunItem?.errorCode ??
               account.lastError ??
               null,
-            cookiePreview:
-              toWorkflowCookiePreview(matchedRunItem?.cookiePreview) ||
-              toWorkflowCookiePreview(account.cookie) ||
-              null,
+            workflowRow: matchedWorkflowRow,
+            batchId: matchedWorkflowRow?.batchId ?? null,
+            proxyName: matchedWorkflowRow?.proxyName ?? "-",
+            cookiePreview,
           };
         }),
-    [activeRunItemByAccountId, props.tiktokAutomationAccounts],
+    [
+      activeRunItemByAccountId,
+      props.tiktokAutomationAccounts,
+      workflowRowByApiPhone,
+      workflowRowByPhone,
+      workflowRowByProfileId,
+    ],
   );
 
   const filteredSignupRows = useMemo(() => {
-    if (!normalizedWorkflowSearchQuery) {
-      return signupRows;
-    }
     return signupRows.filter((row) => {
+      if (signupFocusBatchId && row.batchId !== signupFocusBatchId) {
+        return false;
+      }
+      if (signupListFilter === "active") {
+        // Default signup worklist view hides terminal states to keep queue/running focused.
+        if (row.status === "done" || row.status === "cancelled") {
+          return false;
+        }
+      } else if (
+        signupListFilter === "done" &&
+        row.status !== "done" &&
+        row.status !== "cancelled"
+      ) {
+        return false;
+      } else if (
+        signupListFilter === "running" &&
+        row.status !== "running" &&
+        row.status !== "manual_pending" &&
+        row.status !== "queued"
+      ) {
+        return false;
+      } else if (
+        signupListFilter === "blocked" &&
+        row.status !== "blocked" &&
+        row.status !== "step_failed"
+      ) {
+        return false;
+      }
+      if (!normalizedWorkflowSearchQuery) {
+        return true;
+      }
       const joined = [
         row.account.phone,
         row.account.apiPhone,
@@ -2278,6 +2674,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         row.account.password,
         row.account.profileName ?? "",
         row.account.profileId ?? "",
+        row.proxyName,
         row.status,
         row.step,
         row.cookiePreview,
@@ -2287,7 +2684,12 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         .toLowerCase();
       return joined.includes(normalizedWorkflowSearchQuery);
     });
-  }, [normalizedWorkflowSearchQuery, signupRows]);
+  }, [
+    normalizedWorkflowSearchQuery,
+    signupListFilter,
+    signupRows,
+    signupFocusBatchId,
+  ]);
 
   const signupTotalRows = filteredSignupRows.length;
   const signupPageCount = Math.ceil(signupTotalRows / workflowPageSize);
@@ -2295,6 +2697,21 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     const start = workflowPageIndex * workflowPageSize;
     return filteredSignupRows.slice(start, start + workflowPageSize);
   }, [filteredSignupRows, workflowPageIndex, workflowPageSize]);
+  const signupPageSelectableProfileIds = useMemo(
+    () =>
+      signupPageRows
+        .map((row) => row.workflowRow?.profileId?.trim() ?? "")
+        .filter(Boolean),
+    [signupPageRows],
+  );
+  const allSignupPageRowsSelected = useMemo(
+    () =>
+      signupPageSelectableProfileIds.length > 0 &&
+      signupPageSelectableProfileIds.every((profileId) =>
+        selectedWorkflowProfileIds.includes(profileId),
+      ),
+    [selectedWorkflowProfileIds, signupPageSelectableProfileIds],
+  );
   const signupPageStart =
     signupTotalRows === 0 ? 0 : workflowPageIndex * workflowPageSize + 1;
   const signupPageEnd = Math.min(
@@ -2307,8 +2724,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const activePageCount = isSignupFlow ? signupPageCount : workflowPageCount;
   const activePageStart = isSignupFlow ? signupPageStart : workflowPageStart;
   const activePageEnd = isSignupFlow ? signupPageEnd : workflowPageEnd;
-  const isWorkflowActionBarVisible =
-    !isSignupFlow && (selectedWorkflowRows.length > 0 || autoWorkflowRun !== null);
   const operationStatusLabel = operationProgress.progress
     ? t(
         `adminWorkspace.tiktokCookies.workflow.progress.status.${operationProgress.progress.status}`,
@@ -2323,9 +2738,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         skipped: operationProgress.progress.skipped,
       })
     : "";
-  const actionBarPortalContainer = isActionBarMounted
-    ? globalThis.document?.body ?? null
-    : null;
 
   useEffect(() => {
     if (activePageCount === 0) {
@@ -2403,7 +2815,11 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       if (automationFlowType !== "signup") {
         return null;
       }
-      const endpoint = normalizeWorkflowTabUrl(row.apiPhone);
+      const captchaContext = resolveWorkflowCaptchaContext(
+        row.apiPhone,
+        workflowCaptchaProvider,
+      );
+      const endpoint = normalizeWorkflowTabUrl(captchaContext.phoneApiEndpoint);
       if (!endpoint) {
         return null;
       }
@@ -2447,7 +2863,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         workflowOtpFetchInFlightRef.current.delete(row.profileId);
       }
     },
-    [automationFlowType, t],
+    [automationFlowType, t, workflowCaptchaProvider],
   );
 
   const resolveWorkflowCredentials = useCallback(
@@ -2462,6 +2878,18 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         username,
         password,
       };
+    },
+    [resolveAutomationAccountForWorkflow],
+  );
+
+  const resolveWorkflowSignupCompletionStep = useCallback(
+    (row: SemiAutoTaskRow) => {
+      const account = resolveAutomationAccountForWorkflow(row);
+      const hasCredential =
+        Boolean(account?.username?.trim()) && Boolean(account?.password?.trim());
+      return hasCredential
+        ? "signup_done_username_password"
+        : "signup_done_phone_code_only";
     },
     [resolveAutomationAccountForWorkflow],
   );
@@ -2572,7 +3000,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     async (
       row: SemiAutoTaskRow,
       options?: {
-        target?: "primary" | "api_phone";
+        target?: "primary" | "api_phone" | "captcha_service";
         launchIntent?: WorkflowLaunchIntent;
       },
     ) => {
@@ -2585,10 +3013,20 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         const landingUrl = "https://www.tiktok.com/";
         const shopUrl = "https://shop.tiktok.com/";
         const loginUrl = "https://www.tiktok.com/login/phone-or-email/email";
+        const signupPhoneUrl = "https://www.tiktok.com/signup/phone-or-email/phone";
         const normalizedLandingUrl = normalizeWorkflowTabUrl(landingUrl) ?? landingUrl;
         const normalizedShopUrl = normalizeWorkflowTabUrl(shopUrl) ?? shopUrl;
         const normalizedLoginUrl = normalizeWorkflowTabUrl(loginUrl) ?? loginUrl;
-        const apiPhoneUrl = normalizeWorkflowTabUrl(row.apiPhone);
+        const normalizedSignupUrl = normalizeWorkflowTabUrl(signupPhoneUrl) ?? signupPhoneUrl;
+        const captchaContext = resolveWorkflowCaptchaContext(
+          row.apiPhone,
+          workflowCaptchaProvider,
+        );
+        const apiPhoneUrl = normalizeWorkflowTabUrl(captchaContext.phoneApiEndpoint);
+        const captchaSetupUrls = buildWorkflowCaptchaSetupUrls(
+          captchaContext,
+          workflowCaptchaApiKey,
+        );
         const openedTabs = openedWorkflowTabsRef.current.get(row.profileId) ?? new Set<string>();
         const profile = workspaceProfilesRef.current.find(
           (item) => item.id === row.profileId,
@@ -2601,11 +3039,25 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             throw new Error(t("adminWorkspace.tiktokCookies.workflow.apiPhoneMissing"));
           }
           targetUrl = apiPhoneUrl;
+        } else if (options?.target === "captcha_service") {
+          if (captchaSetupUrls.length === 0) {
+            throw new Error(
+              t("adminWorkspace.tiktokCookies.workflow.captchaServiceMissing"),
+            );
+          }
+          targetUrl = captchaSetupUrls[0];
         } else {
-          targetUrl = launchIntent === "shop_refresh" ? normalizedShopUrl : normalizedLoginUrl;
+          targetUrl = launchIntent === "shop_refresh"
+            ? normalizedShopUrl
+            : automationFlowType === "signup"
+              ? normalizedSignupUrl
+              : normalizedLoginUrl;
         }
 
         const openTabWithRetry = async (url: string, tabKey: string) => {
+          if (openedTabs.has(tabKey)) {
+            return;
+          }
           let lastError: unknown = null;
           let didForceKill = false;
 
@@ -2660,6 +3112,17 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         if (options?.target === "api_phone") {
           const apiTabKey = getWorkflowTabKey(targetUrl) ?? targetUrl;
           await openTabWithRetry(targetUrl, apiTabKey);
+        } else if (options?.target === "captcha_service") {
+          for (let index = 0; index < captchaSetupUrls.length; index += 1) {
+            const url = captchaSetupUrls[index];
+            const tabKey = getWorkflowTabKey(url) ?? `captcha-setup-${index + 1}`;
+            // eslint-disable-next-line no-await-in-loop
+            await openTabWithRetry(url, tabKey);
+            if (index < captchaSetupUrls.length - 1) {
+              // eslint-disable-next-line no-await-in-loop
+              await waitMs(450);
+            }
+          }
         } else {
           // Warm up main domain first; direct deep-link login can trigger TikTok TLB 503.
           await openTabWithRetry(normalizedLandingUrl, "tiktok-landing");
@@ -2668,7 +3131,21 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             await openTabWithRetry(normalizedShopUrl, "tiktok-shop");
           } else if (automationFlowType === "signup" || launchIntent === "relogin") {
             await waitMs(900);
-            await openTabWithRetry(normalizedLoginUrl, "tiktok-login");
+            await openTabWithRetry(
+              automationFlowType === "signup" ? normalizedSignupUrl : normalizedLoginUrl,
+              automationFlowType === "signup" ? "tiktok-signup-phone" : "tiktok-login",
+            );
+            if (automationFlowType === "signup" && captchaSetupUrls.length > 0) {
+              for (let index = 0; index < captchaSetupUrls.length; index += 1) {
+                const url = captchaSetupUrls[index];
+                const tabKey =
+                  getWorkflowTabKey(url) ?? `captcha-setup-${index + 1}`;
+                // eslint-disable-next-line no-await-in-loop
+                await waitMs(450);
+                // eslint-disable-next-line no-await-in-loop
+                await openTabWithRetry(url, tabKey);
+              }
+            }
           }
         }
         openedWorkflowTabsRef.current.set(row.profileId, openedTabs);
@@ -2681,7 +3158,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         openingWorkflowProfileIdsRef.current.delete(row.profileId);
       }
     },
-    [automationFlowType, t],
+    [automationFlowType, t, workflowCaptchaApiKey, workflowCaptchaProvider],
   );
 
   const applyAutomationRunPayload = useCallback(
@@ -2947,10 +3424,54 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     [sortedWorkflowRows],
   );
 
+  const buildAutomationImportRowsFromWorkflowRows = useCallback(
+    (rows: SemiAutoTaskRow[]) =>
+      rows
+        .map((row) => {
+          const account = resolveAutomationAccountForWorkflow(row);
+          const localCookie = resolveWorkflowLocalCookieSnapshot(row);
+          return {
+            phone: row.phoneNumber || "",
+            apiPhone: row.apiPhone || "",
+            cookie: localCookie || "",
+            username: account?.username?.trim() || "",
+            password: account?.password?.trim() || "",
+            profileId: row.profileId ?? null,
+            profileName: row.profileName ?? null,
+            source: "manual" as const,
+          };
+        })
+        .filter(
+          (row) =>
+            row.profileId?.trim() ||
+            row.phone?.trim() ||
+            row.apiPhone?.trim() ||
+            row.cookie?.trim(),
+        ),
+    [resolveAutomationAccountForWorkflow, resolveWorkflowLocalCookieSnapshot],
+  );
+
+  const syncAutomationAccountsFromWorkflowRows = useCallback(
+    async (rows: SemiAutoTaskRow[]) => {
+      const importRows = buildAutomationImportRowsFromWorkflowRows(rows);
+      if (importRows.length === 0) {
+        return;
+      }
+      await props.importTiktokAutomationAccounts({
+        rows: importRows,
+        force: true,
+      });
+      await props.refreshTiktokAutomationAccounts();
+    },
+    [
+      buildAutomationImportRowsFromWorkflowRows,
+      props.importTiktokAutomationAccounts,
+      props.refreshTiktokAutomationAccounts,
+    ],
+  );
+
   const handleSyncAllWorkflowProfiles = useCallback(async () => {
-    if (!ensureBearerKeyReady()) {
-      return;
-    }
+    ensureBearerKeyReady();
     if (sortedWorkflowRows.length === 0) {
       showErrorToast(t("adminWorkspace.tiktokCookies.workflow.phoneListEmpty"));
       return;
@@ -3150,6 +3671,12 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   ]);
 
   const handleCreateAutomationRun = useCallback(async () => {
+    if (automationFlowType === "signup" && sortedWorkflowRows.length > 0) {
+      await syncAutomationAccountsFromWorkflowRows(sortedWorkflowRows).catch(
+        () => null,
+      );
+    }
+
     const hasSelection = selectedWorkflowRows.length > 0;
     const selectedAccountIds = Array.from(
       new Set(
@@ -3172,7 +3699,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     try {
       const createdPayload = await props.createTiktokAutomationRun({
         flowType: automationFlowType,
-        mode: automationRunMode,
+        mode: "auto",
         accountIds: hasSelection ? selectedAccountIds : undefined,
       });
       setActiveAutomationRunId(createdPayload.run.id);
@@ -3209,7 +3736,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   }, [
     applyAutomationRunPayload,
     automationFlowType,
-    automationRunMode,
     props.createTiktokAutomationRun,
     props.refreshTiktokAutomationAccounts,
     props.refreshTiktokAutomationRuns,
@@ -3218,6 +3744,8 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     resolveAutomationAccountForWorkflow,
     runnableSelectedWorkflowRows,
     selectedWorkflowRows,
+    sortedWorkflowRows,
+    syncAutomationAccountsFromWorkflowRows,
     t,
   ]);
 
@@ -3324,9 +3852,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
   const handleCreate = async () => {
     const bearer = ensureBearerKeyReady();
-    if (!bearer) {
-      return;
-    }
     const label = createLabel.trim();
     const cookie = createCookie.trim();
     if (!label || !cookie) {
@@ -3423,9 +3948,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   };
 
   const handleTest = async (id: string) => {
-    if (!ensureBearerKeyReady()) {
-      return;
-    }
+    ensureBearerKeyReady();
     try {
       await props.testTiktokCookie(id);
       showSuccessToast(t("adminWorkspace.tiktokCookies.testSuccess"));
@@ -3437,9 +3960,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   };
 
   const handleBulkCreate = async () => {
-    if (!ensureBearerKeyReady()) {
-      return;
-    }
+    ensureBearerKeyReady();
     const cookies = bulkInput
       .split("\n")
       .map((item) => item.trim())
@@ -3483,7 +4004,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     }
     try {
       const raw = await file.text();
-      const parsed = parsePhoneCandidates(raw);
+      const parsed = parseWorkflowPhoneSeedRows(raw);
       if (parsed.length === 0) {
         showErrorToast(t("adminWorkspace.tiktokCookies.workflow.phoneListEmpty"));
         return;
@@ -3569,21 +4090,31 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       return;
     }
 
-    let phoneCandidates: string[] = [];
+    let phoneCandidates: WorkflowPhoneSeedRow[] = [];
     if (workflowPhoneSource === "manual") {
-      phoneCandidates = [workflowPhoneNumber];
+      phoneCandidates = [{ phone: workflowPhoneNumber }];
     } else if (workflowPhoneSource === "list") {
-      phoneCandidates = parsePhoneCandidates(phoneListInput);
+      phoneCandidates = parsePhoneCandidates(phoneListInput).map((phone) => ({
+        phone,
+      }));
     } else if (workflowPhoneSource === "file") {
       phoneCandidates = uploadedPhoneList;
     } else {
-      phoneCandidates = await fetchPhonesFromApi();
+      phoneCandidates = (await fetchPhonesFromApi()).map((phone) => ({
+        phone,
+      }));
     }
 
-    const normalizedPhones = phoneCandidates
-      .map((value) =>
-        normalizeWorkflowPhoneNumber(`${value}`, workflowPhoneCountry),
-      )
+    const normalizedPhoneRows = phoneCandidates
+      .map((candidate) => ({
+        phone: normalizeWorkflowPhoneNumber(candidate.phone, workflowPhoneCountry),
+        apiPhone: candidate.apiPhone?.trim() ?? "",
+        proxy: candidate.proxy?.trim() ?? "",
+      }))
+      .filter((candidate) => candidate.phone.length > 0);
+
+    const normalizedPhones = normalizedPhoneRows
+      .map((candidate) => candidate.phone)
       .filter(Boolean);
 
     if (normalizedPhones.length === 0) {
@@ -3601,9 +4132,22 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     const targetBatchSize =
       workflowMode === "single"
         ? 1
-        : Math.min(50, Math.max(normalizedPhones.length, 1));
+        : Math.min(50, Math.max(normalizedPhoneRows.length, 1));
 
-    if (!activeRotationProxy) {
+    const hasAnyRowWithoutProxyMapping = normalizedPhoneRows.some((candidate) => {
+      const proxyValue = candidate.proxy?.trim() ?? "";
+      if (!proxyValue) {
+        return false;
+      }
+      return !resolveStoredProxyForSeed(proxyValue);
+    });
+    if (hasAnyRowWithoutProxyMapping) {
+      showErrorToast(
+        t("adminWorkspace.tiktokCookies.workflow.proxyNotAvailable"),
+      );
+      return;
+    }
+    if (!activeRotationProxy && normalizedPhoneRows.some((candidate) => !candidate.proxy?.trim())) {
       showErrorToast(
         t("adminWorkspace.tiktokCookies.workflow.proxyNotAvailable"),
       );
@@ -3635,10 +4179,19 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
       for (let index = 1; index <= targetBatchSize; index += 1) {
         const profileName = `${normalizedPrefix}-${batchId}-${index}`;
-        const targetPhoneRaw =
-          normalizedPhones[index - 1] ??
-          normalizedPhones[normalizedPhones.length - 1] ??
-          "";
+        const targetCandidate =
+          normalizedPhoneRows[index - 1] ??
+          normalizedPhoneRows[normalizedPhoneRows.length - 1] ?? {
+            phone: "",
+            apiPhone: "",
+          };
+        const targetPhoneRaw = targetCandidate.phone;
+        const targetApiPhone = targetCandidate.apiPhone;
+        const rowProxy =
+          resolveStoredProxyForSeed(targetCandidate.proxy) ?? activeRotationProxy;
+        if (!rowProxy) {
+          throw new Error(t("adminWorkspace.tiktokCookies.workflow.proxyNotAvailable"));
+        }
         const targetPhone = toWorkflowPhoneE164(
           targetPhoneRaw,
           workflowPhoneCountry,
@@ -3651,7 +4204,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             browserStr: selectedBrowser,
             version: targetVersion,
             releaseType,
-            proxyId: activeRotationProxy.id,
+            proxyId: rowProxy.id,
           },
         );
 
@@ -3660,10 +4213,11 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           profileId: createdProfile.id,
           profileName: createdProfile.name,
           browser: selectedBrowser,
-          proxyId: activeRotationProxy.id,
-          proxyName: activeRotationProxy.name,
+          proxyId: rowProxy.id,
+          proxyName: rowProxy.name,
           phoneCountry: workflowPhoneCountry,
           phoneNumber: targetPhone,
+          apiPhone: targetApiPhone || undefined,
           status: "created",
           cookieRecordId: null,
           lastError:
@@ -3677,12 +4231,14 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
       setWorkflowRows((current) => [...createdRows, ...current]);
       setRotationCursor((current) => current + 1);
+      setSignupFocusBatchId(batchId);
+      await syncAutomationAccountsFromWorkflowRows(createdRows).catch(() => null);
       await props.refreshWorkspaceProfiles().catch(() => null);
 
       showSuccessToast(
         t("adminWorkspace.tiktokCookies.workflow.createBatchSuccess", {
           count: createdRows.length,
-          proxy: activeRotationProxy.name,
+          proxy: activeRotationProxy?.name ?? "mixed",
           phones: matchedPhones.length,
         }),
       );
@@ -3695,8 +4251,38 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     }
   };
 
+  const validateWorkflowSignupPreflight = useCallback(
+    (row: SemiAutoTaskRow): string | null => {
+      if (automationFlowType !== "signup") {
+        return null;
+      }
+      if (!normalizeWorkflowPhoneLookup(row.phoneNumber)) {
+        return t("adminWorkspace.tiktokCookies.workflow.phoneRequired");
+      }
+      const profile = workspaceProfilesRef.current.find(
+        (item) => item.id === row.profileId,
+      );
+      if (!profile?.proxy_id?.trim()) {
+        return t("adminWorkspace.tiktokCookies.workflow.proxyNotAvailable");
+      }
+      return null;
+    },
+    [automationFlowType, t],
+  );
+
   const handleStartWorkflowProfile = async (row: SemiAutoTaskRow) => {
     if (row.isDisabled) {
+      return;
+    }
+    const preflightError = validateWorkflowSignupPreflight(row);
+    if (preflightError) {
+      updateWorkflowRow(row.profileId, {
+        status: "push_failed",
+        lastError: preflightError,
+      });
+      showErrorToast(t("adminWorkspace.tiktokCookies.workflow.startProfileFailed"), {
+        description: preflightError,
+      });
       return;
     }
     autoWorkflowStopRequestedRef.current = false;
@@ -3712,6 +4298,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         status: "started",
         lastError: null,
       });
+      await markSignupRunItemStarted(row);
       setManualWorkflowWatch({
         profileId: row.profileId,
         observedRunning: false,
@@ -3884,13 +4471,17 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       }
       const runItem = resolveRunItemForProfile();
       if (activeAutomationRun && runItem) {
+        const completionStep =
+          automationFlowType === "signup"
+            ? resolveWorkflowSignupCompletionStep(row)
+            : "cookie_updated";
         try {
           const payload = await props.updateTiktokAutomationRunItem(
             activeAutomationRun.id,
             runItem.id,
               {
                 status: "done",
-                step: "cookie_updated",
+                step: completionStep,
                 cookiePreview: toWorkflowCookiePreview(extracted.cookieHeader),
                 errorCode: verifyWarning ? "sync_warning" : null,
                 errorMessage: verifyWarning,
@@ -3908,17 +4499,72 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         cookieRecordId: cookieRecordId ?? row.cookieRecordId,
         lastError: verifyWarning,
       });
+      if (automationFlowType === "signup") {
+        await syncAutomationAccountsFromWorkflowRows([
+          {
+            ...row,
+            cookiePreview: extracted.cookieHeader,
+            localCookieSnapshot: extracted.cookieHeader,
+            status: "done",
+            lastError: verifyWarning,
+          },
+        ]).catch(() => null);
+      }
       return true;
     },
     [
+      automationFlowType,
       activeAutomationRun,
       activeAutomationRunItems,
       applyAutomationRunPayload,
       props.testTiktokCookie,
       props.updateTiktokCookie,
       props.updateTiktokAutomationRunItem,
+      resolveWorkflowSignupCompletionStep,
+      syncAutomationAccountsFromWorkflowRows,
       t,
       upsertWorkflowCookie,
+    ],
+  );
+
+  const markSignupRunItemStarted = useCallback(
+    async (row: SemiAutoTaskRow) => {
+      if (automationFlowType !== "signup" || !activeAutomationRun) {
+        return;
+      }
+      const runItem =
+        activeAutomationRunItems.find(
+          (item) =>
+            item.profileId === row.profileId ||
+            normalizeWorkflowPhoneLookup(item.phone) ===
+              normalizeWorkflowPhoneLookup(row.phoneNumber),
+        ) ?? null;
+      if (!runItem) {
+        return;
+      }
+      try {
+        const payload = await props.updateTiktokAutomationRunItem(
+          activeAutomationRun.id,
+          runItem.id,
+          {
+            status: "running",
+            step: "signup_opened_dob_phone_flow",
+          },
+        );
+        applyAutomationRunPayload({
+          run: payload.run,
+          items: payload.items,
+        });
+      } catch {
+        // Keep local workflow execution even when run-step sync fails.
+      }
+    },
+    [
+      activeAutomationRun,
+      activeAutomationRunItems,
+      applyAutomationRunPayload,
+      automationFlowType,
+      props.updateTiktokAutomationRunItem,
     ],
   );
 
@@ -3961,6 +4607,29 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     }
   };
 
+  const handleOpenWorkflowCaptchaService = async (row: SemiAutoTaskRow) => {
+    if (row.isDisabled) {
+      return;
+    }
+    try {
+      await openWorkflowProfileTabs(row, {
+        target: "captcha_service",
+      });
+      showSuccessToast(
+        t("adminWorkspace.tiktokCookies.workflow.openCaptchaServiceSuccess", {
+          profile: row.profileName,
+        }),
+      );
+    } catch (error) {
+      showErrorToast(
+        t("adminWorkspace.tiktokCookies.workflow.openCaptchaServiceFailed"),
+        {
+          description: extractRootError(error),
+        },
+      );
+    }
+  };
+
   const handleFetchWorkflowOtpCode = async (row: SemiAutoTaskRow) => {
     const otpCode = await maybeAssistWorkflowOtp(row, { forceToast: true });
     if (otpCode) {
@@ -3996,9 +4665,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     if (row.isDisabled) {
       return;
     }
-    if (!ensureBearerKeyReady()) {
-      return;
-    }
+    ensureBearerKeyReady();
     setSyncingProfileId(row.profileId);
 
     try {
@@ -4237,6 +4904,21 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         if (autoWorkflowStopRequestedRef.current) {
           return;
         }
+        const preflightError = validateWorkflowSignupPreflight(nextRow);
+        if (preflightError) {
+          updateWorkflowRow(nextRow.profileId, {
+            lastError: preflightError,
+            status: "push_failed",
+          });
+          setAutoWorkflowRun(null);
+          showErrorToast(
+            t("adminWorkspace.tiktokCookies.workflow.startProfileFailed"),
+            {
+              description: preflightError,
+            },
+          );
+          return;
+        }
         markWorkflowHeartbeat();
         const launchIntent = resolveWorkflowLaunchIntent(nextRow);
         autoWorkflowLaunchIntentRef.current.set(nextRow.profileId, launchIntent);
@@ -4250,6 +4932,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           status: "started",
           lastError: null,
         });
+        await markSignupRunItemStarted(nextRow);
         if (automationFlowType === "signup") {
           const credentials = resolveWorkflowCredentials(nextRow);
           if (credentials.username && credentials.password) {
@@ -4297,7 +4980,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     automationFlowType,
     markWorkflowHeartbeat,
     openWorkflowProfileTabs,
+    markSignupRunItemStarted,
     resolveWorkflowLaunchIntent,
+    validateWorkflowSignupPreflight,
     resolveWorkflowCredentials,
     t,
   ]);
@@ -4833,84 +5518,19 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               </div>
             </div>
 
-            <div className="ml-auto">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "h-7 px-2.5 text-[11px] font-medium",
-                  hasBearerKey
-                    ? "border-chart-2/45 bg-chart-2/15 text-chart-2"
-                    : "border-border bg-muted/70 text-muted-foreground",
-                )}
-              >
-                {t("adminWorkspace.tiktokCookies.bearerTitle")}:{" "}
-                {hasBearerKey ? t("common.status.active") : t("common.status.inactive")}
-              </Badge>
-            </div>
+            <div className="ml-auto" />
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
-              <Tabs
-                value={automationFlowType}
-                onValueChange={(value) =>
-                  setAutomationFlowType(value as TiktokAutomationFlowType)
-                }
-              >
-                <TabsList className="grid h-8 w-[206px] grid-cols-2 rounded-lg bg-muted/50 p-0.5">
-                  <TabsTrigger
-                    value="signup"
-                    className="text-[11px]"
-                    disabled={isWorkflowBusy || isAutomationRunningAction}
-                  >
-                    {t("adminWorkspace.tiktokCookies.workflow.runCenter.flowSignup")}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="update_cookie"
-                    className="text-[11px]"
-                    disabled={isWorkflowBusy || isAutomationRunningAction}
-                  >
-                    {t("adminWorkspace.tiktokCookies.workflow.runCenter.flowUpdateCookie")}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <Select
-                value={automationRunMode}
-                onValueChange={(value) =>
-                  setAutomationRunMode(value as TiktokAutomationRunMode)
-                }
-                disabled={isWorkflowBusy || isAutomationRunningAction}
-              >
-                <SelectTrigger className="h-8 w-[94px]">
-                  <SelectValue placeholder={t("adminWorkspace.tiktokCookies.workflow.runCenter.mode")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="semi">semi</SelectItem>
-                  <SelectItem value="auto">auto</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="password"
-                className="h-8 w-[220px]"
-                value={bugIdeaBearerKey}
-                onChange={(event) => setBugIdeaBearerKey(event.target.value)}
-                placeholder={t("adminWorkspace.tiktokCookies.bearerPlaceholder")}
-                disabled={isWorkflowBusy}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-8 px-2.5"
-                onClick={persistBearerKey}
-                disabled={isWorkflowBusy}
-                title={t("adminWorkspace.tiktokCookies.bearerSave")}
-              >
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                {t("adminWorkspace.tiktokCookies.bearerSave")}
-              </Button>
+              <Badge variant="outline" className="h-7 px-2 text-[11px] font-medium">
+                {automationFlowType === "signup"
+                  ? t("shell.sections.automationSignupTiktok")
+                  : t("shell.sections.automationUpdateCookies")}
+              </Badge>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-2.5"
+                className="h-8 px-2.5 text-[11px]"
                 onClick={() => {
                   void Promise.all([
                     props.refreshTiktokAutomationAccounts(),
@@ -4925,7 +5545,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               <LoadingButton
                 variant="outline"
                 size="sm"
-                className="h-8 px-2.5"
+                className="h-8 px-2.5 text-[11px]"
                 onClick={() => void handleSyncAllWorkflowProfiles()}
                 isLoading={isSyncAllSyncing}
                 disabled={isWorkflowBusy}
@@ -4936,7 +5556,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               <LoadingButton
                 variant="secondary"
                 size="sm"
-                className="h-8 px-2.5"
+                className="h-8 px-2.5 text-[11px]"
                 onClick={() => void handleCreateAutomationRun()}
                 isLoading={isAutomationRunningAction}
                 disabled={isWorkflowBusy || props.tiktokAutomationAccounts.length === 0}
@@ -4951,7 +5571,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                 }
                 disabled={isWorkflowBusy || props.tiktokAutomationRuns.length === 0}
               >
-                <SelectTrigger className="h-8 w-[190px]">
+                <SelectTrigger className="h-8 w-[190px] text-[11px]">
                   <SelectValue
                     placeholder={t(
                       "adminWorkspace.tiktokCookies.workflow.runCenter.noRunSelected",
@@ -4975,14 +5595,14 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className={cn("h-8 px-2.5", activeRunStatusTone)}
+                      className={cn("h-8 px-2.5 text-[11px]", activeRunStatusTone)}
                       disabled={isWorkflowBusy || isAutomationRunningAction}
                     >
                       <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" />
                       {activeAutomationRun.status}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[220px]">
+                  <DropdownMenuContent align="start" className="w-[220px] text-[11px]">
                     <DropdownMenuLabel>
                       {t("adminWorkspace.tiktokCookies.workflow.runCenter.activeRun")}
                     </DropdownMenuLabel>
@@ -5019,34 +5639,34 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2.5"
-                    disabled={isWorkflowBusy}
-                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-[11px]"
+                      disabled={isWorkflowBusy}
+                    >
                     <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" />
                     {t("adminWorkspace.tiktokCookies.workflow.columns.more")}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[250px]">
+                <DropdownMenuContent align="end" className="w-[230px] text-[11px]">
                   <DropdownMenuLabel>
                     {t("adminWorkspace.tiktokCookies.workflow.columns.more")}
                   </DropdownMenuLabel>
-                  {!isSignupFlow ? (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      void Promise.all([
+                        props.refreshStoredProxies(),
+                        props.refreshWorkspaceProfiles(),
+                      ]);
+                    }}
+                    disabled={isLoadingProxies || isLoadingProfiles}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("adminWorkspace.tiktokCookies.workflow.refreshProxy")}
+                  </DropdownMenuItem>
+                  {isSignupFlow ? (
                     <>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          void Promise.all([
-                            props.refreshStoredProxies(),
-                            props.refreshWorkspaceProfiles(),
-                          ]);
-                        }}
-                        disabled={isLoadingProxies || isLoadingProfiles}
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        {t("adminWorkspace.tiktokCookies.workflow.refreshProxy")}
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleCreateWorkflowBatch}
                         disabled={!activeRotationProxy}
@@ -5055,23 +5675,23 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                         {t("adminWorkspace.tiktokCookies.workflow.createBatch")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => setShowWorkflowConfig((current) => !current)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {showWorkflowConfig
+                          ? t("common.buttons.close")
+                          : t("common.buttons.edit")}
+                      </DropdownMenuItem>
                     </>
                   ) : null}
-                  <DropdownMenuItem
-                    onSelect={() => setShowWorkflowConfig((current) => !current)}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    {showWorkflowConfig
-                      ? t("common.buttons.close")
-                      : t("common.buttons.edit")}
-                  </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
           </div>
         </div>
 
         <div className="space-y-3 p-2.5">
-          {!isSignupFlow && showWorkflowConfig ? (
+          {showWorkflowConfig && isSignupFlow ? (
             <div className="rounded-md border border-border/60 bg-background p-3">
               <Tabs
                 value={workflowConfigTab}
@@ -5080,11 +5700,17 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                 }
                 className="space-y-3"
               >
-                <TabsList className="grid h-9 w-full max-w-[280px] grid-cols-2 rounded-lg bg-muted/40 p-1">
-                  <TabsTrigger value="basic" className="text-[12px]">
+                <TabsList className="grid h-auto w-full max-w-[420px] grid-cols-2 rounded-lg bg-muted/40 p-1">
+                  <TabsTrigger
+                    value="basic"
+                    className="min-h-8 px-2 py-1 text-[12px] leading-tight whitespace-normal"
+                  >
                     {t("adminWorkspace.tiktokCookies.workflow.basicConfig")}
                   </TabsTrigger>
-                  <TabsTrigger value="advanced" className="text-[12px]">
+                  <TabsTrigger
+                    value="advanced"
+                    className="min-h-8 px-2 py-1 text-[12px] leading-tight whitespace-normal"
+                  >
                     {t("adminWorkspace.tiktokCookies.workflow.advancedConfig")}
                   </TabsTrigger>
                 </TabsList>
@@ -5264,6 +5890,46 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
+                      <Label>
+                        {t("adminWorkspace.tiktokCookies.workflow.captchaService")}
+                      </Label>
+                      <Select
+                        value={workflowCaptchaProvider}
+                        onValueChange={(value) =>
+                          setWorkflowCaptchaProvider(value as WorkflowCaptchaProvider)
+                        }
+                        disabled={isWorkflowBusy}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            {t("adminWorkspace.tiktokCookies.workflow.captchaServiceNone")}
+                          </SelectItem>
+                          <SelectItem value="omocaptcha">
+                            {t("adminWorkspace.tiktokCookies.workflow.captchaServiceOmocaptcha")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>
+                        {t("adminWorkspace.tiktokCookies.workflow.captchaApiKey")}
+                      </Label>
+                      <Input
+                        type="password"
+                        value={workflowCaptchaApiKey}
+                        onChange={(event) =>
+                          setWorkflowCaptchaApiKey(event.target.value)
+                        }
+                        placeholder={t(
+                          "adminWorkspace.tiktokCookies.workflow.captchaApiKeyPlaceholder",
+                        )}
+                        disabled={isWorkflowBusy || workflowCaptchaProvider === "none"}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>{t("adminWorkspace.tiktokCookies.workflow.proxyKeyword")}</Label>
                       <Input
                         value={proxyKeyword}
@@ -5363,21 +6029,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
           <div className="overflow-x-auto">
             <div className="flex min-w-max items-center gap-2 border border-border/70 bg-muted/25 px-2 py-1.5">
-              {!isSignupFlow ? (
-                <>
-                  <Checkbox
-                    checked={allWorkflowRowsSelected}
-                    onCheckedChange={(checked) =>
-                      handleToggleSelectAllWorkflowRows(Boolean(checked))
-                    }
-                  />
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("adminWorkspace.tiktokCookies.workflow.bulkSelected", {
-                      count: selectedWorkflowProfileIds.length,
-                    })}
-                  </span>
-                </>
-              ) : null}
               <Input
                 value={workflowSearchQuery}
                 onChange={(event) => {
@@ -5387,41 +6038,74 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                 placeholder={t("adminWorkspace.tiktokCookies.workflow.searchPlaceholder")}
                 className="h-8 w-[250px]"
               />
-              {!isSignupFlow ? (
-                <div className="flex items-center gap-1 rounded-md border border-border/70 bg-background p-0.5">
-                  {(
-                    [
-                      "all",
-                      "needs_sync",
-                      "synced",
-                      "missing_cookie",
-                      "sync_error",
-                    ] as WorkflowStatusFilter[]
-                  ).map((statusValue) => {
-                    const isActive = workflowStatusFilter === statusValue;
-                    return (
-                      <button
-                        key={statusValue}
-                        type="button"
-                        onClick={() => setWorkflowStatusFilter(statusValue)}
-                        className={cn(
-                          "h-7 rounded-sm px-2.5 text-xs font-medium transition-colors",
-                          isActive
-                            ? statusValue === "all"
-                              ? "bg-muted text-foreground"
-                              : getWorkflowSyncStatusFilterTone(statusValue)
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {statusValue === "all"
-                          ? t("adminWorkspace.tiktokCookies.workflow.filters.allStatuses")
-                          : t(`adminWorkspace.tiktokCookies.workflow.syncStatus.${statusValue}`)}
-                      </button>
-                    );
-                  })}
-                </div>
+              {isSignupFlow ? (
+                <Select
+                  value={signupListFilter}
+                  onValueChange={(value) => {
+                    setSignupListFilter(value as SignupListFilter);
+                    setWorkflowPageIndex(0);
+                  }}
+                >
+                <SelectTrigger className="h-8 w-[180px] bg-background text-[11px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{t("common.status.running")}</SelectItem>
+                    <SelectItem value="running">
+                      {t("adminWorkspace.tiktokCookies.workflow.status.queued")}
+                    </SelectItem>
+                    <SelectItem value="done">{t("common.status.done")}</SelectItem>
+                    <SelectItem value="blocked">
+                      {t("adminWorkspace.tiktokCookies.workflow.status.blocked")}
+                    </SelectItem>
+                    <SelectItem value="all">
+                      {t("adminWorkspace.tiktokCookies.workflow.filters.allStatuses")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select
+                  value={updateCookieListFilter}
+                  onValueChange={(value) => {
+                    setUpdateCookieListFilter(value as UpdateCookieListFilter);
+                    setWorkflowPageIndex(0);
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[190px] bg-background text-[11px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">
+                      {t("adminWorkspace.tiktokCookies.workflow.syncStatus.needs_sync")}
+                    </SelectItem>
+                    <SelectItem value="missing_cookie">
+                      {t("adminWorkspace.tiktokCookies.workflow.syncStatus.missing_cookie")}
+                    </SelectItem>
+                    <SelectItem value="synced">
+                      {t("adminWorkspace.tiktokCookies.workflow.syncStatus.synced")}
+                    </SelectItem>
+                    <SelectItem value="all">
+                      {t("adminWorkspace.tiktokCookies.workflow.filters.allStatuses")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {isSignupFlow && signupFocusBatchId ? (
+                <Badge variant="outline" className="h-7 px-2 text-[11px] font-medium">
+                  batch:{signupFocusBatchId}
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSignupFocusBatchId(null);
+                      setWorkflowPageIndex(0);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
               ) : null}
-              <Badge variant="outline" className="text-[11px] font-medium">
+              <Badge variant="outline" className="h-7 px-2 text-[11px] font-medium">
                 {isSignupFlow
                   ? `${filteredSignupRows.length}/${signupRows.length}`
                   : `${filteredWorkflowRows.length}/${sortedWorkflowRows.length}`}
@@ -5429,7 +6113,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               {activeAutomationRun ? (
                 <Badge
                   variant="outline"
-                  className={cn("text-[11px] font-medium", activeRunStatusTone)}
+                  className={cn("h-7 px-2 text-[11px] font-medium", activeRunStatusTone)}
                 >
                   {activeAutomationRun.status}
                 </Badge>
@@ -5437,7 +6121,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               {autoWorkflowRun ? (
                 <Badge
                   variant="outline"
-                  className="text-[11px] border-chart-1/35 bg-chart-1/15 text-chart-1"
+                  className="h-7 px-2 text-[11px] border-chart-1/35 bg-chart-1/15 text-chart-1"
                 >
                   {t("adminWorkspace.tiktokCookies.workflow.autoRunProgress", {
                     current:
@@ -5465,14 +6149,29 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                 </div>
               ) : (
                 <ScrollArea className="max-h-[58vh] min-h-[340px] w-full border border-border/70 bg-background">
-                  <Table className="min-w-[1320px] table-fixed bg-background">
+                  <Table className="min-w-[1120px] table-fixed bg-background">
                     <TableHeader className="sticky top-0 z-10 bg-muted/85 backdrop-blur">
                       <TableRow>
-                        <TableHead className="h-8 w-[210px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t("adminWorkspace.tiktokCookies.workflow.columns.phone")}
+                        <TableHead className="h-8 w-[44px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          <Checkbox
+                            checked={allSignupPageRowsSelected}
+                            onCheckedChange={(checked) => {
+                              const nextChecked = Boolean(checked);
+                              const idSet = new Set(signupPageSelectableProfileIds);
+                              if (idSet.size === 0) {
+                                return;
+                              }
+                              setSelectedWorkflowProfileIds((current) => {
+                                if (nextChecked) {
+                                  return Array.from(new Set([...current, ...idSet]));
+                                }
+                                return current.filter((profileId) => !idSet.has(profileId));
+                              });
+                            }}
+                          />
                         </TableHead>
-                        <TableHead className="h-8 w-[210px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t("adminWorkspace.tiktokCookies.workflow.columns.credentials")}
+                        <TableHead className="h-8 w-[330px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t("adminWorkspace.tiktokCookies.workflow.columns.phone")}
                         </TableHead>
                         <TableHead className="h-8 w-[250px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           {t("adminWorkspace.tiktokCookies.workflow.columns.profile")}
@@ -5489,6 +6188,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                         <TableHead className="h-8 w-[120px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           {t("adminWorkspace.tiktokCookies.workflow.columns.updated")}
                         </TableHead>
+                        <TableHead className="h-8 w-[110px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t("adminWorkspace.tiktokCookies.workflow.columns.more")}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -5497,7 +6199,14 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                           row.status,
                         );
                         const statusTone = getWorkflowStatusTone(mappedStatus);
-                        const compactApiPhone = formatApiPhoneCompact(row.account.apiPhone);
+                        const signupApiResolution = resolveWorkflowApiPhoneAndCaptcha(
+                          row.account.apiPhone,
+                        );
+                        const displaySignupApiPhone =
+                          signupApiResolution.phoneApiEndpoint || row.account.apiPhone;
+                        const compactApiPhone = formatApiPhoneCompact(
+                          displaySignupApiPhone,
+                        );
                         const derivedCredentials = deriveWorkflowCredentialsFromPhone(
                           row.account.phone,
                         );
@@ -5505,8 +6214,30 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                           row.account.username || derivedCredentials?.username || "";
                         const displayPassword =
                           row.account.password || derivedCredentials?.password || "";
+                        const credentialsExpanded = expandedSignupCredentialIds.has(
+                          row.account.id,
+                        );
                         return (
                           <TableRow key={row.account.id} className="group/row hover:bg-muted/35">
+                            <TableCell className="align-top">
+                              <Checkbox
+                                checked={
+                                  row.workflowRow?.profileId
+                                    ? selectedWorkflowProfileIds.includes(
+                                        row.workflowRow.profileId,
+                                      )
+                                    : false
+                                }
+                                disabled={!row.workflowRow?.profileId}
+                                onCheckedChange={(checked) => {
+                                  const profileId = row.workflowRow?.profileId;
+                                  if (!profileId) {
+                                    return;
+                                  }
+                                  toggleWorkflowRowSelection(profileId, Boolean(checked));
+                                }}
+                              />
+                            </TableCell>
                             <TableCell className="align-top text-[12px]">
                               <div className="space-y-1">
                                 <div className="group/phone flex items-center justify-between gap-1">
@@ -5527,68 +6258,52 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                                     <Copy className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
-                                <div className="group/api flex items-center justify-between gap-1">
-                                  <p
-                                    className="line-clamp-1 text-[11px] text-muted-foreground"
-                                    title={row.account.apiPhone}
-                                  >
-                                    {compactApiPhone}
+                                <p
+                                  className="line-clamp-1 text-[11px] text-muted-foreground"
+                                  title={displaySignupApiPhone || undefined}
+                                >
+                                  {row.proxyName || "-"} · {compactApiPhone}
+                                </p>
+                                <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1">
+                                  <p className="line-clamp-1 font-mono text-[11px] text-muted-foreground">
+                                    {credentialsExpanded
+                                      ? `${displayUsername || "-"} | ${displayPassword || "-"}`
+                                      : "****** | ******"}
                                   </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                    onClick={() =>
-                                      void copyWorkflowValue(
-                                        row.account.apiPhone,
-                                        t("adminWorkspace.tiktokCookies.workflow.apiPhoneCopied"),
-                                      )
-                                    }
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="align-top text-[12px]">
-                              <div className="space-y-1">
-                                <div className="group/user flex items-center justify-between gap-1">
-                                  <p className="font-mono text-[11px] text-foreground">
-                                    {displayUsername || "-"}
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 opacity-0 transition-opacity group-hover/user:opacity-100"
-                                    disabled={!displayUsername}
-                                    onClick={() =>
-                                      void copyWorkflowValue(
-                                        displayUsername,
-                                        t("adminWorkspace.tiktokCookies.workflow.usernameCopied"),
-                                      )
-                                    }
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                                <div className="group/pass flex items-center justify-between gap-1">
-                                  <p className="font-mono text-[11px] text-muted-foreground">
-                                    {displayPassword || "-"}
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 opacity-0 transition-opacity group-hover/pass:opacity-100"
-                                    disabled={!displayPassword}
-                                    onClick={() =>
-                                      void copyWorkflowValue(
-                                        displayPassword,
-                                        t("adminWorkspace.tiktokCookies.workflow.passwordCopied"),
-                                      )
-                                    }
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() =>
+                                        setExpandedSignupCredentialIds((current) => {
+                                          const next = new Set(current);
+                                          if (next.has(row.account.id)) {
+                                            next.delete(row.account.id);
+                                          } else {
+                                            next.add(row.account.id);
+                                          }
+                                          return next;
+                                        })
+                                      }
+                                    >
+                                      <MoreHorizontal className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      disabled={!displaySignupApiPhone}
+                                      onClick={() =>
+                                        void copyWorkflowValue(
+                                          displaySignupApiPhone,
+                                          t("adminWorkspace.tiktokCookies.workflow.apiPhoneCopied"),
+                                        )
+                                      }
+                                    >
+                                      <Copy className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -5648,6 +6363,49 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                             </TableCell>
                             <TableCell className="align-top text-[12px] text-muted-foreground">
                               {formatTimestamp(row.account.updatedAt)}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  disabled={!row.workflowRow}
+                                  onClick={() =>
+                                    row.workflowRow
+                                      ? void handleOpenWorkflowProfile(row.workflowRow)
+                                      : undefined
+                                  }
+                                >
+                                  <ChevronsRight className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  disabled={!row.workflowRow}
+                                  onClick={() =>
+                                    row.workflowRow
+                                      ? void handleStartWorkflowProfile(row.workflowRow)
+                                      : undefined
+                                  }
+                                >
+                                  <Play className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  disabled={!row.workflowRow}
+                                  onClick={() =>
+                                    row.workflowRow
+                                      ? handleRemoveWorkflowRow(row.workflowRow.profileId)
+                                      : undefined
+                                  }
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -5733,8 +6491,22 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                           displayCookie,
                       );
                       const displayPhone = formatWorkflowPhoneValue(row.phoneNumber);
-                      const displayApiPhone = formatWorkflowPhoneValue(row.apiPhone);
+                      const apiPhoneResolution = resolveWorkflowApiPhoneAndCaptcha(
+                        row.apiPhone,
+                      );
+                      const displayApiPhone = formatWorkflowPhoneValue(
+                        apiPhoneResolution.phoneApiEndpoint ?? row.apiPhone,
+                      );
                       const compactApiPhone = formatApiPhoneCompact(displayApiPhone);
+                      const captchaContext = resolveWorkflowCaptchaContext(
+                        row.apiPhone,
+                        workflowCaptchaProvider,
+                      );
+                      const hasCaptchaService =
+                        buildWorkflowCaptchaSetupUrls(
+                          captchaContext,
+                          workflowCaptchaApiKey,
+                        ).length > 0;
                       const workflowSyncStatus =
                         props.isTiktokDataBootstrapping && !isAutoWorkflowActive
                           ? "needs_sync"
@@ -6052,11 +6824,11 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                               </LoadingButton>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-[280px]">
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[250px] text-[11px]">
                                   <DropdownMenuLabel>{displayLabel}</DropdownMenuLabel>
                                   <DropdownMenuItem
                                     onSelect={() =>
@@ -6144,6 +6916,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                                     {t("adminWorkspace.tiktokCookies.workflow.actions.openApiPhone")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
+                                    disabled={!hasCaptchaService}
+                                    onSelect={() => void handleOpenWorkflowCaptchaService(row)}
+                                  >
+                                    <ChevronsRight className="h-3.5 w-3.5" />
+                                    {t("adminWorkspace.tiktokCookies.workflow.actions.openCaptchaService")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
                                     disabled={!displayApiPhone}
                                     onSelect={() => void handleFetchWorkflowOtpCode(row)}
                                   >
@@ -6184,102 +6963,6 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               </ScrollArea>
             )}
           </div>
-          {!isSignupFlow && actionBarPortalContainer
-            ? ReactDOM.createPortal(
-                <AnimatePresence>
-                  {isWorkflowActionBarVisible ? (
-                    <motion.div
-                      key="workflow-action-bar"
-                      role="toolbar"
-                      aria-orientation="horizontal"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="fixed right-6 bottom-6 z-50 flex max-w-[calc(100%-3rem)] flex-wrap items-center justify-end gap-2 rounded-md border border-border bg-background/95 p-2 shadow-sm backdrop-blur"
-                    >
-                      <div className="flex h-8 items-center rounded-md border border-border px-2.5 text-xs font-medium text-foreground">
-                        {t("adminWorkspace.tiktokCookies.workflow.bulkSelected", {
-                          count: selectedWorkflowRows.length,
-                        })}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="ml-1 h-6 w-6"
-                          onClick={() => setSelectedWorkflowProfileIds([])}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                      {autoWorkflowRun ? (
-                        <div className="max-w-[380px] rounded-md border border-chart-1/35 bg-chart-1/10 px-2.5 py-1">
-                          <p className="text-[11px] font-medium text-chart-1">
-                            {t("adminWorkspace.tiktokCookies.workflow.autoRunProgress", {
-                              current:
-                                autoWorkflowRun.activeProfileId === null
-                                  ? Math.min(
-                                      autoWorkflowRun.currentIndex,
-                                      autoWorkflowRun.queue.length,
-                                    )
-                                  : Math.min(
-                                      autoWorkflowRun.currentIndex + 1,
-                                      autoWorkflowRun.queue.length,
-                                    ),
-                              total: autoWorkflowRun.queue.length,
-                            })}
-                          </p>
-                          <p className="line-clamp-1 text-[11px] text-muted-foreground">
-                            {autoWorkflowDetailLabel}
-                          </p>
-                        </div>
-                      ) : null}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2.5"
-                        disabled={
-                          autoWorkflowRun === null &&
-                          (runnableSelectedWorkflowRows.length === 0 || isWorkflowBusy)
-                        }
-                        onClick={() => {
-                          if (autoWorkflowRun) {
-                            handleStopAutoWorkflowRun();
-                            return;
-                          }
-                          void handleBulkStartWorkflowProfiles();
-                        }}
-                      >
-                        <Play className="mr-1.5 h-3.5 w-3.5" />
-                        {autoWorkflowRun
-                          ? t("adminWorkspace.tiktokCookies.workflow.bulkStop")
-                          : t("adminWorkspace.tiktokCookies.workflow.bulkStart")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2.5"
-                        disabled={runnableSelectedWorkflowRows.length === 0 || isWorkflowBusy}
-                        onClick={() => void handleBulkSyncWorkflowProfiles()}
-                      >
-                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                        {t("adminWorkspace.tiktokCookies.workflow.bulkSync")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2.5"
-                        disabled={selectedWorkflowRows.length === 0 || isWorkflowBusy}
-                        onClick={handleBulkRemoveWorkflowProfiles}
-                      >
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                        {t("adminWorkspace.tiktokCookies.workflow.bulkRemove")}
-                      </Button>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>,
-                actionBarPortalContainer,
-              )
-            : null}
           <TablePaginationControls
             totalRows={activeTotalRows}
             pageIndex={workflowPageIndex}

@@ -1,0 +1,78 @@
+{
+  "started_at": "2026-03-30T14:04:05.533324",
+  "phone": "15097533407",
+  "api_phone_url": "https://api.sms8.net/api/record?token=3mf0dkdffnr4lkhfef4eqc53lvia9d74ri2s",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.183.118.9:50081",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T14:04:13.092838",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": ""
+    },
+    {
+      "step": "form_ready_check",
+      "ts": "2026-03-30T14:04:15.138562",
+      "ready": true
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T14:04:15.150417",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T14:04:16.476147",
+      "ok": true
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T14:04:17.700312",
+      "ok": true,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T14:04:18.113844",
+      "ok": true,
+      "local_phone": "5097533407"
+    },
+    {
+      "step": "otp_pre_send_snapshot",
+      "ts": "2026-03-30T14:04:19.266604",
+      "previous_code": null,
+      "previous_code_time": null
+    },
+    {
+      "step": "send_code_ready_check",
+      "ts": "2026-03-30T14:04:19.279909",
+      "ready": true,
+      "reason": "send_button_ready"
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T14:04:45.302122",
+      "auto_click_send_code": true,
+      "clicked": true,
+      "send_state": "timeout",
+      "send_reason": "button_enabled_no_confirmation",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "abort_flow",
+      "ts": "2026-03-30T14:04:45.302122",
+      "reason": "send_code_not_confirmed"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T14:04:45.313257",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": false,
+      "advanced": false
+    }
+  ],
+  "ended_at": "2026-03-30T14:04:45.401913"
+}

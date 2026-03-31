@@ -154,7 +154,8 @@ export function createPortalSessionRecord(input: {
       avatar: normalizeString(input.user.avatar) || null,
     },
     connection: {
-      controlBaseUrl: resolvePortalControlBaseUrl(input.connection.controlBaseUrl) ?? "",
+      controlBaseUrl:
+        resolvePortalControlBaseUrl(input.connection.controlBaseUrl) ?? "",
       controlToken: normalizeString(input.connection.controlToken),
       userId: normalizeString(input.connection.userId),
       userEmail: normalizeString(input.connection.userEmail),
@@ -165,7 +166,9 @@ export function createPortalSessionRecord(input: {
   };
 }
 
-export function parsePortalSession(raw: string | null): PortalSessionRecord | null {
+export function parsePortalSession(
+  raw: string | null,
+): PortalSessionRecord | null {
   if (!raw) {
     return null;
   }
@@ -199,10 +202,16 @@ export function writePortalSessionStorage(record: PortalSessionRecord | null) {
 
   if (record) {
     const raw = JSON.stringify(record);
+    if (raw === portalSessionCacheRaw) {
+      return;
+    }
     window.localStorage.setItem(PORTAL_SESSION_STORAGE_KEY, raw);
     portalSessionCacheRaw = raw;
     portalSessionCacheParsed = record;
   } else {
+    if (portalSessionCacheRaw === null) {
+      return;
+    }
     window.localStorage.removeItem(PORTAL_SESSION_STORAGE_KEY);
     portalSessionCacheRaw = null;
     portalSessionCacheParsed = null;

@@ -1,0 +1,73 @@
+{
+  "started_at": "2026-03-30T14:01:53.354629",
+  "phone": "15097533407",
+  "api_phone_url": "https://api.sms8.net/api/record?token=3mf0dkdffnr4lkhfef4eqc53lvia9d74ri2s",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.183.118.9:50081",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T14:01:58.965834",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": ""
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T14:01:58.974482",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T14:01:59.119237",
+      "ok": false
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T14:01:59.228295",
+      "ok": false,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T14:01:59.300764",
+      "ok": false,
+      "local_phone": "5097533407"
+    },
+    {
+      "step": "otp_pre_send_snapshot",
+      "ts": "2026-03-30T14:02:01.307255",
+      "previous_code": null,
+      "previous_code_time": null
+    },
+    {
+      "step": "send_code_ready_check",
+      "ts": "2026-03-30T14:02:31.629517",
+      "ready": false,
+      "reason": "send_button_not_ready"
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T14:02:31.714103",
+      "auto_click_send_code": true,
+      "clicked": false,
+      "send_state": "failed",
+      "send_reason": "send_button_not_ready",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "abort_flow",
+      "ts": "2026-03-30T14:02:31.714103",
+      "reason": "send_code_not_confirmed"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T14:02:31.735268",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok",
+      "blocked": false,
+      "otp_filled": false,
+      "advanced": false
+    }
+  ],
+  "ended_at": "2026-03-30T14:02:31.833407"
+}

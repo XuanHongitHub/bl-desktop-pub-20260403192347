@@ -1,0 +1,109 @@
+{
+  "started_at": "2026-03-30T14:20:27.158948",
+  "phone": "13609542257",
+  "api_phone_url": "https://api.sms8.net/api/record?token=k86hm8zpw59tkb8of88js6cnzitxvkrk0sfk",
+  "region": "United States (+1)",
+  "proxy_server": "http://103.187.4.82:50219",
+  "steps": [
+    {
+      "step": "open_signup",
+      "ts": "2026-03-30T14:20:36.215434",
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone",
+      "title": "Sign up | TikTok"
+    },
+    {
+      "step": "form_ready_check",
+      "ts": "2026-03-30T14:20:36.232441",
+      "ready": true
+    },
+    {
+      "step": "security_check_detect",
+      "ts": "2026-03-30T14:20:36.242015",
+      "blocked": false
+    },
+    {
+      "step": "set_dob",
+      "ts": "2026-03-30T14:20:39.260731",
+      "ok": true
+    },
+    {
+      "step": "select_region",
+      "ts": "2026-03-30T14:20:41.342372",
+      "ok": true,
+      "target": "United States (+1)"
+    },
+    {
+      "step": "fill_phone",
+      "ts": "2026-03-30T14:20:44.376998",
+      "ok": true,
+      "local_phone": "3609542257"
+    },
+    {
+      "step": "otp_pre_send_snapshot",
+      "ts": "2026-03-30T14:20:44.808617",
+      "error": "<urlopen error Remote end closed connection without response>"
+    },
+    {
+      "step": "send_code_mode",
+      "ts": "2026-03-30T14:20:50.403208",
+      "auto_click_send_code": true,
+      "clicked": true,
+      "send_state": "sent",
+      "send_reason": "button_resend_60s",
+      "send_attempts_used": 1,
+      "url": "https://www.tiktok.com/signup/phone-or-email/phone"
+    },
+    {
+      "step": "poll_otp",
+      "ts": "2026-03-30T14:20:57.383461",
+      "found": true,
+      "code": "100571",
+      "attempts": 2,
+      "preview": "{\"code\":1,\"msg\":\"ok\",\"data\":{\"code\":\"[TikTok] 100571 is your verification code, valid for 5 minutes. To keep your account safe, never forward this code.\",\"code_time\":\"2026-03-30 15:20:55\",\"expired_date\":\"2026-04-15 00:00:00\"}}"
+    },
+    {
+      "step": "submit_otp",
+      "ts": "2026-03-30T14:21:06.196496",
+      "otp_filled": true,
+      "auto_click_next": true,
+      "clicked": true,
+      "advanced": true,
+      "url": "chrome-error://chromewebdata/",
+      "title": "www.tiktok.com"
+    },
+    {
+      "step": "final_state",
+      "ts": "2026-03-30T14:21:06.206107",
+      "url": "chrome-error://chromewebdata/",
+      "title": "www.tiktok.com",
+      "blocked": false,
+      "otp_filled": true,
+      "advanced": true
+    },
+    {
+      "step": "password_step",
+      "ts": "2026-03-30T14:21:06.282480",
+      "password_filled": false,
+      "password_submitted": false,
+      "url": "chrome-error://chromewebdata/",
+      "title": "www.tiktok.com"
+    },
+    {
+      "step": "username_step",
+      "ts": "2026-03-30T14:21:06.357753",
+      "username_filled": false,
+      "username_submitted": false,
+      "username_used": "bug74855266",
+      "url": "chrome-error://chromewebdata/",
+      "title": "www.tiktok.com"
+    },
+    {
+      "step": "post_profile_steps_state",
+      "ts": "2026-03-30T14:21:06.366041",
+      "url": "chrome-error://chromewebdata/",
+      "title": "www.tiktok.com",
+      "blocked": false
+    }
+  ],
+  "ended_at": "2026-03-30T14:21:06.431599"
+}

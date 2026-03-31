@@ -17,6 +17,7 @@ import {
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { TopNavHead } from "@/components/portal/top-nav-head";
 import { useLanguage } from "@/hooks/use-language";
 import type { SupportedLanguage } from "@/i18n";
 import {
@@ -45,11 +46,11 @@ import { ScrollArea } from "./ui/scroll-area";
 
 type ThemeMode = "light" | "dark" | "system" | "custom";
 const TOPBAR_ACCOUNT_TITLE_CLASS =
-  "truncate text-[12px] leading-[1.3] font-semibold tracking-normal text-foreground";
+  "truncate text-xs leading-[1.3] font-semibold tracking-normal text-foreground";
 const TOPBAR_ACCOUNT_META_CLASS =
-  "truncate text-[10px] leading-[1.3] font-medium tracking-normal text-muted-foreground";
+  "truncate text-[11px] leading-[1.3] font-medium tracking-normal text-muted-foreground";
 const TOPBAR_ACCOUNT_ACTION_CLASS =
-  "rounded-md px-2 py-2 text-[12px] leading-[1.25] font-semibold [&_svg:not([class*='size-'])]:size-4";
+  "rounded-md px-2.5 py-2 text-xs leading-[1.25] font-semibold [&_svg:not([class*='size-'])]:size-4";
 
 interface HeaderNotificationItem {
   id: string;
@@ -275,187 +276,115 @@ export function MainWorkspaceTopBar({
   }, [authEmail]);
 
   return (
-    <div className="app-shell-safe-header mb-4 flex min-h-[56px] shrink-0 items-center justify-end gap-2 border-b border-border pb-3">
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-none">
-          <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
-            {supportedLanguages.map((language) => {
-              const isSelected = languagePreference === language.code;
-              return (
+    <div className="app-shell-safe-header mb-2 flex min-h-[44px] shrink-0 items-center justify-end gap-1.5 border-b border-border pr-2.5 pb-2 md:pr-3">
+      <TopNavHead
+        languages={supportedLanguages.map((language) => ({
+          code: language.code,
+          label: language.nativeName,
+          active: languagePreference === language.code,
+          loading: isLanguageLoading && languagePreference === language.code,
+          onSelect: () => {
+            if (languagePreference === language.code) {
+              return;
+            }
+            void handleLanguageChange(language.code as SupportedLanguage);
+          },
+        }))}
+        themeOptions={themeOptions.map((option) => ({
+          id: option.value,
+          label: option.label,
+          icon: option.icon,
+          active: themeMode === option.value,
+          loading: isSavingTheme && themeMode === option.value,
+          onSelect: () => {
+            if (themeMode === option.value) {
+              return;
+            }
+            void handleThemeModeChange(option.value);
+          },
+        }))}
+        rightSlot={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  key={language.code}
                   type="button"
-                  aria-label={language.nativeName}
-                  title={language.nativeName}
-                  disabled={isLanguageLoading}
-                  onClick={() => {
-                    if (languagePreference === language.code) {
-                      return;
-                    }
-                    void handleLanguageChange(language.code as SupportedLanguage);
-                  }}
-                  className={
-                    "flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-                  }
+                  aria-label={t("shell.topbar.notifications")}
+                  className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <span
-                    className={
-                      isSelected
-                        ? "flex h-6 w-6 items-center justify-center rounded-md bg-background text-foreground"
-                        : "flex h-6 w-6 items-center justify-center rounded-md bg-transparent text-muted-foreground"
-                    }
-                  >
-                    {isLanguageLoading && isSelected ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <span className="text-[10px] font-semibold uppercase leading-none">
-                        {language.code}
-                      </span>
-                    )}
-                  </span>
+                  {isCheckingUpdates ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Bell className="h-4 w-4" />
+                  )}
+                  {notificationCount > 0 && (
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-5 px-1 text-[9px] font-semibold text-primary-foreground">
+                      {notificationCount > 9 ? "9+" : notificationCount}
+                    </span>
+                  )}
                 </button>
-              );
-            })}
-          </div>
-          <div className="h-5 w-px bg-border" />
-          <div className="inline-flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
-            {themeOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = themeMode === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-label={option.label}
-                  title={option.label}
-                  disabled={isSavingTheme}
-                  onClick={() => {
-                    if (themeMode === option.value) {
-                      return;
-                    }
-                    void handleThemeModeChange(option.value);
-                  }}
-                  className={
-                    "flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-                  }
-                >
-                  <span
-                    className={
-                      isSelected
-                        ? "flex h-6 w-6 items-center justify-center rounded-md bg-background text-foreground"
-                        : "flex h-6 w-6 items-center justify-center rounded-md bg-transparent text-muted-foreground"
-                    }
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[360px]">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>{t("shell.topbar.notifications")}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs"
+                    onClick={() => onCheckUpdates()}
+                    disabled={isCheckingUpdates}
                   >
-                    {isSavingTheme && isSelected ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Icon className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("shell.topbar.notifications")}
-              className="relative flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            >
-              {isCheckingUpdates ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Bell className="h-4 w-4" />
-              )}
-              {notificationCount > 0 && (
-                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-5 px-1 text-[9px] font-semibold text-primary-foreground">
-                  {notificationCount > 9 ? "9+" : notificationCount}
-                </span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[360px]">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              <span>{t("shell.topbar.notifications")}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                onClick={() => onCheckUpdates()}
-                disabled={isCheckingUpdates}
-              >
-                {isCheckingUpdates
-                  ? t("shell.topbar.checkingUpdates")
-                  : t("shell.topbar.checkUpdates")}
-              </Button>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {notifications.length === 0 ? (
-              <p className="px-2.5 py-2 text-[11px] text-muted-foreground">
-                {t("shell.topbar.notificationsEmpty")}
-              </p>
-            ) : (
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1.5 px-2 py-1.5">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className="rounded-md border border-border bg-muted/30 px-2.5 py-2"
-                    >
-                      <p className="text-[11px] font-semibold text-foreground">
-                        {notification.title}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {notification.description}
-                      </p>
-                      {notification.isUpdating ? (
-                        <Badge
-                          variant="secondary"
-                          className="mt-1.5 h-5 px-2 text-[10px]"
+                    {isCheckingUpdates
+                      ? t("shell.topbar.checkingUpdates")
+                      : t("shell.topbar.checkUpdates")}
+                  </Button>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                    {t("shell.topbar.notificationsEmpty")}
+                  </p>
+                ) : (
+                  <ScrollArea className="max-h-[300px]">
+                    <div className="space-y-1.5 px-2 py-1.5">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="rounded-md border border-border bg-muted/30 px-2.5 py-2"
                         >
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          {t("shell.topbar.autoUpdateInProgress")}
-                        </Badge>
-                      ) : null}
+                          <p className="text-xs font-semibold text-foreground">
+                            {notification.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {notification.description}
+                          </p>
+                          {notification.isUpdating ? (
+                            <Badge
+                              variant="secondary"
+                              className="mt-1.5 h-6 px-2.5 text-[11px]"
+                            >
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              {t("shell.topbar.autoUpdateInProgress")}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  </ScrollArea>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("shell.topbar.userMenu")}
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted/50"
-            >
-              {authAvatar ? (
-                <img
-                  src={authAvatar}
-                  alt={authEmail}
-                  className="h-full w-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span className="text-[11px] font-semibold">{userInitial}</span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            sideOffset={8}
-            className="w-[276px] max-w-[calc(100vw-24px)]"
-          >
-            <DropdownMenuLabel className="px-3 pt-2.5 pb-2">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground">
+            <span aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("shell.topbar.userMenu")}
+                  className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted/50"
+                >
                   {authAvatar ? (
                     <img
                       src={authAvatar}
@@ -464,61 +393,98 @@ export function MainWorkspaceTopBar({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="text-[11px] font-semibold">{userInitial}</span>
+                    <span className="text-[11px] font-semibold">
+                      {userInitial}
+                    </span>
                   )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className={TOPBAR_ACCOUNT_TITLE_CLASS}>{authEmail}</p>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                      {workspaceRoleLabel}
-                    </Badge>
-                    <p className={TOPBAR_ACCOUNT_META_CLASS}>{workspaceName}</p>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-[276px] max-w-[calc(100vw-24px)]"
+              >
+                <DropdownMenuLabel className="px-3 pt-2.5 pb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground">
+                      {authAvatar ? (
+                        <img
+                          src={authAvatar}
+                          alt={authEmail}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold">
+                          {userInitial}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className={TOPBAR_ACCOUNT_TITLE_CLASS}>{authEmail}</p>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className="h-6 px-2 text-[11px]"
+                        >
+                          {workspaceRoleLabel}
+                        </Badge>
+                        <p className={TOPBAR_ACCOUNT_META_CLASS}>
+                          {workspaceName}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onOpenSettings} className={TOPBAR_ACCOUNT_ACTION_CLASS}>
-              <Settings2 className="text-muted-foreground" />
-              {t("shell.topbar.openSettings")}
-            </DropdownMenuItem>
-            {canAccessAdminPanel && !inAdminPanel ? (
-              <DropdownMenuItem
-                onSelect={onOpenAdminPanel}
-                className={TOPBAR_ACCOUNT_ACTION_CLASS}
-              >
-                <LayoutDashboard className="text-muted-foreground" />
-                {t("shell.topbar.goAdminPanel")}
-              </DropdownMenuItem>
-            ) : null}
-            {canAccessWorkspaceGovernancePanel &&
-            !inWorkspaceGovernancePanel ? (
-              <DropdownMenuItem
-                onSelect={onOpenWorkspaceGovernancePanel}
-                className={TOPBAR_ACCOUNT_ACTION_CLASS}
-              >
-                <Users className="text-muted-foreground" />
-                {t("shell.topbar.goWorkspaceGovernance")}
-              </DropdownMenuItem>
-            ) : null}
-            {inAdminPanel || inWorkspaceGovernancePanel ? (
-              <DropdownMenuItem
-                onSelect={onOpenWorkspacePanel}
-                className={TOPBAR_ACCOUNT_ACTION_CLASS}
-              >
-                <LifeBuoy className="text-muted-foreground" />
-                {t("shell.topbar.backWorkspace")}
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onSignOut} className={TOPBAR_ACCOUNT_ACTION_CLASS}>
-              <LogOut className="text-muted-foreground" />
-              {t("shell.auth.signOut")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={onOpenSettings}
+                  className={TOPBAR_ACCOUNT_ACTION_CLASS}
+                >
+                  <Settings2 className="text-muted-foreground" />
+                  {t("shell.topbar.openSettings")}
+                </DropdownMenuItem>
+                {canAccessAdminPanel && !inAdminPanel ? (
+                  <DropdownMenuItem
+                    onSelect={onOpenAdminPanel}
+                    className={TOPBAR_ACCOUNT_ACTION_CLASS}
+                  >
+                    <LayoutDashboard className="text-muted-foreground" />
+                    {t("shell.topbar.goAdminPanel")}
+                  </DropdownMenuItem>
+                ) : null}
+                {canAccessWorkspaceGovernancePanel &&
+                !inWorkspaceGovernancePanel ? (
+                  <DropdownMenuItem
+                    onSelect={onOpenWorkspaceGovernancePanel}
+                    className={TOPBAR_ACCOUNT_ACTION_CLASS}
+                  >
+                    <Users className="text-muted-foreground" />
+                    {t("shell.topbar.goWorkspaceGovernance")}
+                  </DropdownMenuItem>
+                ) : null}
+                {inAdminPanel || inWorkspaceGovernancePanel ? (
+                  <DropdownMenuItem
+                    onSelect={onOpenWorkspacePanel}
+                    className={TOPBAR_ACCOUNT_ACTION_CLASS}
+                  >
+                    <LifeBuoy className="text-muted-foreground" />
+                    {t("shell.topbar.backWorkspace")}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={onSignOut}
+                  className={TOPBAR_ACCOUNT_ACTION_CLASS}
+                >
+                  <LogOut className="text-muted-foreground" />
+                  {t("shell.auth.signOut")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
     </div>
   );
 }

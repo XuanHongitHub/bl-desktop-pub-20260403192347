@@ -246,7 +246,12 @@ function OAuthCallbackContent() {
           PORTAL_GOOGLE_STORAGE_KEY,
           JSON.stringify(payload),
         );
-        finish(resolveTargetUrl(nextPath, inviteToken, {}), "portal");
+        finish(
+          resolveTargetUrl(nextPath, inviteToken, {
+            oauth: "google",
+          }),
+          "portal",
+        );
       };
 
       if (idToken) {

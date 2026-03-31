@@ -29,6 +29,7 @@ type RouteBuilderInput = {
   workspaceId?: string;
   route?: "register" | "login" | "google";
   scope?: "member";
+  checkoutSessionId?: string;
 };
 
 export function buildControlApiPath(
@@ -38,6 +39,7 @@ export function buildControlApiPath(
     | "publicAuth"
     | "workspaceBillingState"
     | "workspaceStripeCheckout"
+    | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
     | "workspaceReactivateSubscription",
   input: RouteBuilderInput = {},
@@ -57,6 +59,8 @@ export function buildControlApiPath(
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/state`;
     case "workspaceStripeCheckout":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/stripe-checkout`;
+    case "workspaceStripeCheckoutConfirm":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/stripe-checkout/${encodeURIComponent(input.checkoutSessionId ?? "")}/confirm`;
     case "workspaceCancelSubscription":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/subscription/cancel`;
     case "workspaceReactivateSubscription":
@@ -74,6 +78,7 @@ export function buildControlApiUrl(
     | "publicAuth"
     | "workspaceBillingState"
     | "workspaceStripeCheckout"
+    | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
     | "workspaceReactivateSubscription",
   input: RouteBuilderInput = {},
