@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { AdminCommercePreviewPage } from "@/components/portal/commerce/commerce-admin-pages";
 
 export default function Page() {
-  redirect("/admin/commerce/coupons");
+  return <AdminCommercePreviewPage />;
 }
