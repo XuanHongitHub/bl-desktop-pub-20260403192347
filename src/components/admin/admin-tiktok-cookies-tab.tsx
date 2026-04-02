@@ -2140,10 +2140,16 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         DEFAULT_WORKFLOW_CAPTCHA_API_KEY
       ).trim();
     setWorkflowRows((current) => {
+      const normalizedIncomingRows: SemiAutoTaskRow[] = incomingWorkflowRows.map(
+        (row) => ({
+          ...row,
+          flowType: row.flowType === "signup_seller" ? "signup_seller" : "signup",
+        }),
+      );
       if (automationFlowType !== "signup_seller") {
-        return incomingWorkflowRows;
+        return normalizedIncomingRows;
       }
-      const incomingRows = incomingWorkflowRows.map((row) => ({
+      const incomingRows: SemiAutoTaskRow[] = normalizedIncomingRows.map((row) => ({
         ...row,
         flowType: "signup_seller",
       }));
@@ -2881,6 +2887,23 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   );
   const sellerVisibleRows =
     sellerDataView === "queued" ? sellerQueueRows : sellerResultRows;
+  useEffect(() => {
+    if (automationFlowType !== "signup_seller") {
+      return;
+    }
+    if (
+      sellerDataView === "queued" &&
+      sellerQueueRows.length === 0 &&
+      sellerResultRows.length > 0
+    ) {
+      setSellerDataView("result");
+    }
+  }, [
+    automationFlowType,
+    sellerDataView,
+    sellerQueueRows.length,
+    sellerResultRows.length,
+  ]);
   const workflowTotalRows = automationFlowType === "signup_seller"
     ? sellerVisibleRows.length
     : filteredWorkflowRows.length;
