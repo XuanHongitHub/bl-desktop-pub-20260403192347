@@ -3907,7 +3907,6 @@ export default function Home() {
             onSyncConfigOpen={() => setSyncConfigDialogOpen(true)}
             canUseEncryption={syncEncryptionUnlocked}
             mode="page"
-            isPlatformAdmin={isPlatformAdmin}
           />
         );
       case "workspace-owner-overview":
