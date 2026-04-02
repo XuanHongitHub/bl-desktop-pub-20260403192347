@@ -23,7 +23,7 @@ cd ..
 pm2 delete buglogin-web >/dev/null 2>&1 || true
 pm2 delete buglogin-api >/dev/null 2>&1 || true
 
-pm2 start "pnpm start -- -p 3003" --name buglogin-web --cwd "$APP_DIR"
+pm2 start "pnpm exec next start -p 3003" --name buglogin-web --cwd "$APP_DIR"
 pm2 start "pnpm start:prod" --name buglogin-api --cwd "$APP_DIR/buglogin-sync"
 pm2 save
 pm2 status
