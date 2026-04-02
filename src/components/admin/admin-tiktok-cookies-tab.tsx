@@ -658,6 +658,8 @@ function buildWorkflowRowsStableSnapshot(
     profileId: string;
     phoneNumber?: string;
     apiPhone?: string;
+    email?: string;
+    apiMail?: string;
     cookieRecordId?: string | null;
     cookiePreview?: string | null;
     isDisabled?: boolean;
@@ -667,6 +669,8 @@ function buildWorkflowRowsStableSnapshot(
     profileId: row.profileId,
     phoneNumber: row.phoneNumber ?? "",
     apiPhone: row.apiPhone ?? "",
+    email: row.email ?? "",
+    apiMail: row.apiMail ?? "",
     cookieRecordId: row.cookieRecordId ?? null,
     cookiePreview: toWorkflowCookiePreview(row.cookiePreview),
     isDisabled: Boolean(row.isDisabled),
@@ -828,6 +832,8 @@ function appendCookieLog(
 function parseWorkflowProfileNote(note?: string | null): {
   phoneNumber?: string;
   apiPhone?: string;
+  email?: string;
+  apiMail?: string;
 } {
   const normalized = note?.trim();
   if (!normalized) {
@@ -856,6 +862,8 @@ function parseWorkflowProfileNote(note?: string | null): {
   return {
     phoneNumber: valueByKey.get("phone"),
     apiPhone: valueByKey.get("api_phone"),
+    email: valueByKey.get("email"),
+    apiMail: valueByKey.get("api_mail"),
   };
 }
 
@@ -4732,9 +4740,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         return {
           phone: normalizeWorkflowPhoneNumber(phoneSeed, workflowPhoneCountry),
           email: candidate.email?.trim() ?? "",
+          apiMail: candidate.apiMail?.trim() ?? "",
           apiPhone:
             candidate.apiPhone?.trim() ??
-            candidate.apiMail?.trim() ??
             embeddedApiPhone ??
             "",
           proxy: candidate.proxy?.trim() ?? "",
@@ -4848,6 +4856,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           normalizedPhoneRows[normalizedPhoneRows.length - 1] ?? {
             phone: "",
             email: "",
+            apiMail: "",
             apiPhone: "",
             proxy: "",
             profile: "",
@@ -4953,6 +4962,8 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           proxyName: rowProxy.name,
           phoneCountry: workflowPhoneCountry,
           phoneNumber: targetPhone,
+          email: targetCandidate.email || undefined,
+          apiMail: targetCandidate.apiMail || undefined,
           apiPhone: targetApiPhone || undefined,
           status: "created",
           cookieRecordId: null,
@@ -7468,7 +7479,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                         {t("adminWorkspace.tiktokCookies.workflow.columns.status")}
                       </TableHead>
                       <TableHead className="h-8 w-[230px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {t("adminWorkspace.tiktokCookies.workflow.columns.cookie")}
+                        {isSellerSignupFlow
+                          ? t("adminWorkspace.tiktokCookies.workflow.columns.mail")
+                          : t("adminWorkspace.tiktokCookies.workflow.columns.cookie")}
                       </TableHead>
                       <TableHead className="h-8 w-[140px] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         {t("adminWorkspace.tiktokCookies.workflow.columns.updated")}
@@ -7517,6 +7530,8 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                         apiPhoneResolution.phoneApiEndpoint ?? row.apiPhone,
                       );
                       const compactApiPhone = formatApiPhoneCompact(displayApiPhone);
+                      const displayEmail = (row.email ?? "").trim();
+                      const displayApiMail = (row.apiMail ?? "").trim();
                       const captchaContext = resolveWorkflowCaptchaContext(
                         row.apiPhone,
                         workflowCaptchaProvider,
@@ -7527,12 +7542,14 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                           workflowCaptchaApiKey,
                         ).length > 0;
                       const workflowSyncStatus =
-                        props.isTiktokDataBootstrapping && !isAutoWorkflowActive
+                        isSellerSignupFlow
                           ? "needs_sync"
-                          : isQueuedInAutoWorkflow
+                          : props.isTiktokDataBootstrapping && !isAutoWorkflowActive
                             ? "needs_sync"
-                          : (derivedRow?.workflowSyncStatus ??
-                            resolveWorkflowSyncStatusForRow(row));
+                            : isQueuedInAutoWorkflow
+                              ? "needs_sync"
+                              : (derivedRow?.workflowSyncStatus ??
+                                resolveWorkflowSyncStatusForRow(row));
                       const isWorkflowRowDisabled = Boolean(row.isDisabled);
                       const isRowLaunching = activeWorkflowProfileId === row.profileId;
                       const isRowManualWatchActive =
@@ -7568,41 +7585,63 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                             : isRuntimeParked
                               ? t("profiles.actions.resume")
                               : t("common.status.stopped");
-                      const syncStatusTone = isRowSyncing
-                        ? "border-primary/20 bg-primary/10 text-primary"
-                        : isWorkflowRowDisabled
-                          ? "border-border bg-muted/80 text-muted-foreground"
-                          : getWorkflowSyncStatusTone(workflowSyncStatus);
+                      const syncStatusTone = isSellerSignupFlow
+                        ? row.status === "started"
+                          ? "border-chart-1/45 bg-chart-1/15 text-chart-1"
+                          : row.status === "done" || row.status === "cookie_ready"
+                            ? "border-chart-2/45 bg-chart-2/15 text-chart-2"
+                            : row.status === "push_failed" || row.status === "cookie_missing"
+                              ? "border-destructive/45 bg-destructive/15 text-destructive"
+                              : "border-border bg-muted/80 text-muted-foreground"
+                        : isRowSyncing
+                          ? "border-primary/20 bg-primary/10 text-primary"
+                          : isWorkflowRowDisabled
+                            ? "border-border bg-muted/80 text-muted-foreground"
+                            : getWorkflowSyncStatusTone(workflowSyncStatus);
                       const rowAccentClass =
-                        isRowLaunching || isRowStopping || isRuntimeRunning
-                          ? "border-l-chart-1/45"
-                        : isWorkflowRowDisabled
-                          ? "border-l-border/50"
-                        : workflowSyncStatus === "synced"
-                          ? "border-l-chart-2/45"
-                          : workflowSyncStatus === "sync_error"
-                            ? "border-l-destructive/45"
-                            : workflowSyncStatus === "missing_cookie"
-                            ? "border-l-chart-4/45"
-                              : workflowSyncStatus === "conflict"
-                                ? "border-l-chart-3/45"
-                                : "border-l-chart-1/45";
-                      const syncStatusLabel = isRowSyncing
-                        ? t("adminWorkspace.tiktokCookies.workflow.rowState.syncing")
-                        : isWorkflowRowDisabled
-                          ? t("adminWorkspace.tiktokCookies.workflow.syncStatus.disabled")
+                        isSellerSignupFlow
+                          ? row.status === "done" || row.status === "cookie_ready"
+                            ? "border-l-chart-2/45"
+                            : row.status === "push_failed" || row.status === "cookie_missing"
+                              ? "border-l-destructive/45"
+                              : "border-l-chart-1/45"
+                          : isRowLaunching || isRowStopping || isRuntimeRunning
+                            ? "border-l-chart-1/45"
+                          : isWorkflowRowDisabled
+                            ? "border-l-border/50"
                           : workflowSyncStatus === "synced"
-                            ? t("adminWorkspace.tiktokCookies.workflow.syncStatusWithAge", {
-                                status: t(
-                                  "adminWorkspace.tiktokCookies.workflow.syncStatus.synced",
-                                ),
-                                age:
-                                  formatSyncAgeLabel(remoteCookieRecord?.testedAt) ??
-                                  t("adminWorkspace.tiktokCookies.workflow.syncAgeUnknown"),
-                              })
-                            : t(
-                                `adminWorkspace.tiktokCookies.workflow.syncStatus.${workflowSyncStatus}`,
-                              );
+                            ? "border-l-chart-2/45"
+                            : workflowSyncStatus === "sync_error"
+                              ? "border-l-destructive/45"
+                              : workflowSyncStatus === "missing_cookie"
+                              ? "border-l-chart-4/45"
+                                : workflowSyncStatus === "conflict"
+                                  ? "border-l-chart-3/45"
+                                  : "border-l-chart-1/45";
+                      const syncStatusLabel = isSellerSignupFlow
+                        ? row.status === "started"
+                          ? t("common.status.running")
+                          : row.status === "done" || row.status === "cookie_ready"
+                            ? t("common.status.done")
+                            : row.status === "push_failed" || row.status === "cookie_missing"
+                              ? t("common.status.error")
+                              : t("adminWorkspace.tiktokCookies.workflow.status.queued")
+                        : isRowSyncing
+                          ? t("adminWorkspace.tiktokCookies.workflow.rowState.syncing")
+                          : isWorkflowRowDisabled
+                            ? t("adminWorkspace.tiktokCookies.workflow.syncStatus.disabled")
+                            : workflowSyncStatus === "synced"
+                              ? t("adminWorkspace.tiktokCookies.workflow.syncStatusWithAge", {
+                                  status: t(
+                                    "adminWorkspace.tiktokCookies.workflow.syncStatus.synced",
+                                  ),
+                                  age:
+                                    formatSyncAgeLabel(remoteCookieRecord?.testedAt) ??
+                                    t("adminWorkspace.tiktokCookies.workflow.syncAgeUnknown"),
+                                })
+                              : t(
+                                  `adminWorkspace.tiktokCookies.workflow.syncStatus.${workflowSyncStatus}`,
+                                );
                       const runButtonLabel = isRuntimeRunning
                         ? t("profiles.actions.stop")
                         : isRuntimeParked
@@ -7807,41 +7846,92 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                             </div>
                           </TableCell>
                           <TableCell className="text-[12px] font-mono text-muted-foreground whitespace-normal align-top">
-                            <button
-                              type="button"
-                              className={cn(
-                                "group/cookie flex w-full items-start justify-between gap-1 rounded-sm border border-transparent p-0 text-left transition-colors",
-                                hasCopyableCookie
-                                  ? "cursor-pointer hover:border-border/60"
-                                  : "cursor-default",
-                              )}
-                              disabled={!hasCopyableCookie}
-                              onClick={() =>
-                                void copyWorkflowCookieByRow(row, remoteCookieRecord)
-                              }
-                              title={
-                                hasCopyableCookie
-                                  ? t("adminWorkspace.tiktokCookies.workflow.cookieCopied")
-                                  : undefined
-                              }
-                            >
-                              <div className="min-w-0 space-y-1">
-                                <p className="line-clamp-2 break-all text-left text-foreground">
-                                  {formatWorkflowCookieCell(displayCookie)}
-                                </p>
-                                {remoteCookieRecord ? (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    ID: {summarizeCookieValue(remoteCookieRecord.id)}
-                                  </p>
-                                ) : null}
+                            {isSellerSignupFlow ? (
+                              <div className="space-y-1.5">
+                                <div className="group/mail flex items-center justify-between gap-1">
+                                  <div className="min-w-0">
+                                    <p
+                                      className="line-clamp-1 text-[11px] text-foreground"
+                                      title={displayEmail || undefined}
+                                    >
+                                      {displayEmail || "-"}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                    disabled={!displayEmail}
+                                    onClick={() =>
+                                      void copyWorkflowValue(displayEmail, t("adminWorkspace.tiktokCookies.workflow.usernameCopied"))
+                                    }
+                                    title={t("common.buttons.copy")}
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                                <div className="group/apimail flex items-center justify-between gap-1">
+                                  <div className="min-w-0">
+                                    <p
+                                      className="line-clamp-1 text-[11px] text-muted-foreground"
+                                      title={displayApiMail || undefined}
+                                    >
+                                      {displayApiMail
+                                        ? summarizeCookieValue(displayApiMail)
+                                        : "-"}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                    disabled={!displayApiMail}
+                                    onClick={() =>
+                                      void copyWorkflowValue(displayApiMail, t("adminWorkspace.tiktokCookies.workflow.passwordCopied"))
+                                    }
+                                    title={t("common.buttons.copy")}
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
-                              <Copy
+                            ) : (
+                              <button
+                                type="button"
                                 className={cn(
-                                  "mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/cookie:opacity-100",
-                                  !hasCopyableCookie && "hidden",
+                                  "group/cookie flex w-full items-start justify-between gap-1 rounded-sm border border-transparent p-0 text-left transition-colors",
+                                  hasCopyableCookie
+                                    ? "cursor-pointer hover:border-border/60"
+                                    : "cursor-default",
                                 )}
-                              />
-                            </button>
+                                disabled={!hasCopyableCookie}
+                                onClick={() =>
+                                  void copyWorkflowCookieByRow(row, remoteCookieRecord)
+                                }
+                                title={
+                                  hasCopyableCookie
+                                    ? t("adminWorkspace.tiktokCookies.workflow.cookieCopied")
+                                    : undefined
+                                }
+                              >
+                                <div className="min-w-0 space-y-1">
+                                  <p className="line-clamp-2 break-all text-left text-foreground">
+                                    {formatWorkflowCookieCell(displayCookie)}
+                                  </p>
+                                  {remoteCookieRecord ? (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      ID: {summarizeCookieValue(remoteCookieRecord.id)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <Copy
+                                  className={cn(
+                                    "mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/cookie:opacity-100",
+                                    !hasCopyableCookie && "hidden",
+                                  )}
+                                />
+                              </button>
+                            )}
                           </TableCell>
                           <TableCell className="text-[12px] text-muted-foreground whitespace-normal">
                             <div className="space-y-1">

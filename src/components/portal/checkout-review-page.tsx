@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Check, CreditCard, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PORTAL_PRICING_WIDTH_CLASS } from "@/components/portal/portal-geometry";
 import { createWorkspaceStripeCheckout } from "@/components/web-billing/control-api";
@@ -52,6 +52,7 @@ export function CheckoutReviewPage() {
     return isBillingCycle(initial) ? initial : "monthly";
   });
   const [pending, setPending] = useState(false);
+  const [redirectingToAuth, setRedirectingToAuth] = useState(false);
 
   const selectedPlanId = useMemo<BillingPlanId>(() => {
     const plan = searchParams.get("plan");
@@ -64,6 +65,16 @@ export function CheckoutReviewPage() {
       BILLING_PLAN_DEFINITIONS[1]
     );
   }, [selectedPlanId]);
+
+  useEffect(() => {
+    if (loadingWorkspaces || connection || redirectingToAuth) {
+      return;
+    }
+    const query = searchParams.toString();
+    const nextPath = query ? `/checkout?${query}` : "/checkout";
+    setRedirectingToAuth(true);
+    router.replace(`/signin?next=${encodeURIComponent(nextPath)}`);
+  }, [connection, loadingWorkspaces, redirectingToAuth, router, searchParams]);
 
   const monthlyEquivalent = getBillingPlanPrice(selectedPlan, billingCycle);
   const billedNow =

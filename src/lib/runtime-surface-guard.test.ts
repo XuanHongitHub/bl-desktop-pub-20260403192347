@@ -7,7 +7,7 @@ import {
   shouldRedirectWebGuard,
   shouldRenderDesktopGuardChildren,
   shouldRenderWebGuardChildren,
-} from "./runtime-surface-guard.ts";
+} from "./runtime-surface-guard";
 
 test("resolveRuntimeSurface maps tauri probe to stable runtime state", () => {
   assert.equal(resolveRuntimeSurface(true), "desktop");

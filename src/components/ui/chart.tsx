@@ -5,9 +5,9 @@ import * as RechartsPrimitive from "recharts";
 import type { TooltipProps } from "recharts";
 import type {
   Props as DefaultLegendContentProps,
-  LegendPayload,
+  Payload as LegendPayload,
 } from "recharts/types/component/DefaultLegendContent";
-import type { Payload } from "recharts/types/component/DefaultTooltipContent";
+import type { Payload as TooltipPayload } from "recharts/types/component/DefaultTooltipContent";
 
 import { formatLocaleNumber } from "@/lib/locale-format";
 import { cn } from "@/lib/utils";
@@ -196,8 +196,8 @@ const ChartTooltipContent = React.forwardRef<
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {payload
-            .filter((item: Payload<number, string>) => item.type !== "none")
-            .map((item: Payload<number, string>, index: number) => {
+            .filter((item: TooltipPayload<number, string>) => item.type !== "none")
+            .map((item: TooltipPayload<number, string>, index: number) => {
               const key = `${nameKey || item.name || item.dataKey || "value"}`;
               const itemConfig = getPayloadConfigFromPayload(config, item, key);
               const indicatorColor = color || item.payload?.fill || item.color;
