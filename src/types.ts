@@ -383,6 +383,7 @@ export interface TiktokCookieRecord {
 }
 
 export interface AdminTiktokWorkflowRow {
+  flowType?: TiktokAutomationFlowType;
   batchId: string;
   profileId: string;
   profileName: string;
@@ -392,6 +393,8 @@ export interface AdminTiktokWorkflowRow {
   phoneCountry?: "US";
   phoneNumber?: string;
   apiPhone?: string;
+  email?: string;
+  apiMail?: string;
   status:
     | "created"
     | "started"
