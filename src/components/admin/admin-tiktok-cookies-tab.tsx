@@ -1610,6 +1610,11 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   >([]);
   const [sellerImportedSeedName, setSellerImportedSeedName] = useState("");
   const [sellerSelectedFileName, setSellerSelectedFileName] = useState("");
+  const [removeWorkflowRowTarget, setRemoveWorkflowRowTarget] = useState<{
+    profileId: string;
+    profileName: string;
+  } | null>(null);
+  const [isRemovingWorkflowRow, setIsRemovingWorkflowRow] = useState(false);
   const [isSellerSeedReviewOpen, setIsSellerSeedReviewOpen] = useState(false);
   const [sellerDataView, setSellerDataView] = useState<"queued" | "result">("queued");
   const sellerFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1830,8 +1835,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         ? proxyNameMap.get(proxyId) ?? trackedRow.proxyName ?? proxyId
         : trackedRow.proxyName ?? "-";
       const inferredFlowType =
-        trackedRow.flowType ??
-        (profile && isSellerAutomationProfile(profile) ? "signup_seller" : "signup");
+        profile && isSellerAutomationProfile(profile) ? "signup_seller" : "signup";
 
       return {
         ...trackedRow,
@@ -2823,10 +2827,11 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const filteredWorkflowRows = useMemo(
     () => {
       let rows = sortedWorkflowRows;
-      if (automationFlowType === "signup_seller") {
+      const isSellerFlow = automationFlowType === "signup_seller";
+      if (isSellerFlow) {
         rows = rows.filter((row) => row.flowType === "signup_seller");
       }
-      if (updateCookieListFilter !== "all") {
+      if (!isSellerFlow && updateCookieListFilter !== "all") {
         rows = rows.filter((row) => {
           const syncStatus =
             workflowDerivedByProfileId.get(row.profileId)?.workflowSyncStatus ??
@@ -3140,7 +3145,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       setShowWorkflowConfig(true);
       if (automationFlowType === "signup_seller") {
         setWorkflowPhoneSource("file");
-        setSelectedBrowser("wayfern");
+        setSelectedBrowser("camoufox");
       }
     }
     workflowLastOtpCodeRef.current.clear();
@@ -4768,7 +4773,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
     setIsCreatingBatch(true);
     try {
-      const sellerForcedBrowser: BrowserTypeString = "wayfern";
+      const sellerForcedBrowser: BrowserTypeString = "camoufox";
       const targetBrowser: BrowserTypeString =
         automationFlowType === "signup_seller" ? sellerForcedBrowser : selectedBrowser;
 
@@ -4837,8 +4842,8 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               version: targetVersion,
               releaseType,
               proxyId: rowProxy.id,
-              wayfernConfig:
-                automationFlowType === "signup_seller" && targetBrowser === "wayfern"
+              camoufoxConfig:
+                automationFlowType === "signup_seller" && targetBrowser === "camoufox"
                   ? { os: "macos" }
                   : undefined,
             },
@@ -4856,6 +4861,15 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           );
           if (!existingProfile) {
             throw createError;
+          }
+          if (
+            automationFlowType === "signup_seller" &&
+            existingProfile.browser !== "camoufox" &&
+            existingProfile.browser !== "bugox"
+          ) {
+            throw new Error(
+              `Seller profile '${profileName}' already exists but browser is '${existingProfile.browser}'. Delete this profile and recreate to use Bugox (Camoufox).`,
+            );
           }
           createdProfile = existingProfile;
         }
@@ -5498,7 +5512,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     }
   };
 
-  const handleRemoveWorkflowRow = (profileId: string) => {
+  const removeWorkflowRowLocal = (profileId: string) => {
     setWorkflowRows((current) =>
       current.filter((row) => row.profileId !== profileId),
     );
@@ -5512,6 +5526,43 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     setSelectedWorkflowProfileIds((current) =>
       current.filter((value) => value !== profileId),
     );
+  };
+
+  const handleRemoveWorkflowRow = (profileId: string) => {
+    const row =
+      sortedWorkflowRows.find((entry) => entry.profileId === profileId) ?? null;
+    setRemoveWorkflowRowTarget({
+      profileId,
+      profileName: row?.profileName || profileId,
+    });
+  };
+
+  const handleConfirmRemoveWorkflowRow = async () => {
+    if (!removeWorkflowRowTarget) {
+      return;
+    }
+    setIsRemovingWorkflowRow(true);
+    try {
+      if (automationFlowType === "signup_seller") {
+        await invoke("delete_profile", {
+          profileId: removeWorkflowRowTarget.profileId,
+        });
+        await props.refreshWorkspaceProfiles().catch(() => null);
+      }
+      removeWorkflowRowLocal(removeWorkflowRowTarget.profileId);
+      showSuccessToast(
+        automationFlowType === "signup_seller"
+          ? t("adminWorkspace.tiktokCookies.workflow.profileDeleted")
+          : t("common.deleted"),
+      );
+      setRemoveWorkflowRowTarget(null);
+    } catch (error) {
+      showErrorToast(t("adminWorkspace.tiktokCookies.workflow.profileDeleteFailed"), {
+        description: extractRootError(error),
+      });
+    } finally {
+      setIsRemovingWorkflowRow(false);
+    }
   };
 
   const handleToggleWorkflowRowDisabled = (
@@ -7920,6 +7971,48 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           />
         </div>
       </div>
+      <Dialog
+        open={Boolean(removeWorkflowRowTarget)}
+        onOpenChange={(open) => {
+          if (isRemovingWorkflowRow) {
+            return;
+          }
+          if (!open) {
+            setRemoveWorkflowRowTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>
+              {t("adminWorkspace.tiktokCookies.workflow.profileDeleteConfirmTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("adminWorkspace.tiktokCookies.workflow.profileDeleteConfirmDescription", {
+                name: removeWorkflowRowTarget?.profileName || "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveWorkflowRowTarget(null)}
+              disabled={isRemovingWorkflowRow}
+            >
+              {t("common.buttons.cancel")}
+            </Button>
+            <LoadingButton
+              type="button"
+              variant="destructive"
+              isLoading={isRemovingWorkflowRow}
+              onClick={() => void handleConfirmRemoveWorkflowRow()}
+            >
+              {t("adminWorkspace.tiktokCookies.workflow.profileDeleteConfirmButton")}
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isSellerSeedReviewOpen}
         onOpenChange={(open) => {
