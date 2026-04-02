@@ -251,6 +251,7 @@ type UpdateCookieListFilter = "active" | "all" | "synced" | "missing_cookie";
 type WorkflowLaunchIntent = "shop_refresh" | "relogin";
 type SemiAutoTaskRow = AdminTiktokWorkflowRow & {
   browser: BrowserTypeString;
+  flowType?: TiktokAutomationFlowType;
   localCookieSnapshot?: string | null;
 };
 type AutoWorkflowRunState = AdminTiktokAutoWorkflowRunState;
@@ -2462,7 +2463,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
   const resolveWorkflowLaunchIntent = useCallback(
     (row: SemiAutoTaskRow): WorkflowLaunchIntent => {
-      if (automationFlowType === "signup") {
+      if (automationFlowType === "signup" || automationFlowType === "signup_seller") {
         return "relogin";
       }
       const syncStatus = resolveWorkflowSyncStatusForRow(row);
@@ -3424,6 +3425,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           workflowCaptchaApiKey,
         );
         const openedTabs = openedWorkflowTabsRef.current.get(row.profileId) ?? new Set<string>();
+        if (!options?.target) {
+          openedTabs.clear();
+        }
         const profile = workspaceProfilesRef.current.find(
           (item) => item.id === row.profileId,
         );
@@ -3522,38 +3526,37 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             }
           }
         } else {
-          // Warm up main domain first; direct deep-link login can trigger TikTok TLB 503.
-          await openTabWithRetry(normalizedLandingUrl, "tiktok-landing");
-          if (launchIntent === "shop_refresh") {
+          if (automationFlowType === "signup_seller") {
+            await openTabWithRetry(normalizedSellerSignupUrl, "tiktok-seller-signup");
+          } else {
+            // Warm up main domain first; direct deep-link login can trigger TikTok TLB 503.
+            await openTabWithRetry(normalizedLandingUrl, "tiktok-landing");
+            if (launchIntent === "shop_refresh") {
             await waitMs(900);
             await openTabWithRetry(normalizedShopUrl, "tiktok-shop");
-          } else if (
-            automationFlowType === "signup" ||
-            automationFlowType === "signup_seller" ||
-            launchIntent === "relogin"
-          ) {
-            await waitMs(900);
-            await openTabWithRetry(
-              automationFlowType === "signup"
-                ? normalizedSignupUrl
-                : automationFlowType === "signup_seller"
-                  ? normalizedSellerSignupUrl
+            } else if (
+              automationFlowType === "signup" ||
+              launchIntent === "relogin"
+            ) {
+              await waitMs(900);
+              await openTabWithRetry(
+                automationFlowType === "signup"
+                  ? normalizedSignupUrl
                   : normalizedLoginUrl,
-              automationFlowType === "signup"
-                ? "tiktok-signup-phone"
-                : automationFlowType === "signup_seller"
-                  ? "tiktok-seller-signup"
+                automationFlowType === "signup"
+                  ? "tiktok-signup-phone"
                   : "tiktok-login",
-            );
-            if (automationFlowType === "signup" && captchaSetupUrls.length > 0) {
-              for (let index = 0; index < captchaSetupUrls.length; index += 1) {
-                const url = captchaSetupUrls[index];
-                const tabKey =
-                  getWorkflowTabKey(url) ?? `captcha-setup-${index + 1}`;
-                // eslint-disable-next-line no-await-in-loop
-                await waitMs(450);
-                // eslint-disable-next-line no-await-in-loop
-                await openTabWithRetry(url, tabKey);
+              );
+              if (automationFlowType === "signup" && captchaSetupUrls.length > 0) {
+                for (let index = 0; index < captchaSetupUrls.length; index += 1) {
+                  const url = captchaSetupUrls[index];
+                  const tabKey =
+                    getWorkflowTabKey(url) ?? `captcha-setup-${index + 1}`;
+                  // eslint-disable-next-line no-await-in-loop
+                  await waitMs(450);
+                  // eslint-disable-next-line no-await-in-loop
+                  await openTabWithRetry(url, tabKey);
+                }
               }
             }
           }
@@ -5121,6 +5124,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       });
     } finally {
       autoWorkflowLaunchIntentRef.current.delete(row.profileId);
+      openedWorkflowTabsRef.current.delete(row.profileId);
       setStoppingWorkflowProfileId((current) =>
         current === row.profileId ? null : current,
       );
@@ -7575,6 +7579,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                       const isRunButtonLoading = isRowLaunching || isRowStopping;
                       const isRunButtonDisabled =
                         isWorkflowRowDisabled ||
+                        isRunButtonLoading ||
                         isRowSyncing ||
                         (isWorkflowBusy && !isRunButtonLoading);
 
