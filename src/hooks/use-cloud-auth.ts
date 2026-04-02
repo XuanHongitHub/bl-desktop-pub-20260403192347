@@ -452,9 +452,10 @@ export function useCloudAuth(): UseCloudAuthReturn {
       headers["x-platform-role"] = user.platformRole;
     }
     const controlToken = resolveControlTokenFromSettings(syncSettings);
-    if (controlToken) {
-      headers.Authorization = `Bearer ${controlToken}`;
+    if (!controlToken) {
+      return user;
     }
+    headers.Authorization = `Bearer ${controlToken}`;
 
     const enrichFromBaseUrl = async (baseUrl: string): Promise<CloudUser | null> => {
       const actorResponse = await fetch(buildControlApiUrl(baseUrl, "authMe"), {
