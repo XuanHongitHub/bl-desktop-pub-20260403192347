@@ -1,4 +1,5 @@
 export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
+export type AuthProvider = "password" | "google" | "password_google";
 export type EntitlementState = "active" | "grace_active" | "read_only";
 export type WorkspaceMode = "personal" | "team";
 export type ControlPlatformRole = "platform_admin";
@@ -46,6 +47,8 @@ export interface AuthUserRecord {
   email: string;
   passwordSalt: string;
   passwordHash: string;
+  authProvider: AuthProvider;
+  googleSub: string | null;
   platformRole: ControlPlatformRole | null;
   createdAt: string;
   updatedAt: string;
@@ -78,7 +81,10 @@ export interface WorkspaceTiktokCookieSourceRecord {
   updatedAt: string;
 }
 
-export type TiktokAutomationFlowType = "signup" | "update_cookie";
+export type TiktokAutomationFlowType =
+  | "signup"
+  | "signup_seller"
+  | "update_cookie";
 export type TiktokAutomationRunMode = "auto" | "semi";
 export type TiktokAutomationRunStatus =
   | "queued"
@@ -100,6 +106,7 @@ export type TiktokAutomationItemStatus =
 export interface TiktokAutomationAccountRecord {
   id: string;
   workspaceId: string;
+  flowType: TiktokAutomationFlowType;
   phone: string;
   apiPhone: string;
   cookie: string;

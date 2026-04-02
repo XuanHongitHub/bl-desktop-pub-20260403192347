@@ -11,6 +11,8 @@ create table if not exists user_credentials (
   user_id text primary key references users(id) on delete cascade,
   password_salt text not null,
   password_hash text not null,
+  auth_provider text not null default 'password' check (auth_provider in ('password', 'google', 'password_google')),
+  google_sub text null,
   platform_role text null check (platform_role in ('platform_admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -203,6 +205,8 @@ create index if not exists idx_workspace_tiktok_automation_accounts_workspace on
 create index if not exists idx_workspace_tiktok_automation_runs_workspace on workspace_tiktok_automation_runs(workspace_id, updated_at desc);
 create index if not exists idx_workspace_tiktok_automation_run_items_run on workspace_tiktok_automation_run_items(run_id, updated_at desc);
 create index if not exists idx_user_credentials_platform_role on user_credentials(platform_role);
+create unique index if not exists idx_users_email_lower_unique on users ((lower(email)));
+create unique index if not exists idx_user_credentials_google_sub_unique on user_credentials(google_sub) where google_sub is not null;
 create index if not exists idx_invites_workspace on invites(workspace_id);
 create index if not exists idx_share_grants_workspace on share_grants(workspace_id);
 create index if not exists idx_license_redemptions_workspace on license_redemptions(workspace_id);

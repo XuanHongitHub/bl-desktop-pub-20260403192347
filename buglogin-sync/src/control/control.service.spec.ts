@@ -1,8 +1,5 @@
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { scryptSync } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { ControlService } from "./control.service.js";
 
 describe("ControlService", () => {
@@ -114,7 +111,7 @@ describe("ControlService", () => {
     ).toThrow(BadRequestException);
   });
 
-  it("accepts expired invite when actor email matches exactly", () => {
+  it("rejects expired invite even when actor email matches exactly", () => {
     const workspace = service.createWorkspace(
       {
         userId: "owner-1",
@@ -146,14 +143,13 @@ describe("ControlService", () => {
     }
     stored.expiresAt = new Date(Date.now() - 60_000).toISOString();
 
-    const membership = service.acceptInvite(invite.token, {
-      userId: "member-1",
-      email: "member-expired@buglogin.local",
-      platformRole: null,
-    });
-
-    expect(membership.workspaceId).toBe(workspace.id);
-    expect(membership.role).toBe("member");
+    expect(() =>
+      service.acceptInvite(invite.token, {
+        userId: "member-1",
+        email: "member-expired@buglogin.local",
+        platformRole: null,
+      }),
+    ).toThrow(UnauthorizedException);
   });
 
   it("rejects duplicate active invites for same email in same workspace", () => {
@@ -224,7 +220,7 @@ describe("ControlService", () => {
       platformRole: "platform_admin",
     } as const;
 
-    const visibleWorkspaces = service.listWorkspaces(platformAdminActor);
+    const visibleWorkspaces = service.listWorkspaces(platformAdminActor, "all");
     expect(visibleWorkspaces.map((item) => item.id)).toContain(workspace.id);
 
     const overview = service.getWorkspaceOverview(workspace.id, platformAdminActor);
@@ -243,6 +239,44 @@ describe("ControlService", () => {
 
     expect(() =>
       service.loginAuthUser("auth-user@buglogin.local", "wrong-password"),
+    ).toThrow(UnauthorizedException);
+  });
+
+  it("normalizes email and enforces case-insensitive uniqueness", () => {
+    const registered = service.registerAuthUser(
+      "  Mixed.Case@BugLogin.Local ",
+      "Password123!",
+    );
+    expect(registered.user.email).toBe("mixed.case@buglogin.local");
+
+    expect(() =>
+      service.registerAuthUser("MIXED.CASE@buglogin.local", "Password123!"),
+    ).toThrow(BadRequestException);
+  });
+
+  it("links google provider to existing password account and supports unlink", () => {
+    const registered = service.registerAuthUser(
+      "linked@buglogin.local",
+      "Password123!",
+    );
+
+    const googleLogin = service.loginOrRegisterGoogleAuthUser(
+      "linked@buglogin.local",
+      "google-sub-1",
+    );
+    expect(googleLogin.user.id).toBe(registered.user.id);
+
+    const unlinked = service.unlinkGoogleAuthProvider(
+      "linked@buglogin.local",
+      "Password123!",
+    );
+    expect(unlinked.user.id).toBe(registered.user.id);
+  });
+
+  it("requires password linking before password login for google-only accounts", () => {
+    service.loginOrRegisterGoogleAuthUser("google-only@buglogin.local", "google-sub-2");
+    expect(() =>
+      service.loginAuthUser("google-only@buglogin.local", "Password123!"),
     ).toThrow(UnauthorizedException);
   });
 
@@ -294,7 +328,7 @@ describe("ControlService", () => {
     expect(visible.map((item) => item.id)).not.toContain(workspaceA.id);
   });
 
-  it("grants platform_admin to the first registered local account", () => {
+  it("does not auto-grant platform_admin to local registrations", () => {
     const firstUser = service.registerAuthUser(
       "first-admin@buglogin.local",
       "Password123!",
@@ -304,7 +338,7 @@ describe("ControlService", () => {
       "Password123!",
     );
 
-    expect(firstUser.user.platformRole).toBe("platform_admin");
+    expect(firstUser.user.platformRole).toBeNull();
     expect(secondUser.user.platformRole).toBeNull();
   });
 
@@ -331,7 +365,7 @@ describe("ControlService", () => {
     expect(personalWorkspaces[0]?.id).toBe(firstWorkspace.id);
   });
 
-  it("migrates legacy auth userId on login and keeps workspace visibility", () => {
+  it("keeps existing legacy auth userId on login and workspace visibility", () => {
     const email = "legacy-user@buglogin.local";
     const password = "Password123!";
     const legacyUserId = "legacy-user-id";
@@ -358,6 +392,8 @@ describe("ControlService", () => {
             email: string;
             passwordSalt: string;
             passwordHash: string;
+            authProvider: "password" | "google" | "password_google";
+            googleSub: string | null;
             platformRole: "platform_admin" | null;
             createdAt: string;
             updatedAt: string;
@@ -369,13 +405,15 @@ describe("ControlService", () => {
       email,
       passwordSalt,
       passwordHash,
+      authProvider: "password",
+      googleSub: null,
       platformRole: null,
       createdAt: now,
       updatedAt: now,
     });
 
     const loggedIn = service.loginAuthUser(email, password);
-    expect(loggedIn.user.id).not.toBe(legacyUserId);
+    expect(loggedIn.user.id).toBe(legacyUserId);
 
     const workspaces = service.listWorkspaces({
       userId: loggedIn.user.id,
@@ -390,16 +428,11 @@ describe("ControlService", () => {
       platformRole: null,
     });
     expect(members.some((member) => member.userId === loggedIn.user.id)).toBe(true);
-    expect(members.some((member) => member.userId === legacyUserId)).toBe(false);
   });
 
-  it("persists auth and workspace state in local sqlite without DATABASE_URL", async () => {
+  it("requires DATABASE_URL outside test environment", () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalDatabaseUrl = process.env.DATABASE_URL;
-    const originalSqliteFile = process.env.CONTROL_SQLITE_FILE;
-    const originalStateFile = process.env.CONTROL_STATE_FILE;
-    const tempDir = mkdtempSync(join(tmpdir(), "buglogin-control-sqlite-"));
-    const sqliteFilePath = join(tempDir, "control-state.sqlite");
 
     const restoreEnv = (key: string, value: string | undefined) => {
       if (typeof value === "undefined") {
@@ -412,88 +445,13 @@ describe("ControlService", () => {
     try {
       process.env.NODE_ENV = "development";
       delete process.env.DATABASE_URL;
-      process.env.CONTROL_SQLITE_FILE = sqliteFilePath;
-      delete process.env.CONTROL_STATE_FILE;
 
-      const first = new ControlService();
-      await first.onModuleInit();
-      const registered = first.registerAuthUser(
-        "sqlite-user@buglogin.local",
-        "Password123!",
+      expect(() => new ControlService()).toThrow(
+        "database_url_required_for_control_plane",
       );
-      const workspace = first.createWorkspace(
-        {
-          userId: registered.user.id,
-          email: registered.user.email,
-          platformRole: registered.user.platformRole,
-        },
-        "SQLite Workspace",
-        "team",
-      );
-      await first.onModuleDestroy();
-
-      const second = new ControlService();
-      await second.onModuleInit();
-      const loggedIn = second.loginAuthUser(
-        "sqlite-user@buglogin.local",
-        "Password123!",
-      );
-      const workspaces = second.listWorkspaces({
-        userId: loggedIn.user.id,
-        email: loggedIn.user.email,
-        platformRole: loggedIn.user.platformRole,
-      });
-      expect(workspaces.map((item) => item.id)).toContain(workspace.id);
-
-      second.saveWorkspaceAdminTiktokState(
-        workspace.id,
-        {
-          userId: loggedIn.user.id,
-          email: loggedIn.user.email,
-          platformRole: "platform_admin",
-        },
-        {
-          bearerKey: "bearer-1",
-          workflowRows: [{ profileId: "profile-1" }],
-          rotationCursor: 2,
-        },
-      );
-      const cookie = second.createTiktokCookie(
-        {
-          userId: loggedIn.user.id,
-          email: loggedIn.user.email,
-          platformRole: "platform_admin",
-        },
-        {
-          label: "cookie-main",
-          cookie: "ttwid=1; sessionid=abc",
-          notes: "seed",
-        },
-      );
-      await second.onModuleDestroy();
-
-      const third = new ControlService();
-      await third.onModuleInit();
-      const savedState = await third.getWorkspaceAdminTiktokState(workspace.id, {
-        userId: loggedIn.user.id,
-        email: loggedIn.user.email,
-        platformRole: "platform_admin",
-      });
-      expect(savedState.bearerKey).toBe("bearer-1");
-      expect(savedState.rotationCursor).toBe(2);
-      const cookies = third.listTiktokCookies({
-        userId: loggedIn.user.id,
-        email: loggedIn.user.email,
-        platformRole: "platform_admin",
-      });
-      expect(cookies.some((item) => item.id === cookie.id)).toBe(true);
-      await third.onModuleDestroy();
     } finally {
       restoreEnv("NODE_ENV", originalNodeEnv);
       restoreEnv("DATABASE_URL", originalDatabaseUrl);
-      restoreEnv("CONTROL_SQLITE_FILE", originalSqliteFile);
-      restoreEnv("CONTROL_STATE_FILE", originalStateFile);
-      rmSync(tempDir, { recursive: true, force: true });
     }
   });
 

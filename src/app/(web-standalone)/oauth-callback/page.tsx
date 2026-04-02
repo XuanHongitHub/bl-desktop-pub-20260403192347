@@ -33,36 +33,6 @@ function decodeJwtPayload(idToken: string): Record<string, unknown> | null {
   }
 }
 
-async function fetchGoogleProfile(
-  accessToken: string,
-): Promise<{ email: string; name?: string; picture?: string } | null> {
-  try {
-    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    if (!response.ok) {
-      return null;
-    }
-    const payload = (await response.json()) as {
-      email?: unknown;
-      name?: unknown;
-      picture?: unknown;
-    };
-    if (typeof payload.email !== "string" || payload.email.length === 0) {
-      return null;
-    }
-    return {
-      email: payload.email,
-      name: typeof payload.name === "string" ? payload.name : undefined,
-      picture: typeof payload.picture === "string" ? payload.picture : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
 function decodeOAuthState(state: string | null): {
   targetMode: "desktop" | "portal";
   nextPath: string;
@@ -240,6 +210,7 @@ function OAuthCallbackContent() {
         email: string;
         name?: string;
         avatar?: string;
+        idToken?: string;
       }) => {
         window.sessionStorage.removeItem(PORTAL_OAUTH_INTENT_STORAGE_KEY);
         window.sessionStorage.setItem(
@@ -275,7 +246,7 @@ function OAuthCallbackContent() {
           return;
         }
         if (targetMode === "portal") {
-          finishPortalProfile({ email, name, avatar });
+          finishPortalProfile({ email, name, avatar, idToken });
           return;
         }
         finish(
@@ -286,33 +257,17 @@ function OAuthCallbackContent() {
       }
 
       if (accessToken) {
-        const profile = await fetchGoogleProfile(accessToken);
-        if (!profile) {
-          if (targetMode === "portal") {
-            window.sessionStorage.removeItem(PORTAL_OAUTH_INTENT_STORAGE_KEY);
-            finish(
-              resolveTargetUrl(nextPath, inviteToken, {
-                oauthError: "google_userinfo_unreachable",
-              }),
-              "portal",
-            );
-            return;
-          }
-          finish("buglogin://oauth-callback?error=google_userinfo_unreachable", "desktop");
-          return;
-        }
         if (targetMode === "portal") {
-          finishPortalProfile({
-            email: profile.email,
-            name: profile.name,
-            avatar: profile.picture,
-          });
+          window.sessionStorage.removeItem(PORTAL_OAUTH_INTENT_STORAGE_KEY);
+          finish(
+            resolveTargetUrl(nextPath, inviteToken, {
+              oauthError: "missing_oauth_tokens",
+            }),
+            "portal",
+          );
           return;
         }
-        finish(
-          `buglogin://oauth-callback?email=${encodeURIComponent(profile.email)}&name=${encodeURIComponent(profile.name ?? "")}&avatar=${encodeURIComponent(profile.picture ?? "")}`,
-          "desktop",
-        );
+        finish("buglogin://oauth-callback?error=missing_oauth_tokens", "desktop");
         return;
       }
 

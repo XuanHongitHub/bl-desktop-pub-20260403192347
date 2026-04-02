@@ -58,6 +58,7 @@ interface UseCloudAuthReturn {
       name?: string;
       avatar?: string;
       password?: string;
+      idToken?: string;
       authProvider?: "password" | "google_oauth";
     },
   ) => Promise<CloudAuthState>;
@@ -633,6 +634,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
         password?: string;
         name?: string;
         avatar?: string;
+        idToken?: string;
       },
     ): Promise<PublicAuthResponse> => {
       let syncSettings: SyncSettings | null = null;
@@ -773,6 +775,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
         name?: string;
         avatar?: string;
         password?: string;
+        idToken?: string;
         authProvider?: "password" | "google_oauth";
       },
     ): Promise<CloudAuthState> => {
@@ -786,6 +789,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
           email: normalizedEmail,
           name: options?.name,
           avatar: options?.avatar,
+          idToken: options?.idToken,
         });
         return buildAuthStateFromPublicUser(response.user, {
           scope: options?.scope,

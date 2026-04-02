@@ -11,7 +11,6 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
-  createHash,
   randomBytes,
   randomUUID,
   scryptSync,
@@ -19,6 +18,7 @@ import {
 } from "node:crypto";
 import { Pool } from "pg";
 import type {
+  AuthProvider,
   AuthUserRecord,
   AuditLogRecord,
   BillingCancellationMode,
@@ -97,6 +97,8 @@ interface LicenseCatalogEntry {
   profileLimit: number;
   billingCycle: BillingCycle;
 }
+
+const LEGACY_DERIVED_USER_ID_PATTERN = /^usr_[a-f0-9]{24}$/u;
 
 @Injectable()
 export class ControlService implements OnModuleInit, OnModuleDestroy {
@@ -854,34 +856,66 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("invalid_email");
     }
     const normalizedPassword = this.validatePassword(password);
-    if (this.authUsers.has(normalizedEmail)) {
+    const existingRecord = this.authUsers.get(normalizedEmail);
+    if (existingRecord) {
+      if (
+        existingRecord.authProvider === "google" ||
+        existingRecord.authProvider === "password_google"
+      ) {
+        const { salt, hash } = this.hashPassword(normalizedPassword);
+        existingRecord.passwordSalt = salt;
+        existingRecord.passwordHash = hash;
+        existingRecord.authProvider =
+          existingRecord.authProvider === "google"
+            ? "password_google"
+            : "password_google";
+        existingRecord.updatedAt = new Date().toISOString();
+        if (
+          this.platformAdminEmails.has(normalizedEmail) &&
+          existingRecord.platformRole !== "platform_admin"
+        ) {
+          existingRecord.platformRole = "platform_admin";
+        }
+        this.authUsers.set(normalizedEmail, existingRecord);
+        this.audit("auth.password_linked", normalizedEmail, undefined, existingRecord.userId);
+        this.persistState();
+        return {
+          user: {
+            id: existingRecord.userId,
+            email: existingRecord.email,
+            platformRole: existingRecord.platformRole,
+          },
+        };
+      }
       throw new BadRequestException("email_already_registered");
     }
 
     const now = new Date().toISOString();
-    const stableUserId = this.deriveStableUserId(normalizedEmail);
     const existingMembership = this.findMembershipByEmail(normalizedEmail);
-    if (existingMembership && existingMembership.userId !== stableUserId) {
+    const resolvedUserId = existingMembership?.userId?.trim() || randomUUID();
+    if (existingMembership && existingMembership.userId !== resolvedUserId) {
       this.migrateAuthUserId(
         existingMembership.userId,
-        stableUserId,
+        resolvedUserId,
         normalizedEmail,
       );
     }
     const { salt, hash } = this.hashPassword(normalizedPassword);
     const platformRole = this.resolvePlatformRoleForRegistration(normalizedEmail);
     const record: AuthUserRecord = {
-      userId: stableUserId,
+      userId: resolvedUserId,
       email: normalizedEmail,
       passwordSalt: salt,
       passwordHash: hash,
+      authProvider: "password",
+      googleSub: null,
       platformRole,
       createdAt: now,
       updatedAt: now,
     };
     this.authUsers.set(normalizedEmail, record);
 
-    this.audit("auth.registered", normalizedEmail, undefined, stableUserId);
+    this.audit("auth.registered", normalizedEmail, undefined, resolvedUserId);
     this.persistState();
     return {
       user: {
@@ -902,15 +936,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!record) {
       throw new UnauthorizedException("invalid_credentials");
     }
+    if (record.authProvider === "google") {
+      throw new UnauthorizedException("password_login_not_linked");
+    }
     if (!this.verifyPassword(normalizedPassword, record.passwordSalt, record.passwordHash)) {
       throw new UnauthorizedException("invalid_credentials");
     }
 
-    const stableUserId = this.deriveStableUserId(normalizedEmail);
     let needsPersist = false;
-    if (record.userId !== stableUserId) {
-      this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
-      record.userId = stableUserId;
+    if (this.shouldRotateLegacyUserId(record.userId)) {
+      const rotatedUserId = randomUUID();
+      this.migrateAuthUserId(record.userId, rotatedUserId, normalizedEmail);
+      record.userId = rotatedUserId;
       record.updatedAt = new Date().toISOString();
       needsPersist = true;
     }
@@ -934,10 +971,55 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  loginOrRegisterGoogleAuthUser(email: string) {
+  createAuthUserAsAdmin(
+    actor: RequestActor,
+    input: {
+      email: string;
+      password: string;
+      platformRole?: "platform_admin" | null;
+    },
+  ) {
+    this.assertPlatformAdmin(actor);
+    const result = this.registerAuthUser(input.email, input.password);
+    const normalizedEmail = this.normalizeEmail(input.email);
+    if (!normalizedEmail) {
+      throw new BadRequestException("invalid_email");
+    }
+
+    if (input.platformRole === "platform_admin") {
+      this.platformAdminEmails.add(normalizedEmail);
+      const existing = this.authUsers.get(normalizedEmail);
+      if (existing && existing.platformRole !== "platform_admin") {
+        const next: AuthUserRecord = {
+          ...existing,
+          platformRole: "platform_admin",
+          updatedAt: new Date().toISOString(),
+        };
+        this.authUsers.set(normalizedEmail, next);
+      }
+      this.persistState();
+    }
+
+    this.audit("admin.user_created", actor.email, undefined, result.user.id);
+    return {
+      user: {
+        ...result.user,
+        platformRole:
+          input.platformRole === "platform_admin"
+            ? "platform_admin"
+            : result.user.platformRole ?? null,
+      },
+    };
+  }
+
+  loginOrRegisterGoogleAuthUser(email: string, googleSub: string) {
     const normalizedEmail = this.normalizeEmail(email);
     if (!normalizedEmail) {
       throw new BadRequestException("invalid_email");
+    }
+    const normalizedGoogleSub = googleSub.trim();
+    if (!normalizedGoogleSub) {
+      throw new UnauthorizedException("google_subject_required");
     }
 
     const now = new Date().toISOString();
@@ -945,34 +1027,47 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     let shouldPersist = false;
 
     if (!record) {
-      const stableUserId = this.deriveStableUserId(normalizedEmail);
       const existingMembership = this.findMembershipByEmail(normalizedEmail);
-      if (existingMembership && existingMembership.userId !== stableUserId) {
+      const resolvedUserId = existingMembership?.userId?.trim() || randomUUID();
+      if (existingMembership && existingMembership.userId !== resolvedUserId) {
         this.migrateAuthUserId(
           existingMembership.userId,
-          stableUserId,
+          resolvedUserId,
           normalizedEmail,
         );
       }
       const generatedPassword = randomBytes(32).toString("hex");
       const { salt, hash } = this.hashPassword(generatedPassword);
       record = {
-        userId: stableUserId,
+        userId: resolvedUserId,
         email: normalizedEmail,
         passwordSalt: salt,
         passwordHash: hash,
+        authProvider: "google",
+        googleSub: normalizedGoogleSub,
         platformRole: this.resolvePlatformRoleForRegistration(normalizedEmail),
         createdAt: now,
         updatedAt: now,
       };
       this.authUsers.set(normalizedEmail, record);
-      this.audit("auth.google_registered", normalizedEmail, undefined, stableUserId);
+      this.audit("auth.google_registered", normalizedEmail, undefined, resolvedUserId);
       shouldPersist = true;
     } else {
-      const stableUserId = this.deriveStableUserId(normalizedEmail);
-      if (record.userId !== stableUserId) {
-        this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
-        record.userId = stableUserId;
+      if (record.googleSub && record.googleSub !== normalizedGoogleSub) {
+        throw new UnauthorizedException("google_subject_mismatch");
+      }
+      if (!record.googleSub) {
+        record.googleSub = normalizedGoogleSub;
+        record.authProvider =
+          record.authProvider === "password" ? "password_google" : "google";
+        record.updatedAt = now;
+        shouldPersist = true;
+        this.audit("auth.google_linked", normalizedEmail, undefined, record.userId);
+      }
+      if (this.shouldRotateLegacyUserId(record.userId)) {
+        const rotatedUserId = randomUUID();
+        this.migrateAuthUserId(record.userId, rotatedUserId, normalizedEmail);
+        record.userId = rotatedUserId;
         record.updatedAt = now;
         shouldPersist = true;
       }
@@ -991,6 +1086,44 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       this.persistState();
     }
 
+    return {
+      user: {
+        id: record.userId,
+        email: record.email,
+        platformRole: record.platformRole,
+      },
+    };
+  }
+
+  unlinkGoogleAuthProvider(email: string, password: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      throw new BadRequestException("invalid_email");
+    }
+    const normalizedPassword = this.validatePassword(password);
+    const record = this.authUsers.get(normalizedEmail);
+    if (!record) {
+      throw new UnauthorizedException("invalid_credentials");
+    }
+    if (!this.verifyPassword(normalizedPassword, record.passwordSalt, record.passwordHash)) {
+      throw new UnauthorizedException("invalid_credentials");
+    }
+    if (!record.googleSub) {
+      return {
+        user: {
+          id: record.userId,
+          email: record.email,
+          platformRole: record.platformRole,
+        },
+      };
+    }
+
+    record.googleSub = null;
+    record.authProvider = "password";
+    record.updatedAt = new Date().toISOString();
+    this.authUsers.set(normalizedEmail, record);
+    this.audit("auth.google_unlinked", normalizedEmail, undefined, record.userId);
+    this.persistState();
     return {
       user: {
         id: record.userId,
@@ -1421,6 +1554,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("permission_denied");
     }
     const expired = new Date(invite.expiresAt).getTime() < Date.now();
+    if (expired) {
+      throw new UnauthorizedException("invite_expired");
+    }
 
     const now = new Date().toISOString();
     const members = this.memberships.get(invite.workspaceId) || [];
@@ -1442,13 +1578,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.memberships.set(invite.workspaceId, members);
     invite.consumedAt = now;
     this.invites.set(token, invite);
-    this.audit(
-      expired ? "invite.accepted_after_expiry" : "invite.accepted",
-      normalizedActorEmail,
-      invite.workspaceId,
-      invite.id,
-      expired ? "expired_link_auto_accepted_for_exact_email" : undefined,
-    );
+    this.audit("invite.accepted", normalizedActorEmail, invite.workspaceId, invite.id);
     this.persistState();
 
     return (
@@ -1739,6 +1869,67 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       couponCode,
     });
     this.audit("billing.internal_activated", actor.email, workspaceId, workspaceId);
+    this.persistState();
+    return this.getWorkspaceBillingState(workspaceId, actor);
+  }
+
+  overrideWorkspaceSubscriptionAsAdmin(
+    actor: RequestActor,
+    workspaceId: string,
+    input: {
+      planId: BillingPlanId;
+      billingCycle: BillingCycle;
+      profileLimit?: number;
+      expiresAt?: string | null;
+      planLabel?: string | null;
+    },
+  ): WorkspaceBillingState {
+    this.assertPlatformAdmin(actor);
+    this.assertWorkspaceExists(workspaceId);
+
+    const planId = this.parseBillingPlanId(input.planId);
+    if (!planId) {
+      throw new BadRequestException("invalid_plan");
+    }
+    const billingCycle = this.parseBillingCycle(input.billingCycle);
+    const normalizedProfileLimit = Number(input.profileLimit);
+    const profileLimit =
+      Number.isFinite(normalizedProfileLimit) && normalizedProfileLimit > 0
+        ? Math.round(normalizedProfileLimit)
+        : this.getDefaultPlanProfileLimit(planId);
+    const normalizedPlanLabel = input.planLabel?.trim() || this.getPlanLabel(planId);
+
+    let expiresAt: string | null = null;
+    const rawExpiresAt = input.expiresAt?.trim() ?? "";
+    if (rawExpiresAt) {
+      const expiresAtMs = Date.parse(rawExpiresAt);
+      if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+        throw new BadRequestException("billing_subscription_invalid_expiry");
+      }
+      expiresAt = new Date(expiresAtMs).toISOString();
+    } else {
+      expiresAt = new Date(
+        Date.now() +
+          (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000,
+      ).toISOString();
+    }
+
+    this.applyWorkspaceSubscription({
+      workspaceId,
+      actor,
+      planId,
+      billingCycle,
+      source: "internal",
+      profileLimit,
+      planLabel: normalizedPlanLabel,
+      expiresAt,
+    });
+    this.audit(
+      "billing.subscription.admin_overridden",
+      actor.email,
+      workspaceId,
+      workspaceId,
+    );
     this.persistState();
     return this.getWorkspaceBillingState(workspaceId, actor);
   }
@@ -2336,9 +2527,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return 1;
   }
 
-  private deriveStableUserId(normalizedEmail: string): string {
-    const digest = createHash("sha256").update(normalizedEmail).digest("hex");
-    return `usr_${digest.slice(0, 24)}`;
+  private shouldRotateLegacyUserId(userId: string): boolean {
+    return LEGACY_DERIVED_USER_ID_PATTERN.test(userId.trim());
   }
 
   private migrateAuthUserId(
@@ -2550,6 +2740,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       this.authUsers.set(normalizedEmail, {
         ...authUser,
         email: normalizedEmail,
+        authProvider: this.normalizeAuthProvider(authUser.authProvider),
+        googleSub:
+          typeof authUser.googleSub === "string" && authUser.googleSub.trim()
+            ? authUser.googleSub.trim()
+            : null,
       });
     }
 
@@ -2577,13 +2772,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     for (const account of parsed.tiktokAutomationAccounts || []) {
       const current =
         this.workspaceTiktokAutomationAccounts.get(account.workspaceId) || [];
-      current.push(account);
+      current.push({
+        ...account,
+        flowType: account.flowType ?? "signup",
+      });
       this.workspaceTiktokAutomationAccounts.set(account.workspaceId, current);
     }
 
     for (const run of parsed.tiktokAutomationRuns || []) {
       const current = this.workspaceTiktokAutomationRuns.get(run.workspaceId) || [];
-      current.push(run);
+      current.push({
+        ...run,
+        flowType: this.normalizeAutomationFlowType(run.flowType),
+      });
       this.workspaceTiktokAutomationRuns.set(run.workspaceId, current);
     }
 
@@ -2686,6 +2887,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         user_id text primary key references users(id) on delete cascade,
         password_salt text not null,
         password_hash text not null,
+        auth_provider text not null default 'password' check (auth_provider in ('password', 'google', 'password_google')),
+        google_sub text null,
         platform_role text null check (platform_role in ('platform_admin')),
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
@@ -2729,6 +2932,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       create table if not exists workspace_tiktok_automation_accounts (
         id text primary key,
         workspace_id text not null references workspaces(id) on delete cascade,
+        flow_type text not null default 'signup' check (flow_type in ('signup', 'signup_seller', 'update_cookie')),
         phone text not null default '',
         api_phone text not null default '',
         cookie text not null default '',
@@ -2747,7 +2951,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       create table if not exists workspace_tiktok_automation_runs (
         id text primary key,
         workspace_id text not null references workspaces(id) on delete cascade,
-        flow_type text not null check (flow_type in ('signup', 'update_cookie')),
+        flow_type text not null check (flow_type in ('signup', 'signup_seller', 'update_cookie')),
         mode text not null check (mode in ('auto', 'semi')),
         status text not null check (status in ('queued', 'running', 'paused', 'stopped', 'completed', 'failed')),
         account_ids jsonb not null default '[]'::jsonb,
@@ -2948,11 +3152,40 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       alter table workspace_admin_tiktok_state
       add column if not exists operation_progress jsonb null;
 
+      alter table workspace_tiktok_automation_accounts
+      add column if not exists flow_type text not null default 'signup';
+
+      update workspace_tiktok_automation_accounts
+      set flow_type = 'signup'
+      where flow_type is null
+         or flow_type not in ('signup', 'signup_seller', 'update_cookie');
+
       alter table workspace_subscriptions
       add column if not exists cancel_at_period_end boolean not null default false;
 
       alter table workspace_subscriptions
       add column if not exists cancel_at timestamptz null;
+
+      update users
+      set email = lower(trim(email))
+      where email <> lower(trim(email));
+
+      alter table user_credentials
+      add column if not exists auth_provider text not null default 'password';
+
+      alter table user_credentials
+      add column if not exists google_sub text null;
+
+      update user_credentials
+      set auth_provider = case
+        when google_sub is not null and google_sub <> '' then 'google'
+        else 'password'
+      end
+      where auth_provider is null
+         or auth_provider not in ('password', 'google', 'password_google');
+
+      create unique index if not exists idx_users_email_lower_unique on users ((lower(email)));
+      create unique index if not exists idx_user_credentials_google_sub_unique on user_credentials (google_sub) where google_sub is not null;
     `);
     } finally {
       await this.postgresPool
@@ -2999,11 +3232,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           user_id: string;
           password_salt: string;
           password_hash: string;
+          auth_provider: string | null;
+          google_sub: string | null;
           platform_role: string | null;
           created_at: string;
           updated_at: string;
         }>(
-          "select user_id, password_salt, password_hash, platform_role, created_at, updated_at from user_credentials",
+          "select user_id, password_salt, password_hash, auth_provider, google_sub, platform_role, created_at, updated_at from user_credentials",
         ),
         this.postgresPool.query<{
           email: string;
@@ -3018,7 +3253,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           "select id, workspace_id, phone, api_phone, cookie, source, created_at, updated_at from workspace_tiktok_cookie_sources order by updated_at desc",
         ),
         this.postgresPool.query(
-          "select id, workspace_id, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at from workspace_tiktok_automation_accounts order by updated_at desc",
+          "select id, workspace_id, flow_type, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at from workspace_tiktok_automation_accounts order by updated_at desc",
         ),
         this.postgresPool.query(
           "select id, workspace_id, flow_type, mode, status, account_ids, current_index, active_item_id, total_count, done_count, failed_count, blocked_count, created_by, started_at, finished_at, created_at, updated_at from workspace_tiktok_automation_runs order by updated_at desc",
@@ -3063,7 +3298,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
       const userEmailById = new Map<string, string>();
       for (const row of usersResult.rows) {
-        userEmailById.set(row.id, row.email.toLowerCase());
+        const normalizedEmail = this.normalizeEmail(row.email);
+        if (!normalizedEmail) {
+          continue;
+        }
+        userEmailById.set(row.id, normalizedEmail);
       }
 
       this.platformAdminEmails.clear();
@@ -3086,6 +3325,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
               email,
               passwordSalt: row.password_salt,
               passwordHash: row.password_hash,
+              authProvider: this.normalizeAuthProvider(row.auth_provider),
+              googleSub:
+                typeof row.google_sub === "string" && row.google_sub.trim()
+                  ? row.google_sub.trim()
+                  : null,
               platformRole:
                 row.platform_role === "platform_admin" ? "platform_admin" : null,
               createdAt: new Date(row.created_at).toISOString(),
@@ -3129,6 +3373,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           (row) => ({
             id: row.id as string,
             workspaceId: row.workspace_id as string,
+            flowType:
+              ((row.flow_type as string) ?? "signup") as TiktokAutomationFlowType,
             phone: (row.phone as string) ?? "",
             apiPhone: (row.api_phone as string) ?? "",
             cookie: (row.cookie as string) ?? "",
@@ -3470,12 +3716,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into user_credentials
-              (user_id, password_salt, password_hash, platform_role, created_at, updated_at)
-            values ($1, $2, $3, $4, $5, $6)
+              (user_id, password_salt, password_hash, auth_provider, google_sub, platform_role, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
             on conflict (user_id)
             do update set
               password_salt = excluded.password_salt,
               password_hash = excluded.password_hash,
+              auth_provider = excluded.auth_provider,
+              google_sub = excluded.google_sub,
               platform_role = excluded.platform_role,
               updated_at = excluded.updated_at
           `,
@@ -3483,6 +3731,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             authUser.userId,
             authUser.passwordSalt,
             authUser.passwordHash,
+            this.normalizeAuthProvider(authUser.authProvider),
+            authUser.googleSub?.trim() || null,
             authUser.platformRole,
             authUser.createdAt,
             authUser.updatedAt,
@@ -3551,12 +3801,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into workspace_tiktok_automation_accounts
-              (id, workspace_id, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+              (id, workspace_id, flow_type, phone, api_phone, cookie, username, password, profile_id, profile_name, status, last_step, last_error, source, created_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           `,
           [
             account.id,
             account.workspaceId,
+            account.flowType ?? "signup",
             account.phone,
             account.apiPhone,
             account.cookie,
@@ -3925,15 +4176,6 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("actor_not_authenticated");
     }
 
-    const stableUserId = this.deriveStableUserId(normalizedEmail);
-    if (record.userId !== stableUserId) {
-      this.migrateAuthUserId(record.userId, stableUserId, normalizedEmail);
-      record.userId = stableUserId;
-      record.updatedAt = new Date().toISOString();
-      this.authUsers.set(normalizedEmail, record);
-      this.persistState();
-    }
-
     if (providedUserId !== record.userId) {
       throw new UnauthorizedException("actor_identity_mismatch");
     }
@@ -4102,6 +4344,40 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return `${normalizedPhone}bug!`;
   }
 
+  private normalizeAutomationFlowType(
+    flowType?: string | null,
+  ): TiktokAutomationFlowType {
+    if (flowType === "update_cookie") {
+      return "update_cookie";
+    }
+    if (flowType === "signup_seller") {
+      return "signup_seller";
+    }
+    return "signup";
+  }
+
+  private resolveAutomationRunFlowType(
+    run: TiktokAutomationRunRecord,
+    accountById: Map<string, TiktokAutomationAccountRecord>,
+  ): TiktokAutomationFlowType {
+    if (run.flowType === "update_cookie") {
+      return "update_cookie";
+    }
+    if (run.flowType === "signup_seller") {
+      return "signup_seller";
+    }
+    const accountIds = run.accountIds ?? [];
+    if (accountIds.length === 0) {
+      return "signup";
+    }
+    const isSellerRun = accountIds.every(
+      (accountId) =>
+        this.normalizeAutomationFlowType(accountById.get(accountId)?.flowType) ===
+        "signup_seller",
+    );
+    return isSellerRun ? "signup_seller" : "signup";
+  }
+
   private sortAutomationAccounts(
     rows: TiktokAutomationAccountRecord[],
   ): TiktokAutomationAccountRecord[] {
@@ -4171,14 +4447,26 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return this.workspaceTiktokAutomationRuns.get(workspaceId) || [];
   }
 
-  async getWorkspaceTiktokAutomationAccounts(workspaceId: string, actor: RequestActor) {
+  async getWorkspaceTiktokAutomationAccounts(
+    workspaceId: string,
+    actor: RequestActor,
+    flowType?: TiktokAutomationFlowType,
+  ) {
     const normalizedWorkspaceId = workspaceId.trim();
     if (!normalizedWorkspaceId) {
       throw new BadRequestException("workspace_id_required");
     }
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
     const rows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
-    return this.sortAutomationAccounts(rows);
+    if (!flowType) {
+      return this.sortAutomationAccounts(rows);
+    }
+    const targetFlow = this.normalizeAutomationFlowType(flowType);
+    return this.sortAutomationAccounts(
+      rows.filter(
+        (row) => this.normalizeAutomationFlowType(row.flowType) === targetFlow,
+      ),
+    );
   }
 
   async importWorkspaceTiktokAutomationAccounts(
@@ -4196,6 +4484,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         source?: "excel_import" | "manual" | "bugidea_pull";
       }>;
       force?: boolean;
+      flowType?: TiktokAutomationFlowType;
     },
   ) {
     const normalizedWorkspaceId = workspaceId.trim();
@@ -4208,10 +4497,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const currentRows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
     const nextRows = [...currentRows];
     const force = Boolean(input.force);
+    const importFlowType = this.normalizeAutomationFlowType(input.flowType);
 
     const findExistingIndex = (phone: string, apiPhone: string) =>
       nextRows.findIndex(
         (row) =>
+          this.normalizeAutomationFlowType(row.flowType) === importFlowType &&
           this.normalizeAutomationPhone(row.phone) === this.normalizeAutomationPhone(phone) &&
           row.apiPhone.trim() === apiPhone.trim(),
       );
@@ -4240,6 +4531,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       const next: TiktokAutomationAccountRecord = {
         id: existing?.id ?? randomUUID(),
         workspaceId: normalizedWorkspaceId,
+        flowType: importFlowType,
         phone: phone || existing?.phone || "",
         apiPhone: apiPhone || existing?.apiPhone || "",
         cookie: cookie || existing?.cookie || "",
@@ -4279,13 +4571,78 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return this.sortAutomationAccounts(nextRows);
   }
 
-  async getWorkspaceTiktokAutomationRuns(workspaceId: string, actor: RequestActor) {
+  async deleteWorkspaceTiktokAutomationAccount(
+    workspaceId: string,
+    accountId: string,
+    actor: RequestActor,
+  ) {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedAccountId = accountId.trim();
+    if (!normalizedWorkspaceId) {
+      throw new BadRequestException("workspace_id_required");
+    }
+    if (!normalizedAccountId) {
+      throw new BadRequestException("account_id_required");
+    }
+    this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+
+    const currentRows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const nextRows = currentRows.filter((row) => row.id !== normalizedAccountId);
+    if (nextRows.length === currentRows.length) {
+      throw new NotFoundException("automation_account_not_found");
+    }
+    this.workspaceTiktokAutomationAccounts.set(normalizedWorkspaceId, nextRows);
+
+    const runs = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
+    const nextRuns: TiktokAutomationRunRecord[] = [];
+    for (const run of runs) {
+      const nextItems = (this.tiktokAutomationRunItems.get(run.id) ?? []).filter(
+        (item) => item.accountId !== normalizedAccountId,
+      );
+      this.tiktokAutomationRunItems.set(run.id, nextItems);
+      const nextRun = this.recalcAutomationRunProgress(run, nextItems);
+      nextRun.accountIds = nextRun.accountIds.filter(
+        (id) => id !== normalizedAccountId,
+      );
+      if (nextRun.activeItemId) {
+        const activeStillExists = nextItems.some(
+          (item) => item.id === nextRun.activeItemId,
+        );
+        if (!activeStillExists) {
+          nextRun.activeItemId = null;
+        }
+      }
+      nextRuns.push(nextRun);
+    }
+    this.workspaceTiktokAutomationRuns.set(normalizedWorkspaceId, nextRuns);
+
+    this.persistState();
+    return this.sortAutomationAccounts(nextRows);
+  }
+
+  async getWorkspaceTiktokAutomationRuns(
+    workspaceId: string,
+    actor: RequestActor,
+    flowType?: TiktokAutomationFlowType,
+  ) {
     const normalizedWorkspaceId = workspaceId.trim();
     if (!normalizedWorkspaceId) {
       throw new BadRequestException("workspace_id_required");
     }
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
-    return this.sortAutomationRuns(this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId));
+    const rows = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
+    if (!flowType) {
+      return this.sortAutomationRuns(rows);
+    }
+    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const accountById = new Map(accounts.map((account) => [account.id, account]));
+    const targetFlow = this.normalizeAutomationFlowType(flowType);
+    return this.sortAutomationRuns(
+      rows.filter(
+        (row) =>
+          this.resolveAutomationRunFlowType(row, accountById) === targetFlow,
+      ),
+    );
   }
 
   async getWorkspaceTiktokAutomationRun(
@@ -4329,6 +4686,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("workspace_id_required");
     }
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
+    const targetFlowType = this.normalizeAutomationFlowType(input.flowType);
 
     const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
     const requestedIds = Array.from(
@@ -4338,19 +4696,31 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           .filter(Boolean),
       ),
     );
-    const accountRows =
+    const selectedRows =
       requestedIds.length > 0
         ? accounts.filter((account) => requestedIds.includes(account.id))
         : accounts;
+    const accountRows = selectedRows.filter((account) => {
+      const accountFlow = this.normalizeAutomationFlowType(account.flowType);
+      if (targetFlowType === "signup_seller") {
+        return accountFlow === "signup_seller";
+      }
+      if (targetFlowType === "signup") {
+        return accountFlow !== "signup_seller";
+      }
+      return accountFlow === "update_cookie";
+    });
     if (accountRows.length === 0) {
       throw new BadRequestException("automation_accounts_required");
     }
 
     const now = new Date().toISOString();
+    const storedRunFlowType: TiktokAutomationFlowType =
+      targetFlowType === "signup_seller" ? "signup" : targetFlowType;
     const run: TiktokAutomationRunRecord = {
       id: randomUUID(),
       workspaceId: normalizedWorkspaceId,
-      flowType: input.flowType,
+      flowType: storedRunFlowType,
       mode: input.mode,
       status: "queued",
       accountIds: accountRows.map((account) => account.id),
@@ -4793,6 +5163,16 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     } catch {
       return false;
     }
+  }
+
+  private normalizeAuthProvider(value: unknown): AuthProvider {
+    if (value === "google") {
+      return "google";
+    }
+    if (value === "password_google") {
+      return "password_google";
+    }
+    return "password";
   }
 
   private normalizeEmail(email: string): string | null {

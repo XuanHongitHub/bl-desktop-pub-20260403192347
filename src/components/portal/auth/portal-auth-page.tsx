@@ -1,13 +1,23 @@
 "use client";
 
-import { Eye, EyeOff, Mail, UserPlus } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  MonitorCog,
+  Moon,
+  Sun,
+  UserPlus,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaGoogle } from "react-icons/fa";
 import { Logo } from "@/components/icons/logo";
+import { TopNavHead } from "@/components/portal/top-nav-head";
 import { Button } from "@/frontend-shadcn/ui/button";
 import { Card, CardContent, CardHeader } from "@/frontend-shadcn/ui/card";
 import { Checkbox } from "@/frontend-shadcn/ui/checkbox";
@@ -17,7 +27,13 @@ import { Separator } from "@/frontend-shadcn/ui/separator";
 import { Spinner } from "@/frontend-shadcn/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/frontend-shadcn/ui/tabs";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/i18n";
+import {
+  mergeAppSettingsCache,
+  readAppSettingsCache,
+} from "@/lib/app-settings-cache";
 import { extractRootError } from "@/lib/error-utils";
+import { writeLanguageCookie } from "@/lib/language-cookie";
 import {
   createPortalSessionRecord,
   PORTAL_GOOGLE_STORAGE_KEY,
@@ -31,6 +47,9 @@ import { readWebBillingPortalContextFromHash } from "@/lib/web-billing-portal";
 import type { CloudUser } from "@/types";
 
 const REMEMBER_EMAIL_STORAGE_KEY = "buglogin.auth.remember-email.v1";
+const AUTH_INPUT_CLASS = "h-10 text-sm";
+const AUTH_PASSWORD_INPUT_CLASS = `${AUTH_INPUT_CLASS} pr-11`;
+const AUTH_ACTION_BUTTON_CLASS = "h-10 w-full text-sm font-medium";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -57,9 +76,10 @@ export function PortalAuthPage({
   forcedView?: PortalAuthView;
   surface?: "web" | "desktop";
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { resolvedTheme, setTheme } = useTheme();
   const {
     user,
     isLoggedIn,
@@ -74,6 +94,15 @@ export function PortalAuthPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPostAuthTransition, setIsPostAuthTransition] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>(
+    () => {
+      const cached = readAppSettingsCache()?.language;
+      return cached === "en" ? "en" : "vi";
+    },
+  );
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(
+    "system",
+  );
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -104,7 +133,30 @@ export function PortalAuthPage({
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const nextLanguage = i18n.resolvedLanguage || i18n.language || "vi";
+    setActiveLanguage(nextLanguage === "en" ? "en" : "vi");
+
+    const handleChanged = (language: string) => {
+      setActiveLanguage(language === "en" ? "en" : "vi");
+    };
+    i18n.on("languageChanged", handleChanged);
+    return () => {
+      i18n.off("languageChanged", handleChanged);
+    };
+  }, [i18n]);
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const next =
+      resolvedTheme === "dark"
+        ? "dark"
+        : resolvedTheme === "light"
+          ? "light"
+          : "system";
+    setThemeMode(next);
+  }, [mounted, resolvedTheme]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -138,6 +190,18 @@ export function PortalAuthPage({
       }
     },
     [rememberMe],
+  );
+
+  const handleLanguageChange = useCallback(
+    async (language: SupportedLanguage) => {
+      if (activeLanguage === language) {
+        return;
+      }
+      await i18n.changeLanguage(language);
+      writeLanguageCookie(language);
+      mergeAppSettingsCache({ language });
+    },
+    [activeLanguage, i18n],
   );
 
   const completePortalAuth = useCallback(
@@ -215,13 +279,18 @@ export function PortalAuthPage({
     consumedGoogleProfileRef.current = true;
     window.sessionStorage.removeItem(PORTAL_GOOGLE_STORAGE_KEY);
 
-    let profile: { email?: string; name?: string; avatar?: string } | null =
-      null;
+    let profile: {
+      email?: string;
+      name?: string;
+      avatar?: string;
+      idToken?: string;
+    } | null = null;
     try {
       profile = JSON.parse(rawProfile) as {
         email?: string;
         name?: string;
         avatar?: string;
+        idToken?: string;
       };
     } catch {
       profile = null;
@@ -240,6 +309,7 @@ export function PortalAuthPage({
           authProvider: "google_oauth",
           name: profile?.name,
           avatar: profile?.avatar,
+          idToken: profile?.idToken,
         });
         const refreshedUser = await refreshProfile().catch(() => state.user);
         persistRememberedEmail(normalizedEmail);
@@ -479,41 +549,6 @@ export function PortalAuthPage({
     );
   }
 
-  if (!mounted) {
-    return (
-      <section className="mx-auto flex w-full items-center justify-center px-4 py-6 sm:px-6 md:py-10">
-        <div className="w-full max-w-sm md:max-w-3xl">
-          <Card className="w-full overflow-hidden border-border/70 bg-card p-0 shadow-sm">
-            <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-              <div className="flex flex-col">
-                <CardHeader className="mx-auto w-full max-w-[470px] space-y-4 border-b border-border p-6 md:p-8">
-                  <div className="flex items-center justify-center">
-                    <Logo
-                      alt="BugLogin"
-                      variant="full"
-                      className="h-8 w-auto max-w-[176px]"
-                    />
-                  </div>
-                  <div className="space-y-1 text-center">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Sign in to continue
-                    </h1>
-                  </div>
-                </CardHeader>
-                <CardContent className="mx-auto w-full max-w-[470px] space-y-4 p-6 md:p-8">
-                  <div className="h-9 w-full rounded-md bg-muted/60" />
-                  <div className="h-9 w-full rounded-md bg-muted/60" />
-                  <div className="h-9 w-full rounded-md bg-muted/60" />
-                </CardContent>
-              </div>
-              <div className="hidden overflow-hidden bg-muted/40 md:block" />
-            </div>
-          </Card>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="relative mx-auto flex w-full items-center justify-center px-4 py-6 sm:px-6 md:py-10">
       <div className="w-full max-w-sm md:max-w-[920px]">
@@ -521,11 +556,57 @@ export function PortalAuthPage({
           <div className="grid md:grid-cols-[minmax(0,0.94fr)_minmax(0,1fr)]">
             <div className="flex flex-col">
               <CardHeader className="mx-auto w-full max-w-[440px] space-y-4 border-b border-border p-6 md:p-8">
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-between gap-3">
                   <Logo
                     alt="BugLogin"
                     variant="full"
                     className="h-8 w-auto max-w-[176px]"
+                  />
+                  <TopNavHead
+                    className="shrink-0"
+                    loading={isSubmitting}
+                    languages={SUPPORTED_LANGUAGES.map((language) => ({
+                      code: language.code,
+                      label: language.nativeName,
+                      active: activeLanguage === language.code,
+                      onSelect: () => {
+                        void handleLanguageChange(
+                          language.code as SupportedLanguage,
+                        );
+                      },
+                    }))}
+                    themeOptions={[
+                      {
+                        id: "light",
+                        label: t("settings.appearance.light"),
+                        icon: Sun,
+                        active: themeMode === "light",
+                        onSelect: () => {
+                          setThemeMode("light");
+                          setTheme("light");
+                        },
+                      },
+                      {
+                        id: "dark",
+                        label: t("settings.appearance.dark"),
+                        icon: Moon,
+                        active: themeMode === "dark",
+                        onSelect: () => {
+                          setThemeMode("dark");
+                          setTheme("dark");
+                        },
+                      },
+                      {
+                        id: "system",
+                        label: t("settings.appearance.system"),
+                        icon: MonitorCog,
+                        active: themeMode === "system",
+                        onSelect: () => {
+                          setThemeMode("system");
+                          setTheme("system");
+                        },
+                      },
+                    ]}
                   />
                 </div>
 
@@ -543,22 +624,22 @@ export function PortalAuthPage({
                     }}
                     className="mx-auto w-full max-w-[360px]"
                   >
-                      <TabsList className="grid h-10 w-full grid-cols-2 rounded-md bg-muted p-1">
-                        <TabsTrigger
-                          value="login"
-                          className="h-8 gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                        >
-                          <Mail className="h-3.5 w-3.5" />
-                          {t("authLanding.tabs.login")}
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="register"
-                          className="h-8 gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                          {t("authLanding.tabs.register")}
-                        </TabsTrigger>
-                      </TabsList>
+                    <TabsList className="grid h-10 w-full grid-cols-2 rounded-md bg-muted p-1">
+                      <TabsTrigger
+                        value="login"
+                        className="h-8 gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        {t("authLanding.tabs.login")}
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="register"
+                        className="h-8 gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {t("authLanding.tabs.register")}
+                      </TabsTrigger>
+                    </TabsList>
                   </Tabs>
                 ) : null}
               </CardHeader>
@@ -583,6 +664,7 @@ export function PortalAuthPage({
                         placeholder={t("authDialog.emailPlaceholder")}
                         disabled={isSubmitting}
                         autoComplete="email"
+                        className={AUTH_INPUT_CLASS}
                       />
                     </div>
 
@@ -618,7 +700,7 @@ export function PortalAuthPage({
                           }}
                           placeholder={t("authDialog.passwordPlaceholder")}
                           disabled={isSubmitting}
-                          className="h-11 pr-12"
+                          className={AUTH_PASSWORD_INPUT_CLASS}
                           autoComplete="current-password"
                         />
                         <Button
@@ -657,7 +739,7 @@ export function PortalAuthPage({
 
                     <Button
                       type="button"
-                      className="w-full"
+                      className={AUTH_ACTION_BUTTON_CLASS}
                       onClick={handleSignIn}
                       disabled={isSubmitting}
                     >
@@ -675,7 +757,7 @@ export function PortalAuthPage({
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full"
+                      className={AUTH_ACTION_BUTTON_CLASS}
                       disabled={isSubmitting}
                       onClick={() => {
                         void handleGoogleLogin();
@@ -731,6 +813,7 @@ export function PortalAuthPage({
                         }}
                         placeholder={t("authLanding.registerNamePlaceholder")}
                         disabled={isSubmitting}
+                        className={AUTH_INPUT_CLASS}
                       />
                     </div>
 
@@ -750,6 +833,7 @@ export function PortalAuthPage({
                         }}
                         placeholder={t("authDialog.emailPlaceholder")}
                         disabled={isSubmitting}
+                        className={AUTH_INPUT_CLASS}
                       />
                     </div>
 
@@ -770,7 +854,7 @@ export function PortalAuthPage({
                           }}
                           placeholder={t("authDialog.passwordPlaceholder")}
                           disabled={isSubmitting}
-                          className="h-11 pr-12"
+                          className={AUTH_PASSWORD_INPUT_CLASS}
                         />
                         <Button
                           type="button"
@@ -812,7 +896,7 @@ export function PortalAuthPage({
                             "authLanding.confirmPasswordPlaceholder",
                           )}
                           disabled={isSubmitting}
-                          className="h-11 pr-12"
+                          className={AUTH_PASSWORD_INPUT_CLASS}
                         />
                         <Button
                           type="button"
@@ -837,7 +921,7 @@ export function PortalAuthPage({
 
                     <Button
                       type="button"
-                      className="w-full"
+                      className={AUTH_ACTION_BUTTON_CLASS}
                       onClick={() => {
                         void handleRegister();
                       }}
@@ -867,6 +951,7 @@ export function PortalAuthPage({
                         }}
                         placeholder={t("authDialog.emailPlaceholder")}
                         disabled={isSubmitting}
+                        className={AUTH_INPUT_CLASS}
                       />
                     </div>
 
@@ -877,6 +962,7 @@ export function PortalAuthPage({
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Button
                         type="button"
+                        className="h-10 text-sm font-medium"
                         onClick={() => {
                           void handleForgotPassword();
                         }}
@@ -888,6 +974,7 @@ export function PortalAuthPage({
                       <Button
                         type="button"
                         variant="outline"
+                        className="h-10 text-sm font-medium"
                         onClick={() => {
                           setAuthView("login");
                         }}
@@ -923,7 +1010,7 @@ export function PortalAuthPage({
 
             <div className="relative hidden overflow-hidden border-l border-border md:block">
               <Image
-                src="/images/auth-split-illustration.png"
+                src="/auth/buglogin-auth-security.jpg"
                 alt="BugLogin — Antidetect Browser"
                 fill
                 className="object-cover"
