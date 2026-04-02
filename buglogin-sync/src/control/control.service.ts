@@ -4177,7 +4177,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (providedUserId !== record.userId) {
-      throw new UnauthorizedException("actor_identity_mismatch");
+      const conflictingRecord = this.findAuthUserById(providedUserId);
+      if (conflictingRecord) {
+        const conflictingEmail = this.normalizeEmail(conflictingRecord.email);
+        if (conflictingEmail && conflictingEmail !== normalizedEmail) {
+          throw new UnauthorizedException("actor_identity_mismatch");
+        }
+      }
     }
 
     return {
@@ -5184,6 +5190,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
     return normalized;
+  }
+
+  private findAuthUserById(userId: string): AuthUserRecord | null {
+    for (const record of this.authUsers.values()) {
+      if (record.userId === userId) {
+        return record;
+      }
+    }
+    return null;
   }
 
   private normalizeWorkspaceName(name: string): string {
