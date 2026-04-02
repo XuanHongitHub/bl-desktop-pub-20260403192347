@@ -194,7 +194,7 @@ export function PortalHeader() {
 
           <nav
             aria-label="Main"
-            className="hidden min-w-0 flex-1 items-stretch justify-center gap-0.5 lg:flex"
+            className="hidden h-full min-w-0 flex-1 items-stretch justify-center gap-0.5 lg:flex"
           >
             {navItems.map((item) => {
               const active = isActivePath(pathname, item.href);
@@ -203,7 +203,7 @@ export function PortalHeader() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "relative inline-flex h-full items-center px-2.5 text-[14px] font-medium leading-none tracking-[-0.015em] transition-colors duration-200 xl:px-4 xl:text-[15px]",
+                    "relative inline-flex h-full self-stretch items-center px-2.5 text-[14px] font-medium leading-none tracking-[-0.015em] no-underline transition-colors duration-200 xl:px-4 xl:text-[15px]",
                     active
                       ? "text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -213,7 +213,7 @@ export function PortalHeader() {
                     {renderNavLabel(item.key)}
                   </span>
                   {active && (
-                    <span className="absolute inset-x-4 bottom-[7px] h-px bg-foreground/90" />
+                    <span className="pointer-events-none absolute inset-x-4 bottom-2 h-px bg-foreground/90" />
                   )}
                 </Link>
               );

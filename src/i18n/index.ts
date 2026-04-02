@@ -60,6 +60,7 @@ i18n.use(initReactI18next).init({
   resources,
   lng: resolveInitialLanguage(),
   fallbackLng: ["vi", "en"],
+  showSupportNotice: false,
   initImmediate: false,
   interpolation: {
     escapeValue: false,

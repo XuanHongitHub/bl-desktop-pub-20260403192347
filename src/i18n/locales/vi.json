@@ -2659,6 +2659,7 @@
         "columns": {
           "profile": "Profile",
           "phone": "Phone / API Phone",
+          "mail": "Mail / API Mail",
           "credentials": "Username / Password",
           "status": "Trạng thái",
           "stepError": "Bước / Lỗi",
@@ -2679,6 +2680,8 @@
           "start": "Start",
           "sync": "Sync (2 chiều)",
           "editBrowser": "Sửa browser",
+          "sellerStep": "Bước Seller",
+          "sellerOutcome": "Kết quả Seller",
           "openApiPhone": "Mở URL API Phone",
           "openCaptchaService": "Mở dịch vụ captcha",
           "fetchOtp": "Lấy mã OTP",
@@ -2686,6 +2689,24 @@
           "enable": "Enable profile",
           "donePush": "Done & Push",
           "remove": "Xóa"
+        },
+        "sellerSteps": {
+          "queued_for_launch": "Chờ launch",
+          "register_opened": "Đã mở trang đăng ký",
+          "verify_otp": "Đang xác thực OTP",
+          "seller_type": "Chọn loại Seller",
+          "legal_form": "Điền form pháp lý",
+          "verify_business": "Verify business",
+          "upload_pdf": "Upload PDF EIN",
+          "setup": "Setup shop"
+        },
+        "sellerOutcomes": {
+          "under_review": "Under review",
+          "application_rejected": "Application rejected",
+          "more_information": "Yêu cầu thêm thông tin",
+          "information_required": "Cần bổ sung thông tin",
+          "approved": "Đã duyệt",
+          "rejected": "Bị từ chối"
         },
         "runCenter": {
           "title": "Automation Run Center",
@@ -2730,6 +2751,7 @@
           }
         },
         "status": {
+          "queued": "Đang chờ",
           "created": "Đã tạo",
           "started": "Đã start",
           "cookie_ready": "Đã có cookie mới",
@@ -2806,6 +2828,9 @@
         "createBatchFailed": "Không thể tạo batch profile.",
         "profileNotFound": "Không tìm thấy profile trong danh sách runtime của workspace.",
         "profileDeleted": "Đã xóa profile khỏi queue automation.",
+        "profileDeleteConfirmTitle": "Xóa profile",
+        "profileDeleteConfirmDescription": "Xóa profile \"{{name}}\" khỏi workspace này? Hành động này không thể hoàn tác.",
+        "profileDeleteConfirmButton": "Xóa profile",
         "profileDeleteFailed": "Không thể xóa profile khỏi queue automation.",
         "startProfileSuccess": "Đã mở browser profile {{profile}}.",
         "startProfileFailed": "Không thể start browser profile.",

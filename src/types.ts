@@ -401,7 +401,15 @@ export interface AdminTiktokWorkflowRow {
     | "cookie_ready"
     | "cookie_missing"
     | "push_failed"
-    | "done";
+    | "done"
+    | "under_review"
+    | "application_rejected"
+    | "more_information"
+    | "information_required"
+    | "approved"
+    | "rejected";
+  sellerStep?: string;
+  sellerStatusText?: string;
   cookieRecordId?: string | null;
   cookiePreview?: string | null;
   lastError?: string | null;

@@ -2659,6 +2659,7 @@
         "columns": {
           "profile": "Profile",
           "phone": "Phone / API Phone",
+          "mail": "Mail / API Mail",
           "credentials": "Username / Password",
           "status": "Status",
           "stepError": "Step / Error",
@@ -2679,6 +2680,8 @@
           "start": "Start",
           "sync": "Sync (2-way)",
           "editBrowser": "Edit browser",
+          "sellerStep": "Seller step",
+          "sellerOutcome": "Seller outcome",
           "openApiPhone": "Open API Phone URL",
           "openCaptchaService": "Open captcha service",
           "fetchOtp": "Fetch OTP code",
@@ -2686,6 +2689,24 @@
           "enable": "Enable profile",
           "donePush": "Done & Push",
           "remove": "Remove"
+        },
+        "sellerSteps": {
+          "queued_for_launch": "Queued for launch",
+          "register_opened": "Register opened",
+          "verify_otp": "Verify OTP",
+          "seller_type": "Seller type",
+          "legal_form": "Legal form",
+          "verify_business": "Verify business",
+          "upload_pdf": "Upload EIN PDF",
+          "setup": "Setup shop"
+        },
+        "sellerOutcomes": {
+          "under_review": "Under review",
+          "application_rejected": "Application rejected",
+          "more_information": "More information required",
+          "information_required": "Information required",
+          "approved": "Approved",
+          "rejected": "Rejected"
         },
         "runCenter": {
           "title": "Automation Run Center",
@@ -2730,6 +2751,7 @@
           }
         },
         "status": {
+          "queued": "Queued",
           "created": "Created",
           "started": "Started",
           "cookie_ready": "Cookie ready",
@@ -2806,6 +2828,9 @@
         "createBatchFailed": "Failed to create profile batch.",
         "profileNotFound": "Profile was not found in workspace runtime list.",
         "profileDeleted": "Profile removed from automation queue.",
+        "profileDeleteConfirmTitle": "Delete profile",
+        "profileDeleteConfirmDescription": "Delete profile \"{{name}}\" from this workspace? This cannot be undone.",
+        "profileDeleteConfirmButton": "Delete profile",
         "profileDeleteFailed": "Failed to remove profile from automation queue.",
         "startProfileSuccess": "Opened browser profile {{profile}}.",
         "startProfileFailed": "Failed to start browser profile.",

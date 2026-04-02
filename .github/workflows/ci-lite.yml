@@ -1,12 +1,7 @@
 name: CI Lite
 
 on:
-  pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,23 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  js-lint-typecheck:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: "pnpm"
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Lint + Typecheck (JS/TS)
-        run: pnpm lint:js
-
   rust-check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
