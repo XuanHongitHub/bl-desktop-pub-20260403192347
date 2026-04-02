@@ -182,6 +182,9 @@ interface AdminTiktokCookiesTabProps {
     }>;
     force?: boolean;
   }) => Promise<TiktokAutomationAccountRecord[]>;
+  deleteTiktokAutomationAccount: (
+    accountId: string,
+  ) => Promise<TiktokAutomationAccountRecord[]>;
   createTiktokAutomationRun: (input: {
     flowType: TiktokAutomationFlowType;
     mode: TiktokAutomationRunMode;
@@ -3550,6 +3553,17 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           }
         } else {
           if (automationFlowType === "signup_seller") {
+            if (captchaSetupUrls.length > 0) {
+              for (let index = 0; index < captchaSetupUrls.length; index += 1) {
+                const url = captchaSetupUrls[index];
+                const tabKey =
+                  getWorkflowTabKey(url) ?? `captcha-setup-${index + 1}`;
+                // eslint-disable-next-line no-await-in-loop
+                await openTabWithRetry(url, tabKey);
+                // eslint-disable-next-line no-await-in-loop
+                await waitMs(350);
+              }
+            }
             await openTabWithRetry(normalizedSellerSignupUrl, "tiktok-seller-signup");
           } else {
             // Warm up main domain first; direct deep-link login can trigger TikTok TLB 503.
@@ -4820,7 +4834,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       const releaseType =
         targetBrowser === "firefox-developer" ? "nightly" : "stable";
       const workflowExtensionGroupId =
-        automationFlowType === "signup"
+        automationFlowType === "signup" || automationFlowType === "signup_seller"
           ? await ensureWorkflowCaptchaExtensionGroup()
           : null;
       const batchId = buildBatchStamp();
@@ -7605,6 +7619,20 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                         isRunButtonLoading ||
                         isRowSyncing ||
                         (isWorkflowBusy && !isRunButtonLoading);
+                      const sellerMiniStatus =
+                        isSellerSignupFlow
+                          ? {
+                              extReady: Boolean(runtimeProfile?.extension_group_id),
+                              keyReady: Boolean(workflowCaptchaApiKey.trim()),
+                              runState: isRowLaunching
+                                ? "launching"
+                                : isRowStopping
+                                  ? "stopping"
+                                  : isRuntimeRunning
+                                    ? "running"
+                                    : "idle",
+                            }
+                          : null;
 
                       return (
                         <TableRow
@@ -7649,6 +7677,53 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                                   )}
                                   <span>{runtimeStatusLabel}</span>
                                 </Badge>
+                                {sellerMiniStatus ? (
+                                  <>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "px-1.5 py-0 text-[10px] font-medium",
+                                        sellerMiniStatus.extReady
+                                          ? "border-chart-2/40 bg-chart-2/10 text-chart-2"
+                                          : "border-border bg-muted text-muted-foreground",
+                                      )}
+                                    >
+                                      EXT
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "px-1.5 py-0 text-[10px] font-medium",
+                                        sellerMiniStatus.keyReady
+                                          ? "border-chart-2/40 bg-chart-2/10 text-chart-2"
+                                          : "border-border bg-muted text-muted-foreground",
+                                      )}
+                                    >
+                                      KEY
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "px-1.5 py-0 text-[10px] font-medium",
+                                        sellerMiniStatus.runState === "running"
+                                          ? "border-chart-1/40 bg-chart-1/10 text-chart-1"
+                                          : sellerMiniStatus.runState === "launching"
+                                            ? "border-chart-3/40 bg-chart-3/10 text-chart-3"
+                                            : sellerMiniStatus.runState === "stopping"
+                                              ? "border-destructive/40 bg-destructive/10 text-destructive"
+                                              : "border-border bg-muted text-muted-foreground",
+                                      )}
+                                    >
+                                      {sellerMiniStatus.runState === "running"
+                                        ? "RUN"
+                                        : sellerMiniStatus.runState === "launching"
+                                          ? "LCH"
+                                          : sellerMiniStatus.runState === "stopping"
+                                            ? "STP"
+                                            : "IDLE"}
+                                    </Badge>
+                                  </>
+                                ) : null}
                               </div>
                               <p className="line-clamp-1 min-w-0 font-mono text-[11px] text-muted-foreground">
                                 {summarizeCookieValue(row.profileId)}
