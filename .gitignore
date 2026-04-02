@@ -57,3 +57,21 @@ nodecar/nodecar-bin
 
 # env
 .env
+# buglogin local automation secrets
+/private/google-drive/*.json
+/outputs/buglogin/
+
+# local temp and deployment artifacts
+/.tmp_deploy/
+/.codex
+/.cargo-home-check/
+/buglogin-sync/.data/
+/target-check-*/
+/tmp/
+/outputs/
+/nul
+/.data/
+*started_sync_dev*
+
+# accidental notes in workflows
+/.github/workflows/temp-claudechat-*.md
