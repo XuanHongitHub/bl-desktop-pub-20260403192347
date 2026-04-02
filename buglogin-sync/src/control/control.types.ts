@@ -26,6 +26,7 @@ export interface WorkspaceListItem extends WorkspaceRecord {
   actorRole: WorkspaceRole;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: BillingCycle | null;
   subscriptionStatus: WorkspaceSubscriptionStatus;
   subscriptionSource: BillingSource;
@@ -40,6 +41,43 @@ export interface MembershipRecord {
   email: string;
   role: WorkspaceRole;
   createdAt: string;
+}
+
+export interface PlatformAdminListResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export type PlatformAdminUserAccountState = "active" | "locked";
+
+export interface PlatformAdminUserListItem {
+  userId: string;
+  email: string;
+  platformRole: ControlPlatformRole | null;
+  authProvider: AuthProvider;
+  hasPasswordAuth: boolean;
+  hasGoogleAuth: boolean;
+  workspaceCount: number;
+  lastActiveAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  accountState: PlatformAdminUserAccountState;
+}
+
+export interface PlatformAdminUserWorkspaceMembership {
+  userId: string;
+  email: string;
+  workspaceId: string;
+  workspaceName: string;
+  role: WorkspaceRole;
+  createdAt: string;
+}
+
+export interface PlatformAdminUserDetail extends PlatformAdminUserListItem {
+  memberships: PlatformAdminUserWorkspaceMembership[];
+  recentAuditLogs: AuditLogRecord[];
 }
 
 export interface AuthUserRecord {
@@ -216,6 +254,8 @@ export interface CouponRecord {
   workspaceDenylist: string[];
   maxRedemptions: number;
   redeemedCount: number;
+  maxPerUser: number;
+  maxPerWorkspace: number;
   expiresAt: string;
   revokedAt: string | null;
   createdAt: string;
@@ -232,6 +272,7 @@ export interface LicenseClaimResult {
   planId: BillingPlanId;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: BillingCycle;
 }
 
@@ -239,6 +280,7 @@ export interface LicenseRedemptionRecord extends LicenseClaimResult {
   workspaceId: string;
   redeemedAt: string;
   redeemedBy: string;
+  memberLimit: number;
 }
 
 export interface WorkspaceSubscriptionRecord {
@@ -246,6 +288,7 @@ export interface WorkspaceSubscriptionRecord {
   planId: BillingPlanId | null;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: BillingCycle | null;
   status: WorkspaceSubscriptionStatus;
   source: BillingSource;
@@ -363,6 +406,7 @@ export interface PlatformAdminWorkspaceHealthRow {
   subscriptionStatus: WorkspaceSubscriptionStatus;
   entitlementState: EntitlementState;
   profileLimit: number;
+  memberLimit: number;
   members: number;
   activeInvites: number;
   activeShareGrants: number;
@@ -375,4 +419,19 @@ export interface PlatformAdminWorkspaceHealthRow {
   latestInvoiceAt: string | null;
   usageUpdatedAt: string | null;
   riskLevel: "low" | "medium" | "high";
+}
+
+export interface PlatformAdminWorkspaceOwnerSummary {
+  userId: string;
+  email: string;
+}
+
+export interface PlatformAdminWorkspaceDetail extends PlatformAdminWorkspaceHealthRow {
+  createdAt: string;
+  createdBy: string;
+  owner: PlatformAdminWorkspaceOwnerSummary | null;
+  memberships: PlatformAdminUserWorkspaceMembership[];
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
+  recentAuditLogs: AuditLogRecord[];
 }

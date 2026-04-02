@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -408,6 +408,197 @@ fn read_profile_tiktok_cookie_headers_bulk(
     }
   }
   rows
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TiktokSellerRuntimeStepSnapshot {
+  found: bool,
+  current_url: Option<String>,
+  current_title: Option<String>,
+  detected_step: Option<String>,
+  detected_outcome: Option<String>,
+}
+
+fn query_latest_firefox_url(db_path: &Path) -> Result<Option<(String, Option<String>)>, String> {
+  let conn = rusqlite::Connection::open(db_path)
+    .map_err(|error| format!("Failed to open places.sqlite: {error}"))?;
+
+  let mut stmt = conn
+    .prepare(
+      "SELECT url, title
+       FROM moz_places
+       WHERE last_visit_date IS NOT NULL
+       ORDER BY last_visit_date DESC
+       LIMIT 40",
+    )
+    .map_err(|error| format!("Failed to prepare places query: {error}"))?;
+
+  let mut rows = stmt
+    .query([])
+    .map_err(|error| format!("Failed to query places.sqlite: {error}"))?;
+
+  let mut fallback: Option<(String, Option<String>)> = None;
+  while let Some(row) = rows
+    .next()
+    .map_err(|error| format!("Failed to read places row: {error}"))?
+  {
+    let url: String = row.get(0).unwrap_or_default();
+    let title: Option<String> = row.get(1).ok();
+    if url.trim().is_empty() {
+      continue;
+    }
+    let lowered = url.to_ascii_lowercase();
+    if lowered.contains("seller-us.tiktok.com") {
+      return Ok(Some((url, title)));
+    }
+    if fallback.is_none() && lowered.contains("tiktok.com") {
+      fallback = Some((url, title));
+    }
+  }
+  Ok(fallback)
+}
+
+fn detect_seller_step_from_url_title(
+  url: Option<&str>,
+  title: Option<&str>,
+) -> (Option<String>, Option<String>) {
+  let normalized_url = url
+    .map(|value| value.trim().to_ascii_lowercase())
+    .unwrap_or_default();
+  let normalized_title = title
+    .map(|value| value.trim().to_ascii_lowercase())
+    .unwrap_or_default();
+  let combined = format!("{normalized_url} {normalized_title}");
+
+  if combined.contains("application rejected")
+    || combined.contains("rejected")
+    || combined.contains("onboard_form_status=rejected")
+  {
+    return (
+      Some("setup".to_string()),
+      Some("application_rejected".to_string()),
+    );
+  }
+
+  if combined.contains("under review")
+    || combined.contains("onboard_form_status=review")
+    || combined.contains("onboard_form_status=under_review")
+  {
+    return (Some("setup".to_string()), Some("under_review".to_string()));
+  }
+
+  if combined.contains("more information")
+    || combined.contains("information required")
+    || combined.contains("onboard_form_status=more_information")
+  {
+    return (
+      Some("setup".to_string()),
+      Some("more_information".to_string()),
+    );
+  }
+
+  if normalized_url.contains("/account/register") {
+    if combined.contains("verification code") || combined.contains("enter code") {
+      return (Some("verify_otp".to_string()), None);
+    }
+    return (Some("register_opened".to_string()), None);
+  }
+
+  if normalized_url.contains("/login") {
+    return (Some("register_opened".to_string()), None);
+  }
+
+  if normalized_url.contains("/settle/verification") {
+    if combined.contains("upload")
+      || combined.contains("document")
+      || combined.contains("supporting file")
+    {
+      return (Some("upload_pdf".to_string()), None);
+    }
+    if combined.contains("verify business") || combined.contains("business details") {
+      return (Some("verify_business".to_string()), None);
+    }
+    return (Some("legal_form".to_string()), None);
+  }
+
+  if normalized_url.contains("sellercenter")
+    || normalized_url.contains("/home")
+    || normalized_url.contains("/dashboard")
+  {
+    return (Some("setup".to_string()), None);
+  }
+
+  if combined.contains("seller")
+    && combined.contains("sole")
+    && combined.contains("proprietorship")
+  {
+    return (Some("legal_form".to_string()), None);
+  }
+
+  if combined.contains("verify")
+    && combined.contains("business")
+    && combined.contains("details")
+  {
+    return (Some("verify_business".to_string()), None);
+  }
+
+  (None, None)
+}
+
+#[tauri::command]
+fn detect_tiktok_seller_runtime_step(
+  profile_id: String,
+) -> Result<TiktokSellerRuntimeStepSnapshot, String> {
+  let parsed_profile_id = uuid::Uuid::parse_str(profile_id.trim())
+    .map_err(|error| format!("Invalid profile id: {error}"))?;
+
+  let profile_manager = crate::profile::manager::ProfileManager::instance();
+  let profile = profile_manager
+    .get_profile_by_id(&parsed_profile_id)
+    .map_err(|error| format!("Failed to load profile: {error}"))?
+    .ok_or_else(|| "Profile not found".to_string())?;
+
+  let profiles_dir = profile_manager.get_profiles_dir();
+  let effective_profile_path = crate::ephemeral_dirs::get_effective_profile_path(&profile, &profiles_dir);
+
+  let db_path = match profile.browser.as_str() {
+    "camoufox" | "bugox" => effective_profile_path.join("places.sqlite"),
+    "wayfern" | "bugium" => effective_profile_path.join("Default").join("History"),
+    _ => effective_profile_path.join("places.sqlite"),
+  };
+
+  if !db_path.exists() {
+    return Ok(TiktokSellerRuntimeStepSnapshot {
+      found: false,
+      current_url: None,
+      current_title: None,
+      detected_step: None,
+      detected_outcome: None,
+    });
+  }
+
+  let latest = query_latest_firefox_url(&db_path).unwrap_or(None);
+  let Some((current_url, current_title)) = latest else {
+    return Ok(TiktokSellerRuntimeStepSnapshot {
+      found: false,
+      current_url: None,
+      current_title: None,
+      detected_step: None,
+      detected_outcome: None,
+    });
+  };
+
+  let (detected_step, detected_outcome) =
+    detect_seller_step_from_url_title(Some(current_url.as_str()), current_title.as_deref());
+
+  Ok(TiktokSellerRuntimeStepSnapshot {
+    found: true,
+    current_url: Some(current_url),
+    current_title,
+    detected_step,
+    detected_outcome,
+  })
 }
 
 #[tauri::command]
@@ -3183,6 +3374,7 @@ pub fn run() {
       append_automation_output_record,
       start_tiktok_probe_session,
       read_tiktok_probe_progress,
+      detect_tiktok_seller_runtime_step,
       check_wayfern_terms_accepted,
       check_wayfern_downloaded,
       accept_wayfern_terms,

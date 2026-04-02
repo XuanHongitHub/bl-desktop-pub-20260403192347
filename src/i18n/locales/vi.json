@@ -4701,16 +4701,28 @@
           "profileLimit": "Giới hạn profile",
           "expiresAt": "Hết hạn",
           "planLabel": "Nhãn gói",
-          "planLabelPlaceholder": "Nhãn hiển thị (tuỳ chọn)"
+          "planLabelPlaceholder": "Nhãn hiển thị (tuỳ chọn)",
+          "memberLimit": "Giới hạn member",
+          "owner": "Owner"
         },
         "errors": {
           "connectionMissing": "Thiếu kết nối control.",
           "invalidProfileLimit": "Giới hạn profile phải lớn hơn 0.",
           "invalidExpiry": "Thời điểm hết hạn phải nằm trong tương lai.",
-          "updateFailed": "Không thể cập nhật subscription workspace."
+          "updateFailed": "Không thể cập nhật subscription workspace.",
+          "loadFailed": "Không thể tải danh sách workspace.",
+          "invalidMemberLimit": "Giới hạn member phải lớn hơn 0."
         },
         "toasts": {
           "subscriptionUpdated": "Đã cập nhật subscription workspace."
+        },
+        "panel": {
+          "emptySelection": "Chọn một workspace để xem chi tiết.",
+          "owner": "Owner hiện tại",
+          "entitlement": "Entitlement",
+          "memberships": "Thành viên hiện tại",
+          "activity": "Nhật ký gần đây",
+          "emptyActivity": "Chưa có audit log gần đây."
         }
       },
       "revenue": {
@@ -4943,6 +4955,17 @@
         "createFailed": "Không thể tạo tài khoản user.",
         "createInvalidEmail": "Vui lòng nhập email hợp lệ.",
         "createInvalidPassword": "Mật khẩu phải có ít nhất 8 ký tự."
+      },
+      "panel": {
+        "workspaceCount": "{{count}} workspace",
+        "emptySelection": "Chọn một user để xem chi tiết.",
+        "email": "Email",
+        "auth": "Đăng nhập",
+        "lastActive": "Hoạt động gần nhất",
+        "createdAt": "Tạo lúc",
+        "memberships": "Memberships theo workspace",
+        "activity": "Hoạt động gần đây",
+        "emptyActivity": "Chưa có audit log gần đây."
       }
     },
     "help": {

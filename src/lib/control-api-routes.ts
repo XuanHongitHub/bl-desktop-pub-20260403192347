@@ -36,6 +36,9 @@ type RouteBuilderInput = {
   couponId?: string;
   licenseId?: string;
   auditLimit?: number;
+  q?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export function buildControlApiPath(
@@ -56,6 +59,11 @@ export function buildControlApiPath(
     | "workspaceRedeemLicense"
     | "workspaceEntitlementHistory"
     | "adminUsersCreate"
+    | "adminUsersList"
+    | "adminUserDetail"
+    | "adminWorkspacesList"
+    | "adminWorkspaceDetail"
+    | "adminWorkspaceOwnerTransfer"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"
@@ -107,6 +115,30 @@ export function buildControlApiPath(
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/entitlements/history`;
     case "adminUsersCreate":
       return `${prefix}/admin/users`;
+    case "adminUsersList": {
+      const params = new URLSearchParams();
+      if (input.q?.trim()) {
+        params.set("q", input.q.trim());
+      }
+      params.set("page", String(Math.max(1, input.page ?? 1)));
+      params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
+      return `${prefix}/admin/users?${params.toString()}`;
+    }
+    case "adminUserDetail":
+      return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}`;
+    case "adminWorkspacesList": {
+      const params = new URLSearchParams();
+      if (input.q?.trim()) {
+        params.set("q", input.q.trim());
+      }
+      params.set("page", String(Math.max(1, input.page ?? 1)));
+      params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
+      return `${prefix}/admin/workspaces?${params.toString()}`;
+    }
+    case "adminWorkspaceDetail":
+      return `${prefix}/admin/workspaces/${encodeURIComponent(input.workspaceId ?? "")}`;
+    case "adminWorkspaceOwnerTransfer":
+      return `${prefix}/admin/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/owner`;
     case "adminCommercePlans":
       return `${prefix}/admin/commerce/plans`;
     case "adminCommercePlanPublishVersion":
@@ -155,6 +187,11 @@ export function buildControlApiUrl(
     | "workspaceRedeemLicense"
     | "workspaceEntitlementHistory"
     | "adminUsersCreate"
+    | "adminUsersList"
+    | "adminUserDetail"
+    | "adminWorkspacesList"
+    | "adminWorkspaceDetail"
+    | "adminWorkspaceOwnerTransfer"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"

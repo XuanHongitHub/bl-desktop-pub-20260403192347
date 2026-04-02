@@ -38,6 +38,10 @@ import type {
   PlatformAdminOverview,
   PlatformAdminWorkspaceHealthRow,
   PlatformAdminEmailRecord,
+  PlatformAdminListResult,
+  PlatformAdminUserDetail,
+  PlatformAdminUserListItem,
+  PlatformAdminUserWorkspaceMembership,
   StripeCheckoutConfirmResult,
   StripeCheckoutCreateResult,
   StripeCheckoutRecord,
@@ -53,6 +57,7 @@ import type {
   WorkspaceTiktokCookieSourceRecord,
   WorkspaceBillingState,
   WorkspaceBillingUsage,
+  PlatformAdminWorkspaceDetail,
   WorkspaceListItem,
   WorkspaceMode,
   WorkspaceOverview,
@@ -95,10 +100,17 @@ interface LicenseCatalogEntry {
   planId: BillingPlanId;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: BillingCycle;
 }
 
 const LEGACY_DERIVED_USER_ID_PATTERN = /^usr_[a-f0-9]{24}$/u;
+
+type PlatformAdminListQuery = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
 
 @Injectable()
 export class ControlService implements OnModuleInit, OnModuleDestroy {
@@ -205,6 +217,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return 1000;
     }
     return 5000;
+  }
+
+  private getDefaultPlanMemberLimit(planId: BillingPlanId): number {
+    if (planId === "starter") {
+      return 1;
+    }
+    if (planId === "growth") {
+      return 5;
+    }
+    if (planId === "scale") {
+      return 15;
+    }
+    return 50;
   }
 
   private getPlanPriceUsd(planId: BillingPlanId, billingCycle: BillingCycle): number {
@@ -457,6 +482,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       planId: null,
       planLabel: mode === "personal" ? "Free" : "Starter",
       profileLimit: mode === "personal" ? 3 : 100,
+      memberLimit: mode === "personal" ? 1 : 1,
       billingCycle: null,
       status: "active",
       source: "internal",
@@ -552,6 +578,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     billingCycle: BillingCycle;
     source: BillingSource;
     profileLimit?: number;
+    memberLimit?: number;
     planLabel?: string;
     expiresAt?: string | null;
   }): WorkspaceSubscriptionRecord {
@@ -560,6 +587,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       input.profileLimit && input.profileLimit > 0
         ? Math.round(input.profileLimit)
         : this.getDefaultPlanProfileLimit(input.planId);
+    const memberLimit =
+      input.memberLimit && input.memberLimit > 0
+        ? Math.round(input.memberLimit)
+        : this.getDefaultPlanMemberLimit(input.planId);
     const planLabel = input.planLabel || this.getPlanLabel(input.planId);
     const expiresAt =
       input.expiresAt ??
@@ -573,6 +604,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       planId: input.planId,
       planLabel,
       profileLimit,
+      memberLimit,
       billingCycle: input.billingCycle,
       status: "active",
       source: input.source,
@@ -630,6 +662,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     if (coupon.maxRedemptions > 0 && coupon.redeemedCount >= coupon.maxRedemptions) {
       throw new BadRequestException("coupon_limit_reached");
+    }
+    if (
+      coupon.maxPerWorkspace > 0 &&
+      this.countCouponRedemptionsForWorkspace(workspaceId, coupon.code) >=
+        coupon.maxPerWorkspace
+    ) {
+      throw new BadRequestException("coupon_workspace_limit_reached");
+    }
+    if (
+      coupon.maxPerUser > 0 &&
+      this.countCouponRedemptionsForUser(actor.userId, coupon.code) >= coupon.maxPerUser
+    ) {
+      throw new BadRequestException("coupon_user_limit_reached");
     }
     coupon.redeemedCount += 1;
     this.coupons.set(coupon.id, coupon);
@@ -737,6 +782,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         Number.isFinite(parsedProfileLimit) && parsedProfileLimit > 0
           ? Math.round(parsedProfileLimit)
           : this.getDefaultPlanProfileLimit(planId);
+      const memberLimit = this.getDefaultPlanMemberLimit(planId);
       const billingCycle = this.parseBillingCycle(rawBillingCycle ?? "monthly");
 
       entries.push({
@@ -744,6 +790,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         planId,
         planLabel: this.getPlanLabel(planId),
         profileLimit,
+        memberLimit,
         billingCycle,
       });
       seenCodes.add(code);
@@ -784,6 +831,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         billingCycle: existing.billingCycle,
         source: "license",
         profileLimit: existing.profileLimit,
+        memberLimit: existing.memberLimit,
         planLabel: existing.planLabel,
       });
       this.createInvoice({
@@ -803,6 +851,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         planId: existing.planId,
         planLabel: existing.planLabel,
         profileLimit: existing.profileLimit,
+        memberLimit: existing.memberLimit,
         billingCycle: existing.billingCycle,
       };
     }
@@ -813,6 +862,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       planId: catalogEntry.planId,
       planLabel: catalogEntry.planLabel,
       profileLimit: catalogEntry.profileLimit,
+      memberLimit: catalogEntry.memberLimit,
       billingCycle: catalogEntry.billingCycle,
       redeemedAt: new Date().toISOString(),
       redeemedBy: actor.userId,
@@ -825,6 +875,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       billingCycle: redemption.billingCycle,
       source: "license",
       profileLimit: redemption.profileLimit,
+      memberLimit: redemption.memberLimit,
       planLabel: redemption.planLabel,
     });
     this.createInvoice({
@@ -846,6 +897,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       planId: redemption.planId,
       planLabel: redemption.planLabel,
       profileLimit: redemption.profileLimit,
+      memberLimit: redemption.memberLimit,
       billingCycle: redemption.billingCycle,
     };
   }
@@ -1193,6 +1245,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         actorRole,
         planLabel: subscription.planLabel,
         profileLimit: subscription.profileLimit,
+        memberLimit: subscription.memberLimit,
         billingCycle: subscription.billingCycle,
         subscriptionStatus: subscription.status,
         subscriptionSource: subscription.source,
@@ -1880,6 +1933,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       planId: BillingPlanId;
       billingCycle: BillingCycle;
       profileLimit?: number;
+      memberLimit?: number;
       expiresAt?: string | null;
       planLabel?: string | null;
     },
@@ -1897,6 +1951,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       Number.isFinite(normalizedProfileLimit) && normalizedProfileLimit > 0
         ? Math.round(normalizedProfileLimit)
         : this.getDefaultPlanProfileLimit(planId);
+    const normalizedMemberLimit = Number(input.memberLimit);
+    const memberLimit =
+      Number.isFinite(normalizedMemberLimit) && normalizedMemberLimit > 0
+        ? Math.round(normalizedMemberLimit)
+        : this.getDefaultPlanMemberLimit(planId);
     const normalizedPlanLabel = input.planLabel?.trim() || this.getPlanLabel(planId);
 
     let expiresAt: string | null = null;
@@ -1921,6 +1980,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       billingCycle,
       source: "internal",
       profileLimit,
+      memberLimit,
       planLabel: normalizedPlanLabel,
       expiresAt,
     });
@@ -2266,75 +2326,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.assertPlatformAdmin(actor);
 
     return Array.from(this.workspaces.values())
-      .map((workspace) => {
-        const subscription = this.getSubscriptionForWorkspace(workspace.id);
-        const entitlement = this.entitlements.get(workspace.id);
-        const members = this.memberships.get(workspace.id) || [];
-        const activeInvites = Array.from(this.invites.values()).filter(
-          (invite) => invite.workspaceId === workspace.id && invite.consumedAt === null,
-        );
-        const activeShareGrants = Array.from(this.shareGrants.values()).filter(
-          (grant) => grant.workspaceId === workspace.id && grant.revokedAt === null,
-        );
-        const latestInvoice = Array.from(this.invoices.values())
-          .filter((invoice) => invoice.workspaceId === workspace.id)
-          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
-
-        const usage = this.getWorkspaceBillingUsage(workspace.id, subscription);
-        const storagePercent =
-          usage.storageLimitMb > 0
-            ? Math.min(
-                100,
-                Math.round(
-                  (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
-                ),
-              )
-            : 0;
-        const proxyBandwidthPercent =
-          usage.proxyBandwidthLimitMb > 0
-            ? Math.min(
-                100,
-                Math.round(
-                  (usage.proxyBandwidthUsedMb / usage.proxyBandwidthLimitMb) * 100,
-                ),
-              )
-            : 0;
-
-        const riskLevel: "low" | "medium" | "high" =
-          subscription.status === "past_due" ||
-          entitlement?.state === "read_only" ||
-          storagePercent >= 90 ||
-          proxyBandwidthPercent >= 90
-            ? "high"
-            : subscription.cancelAtPeriodEnd ||
-                entitlement?.state === "grace_active" ||
-                storagePercent >= 75 ||
-                proxyBandwidthPercent >= 75
-              ? "medium"
-              : "low";
-
-        return {
-          workspaceId: workspace.id,
-          workspaceName: workspace.name,
-          mode: workspace.mode,
-          planLabel: subscription.planLabel,
-          subscriptionStatus: subscription.status,
-          entitlementState: entitlement?.state ?? "active",
-          profileLimit: subscription.profileLimit,
-          members: members.length,
-          activeInvites: activeInvites.length,
-          activeShareGrants: activeShareGrants.length,
-          storageUsedBytes: usage.storageUsedBytes,
-          storageLimitMb: usage.storageLimitMb,
-          storagePercent,
-          proxyBandwidthUsedMb: usage.proxyBandwidthUsedMb,
-          proxyBandwidthLimitMb: usage.proxyBandwidthLimitMb,
-          proxyBandwidthPercent,
-          latestInvoiceAt: latestInvoice?.createdAt ?? null,
-          usageUpdatedAt: usage.updatedAt,
-          riskLevel,
-        } satisfies PlatformAdminWorkspaceHealthRow;
-      })
+      .map((workspace) => this.buildPlatformAdminWorkspaceHealthRow(workspace))
       .sort((left, right) => {
         if (left.riskLevel !== right.riskLevel) {
           const rank = { high: 3, medium: 2, low: 1 } as const;
@@ -2352,6 +2344,386 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return this.auditLogs.slice(-normalizedLimit).reverse();
   }
 
+  listAdminUsers(
+    actor: RequestActor,
+    query: PlatformAdminListQuery = {},
+  ): PlatformAdminListResult<PlatformAdminUserListItem> {
+    this.assertPlatformAdmin(actor);
+    const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+
+    const items = Array.from(this.authUsers.values())
+      .map((record) => this.buildPlatformAdminUserListItem(record))
+      .filter((item) => {
+        if (!q) {
+          return true;
+        }
+        return [item.email, item.userId, item.platformRole ?? "", item.authProvider]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((left, right) => {
+        const lastActiveCompare = (right.lastActiveAt ?? "").localeCompare(
+          left.lastActiveAt ?? "",
+        );
+        if (lastActiveCompare !== 0) {
+          return lastActiveCompare;
+        }
+        const updatedCompare = right.updatedAt.localeCompare(left.updatedAt);
+        if (updatedCompare !== 0) {
+          return updatedCompare;
+        }
+        return left.email.localeCompare(right.email);
+      });
+
+    return this.paginatePlatformAdminItems(items, page, pageSize);
+  }
+
+  getAdminUserDetail(actor: RequestActor, userId: string): PlatformAdminUserDetail {
+    this.assertPlatformAdmin(actor);
+    const record = this.findAuthUserById(userId.trim());
+    if (!record) {
+      throw new NotFoundException("admin_user_not_found");
+    }
+
+    const memberships = Array.from(this.memberships.entries())
+      .flatMap(([workspaceId, members]) =>
+        members
+          .filter((member) => member.userId === record.userId)
+          .map((member) => ({
+            userId: member.userId,
+            email:
+              this.findAuthUserById(member.userId)?.email ??
+              this.normalizeEmail(member.email) ??
+              member.email,
+            workspaceId,
+            workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
+            role: member.role,
+            createdAt: member.createdAt,
+          }) satisfies PlatformAdminUserWorkspaceMembership),
+      )
+      .sort((left, right) => left.workspaceName.localeCompare(right.workspaceName));
+
+    const recentAuditLogs = this.auditLogs
+      .filter(
+        (log) =>
+          log.targetId === record.userId || this.normalizeEmail(log.actor) === record.email,
+      )
+      .slice(-20)
+      .reverse();
+
+    return {
+      ...this.buildPlatformAdminUserListItem(record),
+      memberships,
+      recentAuditLogs,
+    };
+  }
+
+  listAdminWorkspaces(
+    actor: RequestActor,
+    query: PlatformAdminListQuery = {},
+  ): PlatformAdminListResult<PlatformAdminWorkspaceDetail> {
+    this.assertPlatformAdmin(actor);
+    const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+
+    const items = Array.from(this.workspaces.values())
+      .map((workspace) => this.buildPlatformAdminWorkspaceDetail(workspace))
+      .filter((item) => {
+        if (!q) {
+          return true;
+        }
+        return [
+          item.workspaceName,
+          item.workspaceId,
+          item.owner?.email ?? "",
+          item.planLabel,
+          item.mode,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((left, right) => {
+        if (left.riskLevel !== right.riskLevel) {
+          const rank = { high: 3, medium: 2, low: 1 } as const;
+          return rank[right.riskLevel] - rank[left.riskLevel];
+        }
+        return right.createdAt.localeCompare(left.createdAt);
+      });
+
+    return this.paginatePlatformAdminItems(items, page, pageSize);
+  }
+
+  getAdminWorkspaceDetail(
+    actor: RequestActor,
+    workspaceId: string,
+  ): PlatformAdminWorkspaceDetail {
+    this.assertPlatformAdmin(actor);
+    const workspace = this.workspaces.get(workspaceId);
+    if (!workspace) {
+      throw new NotFoundException("workspace_not_found");
+    }
+    return this.buildPlatformAdminWorkspaceDetail(workspace);
+  }
+
+  transferWorkspaceOwnershipAsAdmin(
+    actor: RequestActor,
+    workspaceId: string,
+    targetUserId: string,
+    reason: string,
+  ): PlatformAdminWorkspaceDetail {
+    this.assertPlatformAdmin(actor);
+    const normalizedReason = this.requireReason(reason);
+    const workspace = this.workspaces.get(workspaceId);
+    if (!workspace) {
+      throw new NotFoundException("workspace_not_found");
+    }
+
+    const targetAuthUser = this.findAuthUserById(targetUserId.trim());
+    if (!targetAuthUser) {
+      throw new NotFoundException("admin_user_not_found");
+    }
+
+    const members = [...(this.memberships.get(workspaceId) || [])];
+    const now = new Date().toISOString();
+    const targetIndex = members.findIndex((member) => member.userId === targetAuthUser.userId);
+    if (targetIndex >= 0) {
+      members[targetIndex] = {
+        ...members[targetIndex],
+        email: targetAuthUser.email,
+        role: "owner",
+      };
+    } else {
+      members.push({
+        workspaceId,
+        userId: targetAuthUser.userId,
+        email: targetAuthUser.email,
+        role: "owner",
+        createdAt: now,
+      });
+    }
+
+    const nextMembers = members.map((member) => {
+      if (member.userId === targetAuthUser.userId) {
+        return {
+          ...member,
+          email: targetAuthUser.email,
+          role: "owner" as const,
+        };
+      }
+      if (member.role === "owner") {
+        return {
+          ...member,
+          role: "admin" as const,
+        };
+      }
+      return member;
+    });
+
+    this.memberships.set(workspaceId, nextMembers);
+    this.workspaces.set(workspaceId, {
+      ...workspace,
+      createdBy: targetAuthUser.userId,
+    });
+    this.audit(
+      "workspace.owner_transferred",
+      actor.email,
+      workspaceId,
+      targetAuthUser.userId,
+      normalizedReason,
+    );
+    this.persistState();
+    return this.buildPlatformAdminWorkspaceDetail(
+      this.workspaces.get(workspaceId) ?? workspace,
+    );
+  }
+
+  private buildPlatformAdminUserListItem(
+    record: AuthUserRecord,
+  ): PlatformAdminUserListItem {
+    const workspaceIds = new Set(
+      Array.from(this.memberships.values())
+        .flat()
+        .filter((member) => member.userId === record.userId)
+        .map((member) => member.workspaceId),
+    );
+    const lastActiveAt =
+      this.auditLogs
+        .slice()
+        .reverse()
+        .find((log) => this.normalizeEmail(log.actor) === record.email)?.createdAt ?? null;
+
+    return {
+      userId: record.userId,
+      email: record.email,
+      platformRole: record.platformRole,
+      authProvider: record.authProvider,
+      hasPasswordAuth:
+        record.authProvider === "password" || record.authProvider === "password_google",
+      hasGoogleAuth:
+        record.authProvider === "google" || record.authProvider === "password_google",
+      workspaceCount: workspaceIds.size,
+      lastActiveAt,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      accountState: "active",
+    };
+  }
+
+  private buildPlatformAdminWorkspaceDetail(
+    workspace: WorkspaceRecord,
+  ): PlatformAdminWorkspaceDetail {
+    const healthRow = this.buildPlatformAdminWorkspaceHealthRow(workspace);
+    const subscription = this.getSubscriptionForWorkspace(workspace.id);
+    const owner = this.getWorkspaceOwnerSummary(workspace.id);
+    const memberships = (this.memberships.get(workspace.id) || [])
+      .map((member) => ({
+        userId: member.userId,
+        email:
+          this.findAuthUserById(member.userId)?.email ??
+          this.normalizeEmail(member.email) ??
+          member.email,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        role: member.role,
+        createdAt: member.createdAt,
+      }))
+      .sort((left, right) => {
+        const roleCompare =
+          this.getWorkspaceRoleRank(right.role) - this.getWorkspaceRoleRank(left.role);
+        if (roleCompare !== 0) {
+          return roleCompare;
+        }
+        return left.createdAt.localeCompare(right.createdAt);
+      });
+    const recentAuditLogs = this.auditLogs
+      .filter((log) => log.workspaceId === workspace.id || log.targetId === workspace.id)
+      .slice(-20)
+      .reverse();
+
+    return {
+      ...healthRow,
+      createdAt: workspace.createdAt,
+      createdBy: workspace.createdBy,
+      owner,
+      memberships,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      cancelAt: subscription.cancelAt,
+      recentAuditLogs,
+    };
+  }
+
+  private buildPlatformAdminWorkspaceHealthRow(
+    workspace: WorkspaceRecord,
+  ): PlatformAdminWorkspaceHealthRow {
+    const subscription = this.getSubscriptionForWorkspace(workspace.id);
+    const entitlement = this.entitlements.get(workspace.id);
+    const members = this.memberships.get(workspace.id) || [];
+    const activeInvites = Array.from(this.invites.values()).filter(
+      (invite) => invite.workspaceId === workspace.id && invite.consumedAt === null,
+    );
+    const activeShareGrants = Array.from(this.shareGrants.values()).filter(
+      (grant) => grant.workspaceId === workspace.id && grant.revokedAt === null,
+    );
+    const latestInvoice = Array.from(this.invoices.values())
+      .filter((invoice) => invoice.workspaceId === workspace.id)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+    const usage = this.getWorkspaceBillingUsage(workspace.id, subscription);
+    const storagePercent =
+      usage.storageLimitMb > 0
+        ? Math.min(
+            100,
+            Math.round(
+              (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
+            ),
+          )
+        : 0;
+    const proxyBandwidthPercent =
+      usage.proxyBandwidthLimitMb > 0
+        ? Math.min(
+            100,
+            Math.round((usage.proxyBandwidthUsedMb / usage.proxyBandwidthLimitMb) * 100),
+          )
+        : 0;
+    const riskLevel: "low" | "medium" | "high" =
+      subscription.status === "past_due" ||
+      entitlement?.state === "read_only" ||
+      storagePercent >= 90 ||
+      proxyBandwidthPercent >= 90
+        ? "high"
+        : subscription.cancelAtPeriodEnd ||
+            entitlement?.state === "grace_active" ||
+            storagePercent >= 75 ||
+            proxyBandwidthPercent >= 75
+          ? "medium"
+          : "low";
+
+    return {
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      mode: workspace.mode,
+      planLabel: subscription.planLabel,
+      subscriptionStatus: subscription.status,
+      entitlementState: entitlement?.state ?? "active",
+      profileLimit: subscription.profileLimit,
+      memberLimit: subscription.memberLimit,
+      members: members.length,
+      activeInvites: activeInvites.length,
+      activeShareGrants: activeShareGrants.length,
+      storageUsedBytes: usage.storageUsedBytes,
+      storageLimitMb: usage.storageLimitMb,
+      storagePercent,
+      proxyBandwidthUsedMb: usage.proxyBandwidthUsedMb,
+      proxyBandwidthLimitMb: usage.proxyBandwidthLimitMb,
+      proxyBandwidthPercent,
+      latestInvoiceAt: latestInvoice?.createdAt ?? null,
+      usageUpdatedAt: usage.updatedAt,
+      riskLevel,
+    };
+  }
+
+  private getWorkspaceOwnerSummary(workspaceId: string) {
+    const ownerMembership = (this.memberships.get(workspaceId) || [])
+      .filter((member) => member.role === "owner")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    if (!ownerMembership) {
+      return null;
+    }
+    const authUser = this.findAuthUserById(ownerMembership.userId);
+    return {
+      userId: ownerMembership.userId,
+      email: authUser?.email ?? ownerMembership.email,
+    };
+  }
+
+  private normalizePlatformAdminListQuery(query: PlatformAdminListQuery) {
+    return {
+      q: query.q?.trim().toLowerCase() ?? "",
+      page:
+        Number.isFinite(query.page) && Number(query.page) > 0
+          ? Math.trunc(Number(query.page))
+          : 1,
+      pageSize:
+        Number.isFinite(query.pageSize) && Number(query.pageSize) > 0
+          ? Math.min(200, Math.trunc(Number(query.pageSize)))
+          : 25,
+    };
+  }
+
+  private paginatePlatformAdminItems<T>(
+    items: T[],
+    page: number,
+    pageSize: number,
+  ): PlatformAdminListResult<T> {
+    const offset = (page - 1) * pageSize;
+    return {
+      items: items.slice(offset, offset + pageSize),
+      page,
+      pageSize,
+      total: items.length,
+    };
+  }
+
   createCoupon(
     actor: RequestActor,
     input: {
@@ -2361,6 +2733,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       workspaceAllowlist?: string[];
       workspaceDenylist?: string[];
       maxRedemptions: number;
+      maxPerUser?: number;
+      maxPerWorkspace?: number;
       expiresAt: string;
     },
   ): CouponRecord {
@@ -2377,6 +2751,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     if (!Number.isFinite(input.maxRedemptions) || input.maxRedemptions < 0) {
       throw new BadRequestException("invalid_max_redemptions");
+    }
+    if (!Number.isFinite(input.maxPerUser ?? 0) || Number(input.maxPerUser ?? 0) < 0) {
+      throw new BadRequestException("invalid_coupon_max_per_user");
+    }
+    if (
+      !Number.isFinite(input.maxPerWorkspace ?? 0) ||
+      Number(input.maxPerWorkspace ?? 0) < 0
+    ) {
+      throw new BadRequestException("invalid_coupon_max_per_workspace");
     }
     const expiresAtMs = new Date(input.expiresAt).getTime();
     if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
@@ -2398,6 +2781,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       workspaceDenylist: input.workspaceDenylist?.filter(Boolean) ?? [],
       maxRedemptions: input.maxRedemptions,
       redeemedCount: 0,
+      maxPerUser: Math.trunc(input.maxPerUser ?? 0),
+      maxPerWorkspace: Math.trunc(input.maxPerWorkspace ?? 0),
       expiresAt: input.expiresAt,
       revokedAt: null,
       createdAt: new Date().toISOString(),
@@ -2456,6 +2841,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         return false;
       }
       if (coupon.workspaceDenylist.includes(workspaceId)) return false;
+      if (
+        coupon.maxPerWorkspace > 0 &&
+        this.countCouponRedemptionsForWorkspace(workspaceId, coupon.code) >=
+          coupon.maxPerWorkspace
+      ) {
+        return false;
+      }
+      if (
+        coupon.maxPerUser > 0 &&
+        this.countCouponRedemptionsForUser(actor.userId, coupon.code) >= coupon.maxPerUser
+      ) {
+        return false;
+      }
       return true;
     });
 
@@ -2621,6 +3019,21 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private countOwners(workspaceId: string): number {
     const members = this.memberships.get(workspaceId) || [];
     return members.filter((member) => member.role === "owner").length;
+  }
+
+  private countCouponRedemptionsForWorkspace(
+    workspaceId: string,
+    couponCode: string,
+  ): number {
+    return Array.from(this.invoices.values()).filter(
+      (invoice) => invoice.workspaceId === workspaceId && invoice.couponCode === couponCode,
+    ).length;
+  }
+
+  private countCouponRedemptionsForUser(userId: string, couponCode: string): number {
+    return Array.from(this.invoices.values()).filter(
+      (invoice) => invoice.actorUserId === userId && invoice.couponCode === couponCode,
+    ).length;
   }
 
   private getPrimaryPersonalWorkspaceForActor(
@@ -2813,16 +3226,24 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const coupon of parsed.coupons || []) {
-      this.coupons.set(coupon.id, coupon);
+      this.coupons.set(coupon.id, {
+        ...coupon,
+        maxPerUser: coupon.maxPerUser ?? 0,
+        maxPerWorkspace: coupon.maxPerWorkspace ?? 0,
+      });
     }
 
     for (const redemption of parsed.licenseRedemptions || []) {
-      this.licenseRedemptions.set(redemption.code, redemption);
+      this.licenseRedemptions.set(redemption.code, {
+        ...redemption,
+        memberLimit: redemption.memberLimit ?? 1,
+      });
     }
 
     for (const subscription of parsed.subscriptions || []) {
       this.subscriptions.set(subscription.workspaceId, {
         ...subscription,
+        memberLimit: subscription.memberLimit ?? 1,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
         cancelAt: subscription.cancelAt ?? null,
       });
@@ -3050,6 +3471,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         workspace_denylist text[] not null default '{}',
         max_redemptions integer not null,
         redeemed_count integer not null default 0,
+        max_per_user integer not null default 0,
+        max_per_workspace integer not null default 0,
         expires_at timestamptz not null,
         revoked_at timestamptz null,
         created_by text not null references users(id),
@@ -3062,6 +3485,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         plan_id text not null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
         plan_label text not null,
         profile_limit integer not null,
+        member_limit integer not null,
         billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
         redeemed_at timestamptz not null,
         redeemed_by text not null references users(id)
@@ -3072,6 +3496,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         plan_id text null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
         plan_label text not null,
         profile_limit integer not null,
+        member_limit integer not null,
         billing_cycle text null check (billing_cycle in ('monthly', 'yearly')),
         status text not null check (status in ('active', 'past_due', 'canceled')),
         source text not null check (source in ('internal', 'license', 'stripe')),
@@ -3165,6 +3590,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
       alter table workspace_subscriptions
       add column if not exists cancel_at timestamptz null;
+
+      alter table workspace_subscriptions
+      add column if not exists member_limit integer not null default 1;
+
+      alter table coupons
+      add column if not exists max_per_user integer not null default 0;
+
+      alter table coupons
+      add column if not exists max_per_workspace integer not null default 0;
+
+      alter table license_redemptions
+      add column if not exists member_limit integer not null default 1;
 
       update users
       set email = lower(trim(email))
@@ -3274,13 +3711,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           "select id, workspace_id, resource_type, resource_id, recipient_email, access_mode, created_at, created_by, revoked_at from share_grants",
         ),
         this.postgresPool.query(
-          "select id, code, source, discount_percent, workspace_allowlist, workspace_denylist, max_redemptions, redeemed_count, expires_at, revoked_at, created_at, created_by from coupons",
+          "select id, code, source, discount_percent, workspace_allowlist, workspace_denylist, max_redemptions, redeemed_count, max_per_user, max_per_workspace, expires_at, revoked_at, created_at, created_by from coupons",
         ),
         this.postgresPool.query(
-          "select code, workspace_id, plan_id, plan_label, profile_limit, billing_cycle, redeemed_at, redeemed_by from license_redemptions",
+          "select code, workspace_id, plan_id, plan_label, profile_limit, member_limit, billing_cycle, redeemed_at, redeemed_by from license_redemptions",
         ),
         this.postgresPool.query(
-          "select workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at from workspace_subscriptions",
+          "select workspace_id, plan_id, plan_label, profile_limit, member_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at from workspace_subscriptions",
         ),
         this.postgresPool.query(
           "select id, workspace_id, plan_id, plan_label, billing_cycle, base_amount_usd, amount_usd, discount_percent, method, source, coupon_code, status, created_at, paid_at, actor_user_id, stripe_session_id from billing_invoices",
@@ -3505,6 +3942,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             : [],
           maxRedemptions: Number(row.max_redemptions),
           redeemedCount: Number(row.redeemed_count),
+          maxPerUser: Number((row as { max_per_user?: number }).max_per_user ?? 0),
+          maxPerWorkspace: Number(
+            (row as { max_per_workspace?: number }).max_per_workspace ?? 0,
+          ),
           expiresAt: new Date(row.expires_at as string).toISOString(),
           revokedAt: row.revoked_at
             ? new Date(row.revoked_at as string).toISOString()
@@ -3518,6 +3959,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           planId: row.plan_id as BillingPlanId,
           planLabel: row.plan_label as string,
           profileLimit: Number(row.profile_limit),
+          memberLimit: Number((row as { member_limit?: number }).member_limit ?? 1),
           billingCycle: row.billing_cycle as BillingCycle,
           redeemedAt: new Date(row.redeemed_at as string).toISOString(),
           redeemedBy: row.redeemed_by as string,
@@ -3527,6 +3969,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           planId: (row.plan_id as BillingPlanId | null) ?? null,
           planLabel: row.plan_label as string,
           profileLimit: Number(row.profile_limit),
+          memberLimit: Number((row as { member_limit?: number }).member_limit ?? 1),
           billingCycle: (row.billing_cycle as BillingCycle | null) ?? null,
           status: row.status as "active" | "past_due" | "canceled",
           source: row.source as "internal" | "license" | "stripe",
@@ -3962,8 +4405,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into coupons
-              (id, code, source, discount_percent, workspace_allowlist, workspace_denylist, max_redemptions, redeemed_count, expires_at, revoked_at, created_by, created_at)
-            values ($1, $2, $3, $4, $5::text[], $6::text[], $7, $8, $9, $10, $11, $12)
+              (id, code, source, discount_percent, workspace_allowlist, workspace_denylist, max_redemptions, redeemed_count, max_per_user, max_per_workspace, expires_at, revoked_at, created_by, created_at)
+            values ($1, $2, $3, $4, $5::text[], $6::text[], $7, $8, $9, $10, $11, $12, $13, $14)
           `,
           [
             coupon.id,
@@ -3974,6 +4417,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             coupon.workspaceDenylist,
             coupon.maxRedemptions,
             coupon.redeemedCount,
+            coupon.maxPerUser,
+            coupon.maxPerWorkspace,
             coupon.expiresAt,
             coupon.revokedAt,
             coupon.createdBy,
@@ -3986,8 +4431,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into license_redemptions
-              (code, workspace_id, plan_id, plan_label, profile_limit, billing_cycle, redeemed_at, redeemed_by)
-            values ($1, $2, $3, $4, $5, $6, $7, $8)
+              (code, workspace_id, plan_id, plan_label, profile_limit, member_limit, billing_cycle, redeemed_at, redeemed_by)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           `,
           [
             redemption.code,
@@ -3995,6 +4440,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             redemption.planId,
             redemption.planLabel,
             redemption.profileLimit,
+            redemption.memberLimit,
             redemption.billingCycle,
             redemption.redeemedAt,
             redemption.redeemedBy,
@@ -4006,14 +4452,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         await client.query(
           `
             insert into workspace_subscriptions
-              (workspace_id, plan_id, plan_label, profile_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+              (workspace_id, plan_id, plan_label, profile_limit, member_limit, billing_cycle, status, source, started_at, expires_at, cancel_at_period_end, cancel_at, updated_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           `,
           [
             subscription.workspaceId,
             subscription.planId,
             subscription.planLabel,
             subscription.profileLimit,
+            subscription.memberLimit,
             subscription.billingCycle,
             subscription.status,
             subscription.source,

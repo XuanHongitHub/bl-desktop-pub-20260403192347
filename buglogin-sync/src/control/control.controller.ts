@@ -103,6 +103,7 @@ export class ControlController {
       planId: "starter" | "growth" | "scale" | "custom";
       billingCycle: "monthly" | "yearly";
       profileLimit?: number;
+      memberLimit?: number;
       expiresAt?: string | null;
       planLabel?: string | null;
     },
@@ -643,6 +644,70 @@ export class ControlController {
     );
   }
 
+  @Get("admin/users")
+  listAdminUsers(
+    @Headers() headers: ActorHeaders,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.controlService.listAdminUsers(this.actorFromHeaders(headers), {
+      q,
+      page: Number(page ?? 1),
+      pageSize: Number(pageSize ?? 25),
+    });
+  }
+
+  @Get("admin/users/:userId")
+  getAdminUserDetail(
+    @Headers() headers: ActorHeaders,
+    @Param("userId") userId: string,
+  ) {
+    return this.controlService.getAdminUserDetail(
+      this.actorFromHeaders(headers),
+      userId,
+    );
+  }
+
+  @Get("admin/workspaces")
+  listAdminWorkspaces(
+    @Headers() headers: ActorHeaders,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.controlService.listAdminWorkspaces(this.actorFromHeaders(headers), {
+      q,
+      page: Number(page ?? 1),
+      pageSize: Number(pageSize ?? 25),
+    });
+  }
+
+  @Get("admin/workspaces/:workspaceId")
+  getAdminWorkspaceDetail(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+  ) {
+    return this.controlService.getAdminWorkspaceDetail(
+      this.actorFromHeaders(headers),
+      workspaceId,
+    );
+  }
+
+  @Patch("admin/workspaces/:workspaceId/owner")
+  transferWorkspaceOwnership(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Body() body: { userId: string; reason: string },
+  ) {
+    return this.controlService.transferWorkspaceOwnershipAsAdmin(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      body.userId,
+      body.reason,
+    );
+  }
+
   @Get("admin/workspace-health")
   getAdminWorkspaceHealth(@Headers() headers: ActorHeaders) {
     return this.controlService.getPlatformWorkspaceHealth(
@@ -670,6 +735,8 @@ export class ControlController {
       workspaceAllowlist?: string[];
       workspaceDenylist?: string[];
       maxRedemptions: number;
+      maxPerUser?: number;
+      maxPerWorkspace?: number;
       expiresAt: string;
     },
   ) {

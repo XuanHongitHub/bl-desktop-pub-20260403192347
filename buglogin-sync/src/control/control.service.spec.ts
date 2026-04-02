@@ -484,4 +484,214 @@ describe("ControlService", () => {
 
     expect(proxySpy).toHaveBeenCalled();
   });
+
+  it("lists admin users from canonical auth records instead of workspace fan-out", () => {
+    const admin = service.registerAuthUser("admin@buglogin.local", "Password123!");
+    (
+      service as unknown as { platformAdminEmails: Set<string> }
+    ).platformAdminEmails.add("admin@buglogin.local");
+
+    const first = service.registerAuthUser("owner-a@buglogin.local", "Password123!");
+    const second = service.registerAuthUser("owner-b@buglogin.local", "Password123!");
+    const detached = service.registerAuthUser(
+      "detached-user@buglogin.local",
+      "Password123!",
+    );
+
+    const firstWorkspace = service.createWorkspace(
+      { userId: first.user.id, email: first.user.email, platformRole: null },
+      "Alpha Workspace",
+      "team",
+    );
+    service.createWorkspace(
+      { userId: second.user.id, email: second.user.email, platformRole: null },
+      "Beta Workspace",
+      "team",
+    );
+
+    const adminActor = service.resolveRequestActor({
+      userId: admin.user.id,
+      email: admin.user.email,
+      hintedRole: "platform_admin",
+    });
+
+    const result = service.listAdminUsers(adminActor, {
+      q: "detached-user",
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]?.email).toBe("detached-user@buglogin.local");
+    expect(result.items[0]?.workspaceCount).toBe(0);
+
+    const broadResult = service.listAdminUsers(adminActor, {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(broadResult.items.some((item) => item.email === "owner-a@buglogin.local")).toBe(
+      true,
+    );
+    expect(
+      broadResult.items.some((item) => item.email === "detached-user@buglogin.local"),
+    ).toBe(true);
+
+    const firstDetail = service.getAdminUserDetail(adminActor, first.user.id);
+    expect(firstDetail.memberships).toHaveLength(1);
+    expect(firstDetail.memberships[0]?.workspaceId).toBe(firstWorkspace.id);
+    expect(firstDetail.email).toBe("owner-a@buglogin.local");
+  });
+
+  it("returns admin workspace detail and supports owner transfer", () => {
+    const admin = service.registerAuthUser("admin@buglogin.local", "Password123!");
+    (
+      service as unknown as { platformAdminEmails: Set<string> }
+    ).platformAdminEmails.add("admin@buglogin.local");
+
+    const owner = service.registerAuthUser("owner@buglogin.local", "Password123!");
+    const nextOwner = service.registerAuthUser(
+      "next-owner@buglogin.local",
+      "Password123!",
+    );
+    const workspace = service.createWorkspace(
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+      "Managed Workspace",
+      "team",
+    );
+
+    const invite = service.createInvite(
+      workspace.id,
+      nextOwner.user.email,
+      "member",
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+    );
+    service.acceptInvite(invite.token, {
+      userId: nextOwner.user.id,
+      email: nextOwner.user.email,
+      platformRole: null,
+    });
+
+    service.overrideWorkspaceSubscriptionAsAdmin(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      workspace.id,
+      {
+        planId: "custom",
+        billingCycle: "yearly",
+        profileLimit: 2500,
+        memberLimit: 40,
+        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        planLabel: "Enterprise Custom",
+      },
+    );
+
+    const detailBefore = service.getAdminWorkspaceDetail(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      workspace.id,
+    );
+    expect(detailBefore.owner?.email).toBe("owner@buglogin.local");
+    expect(detailBefore.memberLimit).toBe(40);
+    expect(detailBefore.planLabel).toBe("Enterprise Custom");
+
+    const detailAfter = service.transferWorkspaceOwnershipAsAdmin(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      workspace.id,
+      nextOwner.user.id,
+      "handover",
+    );
+
+    expect(detailAfter.owner?.email).toBe("next-owner@buglogin.local");
+
+    const memberships = service.listMemberships(workspace.id, {
+      userId: admin.user.id,
+      email: admin.user.email,
+      platformRole: "platform_admin",
+    });
+    expect(
+      memberships.find((item) => item.userId === nextOwner.user.id)?.role,
+    ).toBe("owner");
+    expect(memberships.find((item) => item.userId === owner.user.id)?.role).toBe(
+      "admin",
+    );
+  });
+
+  it("keeps memberLimit on workspace listings and coupon quota limits on coupon records", () => {
+    const admin = service.registerAuthUser("admin@buglogin.local", "Password123!");
+    (
+      service as unknown as { platformAdminEmails: Set<string> }
+    ).platformAdminEmails.add("admin@buglogin.local");
+    const owner = service.registerAuthUser("owner@buglogin.local", "Password123!");
+    const workspace = service.createWorkspace(
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+      "Quota Workspace",
+      "team",
+    );
+
+    service.overrideWorkspaceSubscriptionAsAdmin(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      workspace.id,
+      {
+        planId: "scale",
+        billingCycle: "monthly",
+        profileLimit: 1000,
+        memberLimit: 18,
+        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    );
+
+    const listed = service.listWorkspaces(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      "all",
+    );
+    expect(listed.find((item) => item.id === workspace.id)?.memberLimit).toBe(18);
+
+    const coupon = service.createCoupon(
+      {
+        userId: admin.user.id,
+        email: admin.user.email,
+        platformRole: "platform_admin",
+      },
+      {
+        code: "SCALE18",
+        source: "internal",
+        discountPercent: 20,
+        maxRedemptions: 100,
+        maxPerUser: 2,
+        maxPerWorkspace: 1,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    );
+
+    expect(coupon.maxPerUser).toBe(2);
+    expect(coupon.maxPerWorkspace).toBe(1);
+
+    const listedCoupons = service.listCoupons({
+      userId: admin.user.id,
+      email: admin.user.email,
+      platformRole: "platform_admin",
+    });
+    expect(listedCoupons.find((item) => item.id === coupon.id)?.maxPerUser).toBe(2);
+    expect(
+      listedCoupons.find((item) => item.id === coupon.id)?.maxPerWorkspace,
+    ).toBe(1);
+  });
 });

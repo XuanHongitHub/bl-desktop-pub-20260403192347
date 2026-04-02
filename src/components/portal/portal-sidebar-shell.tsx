@@ -78,7 +78,7 @@ function mapAdminPathToSection(pathname: string): AppSection {
     return "super-admin-commerce-audit";
   if (pathname.startsWith("/admin/workspaces")) return "super-admin-workspace";
   if (pathname.startsWith("/admin/users")) return "super-admin-users";
-  if (pathname.startsWith("/admin/revenue")) return "super-admin-subscriptions";
+  if (pathname.startsWith("/admin/revenue")) return "super-admin-billing";
   if (pathname.startsWith("/admin/audit")) return "super-admin-audit";
   if (pathname.startsWith("/admin/system")) return "super-admin-system";
   return "super-admin-overview";

@@ -4701,16 +4701,28 @@
           "profileLimit": "Profile limit",
           "expiresAt": "Expires at",
           "planLabel": "Plan label",
-          "planLabelPlaceholder": "Optional display label"
+          "planLabelPlaceholder": "Optional display label",
+          "memberLimit": "Member limit",
+          "owner": "Owner"
         },
         "errors": {
           "connectionMissing": "Control connection is missing.",
           "invalidProfileLimit": "Profile limit must be greater than 0.",
           "invalidExpiry": "Expiry time must be in the future.",
-          "updateFailed": "Unable to update workspace subscription."
+          "updateFailed": "Unable to update workspace subscription.",
+          "loadFailed": "Unable to load workspaces.",
+          "invalidMemberLimit": "Member limit must be greater than 0."
         },
         "toasts": {
           "subscriptionUpdated": "Workspace subscription updated."
+        },
+        "panel": {
+          "emptySelection": "Select a workspace to inspect details.",
+          "owner": "Current owner",
+          "entitlement": "Entitlement",
+          "memberships": "Current members",
+          "activity": "Recent activity",
+          "emptyActivity": "No recent audit activity."
         }
       },
       "revenue": {
@@ -4943,6 +4955,17 @@
         "createFailed": "Unable to create user account.",
         "createInvalidEmail": "Please enter a valid email.",
         "createInvalidPassword": "Password must be at least 8 characters."
+      },
+      "panel": {
+        "workspaceCount": "{{count}} workspaces",
+        "emptySelection": "Select a user to inspect details.",
+        "email": "Email",
+        "auth": "Auth",
+        "lastActive": "Last active",
+        "createdAt": "Created at",
+        "memberships": "Workspace memberships",
+        "activity": "Recent activity",
+        "emptyActivity": "No recent audit activity."
       }
     },
     "help": {

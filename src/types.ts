@@ -185,6 +185,7 @@ export interface ControlWorkspace {
   createdBy: string;
   planLabel?: string;
   profileLimit?: number;
+  memberLimit?: number;
   billingCycle?: "monthly" | "yearly" | null;
   subscriptionStatus?: "active" | "past_due" | "canceled";
   subscriptionSource?: "internal" | "license" | "stripe";
@@ -207,6 +208,43 @@ export interface ControlMembership {
   email: string;
   role: TeamRole;
   createdAt: string;
+}
+
+export interface ControlAdminListResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export type ControlAdminUserAccountState = "active" | "locked";
+
+export interface ControlAdminUserListItem {
+  userId: string;
+  email: string;
+  platformRole: PlatformRole | null;
+  authProvider: "password" | "google" | "password_google";
+  hasPasswordAuth: boolean;
+  hasGoogleAuth: boolean;
+  workspaceCount: number;
+  lastActiveAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  accountState: ControlAdminUserAccountState;
+}
+
+export interface ControlAdminUserWorkspaceMembership {
+  userId: string;
+  email: string;
+  workspaceId: string;
+  workspaceName: string;
+  role: TeamRole;
+  createdAt: string;
+}
+
+export interface ControlAdminUserDetail extends ControlAdminUserListItem {
+  memberships: ControlAdminUserWorkspaceMembership[];
+  recentAuditLogs: ControlAuditLog[];
 }
 
 export interface ControlInvite {
@@ -242,6 +280,8 @@ export interface ControlCoupon {
   workspaceDenylist: string[];
   maxRedemptions: number;
   redeemedCount: number;
+  maxPerUser: number;
+  maxPerWorkspace: number;
   expiresAt: string;
   revokedAt: string | null;
   createdAt: string;
@@ -576,6 +616,7 @@ export interface ControlAdminWorkspaceHealthRow {
   subscriptionStatus: "active" | "past_due" | "canceled";
   entitlementState: EntitlementState;
   profileLimit: number;
+  memberLimit: number;
   members: number;
   activeInvites: number;
   activeShareGrants: number;
@@ -590,11 +631,28 @@ export interface ControlAdminWorkspaceHealthRow {
   riskLevel: "low" | "medium" | "high";
 }
 
+export interface ControlAdminWorkspaceOwnerSummary {
+  userId: string;
+  email: string;
+}
+
+export interface ControlAdminWorkspaceDetail
+  extends ControlAdminWorkspaceHealthRow {
+  createdAt: string;
+  createdBy: string;
+  owner: ControlAdminWorkspaceOwnerSummary | null;
+  memberships: ControlAdminUserWorkspaceMembership[];
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
+  recentAuditLogs: ControlAuditLog[];
+}
+
 export interface ControlWorkspaceSubscription {
   workspaceId: string;
   planId: "starter" | "growth" | "scale" | "custom" | null;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: "monthly" | "yearly" | null;
   status: "active" | "past_due" | "canceled";
   source: "internal" | "license" | "stripe";

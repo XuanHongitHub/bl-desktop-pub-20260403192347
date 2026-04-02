@@ -231,11 +231,15 @@ function usePortalBillingDataState() {
         const nextBillingCycle = billingState.subscription.billingCycle;
         const nextStatus = billingState.subscription.status;
         const nextExpiresAt = billingState.subscription.expiresAt;
+        const nextProfileLimit = billingState.subscription.profileLimit;
+        const nextMemberLimit = billingState.subscription.memberLimit;
         if (
           workspace.planLabel === nextPlanLabel &&
           workspace.billingCycle === nextBillingCycle &&
           workspace.subscriptionStatus === nextStatus &&
-          workspace.expiresAt === nextExpiresAt
+          workspace.expiresAt === nextExpiresAt &&
+          workspace.profileLimit === nextProfileLimit &&
+          workspace.memberLimit === nextMemberLimit
         ) {
           return workspace;
         }
@@ -245,6 +249,8 @@ function usePortalBillingDataState() {
           billingCycle: nextBillingCycle,
           subscriptionStatus: nextStatus,
           expiresAt: nextExpiresAt,
+          profileLimit: nextProfileLimit,
+          memberLimit: nextMemberLimit,
         };
       }),
     );

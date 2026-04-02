@@ -1,4 +1,8 @@
 import type {
+  ControlAdminListResult,
+  ControlAdminUserDetail,
+  ControlAdminUserListItem,
+  ControlAdminWorkspaceDetail,
   ControlAdminWorkspaceHealthRow,
   ControlMembership,
   ControlAuditLog,
@@ -32,6 +36,7 @@ export interface WebBillingWorkspaceListItem {
   createdBy: string;
   planLabel: string;
   profileLimit: number;
+  memberLimit: number;
   billingCycle: BillingCycle | null;
   subscriptionStatus: "active" | "past_due" | "canceled";
   subscriptionSource: "internal" | "license" | "stripe";
@@ -58,6 +63,7 @@ export interface OverrideWorkspaceSubscriptionInput {
   planId: "starter" | "growth" | "scale" | "custom";
   billingCycle: BillingCycle;
   profileLimit?: number;
+  memberLimit?: number;
   expiresAt?: string | null;
   planLabel?: string | null;
 }
@@ -110,6 +116,12 @@ export interface CreateCommerceCouponInput {
   expiresAt: string;
 }
 
+export interface PlatformAdminListQuery {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 function mapControlCouponToCommerceCoupon(input: ControlCoupon): CommerceCoupon {
   const expiresAtTime = Date.parse(input.expiresAt);
   const isExpired = Number.isFinite(expiresAtTime) && expiresAtTime < Date.now();
@@ -120,8 +132,8 @@ function mapControlCouponToCommerceCoupon(input: ControlCoupon): CommerceCoupon 
     discountPercent: input.discountPercent,
     maxRedemptions: input.maxRedemptions,
     redeemedCount: input.redeemedCount,
-    maxPerUser: 0,
-    maxPerWorkspace: 0,
+    maxPerUser: input.maxPerUser,
+    maxPerWorkspace: input.maxPerWorkspace,
     expiresAt: input.expiresAt,
     createdAt: input.createdAt,
     updatedAt: input.revokedAt ?? input.createdAt,
@@ -200,6 +212,11 @@ async function requestControl<T>(
     | "workspaceRedeemLicense"
     | "workspaceEntitlementHistory"
     | "adminUsersCreate"
+    | "adminUsersList"
+    | "adminUserDetail"
+    | "adminWorkspacesList"
+    | "adminWorkspaceDetail"
+    | "adminWorkspaceOwnerTransfer"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"
@@ -222,6 +239,9 @@ async function requestControl<T>(
     couponId?: string;
     licenseId?: string;
     auditLimit?: number;
+    q?: string;
+    page?: number;
+    pageSize?: number;
   },
   init: RequestInit,
 ): Promise<T> {
@@ -416,6 +436,79 @@ export async function createAdminUser(
   );
 }
 
+export async function listAdminUsers(
+  connection: WebBillingConnection,
+  query: PlatformAdminListQuery = {},
+): Promise<ControlAdminListResult<ControlAdminUserListItem>> {
+  return requestControl<ControlAdminListResult<ControlAdminUserListItem>>(
+    connection,
+    "adminUsersList",
+    query,
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function getAdminUserDetail(
+  connection: WebBillingConnection,
+  userId: string,
+): Promise<ControlAdminUserDetail> {
+  return requestControl<ControlAdminUserDetail>(
+    connection,
+    "adminUserDetail",
+    { userId },
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function listAdminWorkspaces(
+  connection: WebBillingConnection,
+  query: PlatformAdminListQuery = {},
+): Promise<ControlAdminListResult<ControlAdminWorkspaceDetail>> {
+  return requestControl<ControlAdminListResult<ControlAdminWorkspaceDetail>>(
+    connection,
+    "adminWorkspacesList",
+    query,
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function getAdminWorkspaceDetail(
+  connection: WebBillingConnection,
+  workspaceId: string,
+): Promise<ControlAdminWorkspaceDetail> {
+  return requestControl<ControlAdminWorkspaceDetail>(
+    connection,
+    "adminWorkspaceDetail",
+    { workspaceId },
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function transferAdminWorkspaceOwner(
+  connection: WebBillingConnection,
+  workspaceId: string,
+  userId: string,
+  reason: string,
+): Promise<ControlAdminWorkspaceDetail> {
+  return requestControl<ControlAdminWorkspaceDetail>(
+    connection,
+    "adminWorkspaceOwnerTransfer",
+    { workspaceId },
+    {
+      method: "PATCH",
+      body: JSON.stringify({ userId, reason }),
+    },
+  );
+}
+
 export async function redeemWorkspaceCoupon(
   connection: WebBillingConnection,
   workspaceId: string,
@@ -580,6 +673,8 @@ export async function createCommerceCoupon(
         source: "internal",
         discountPercent: input.discountPercent,
         maxRedemptions: input.maxRedemptions,
+        maxPerUser: input.maxPerUser,
+        maxPerWorkspace: input.maxPerWorkspace,
         expiresAt: input.expiresAt,
         workspaceAllowlist: [],
         workspaceDenylist: [],

@@ -13,12 +13,41 @@ use crate::wayfern_manager::{WayfernConfig, WayfernManager};
 use image::{ImageFormat, Rgba, RgbaImage};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::collections::HashSet;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::System;
 use url::Url;
 
 static TEMP_PROXY_PID_COUNTER: AtomicU32 = AtomicU32::new(2_000_000_000);
+
+struct ProfileLaunchGuard {
+  profile_id: String,
+}
+
+impl Drop for ProfileLaunchGuard {
+  fn drop(&mut self) {
+    if let Ok(mut in_flight) = PROFILE_LAUNCH_IN_FLIGHT.lock() {
+      in_flight.remove(&self.profile_id);
+    }
+  }
+}
+
+fn acquire_profile_launch_guard(profile_id: &str) -> Result<ProfileLaunchGuard, String> {
+  let mut in_flight = PROFILE_LAUNCH_IN_FLIGHT
+    .lock()
+    .map_err(|_| "Failed to acquire launch mutex".to_string())?;
+  if in_flight.contains(profile_id) {
+    return Err(format!(
+      "Launch is already in progress for profile '{profile_id}'. Please wait."
+    ));
+  }
+  in_flight.insert(profile_id.to_string());
+  Ok(ProfileLaunchGuard {
+    profile_id: profile_id.to_string(),
+  })
+}
 
 fn next_temp_proxy_pid() -> u32 {
   let next = TEMP_PROXY_PID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -3062,6 +3091,8 @@ impl BrowserRunner {
     profile_id: String,
     url: String,
   ) -> Result<(), String> {
+    let _launch_guard = acquire_profile_launch_guard(profile_id.as_str())?;
+
     // Get the profile by name
     let profiles = self
       .profile_manager
@@ -4662,4 +4693,5 @@ pub async fn open_url_with_profile(
 // Global singleton instance
 lazy_static::lazy_static! {
   static ref BROWSER_RUNNER: BrowserRunner = BrowserRunner::new();
+  static ref PROFILE_LAUNCH_IN_FLIGHT: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
 }
