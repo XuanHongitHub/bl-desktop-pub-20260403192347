@@ -6735,7 +6735,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             if (autoWorkflowStopRequestedRef.current) {
               return;
             }
-            if (snapshot?.found && snapshot.is_running) {
+            if (snapshot?.found && snapshot.isRunning) {
               if (runningRow) {
                 void syncSellerProbeProgress(runningRow);
               }
@@ -6980,7 +6980,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                   outputDir,
                 })
               : null;
-            if (snapshot?.found && snapshot.is_running) {
+            if (snapshot?.found && snapshot.isRunning) {
               if (runningRow) {
                 void syncSellerProbeProgress(runningRow);
               }
