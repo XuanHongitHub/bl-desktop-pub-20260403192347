@@ -2144,7 +2144,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       }
       const incomingRows = incomingWorkflowRows.map((row) => ({
         ...row,
-        flowType: row.flowType ?? "signup_seller",
+        flowType: "signup_seller",
       }));
       if (incomingRows.length > 0) {
         return incomingRows;
@@ -6467,7 +6467,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                   {isSignupFlow ? (
                     <>
                       <DropdownMenuItem
-                        onSelect={handleCreateWorkflowBatch}
+                        onSelect={() => {
+                          void handleCreateWorkflowBatch();
+                        }}
                         disabled={!activeRotationProxy}
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
