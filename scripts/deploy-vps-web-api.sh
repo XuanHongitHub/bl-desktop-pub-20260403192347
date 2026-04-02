@@ -15,7 +15,7 @@ if [ ! -f buglogin-sync/.env ] && [ -f buglogin-sync/.env.example ]; then
 fi
 
 HUSKY=0 pnpm install --frozen-lockfile --child-concurrency=2 --network-concurrency=8
-./node_modules/.bin/next build
+NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}" ./node_modules/.bin/next build --webpack
 cd buglogin-sync
 pnpm build
 cd ..
