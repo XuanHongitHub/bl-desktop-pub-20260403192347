@@ -57,6 +57,12 @@ pub struct AppSettings {
   pub language: Option<String>, // ISO 639-1: "vi", "en", or None for system default
   #[serde(default)]
   pub window_resize_warning_dismissed: bool,
+  #[serde(default = "default_disable_rtc_for_all_browsers")]
+  pub disable_rtc_for_all_browsers: bool,
+  #[serde(default)]
+  pub automation_output_enabled: bool,
+  #[serde(default)]
+  pub automation_output_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -85,6 +91,10 @@ fn default_api_port() -> u16 {
   10108
 }
 
+fn default_disable_rtc_for_all_browsers() -> bool {
+  true
+}
+
 impl Default for AppSettings {
   fn default() -> Self {
     Self {
@@ -104,6 +114,9 @@ impl Default for AppSettings {
       launch_on_login_declined: false,
       language: None,
       window_resize_warning_dismissed: false,
+      disable_rtc_for_all_browsers: default_disable_rtc_for_all_browsers(),
+      automation_output_enabled: false,
+      automation_output_dir: None,
     }
   }
 }

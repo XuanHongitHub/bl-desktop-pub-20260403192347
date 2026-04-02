@@ -1066,10 +1066,7 @@ pub fn get_traffic_snapshot_for_profile(profile_id: &str) -> Option<TrafficSnaps
   Some(stats.to_snapshot())
 }
 
-fn merge_session_snapshot_into_profile_snapshot(
-  profile_id: &str,
-  snapshot: &mut TrafficSnapshot,
-) {
+fn merge_session_snapshot_into_profile_snapshot(profile_id: &str, snapshot: &mut TrafficSnapshot) {
   let Some(session) = load_session_snapshot(profile_id) else {
     return;
   };
@@ -1081,9 +1078,7 @@ fn merge_session_snapshot_into_profile_snapshot(
     .unwrap_or(0);
 
   if session.timestamp > last_flush {
-    snapshot.total_bytes_sent = snapshot
-      .total_bytes_sent
-      .saturating_add(session.bytes_sent);
+    snapshot.total_bytes_sent = snapshot.total_bytes_sent.saturating_add(session.bytes_sent);
     snapshot.total_bytes_received = snapshot
       .total_bytes_received
       .saturating_add(session.bytes_received);
@@ -1102,9 +1097,7 @@ pub fn get_traffic_snapshot_for_profile_realtime(profile_id: &str) -> Option<Tra
   Some(snapshot)
 }
 
-pub fn get_traffic_snapshots_for_profiles_realtime(
-  profile_ids: &[String],
-) -> Vec<TrafficSnapshot> {
+pub fn get_traffic_snapshots_for_profiles_realtime(profile_ids: &[String]) -> Vec<TrafficSnapshot> {
   let unique_profile_ids: std::collections::HashSet<&str> =
     profile_ids.iter().map(String::as_str).collect();
   let mut snapshots = Vec::with_capacity(unique_profile_ids.len());

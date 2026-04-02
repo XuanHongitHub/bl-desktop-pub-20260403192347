@@ -31,6 +31,7 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const loadProxyUsageInFlightRef = useRef<Promise<void> | null>(null);
   const loadProxiesInFlightRef = useRef<Promise<void> | null>(null);
+  const proxyReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load proxy usage (how many profiles are using each proxy)
   const loadProxyUsage = useCallback(async () => {
@@ -121,6 +122,18 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
     setError(null);
   }, []);
 
+  const scheduleProxyReload = useCallback(() => {
+    if (proxyReloadTimerRef.current) {
+      return;
+    }
+    proxyReloadTimerRef.current = setTimeout(() => {
+      proxyReloadTimerRef.current = null;
+      invalidateInvokeCache(STORED_PROXIES_CACHE_KEY);
+      invalidateInvokeCache(LIST_BROWSER_PROFILES_CACHE_KEY);
+      void loadProxies();
+    }, 120);
+  }, [loadProxies]);
+
   // Initial load and event listeners setup
   useEffect(() => {
     if (!enabled) {
@@ -147,9 +160,7 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
 
         // Listen for proxy changes (create, delete, update, start, stop, etc.)
         proxiesUnlisten = await listen("proxies-changed", () => {
-          console.log("Received proxies-changed event, reloading proxies");
-          invalidateInvokeCache(STORED_PROXIES_CACHE_KEY);
-          void loadProxies();
+          scheduleProxyReload();
         });
 
         // Listen for profile changes to update proxy usage counts.
@@ -168,14 +179,8 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
 
         // Listen for profile updates to update proxy usage counts
         storedProxiesUnlisten = await listen("stored-proxies-changed", () => {
-          console.log(
-            "Received stored-proxies-changed event, reloading proxies",
-          );
-          invalidateInvokeCache(STORED_PROXIES_CACHE_KEY);
-          void loadProxies();
+          scheduleProxyReload();
         });
-
-        console.log("Proxy event listeners set up successfully");
         window.addEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
       } catch (err) {
         console.error("Failed to setup proxy event listeners:", err);
@@ -194,9 +199,13 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
       if (proxiesUnlisten) proxiesUnlisten();
       if (profilesUnlisten) profilesUnlisten();
       if (storedProxiesUnlisten) storedProxiesUnlisten();
+      if (proxyReloadTimerRef.current) {
+        clearTimeout(proxyReloadTimerRef.current);
+        proxyReloadTimerRef.current = null;
+      }
       window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
-  }, [enabled, includeUsage, loadProxies, loadProxyUsage]);
+  }, [enabled, includeUsage, loadProxies, loadProxyUsage, scheduleProxyReload]);
 
   return {
     storedProxies,

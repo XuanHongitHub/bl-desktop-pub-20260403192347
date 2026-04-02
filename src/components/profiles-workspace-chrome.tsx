@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaDownload } from "react-icons/fa";
 import { FiWifi } from "react-icons/fi";
@@ -14,6 +15,13 @@ import {
   LuX,
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import {
+  GROUP_APPEARANCE_STORAGE_KEY,
+  GROUP_APPEARANCE_UPDATED_EVENT,
+  readGroupAppearanceMap,
+  sanitizeGroupColor,
+} from "@/lib/group-appearance-store";
+import type { GroupWithCount } from "@/types";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -23,6 +31,13 @@ import {
 } from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
 import { ProBadge } from "./ui/pro-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type ProfileSavedView = {
@@ -33,7 +48,7 @@ type ProfileSavedView = {
 type HeaderActionsProps = {
   onSettingsPageOpen: () => void;
   onProxyPageOpen: () => void;
-  onGroupManagementDialogOpen: (open: boolean) => void;
+  onGroupsPageOpen: () => void;
   onImportProfileDialogOpen: (open: boolean) => void;
   onCreateProfileDialogOpen: (open: boolean) => void;
   onSyncConfigDialogOpen: (open: boolean) => void;
@@ -46,6 +61,8 @@ type ToolbarProps = {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   selectedGroupId: string;
+  groups: GroupWithCount[];
+  onSelectedGroupChange: (groupId: string) => void;
   savedViews: ProfileSavedView[];
   onCreateSavedView: () => void;
   onApplySavedView: (id: string) => void;
@@ -100,8 +117,7 @@ function SavedViewsMenu({
         <DropdownMenuItem
           onClick={onCreateSavedView}
           disabled={
-            !searchQuery.trim() &&
-            (selectedGroupId === "all" || selectedGroupId === "default")
+            !searchQuery.trim() && selectedGroupId === "all"
           }
         >
           <GoPlus className="mr-2 h-4 w-4" />
@@ -142,7 +158,7 @@ function SavedViewsMenu({
 export function ProfilesWorkspaceHeaderActions({
   onSettingsPageOpen,
   onProxyPageOpen,
-  onGroupManagementDialogOpen,
+  onGroupsPageOpen,
   onImportProfileDialogOpen,
   onCreateProfileDialogOpen,
   onSyncConfigDialogOpen,
@@ -192,7 +208,7 @@ export function ProfilesWorkspaceHeaderActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              onGroupManagementDialogOpen(true);
+              onGroupsPageOpen();
             }}
           >
             <LuUsers className="mr-2 h-4 w-4" />
@@ -254,6 +270,8 @@ export function ProfilesWorkspaceToolbar({
   searchQuery,
   onSearchQueryChange,
   selectedGroupId,
+  groups,
+  onSelectedGroupChange,
   savedViews,
   onCreateSavedView,
   onApplySavedView,
@@ -266,22 +284,102 @@ export function ProfilesWorkspaceToolbar({
   onTogglePinnedOnly,
 }: ToolbarProps) {
   const { t } = useTranslation();
+  const [groupColorById, setGroupColorById] = useState<Record<string, string>>({});
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (localSearchQuery !== searchQuery) {
+        onSearchQueryChange(localSearchQuery);
+      }
+    }, 120);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [localSearchQuery, onSearchQueryChange, searchQuery]);
+
+  useEffect(() => {
+    const applyGroupColors = () => {
+      const appearance = readGroupAppearanceMap();
+      const next: Record<string, string> = {};
+      for (const [groupId, config] of Object.entries(appearance)) {
+        if (config?.color) {
+          next[groupId] = sanitizeGroupColor(config.color);
+        }
+      }
+      setGroupColorById(next);
+    };
+
+    const handleAppearanceUpdate = () => {
+      applyGroupColors();
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === GROUP_APPEARANCE_STORAGE_KEY) {
+        applyGroupColors();
+      }
+    };
+
+    applyGroupColors();
+    window.addEventListener(
+      GROUP_APPEARANCE_UPDATED_EVENT,
+      handleAppearanceUpdate as EventListener,
+    );
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(
+        GROUP_APPEARANCE_UPDATED_EVENT,
+        handleAppearanceUpdate as EventListener,
+      );
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <Select value={selectedGroupId} onValueChange={onSelectedGroupChange}>
+        <SelectTrigger size="sm" className="h-8 w-[13rem] text-xs">
+          <SelectValue placeholder={t("groups.all")} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{t("groups.all")}</SelectItem>
+          <SelectItem value="default">
+            {t("groupAssignmentDialog.labels.defaultNoGroup")}
+          </SelectItem>
+          {groups
+            .filter((group) => group.id !== "default" && group.id !== "all")
+            .map((group) => (
+              <SelectItem key={group.id} value={group.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-2 w-2 rounded-full border border-border/60"
+                    style={{
+                      backgroundColor: groupColorById[group.id] ?? "transparent",
+                    }}
+                  />
+                  <span>{group.name}</span>
+                </span>
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+
       <div className="relative w-full max-w-[22rem] min-w-[13rem]">
         <Input
           type="text"
           placeholder={t("header.searchPlaceholder")}
-          value={searchQuery}
-          onChange={(e) => onSearchQueryChange(e.target.value)}
+          value={localSearchQuery}
+          onChange={(e) => setLocalSearchQuery(e.target.value)}
           className="h-8 w-full pl-9 pr-8 text-xs"
         />
         <LuSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        {searchQuery && (
+        {localSearchQuery && (
           <button
             type="button"
-            onClick={() => onSearchQueryChange("")}
+            onClick={() => setLocalSearchQuery("")}
             className="absolute right-2 top-1/2 rounded-sm p-1 transition-colors -translate-y-1/2 hover:bg-accent"
             aria-label={t("header.clearSearch")}
           >
@@ -291,7 +389,7 @@ export function ProfilesWorkspaceToolbar({
       </div>
 
       <SavedViewsMenu
-        searchQuery={searchQuery}
+        searchQuery={localSearchQuery}
         selectedGroupId={selectedGroupId}
         savedViews={savedViews}
         onCreateSavedView={onCreateSavedView}

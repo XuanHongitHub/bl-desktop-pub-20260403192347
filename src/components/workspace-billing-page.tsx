@@ -6,9 +6,9 @@ import { useTranslation } from "react-i18next";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { extractRootError } from "@/lib/error-utils";
 import { formatLocaleDateTime } from "@/lib/locale-format";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { openWebBillingPortal } from "@/lib/web-billing-desktop";
 import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
-import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type {
   CloudUser,
   EntitlementSnapshot,
@@ -66,17 +66,18 @@ export function WorkspaceBillingPage({
 }: WorkspaceBillingPageProps) {
   const { t } = useTranslation();
   const { refreshProfile } = useCloudAuth();
-  const [openingRoute, setOpeningRoute] = useState<WebBillingPortalRoute | null>(
-    null,
-  );
+  const [openingRoute, setOpeningRoute] =
+    useState<WebBillingPortalRoute | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const canManageBilling =
     user.platformRole === "platform_admin" ||
     teamRole === "owner" ||
     teamRole === "admin";
-  const workspaceDisplayName = workspaceName?.trim() || t("shell.workspaceSwitcher.current");
-  const planLabel = workspacePlanLabel?.trim() || user.plan || t("billingPage.freePlanLabel");
+  const workspaceDisplayName =
+    workspaceName?.trim() || t("shell.workspaceSwitcher.current");
+  const planLabel =
+    workspacePlanLabel?.trim() || user.plan || t("billingPage.freePlanLabel");
   const normalizedLimit =
     typeof workspaceProfileLimit === "number" && workspaceProfileLimit > 0
       ? Math.round(workspaceProfileLimit)
@@ -86,7 +87,10 @@ export function WorkspaceBillingPage({
     if (!normalizedLimit || normalizedLimit <= 0) {
       return 0;
     }
-    return Math.max(0, Math.min(100, Math.round((usedProfiles / normalizedLimit) * 100)));
+    return Math.max(
+      0,
+      Math.min(100, Math.round((usedProfiles / normalizedLimit) * 100)),
+    );
   }, [normalizedLimit, usedProfiles]);
   const actionRoutes: WebBillingPortalRoute[] =
     user.platformRole === "platform_admin"
@@ -162,14 +166,16 @@ export function WorkspaceBillingPage({
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="h-7 px-2 text-[11px]">
-              {t("webBilling.desktopWorkspace", { workspace: workspaceDisplayName })}
+            <Badge variant="info" className="h-7 px-2 text-[11px]">
+              {t("webBilling.desktopWorkspace", {
+                workspace: workspaceDisplayName,
+              })}
             </Badge>
-            <Badge variant="outline" className="h-7 px-2 text-[11px]">
+            <Badge variant="success" className="h-7 px-2 text-[11px]">
               {t("webBilling.desktopPlan", { plan: planLabel })}
             </Badge>
             {workspaceExpiresAt ? (
-              <Badge variant="outline" className="h-7 px-2 text-[11px]">
+              <Badge variant="warning" className="h-7 px-2 text-[11px]">
                 {t("webBilling.desktopExpiresAt", {
                   date: formatLocaleDateTime(workspaceExpiresAt),
                 })}

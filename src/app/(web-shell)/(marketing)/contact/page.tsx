@@ -15,6 +15,7 @@ export default function ContactPage() {
     <MarketingInfoPage
       baseKey="portalSite.contactPage"
       cards={CONTACT_CARDS}
+      presentation="split"
       primaryCta={{ href: "/signup", key: "portalSite.nav.signUp" }}
       secondaryCta={{ href: "/help", key: "portalSite.nav.help" }}
     />

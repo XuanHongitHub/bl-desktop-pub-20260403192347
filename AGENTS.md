@@ -14,11 +14,32 @@
 - **Dark Mode**: No `dark:bg-black` needed. Stick to the variables and it works automatically via the `.dark` class on root.
 - **Layout Model**: The application is an `overflow-hidden` fixed window. For scrollable content, always use the `<ScrollArea>` component from Shadcn, do not let the whole page scroll.
 - **Modals over Routing**: BugLogin heavily utilizes dialogs (Modals) for actions (e.g., settings, profile creation). Do not create new pages/routes for forms unless required.
+- **Desktop Width Contract (Required)**:
+  - For page surfaces rendered inside `WorkspacePageShell`, do not use `max-w-none` by default.
+  - Use centered bounded content width unless a true data-dense screen requires full width. Preferred default: `mx-auto w-full max-w-[1120px]`.
+  - Search bars, filter bars, and toolbars must be content-width aware (avoid stretching every control to full row width without UX reason).
+- **No Duplicate Page Titles (Required)**:
+  - If `WorkspacePageShell` already provides `title`/`description`, do not render a second page title/description inside the child page component.
+  - Dialog mode may have `DialogTitle`; page mode must not duplicate the same heading block.
+- **Surface Density Rules (Required)**:
+  - Avoid nested `rounded-md border` wrappers without information hierarchy value.
+  - Prefer one primary surface per section, with separators/spacing before adding additional boxes/cards.
+  - Do not wrap every subsection in a card by default; justify each bordered container by behavior (selection, grouped controls, warning state, or independent scroll region).
+- **Typography Contract (Required)**:
+  - Keep body/table text consistent (`text-sm` baseline) and use heavier weights only for real emphasis.
+  - Avoid mixing `text-xs`/`text-sm`/`text-base` in the same semantic level.
+  - Use existing utility tokens in `globals.css` (`type-ui-sm`, `type-section`, etc.) where appropriate instead of ad-hoc one-off sizes.
+- **Desktop UI Anti-patterns (Must Fix if touched)**:
+  - Full-width search/input bars that become visually overlong on wide screens.
+  - Full-width tables when the data does not require it.
+  - Repeated title blocks and repeated action bars in one page.
+  - Visual noise from redundant icons/dots/outlined chips for already-clear hierarchy.
 
 ## 3. UI Components Architecture
 - **Reuse Shadcn Primitives**: Always look inside `src/components/ui/` first before building a tag from scratch. Use the existing `<Button>`, `<Input>`, `<Select>`, `<Dialog>`, etc.
 - **Micro-Animations**: Use `tw-animate-css` or `motion` (Framer) for state animations to maintain a premium feel.
 - **Icons**: Standardize on using `lucide-react` or `react-icons`. Make them small and neutral (e.g. `w-4 h-4 text-muted-foreground`).
+- **Shadcn Scope Clarification**: Shadcn provides component primitives, not complete page-layout decisions. You must still enforce BugLogin page-level layout contracts (width, heading structure, surface density, typography consistency).
 
 ## 4. State Management & Tauri Integration
 - **Abstract Logic**: Complex state and Tauri event listeners must use custom hooks (e.g., `useProfileEvents`).
@@ -57,3 +78,13 @@
   - `docs/workflow/references/upstream-bugloginbrowser/commit-review-template.md`
 - Decision states per upstream commit: `adopt | adapt | defer | skip`.
 - If BugLogin has diverged heavily in touched modules, prefer `adapt` over direct port/cherry-pick.
+
+## 9. Fork Browser Contract (Bugium / Bugox)
+- Purpose of fork is **custom browser runtime**, not only aliasing names in BugLogin UI.
+- Release is considered done only when published artifacts are built from fork sources that include BugLogin-specific customizations (branding/icon behavior/runtime identity rules), not plain mirrored upstream binaries.
+- Mirroring upstream releases is allowed only as temporary fallback for service continuity; it must be explicitly labeled as fallback.
+- Default managed browser slugs are canonical: `bugium`, `bugox`. Legacy keys (`wayfern`, `camoufox`) are compatibility inputs only.
+- Any browser update workflow must preserve this order of priority:
+  1. fork-custom artifact,
+  2. verified previous stable fork artifact,
+  3. temporary upstream mirror fallback (explicitly marked).

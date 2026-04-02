@@ -32,6 +32,14 @@ fn now_ms() -> u64 {
     .as_millis() as u64
 }
 
+fn is_expected_sync_engine_config_error(error: &str) -> bool {
+  let normalized = error.to_ascii_lowercase();
+  normalized.contains("not logged in")
+    || normalized.contains("cloud sync token not available")
+    || normalized.contains("sync server url not configured")
+    || normalized.contains("sync token not configured")
+}
+
 fn profile_outbox_path() -> PathBuf {
   crate::app_dirs::profiles_dir().join(".sync_profile_outbox.json")
 }
@@ -612,47 +620,53 @@ impl SyncScheduler {
     let shared_engine = match SyncEngine::create_from_settings(&app_handle_owned).await {
       Ok(engine) => Some(Arc::new(engine)),
       Err(e) => {
-        log::error!("Failed to create sync engine for profile batch: {e}");
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured for profile batch: {e}");
+        } else {
+          log::error!("Failed to create sync engine for profile batch: {e}");
+        }
         None
       }
     };
 
-    let sync_tasks = profiles_to_sync.iter().map(|(profile_id, idempotency_key)| {
-      let profile_id = profile_id.clone();
-      let idempotency_key = idempotency_key.clone();
-      let app_handle = app_handle_owned.clone();
-      let profiles_snapshot = Arc::clone(&profiles_snapshot);
-      let shared_engine = shared_engine.clone();
-      async move {
-        let profile_to_sync = profiles_snapshot.get(&profile_id).cloned();
+    let sync_tasks = profiles_to_sync
+      .iter()
+      .map(|(profile_id, idempotency_key)| {
+        let profile_id = profile_id.clone();
+        let idempotency_key = idempotency_key.clone();
+        let app_handle = app_handle_owned.clone();
+        let profiles_snapshot = Arc::clone(&profiles_snapshot);
+        let shared_engine = shared_engine.clone();
+        async move {
+          let profile_to_sync = profiles_snapshot.get(&profile_id).cloned();
 
-        let result = if let Some(mut profile) = profile_to_sync {
-          profile.runtime_state = crate::profile::types::RuntimeState::Syncing;
-          let _ = ProfileManager::instance().save_profile(&profile);
-          let _ = events::emit("profile-updated", &profile);
+          let result = if let Some(mut profile) = profile_to_sync {
+            profile.runtime_state = crate::profile::types::RuntimeState::Syncing;
+            let _ = ProfileManager::instance().save_profile(&profile);
+            let _ = events::emit("profile-updated", &profile);
 
-          let sync_result = if let Some(engine) = shared_engine.as_ref() {
-            engine.sync_profile(&app_handle, &profile).await
+            let sync_result = if let Some(engine) = shared_engine.as_ref() {
+              engine.sync_profile(&app_handle, &profile).await
+            } else {
+              Err(super::types::SyncError::NotConfigured)
+            };
+
+            profile.runtime_state = if sync_result.is_ok() {
+              crate::profile::types::RuntimeState::Stopped
+            } else {
+              crate::profile::types::RuntimeState::Error
+            };
+            let _ = ProfileManager::instance().save_profile(&profile);
+            let _ = events::emit("profile-updated", &profile);
+
+            sync_result
           } else {
-            Err(super::types::SyncError::NotConfigured)
+            Ok(())
           };
 
-          profile.runtime_state = if sync_result.is_ok() {
-            crate::profile::types::RuntimeState::Stopped
-          } else {
-            crate::profile::types::RuntimeState::Error
-          };
-          let _ = ProfileManager::instance().save_profile(&profile);
-          let _ = events::emit("profile-updated", &profile);
-
-          sync_result
-        } else {
-          Ok(())
-        };
-
-        (profile_id, idempotency_key, result)
-      }
-    });
+          (profile_id, idempotency_key, result)
+        }
+      });
 
     let results = futures_util::future::join_all(sync_tasks).await;
     let mut outbox_changed = false;
@@ -799,7 +813,11 @@ impl SyncScheduler {
         }
       }
       Err(e) => {
-        log::error!("Failed to create sync engine: {}", e);
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured: {}", e);
+        } else {
+          log::error!("Failed to create sync engine: {}", e);
+        }
       }
     }
   }
@@ -865,7 +883,11 @@ impl SyncScheduler {
         }
       }
       Err(e) => {
-        log::error!("Failed to create sync engine: {}", e);
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured: {}", e);
+        } else {
+          log::error!("Failed to create sync engine: {}", e);
+        }
       }
     }
   }
@@ -927,7 +949,11 @@ impl SyncScheduler {
         }
       }
       Err(e) => {
-        log::error!("Failed to create sync engine: {}", e);
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured: {}", e);
+        } else {
+          log::error!("Failed to create sync engine: {}", e);
+        }
       }
     }
   }
@@ -965,7 +991,11 @@ impl SyncScheduler {
         }
       }
       Err(e) => {
-        log::error!("Failed to create sync engine: {}", e);
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured: {}", e);
+        } else {
+          log::error!("Failed to create sync engine: {}", e);
+        }
       }
     }
   }
@@ -1003,7 +1033,11 @@ impl SyncScheduler {
         }
       }
       Err(e) => {
-        log::error!("Failed to create sync engine: {}", e);
+        if is_expected_sync_engine_config_error(&e) {
+          log::debug!("Sync engine not configured: {}", e);
+        } else {
+          log::error!("Failed to create sync engine: {}", e);
+        }
       }
     }
   }

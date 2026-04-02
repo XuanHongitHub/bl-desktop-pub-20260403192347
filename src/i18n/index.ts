@@ -52,11 +52,8 @@ const resources = {
 };
 
 function resolveInitialLanguage(): string {
-  if (typeof window === "undefined") {
-    return "vi";
-  }
-  const documentLanguage = window.document?.documentElement?.lang ?? "vi";
-  return getLanguageWithFallback(documentLanguage);
+  // Keep SSR and first client render deterministic to avoid hydration mismatch.
+  return "vi";
 }
 
 i18n.use(initReactI18next).init({

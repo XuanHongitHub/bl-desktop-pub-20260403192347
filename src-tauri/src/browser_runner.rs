@@ -1,4 +1,5 @@
 use crate::browser::{create_browser, BrowserType, ProxySettings};
+use crate::browser_version_manager::BrowserVersionManager;
 use crate::camoufox_manager::{CamoufoxConfig, CamoufoxManager};
 use crate::cloud_auth::CLOUD_AUTH;
 use crate::downloaded_browsers_registry::DownloadedBrowsersRegistry;
@@ -8,8 +9,10 @@ use crate::profile::types::RuntimeState;
 use crate::profile::{BrowserProfile, ProfileManager};
 use crate::proxy_manager::PROXY_MANAGER;
 use crate::wayfern_manager::{WayfernConfig, WayfernManager};
+#[cfg(target_os = "windows")]
+use image::{ImageFormat, Rgba, RgbaImage};
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::System;
@@ -50,6 +53,34 @@ impl BrowserRunner {
 
   pub fn get_binaries_dir(&self) -> PathBuf {
     crate::app_dirs::binaries_dir()
+  }
+
+  fn is_global_rtc_disabled_for_all_browsers(&self) -> bool {
+    match crate::settings_manager::SettingsManager::instance().load_settings() {
+      Ok(settings) => settings.disable_rtc_for_all_browsers,
+      Err(error) => {
+        log::warn!(
+          "Failed to load app settings for RTC policy; defaulting to disabled: {}",
+          error
+        );
+        true
+      }
+    }
+  }
+
+  fn append_chromium_global_rtc_policy_args(&self, browser_args: &mut Vec<String>) {
+    let rtc_policy_args = [
+      "--disable-webrtc",
+      "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+      "--enforce-webrtc-ip-permission-check",
+      "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+    ];
+
+    for arg in rtc_policy_args {
+      if !browser_args.iter().any(|existing| existing == arg) {
+        browser_args.push(arg.to_string());
+      }
+    }
   }
 
   /// Refresh cloud proxy credentials if the profile uses a cloud or cloud-derived proxy,
@@ -164,10 +195,11 @@ impl BrowserRunner {
     profile: &BrowserProfile,
     navigation_url: Option<&str>,
   ) {
-    // Disabled: avoid runtime title/icon mutation loop during profile launch.
-    // Window identity customization can be done once at startup/bootstrap.
-    let _ = profile;
-    let _ = navigation_url;
+    crate::browser_window::schedule_profile_identity_for_pid_with_url(
+      profile.process_id,
+      &profile.name,
+      navigation_url,
+    );
   }
 
   /// Get the executable path for a browser profile
@@ -183,13 +215,172 @@ impl BrowserRunner {
 
     // Construct browser directory path: binaries/<browser>/<version>/
     let mut browser_dir = self.get_binaries_dir();
-    browser_dir.push(&profile.browser);
+    browser_dir.push(crate::browser::canonical_managed_browser_slug(&profile.browser));
     browser_dir.push(&profile.version);
 
     // Get platform-specific executable path
     browser
       .get_executable_path(&browser_dir)
       .map_err(|e| format!("Failed to get executable path for {}: {e}", profile.browser).into())
+  }
+
+  async fn resolve_launch_executable_for_profile(
+    &self,
+    profile: &BrowserProfile,
+  ) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
+    let base_executable_path = self.get_browser_executable_path(profile)?;
+
+    #[cfg(target_os = "windows")]
+    {
+      match self
+        .ensure_windows_profile_launcher_executable(profile, &base_executable_path)
+        .await
+      {
+        Ok(path) => return Ok(path),
+        Err(error) => {
+          log::warn!(
+            "Failed to prepare profile launcher executable for {} ({}): {}. Falling back to original executable.",
+            profile.name,
+            profile.id,
+            error
+          );
+        }
+      }
+    }
+
+    Ok(base_executable_path)
+  }
+
+  #[cfg(target_os = "windows")]
+  async fn ensure_windows_profile_launcher_executable(
+    &self,
+    profile: &BrowserProfile,
+    base_executable_path: &Path,
+  ) -> Result<PathBuf, String> {
+    let executable_dir = base_executable_path
+      .parent()
+      .ok_or_else(|| {
+        format!(
+          "Base executable has no parent directory: {}",
+          base_executable_path.display()
+        )
+      })?
+      .to_path_buf();
+
+    let support_dir = executable_dir.join(".buglogin-profile-launchers");
+    std::fs::create_dir_all(&support_dir)
+      .map_err(|e| format!("Failed to create launcher directory: {e}"))?;
+
+    let sanitized_profile_id: String = profile
+      .id
+      .to_string()
+      .chars()
+      .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+      .collect();
+    let base_stem = base_executable_path
+      .file_stem()
+      .and_then(|s| s.to_str())
+      .filter(|value| !value.trim().is_empty())
+      .unwrap_or("browser")
+      .to_ascii_lowercase();
+    let launcher_file_name = format!("buglogin-profile-{sanitized_profile_id}.exe");
+    let launcher_path = executable_dir.join(&launcher_file_name);
+    let marker_path = support_dir.join(format!("{launcher_file_name}.identity.txt"));
+    let icon_path = support_dir.join(format!("{launcher_file_name}.ico"));
+    let profile_tag = build_profile_runtime_tag(&profile.name);
+
+    // Cleanup old launcher naming pattern (e.g. `camoufox-buglogin-...`) to avoid
+    // path growth/chaining and accidental executable auto-detection.
+    if let Ok(entries) = std::fs::read_dir(&executable_dir) {
+      for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "exe") {
+          continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+          continue;
+        };
+        let lower_name = name.to_ascii_lowercase();
+        let legacy_prefix = format!("{base_stem}-buglogin-");
+        if lower_name.starts_with(&legacy_prefix) {
+          let _ = std::fs::remove_file(&path);
+          let _ = std::fs::remove_file(support_dir.join(format!("{name}.identity.txt")));
+          let _ = std::fs::remove_file(support_dir.join(format!("{name}.ico")));
+        }
+      }
+    }
+
+    let source_metadata = std::fs::metadata(base_executable_path).map_err(|e| {
+      format!(
+        "Failed to stat base executable {}: {}",
+        base_executable_path.display(),
+        e
+      )
+    })?;
+    let source_size = source_metadata.len();
+    let source_mtime = source_metadata
+      .modified()
+      .ok()
+      .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+      .map(|duration| duration.as_secs())
+      .unwrap_or(0);
+    let marker_content = format!(
+      "profile_tag={profile_tag}\nsource={}\nsource_size={source_size}\nsource_mtime={source_mtime}\nicon_layout=v3\nmarker=v3\n",
+      base_executable_path.display()
+    );
+
+    let marker_matches = std::fs::read_to_string(&marker_path)
+      .ok()
+      .map(|content| content == marker_content)
+      .unwrap_or(false);
+
+    if launcher_path.exists() && marker_matches {
+      return Ok(launcher_path);
+    }
+
+    if launcher_path.exists() {
+      let _ = std::fs::remove_file(&launcher_path);
+    }
+    std::fs::copy(base_executable_path, &launcher_path).map_err(|e| {
+      format!(
+        "Failed to create profile launcher executable {} from {}: {}",
+        launcher_path.display(),
+        base_executable_path.display(),
+        e
+      )
+    })?;
+
+    if let Err(error) = write_profile_launcher_icon_ico(&icon_path, &profile_tag) {
+      log::warn!(
+        "Failed to generate profile launcher icon {}: {}. Continuing with unpatched launcher icon.",
+        icon_path.display(),
+        error
+      );
+    } else if let Err(error) = crate::downloader::Downloader::instance()
+      .patch_executable_icon_windows_with_icon(&launcher_path, &icon_path)
+      .await
+    {
+      log::warn!(
+        "Failed to patch launcher icon for {}: {}. Continuing with launcher executable.",
+        launcher_path.display(),
+        error
+      );
+    }
+
+    std::fs::write(&marker_path, marker_content).map_err(|e| {
+      format!(
+        "Failed to write launcher marker {}: {e}",
+        marker_path.display()
+      )
+    })?;
+
+    log::info!(
+      "Prepared Windows profile launcher executable for {} at {}",
+      profile.name,
+      launcher_path.display()
+    );
+
+    Ok(launcher_path)
   }
 
   pub async fn launch_browser(
@@ -214,9 +405,10 @@ impl BrowserRunner {
     headless: bool,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error + Send + Sync>> {
     let navigation_url = url.as_deref().map(|value| value.to_string());
+    let disable_rtc_for_all_browsers = self.is_global_rtc_disabled_for_all_browsers();
 
     // Handle Camoufox profiles using CamoufoxManager
-    if profile.browser == "camoufox" {
+    if matches!(profile.browser.as_str(), "camoufox" | "bugox") {
       // Get or create camoufox config
       let mut camoufox_config = profile.camoufox_config.clone().unwrap_or_else(|| {
         log::info!(
@@ -266,7 +458,7 @@ impl BrowserRunner {
       }
 
       log::info!(
-        "Starting local proxy for Camoufox profile: {} (upstream: {})",
+        "Starting local proxy for Bugox profile: {} (upstream: {})",
         profile.name,
         upstream_proxy
           .as_ref()
@@ -298,6 +490,7 @@ impl BrowserRunner {
 
       // Set proxy in camoufox config
       camoufox_config.proxy = Some(proxy_url);
+      camoufox_config.block_webrtc = Some(disable_rtc_for_all_browsers);
 
       // Ensure geoip is always enabled for proper geolocation spoofing
       if camoufox_config.geoip.is_none() {
@@ -305,12 +498,18 @@ impl BrowserRunner {
       }
 
       log::info!(
-        "Configured local proxy for Camoufox: {:?}, geoip: {:?}",
+        "Configured local proxy for Bugox: {:?}, geoip: {:?}",
         camoufox_config.proxy,
         camoufox_config.geoip
       );
 
       let mut updated_profile = profile.clone();
+      if let Ok(executable_path) = self
+        .resolve_launch_executable_for_profile(&updated_profile)
+        .await
+      {
+        camoufox_config.executable_path = Some(executable_path.to_string_lossy().to_string());
+      }
       self
         .ensure_camoufox_fingerprint(
           &app_handle,
@@ -359,8 +558,26 @@ impl BrowserRunner {
         }
       }
 
+      match crate::browser_identity_extension::ensure_runtime_identity_for_browser(
+        &updated_profile.browser,
+        &effective_profile_path,
+        &updated_profile.name,
+      ) {
+        Ok(
+          crate::browser_identity_extension::RuntimeIdentityInstallResult::ChromiumExtensionPath(_),
+        ) => {}
+        Ok(crate::browser_identity_extension::RuntimeIdentityInstallResult::FirefoxInstalled) => {}
+        Err(error) => {
+          log::warn!(
+            "Failed to prepare runtime identity extension for Camoufox profile {}: {}",
+            updated_profile.name,
+            error
+          );
+        }
+      }
+
       // Launch Camoufox browser
-      log::info!("Launching Camoufox for profile: {}", profile.name);
+      log::info!("Launching Bugox for profile: {}", profile.name);
       let camoufox_result = self
         .camoufox_manager
         .launch_camoufox_profile(
@@ -372,21 +589,18 @@ impl BrowserRunner {
         )
         .await
         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-          format!("Failed to launch Camoufox: {e}").into()
+          format!("Failed to launch Bugox: {e}").into()
         })?;
 
       // For server-based Camoufox, we use the process_id
       let process_id = camoufox_result.processId.unwrap_or(0);
-      log::info!("Camoufox launched successfully with PID: {process_id}");
+      log::info!("Bugox launched successfully with PID: {process_id}");
 
       // Update profile with the process info from camoufox result
       updated_profile.process_id = Some(process_id);
       updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
       updated_profile.runtime_state = RuntimeState::Running;
-      self.schedule_profile_window_identity_with_url(
-        &updated_profile,
-        navigation_url.as_deref(),
-      );
+      self.schedule_profile_window_identity_with_url(&updated_profile, navigation_url.as_deref());
 
       // Update the proxy manager with the correct PID
       if let Err(e) = PROXY_MANAGER.update_proxy_pid(temp_pid, process_id) {
@@ -416,11 +630,9 @@ impl BrowserRunner {
         updated_profile.name
       );
 
-      // Emit profiles-changed to trigger frontend to reload profiles from disk
-      // This ensures the UI displays the newly generated fingerprint
-      if let Err(e) = events::emit_empty("profiles-changed") {
-        log::warn!("Warning: Failed to emit profiles-changed event: {e}");
-      }
+      // `profile-updated` already carries the latest persisted fields (including
+      // fingerprint updates), so avoid forcing a full profiles list reload on
+      // every launch. Full list reloads are costly and can cause visible UI jank.
 
       log::info!(
         "Emitting profile events for successful Camoufox launch: {}",
@@ -458,7 +670,7 @@ impl BrowserRunner {
     }
 
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if matches!(profile.browser.as_str(), "wayfern" | "bugium") {
       // Get or create wayfern config
       let mut wayfern_config = profile.wayfern_config.clone().unwrap_or_else(|| {
         log::info!(
@@ -498,7 +710,7 @@ impl BrowserRunner {
       }
 
       log::info!(
-        "Starting local proxy for Wayfern profile: {} (upstream: {})",
+        "Starting local proxy for Bugium profile: {} (upstream: {})",
         profile.name,
         upstream_proxy
           .as_ref()
@@ -530,13 +742,20 @@ impl BrowserRunner {
 
       // Set proxy in wayfern config
       wayfern_config.proxy = Some(proxy_url);
+      wayfern_config.block_webrtc = Some(disable_rtc_for_all_browsers);
 
       log::info!(
-        "Configured local proxy for Wayfern: {:?}",
+        "Configured local proxy for Bugium: {:?}",
         wayfern_config.proxy
       );
 
       let mut updated_profile = profile.clone();
+      if let Ok(executable_path) = self
+        .resolve_launch_executable_for_profile(&updated_profile)
+        .await
+      {
+        wayfern_config.executable_path = Some(executable_path.to_string_lossy().to_string());
+      }
       self
         .ensure_wayfern_fingerprint(
           &app_handle,
@@ -553,7 +772,7 @@ impl BrowserRunner {
       }
 
       // Launch Wayfern browser
-      log::info!("Launching Wayfern for profile: {}", profile.name);
+      log::info!("Launching Bugium for profile: {}", profile.name);
 
       // Get profile path for Wayfern
       let profiles_dir = self.profile_manager.get_profiles_dir();
@@ -582,6 +801,34 @@ impl BrowserRunner {
         }
       }
 
+      match crate::browser_identity_extension::ensure_runtime_identity_for_browser(
+        &updated_profile.browser,
+        &profile_data_path,
+        &updated_profile.name,
+      ) {
+        Ok(
+          crate::browser_identity_extension::RuntimeIdentityInstallResult::ChromiumExtensionPath(
+            path,
+          ),
+        ) => {
+          let runtime_identity_path = path.to_string_lossy().to_string();
+          if !extension_paths
+            .iter()
+            .any(|item| item == &runtime_identity_path)
+          {
+            extension_paths.push(runtime_identity_path);
+          }
+        }
+        Ok(crate::browser_identity_extension::RuntimeIdentityInstallResult::FirefoxInstalled) => {}
+        Err(error) => {
+          log::warn!(
+            "Failed to prepare runtime identity extension for Wayfern profile {}: {}",
+            updated_profile.name,
+            error
+          );
+        }
+      }
+
       // Get proxy URL from config
       let proxy_url = wayfern_config.proxy.as_deref();
 
@@ -599,12 +846,12 @@ impl BrowserRunner {
         )
         .await
         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-          format!("Failed to launch Wayfern: {e}").into()
+          format!("Failed to launch Bugium: {e}").into()
         })?;
 
       // Get the process ID from launch result
       let process_id = wayfern_result.processId.unwrap_or(0);
-      log::info!("Wayfern launched successfully with PID: {process_id}");
+      log::info!("Bugium launched successfully with PID: {process_id}");
 
       // Update profile with the process info
       updated_profile.process_id = Some(process_id);
@@ -640,10 +887,9 @@ impl BrowserRunner {
         updated_profile.name
       );
 
-      // Emit profiles-changed to trigger frontend to reload profiles from disk
-      if let Err(e) = events::emit_empty("profiles-changed") {
-        log::warn!("Warning: Failed to emit profiles-changed event: {e}");
-      }
+      // `profile-updated` already carries the latest persisted fields (including
+      // fingerprint updates), so avoid forcing a full profiles list reload on
+      // every launch. Full list reloads are costly and can cause visible UI jank.
 
       log::info!(
         "Emitting profile events for successful Wayfern launch: {}",
@@ -687,7 +933,8 @@ impl BrowserRunner {
 
     // Get executable path using common helper
     let executable_path = self
-      .get_browser_executable_path(profile)
+      .resolve_launch_executable_for_profile(profile)
+      .await
       .expect("Failed to get executable path");
 
     log::info!("Executable path: {executable_path:?}");
@@ -709,7 +956,7 @@ impl BrowserRunner {
     // Get profile data path and launch arguments
     let profiles_dir = self.profile_manager.get_profiles_dir();
     let profile_data_path = profile.get_profile_data_path(&profiles_dir);
-    let browser_args = browser
+    let mut browser_args = browser
       .create_launch_args(
         &profile_data_path.to_string_lossy(),
         proxy_for_launch_args,
@@ -718,6 +965,58 @@ impl BrowserRunner {
         headless,
       )
       .expect("Failed to create launch arguments");
+
+    if disable_rtc_for_all_browsers
+      && matches!(browser_type, BrowserType::Chromium | BrowserType::Brave)
+    {
+      self.append_chromium_global_rtc_policy_args(&mut browser_args);
+    }
+
+    match crate::browser_identity_extension::ensure_runtime_identity_for_browser(
+      &profile.browser,
+      &profile_data_path,
+      &profile.name,
+    ) {
+      Ok(
+        crate::browser_identity_extension::RuntimeIdentityInstallResult::ChromiumExtensionPath(
+          path,
+        ),
+      ) => {
+        let ext_path = path.to_string_lossy().to_string();
+        let ext_arg = format!("--load-extension={ext_path}");
+        let ext_allow_arg = format!("--disable-extensions-except={ext_path}");
+        browser_args.push(ext_arg);
+        browser_args.push(ext_allow_arg);
+      }
+      Ok(crate::browser_identity_extension::RuntimeIdentityInstallResult::FirefoxInstalled) => {}
+      Err(error) => {
+        log::warn!(
+          "Failed to prepare runtime identity extension for profile {}: {}",
+          profile.name,
+          error
+        );
+      }
+    }
+
+    if matches!(
+      browser_type,
+      BrowserType::Chromium | BrowserType::Brave | BrowserType::Wayfern
+    ) {
+      let app_id = build_chromium_profile_app_id(&profile.id.to_string());
+      browser_args.push(format!("--app-id={app_id}"));
+      #[cfg(target_os = "windows")]
+      browser_args.push(format!("--app-user-model-id={app_id}"));
+    }
+
+    if let Some(identity_arg) = browser_args.iter().find(|arg| {
+      arg.starts_with("--load-extension=") && arg.contains(".buglogin-runtime-identity-ext")
+    }) {
+      log::info!(
+        "Runtime identity extension enabled for profile {} with arg: {}",
+        profile.name,
+        identity_arg
+      );
+    }
 
     // Launch browser using platform-specific method
     let child = {
@@ -868,10 +1167,7 @@ impl BrowserRunner {
     updated_profile.process_id = Some(actual_pid);
     updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
     updated_profile.runtime_state = RuntimeState::Running;
-    self.schedule_profile_window_identity_with_url(
-      &updated_profile,
-      navigation_url.as_deref(),
-    );
+    self.schedule_profile_window_identity_with_url(&updated_profile, navigation_url.as_deref());
 
     self.save_process_info(&updated_profile)?;
 
@@ -929,7 +1225,7 @@ impl BrowserRunner {
     _internal_proxy_settings: Option<&ProxySettings>,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Handle Camoufox profiles using CamoufoxManager
-    if profile.browser == "camoufox" {
+    if matches!(profile.browser.as_str(), "camoufox" | "bugox") {
       // Get the profile path based on the UUID
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
@@ -949,10 +1245,12 @@ impl BrowserRunner {
             profile.id
           );
 
-          // Get Camoufox executable path and use Firefox-like remote mechanism
+          // Use the same resolved launcher executable path as main launch flow.
+          // This avoids briefly invoking the base browser binary/icon.
           let executable_path = self
-            .get_browser_executable_path(profile)
-            .map_err(|e| format!("Failed to get Camoufox executable path: {e}"))?;
+            .resolve_launch_executable_for_profile(profile)
+            .await
+            .map_err(|e| format!("Failed to resolve Camoufox executable path: {e}"))?;
 
           // Use non-blocking remote-tab open to avoid freezing the app while Firefox-like
           // browsers handle lock-race/request-pending states.
@@ -984,7 +1282,7 @@ impl BrowserRunner {
     }
 
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if matches!(profile.browser.as_str(), "wayfern" | "bugium") {
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
         crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
@@ -1357,6 +1655,24 @@ impl BrowserRunner {
       return Ok(resumed);
     }
 
+    if should_reuse_existing_running_profile(is_running, normalized_url.as_deref()) {
+      log::info!(
+        "Profile {} (ID: {}) already running and no URL provided; reusing current instance",
+        final_profile.name,
+        final_profile.id
+      );
+      self.schedule_profile_window_identity_with_url(&final_profile, None);
+      if let Err(e) = crate::browser_window::restore_for_pid(final_profile.process_id) {
+        log::debug!(
+          "Failed to restore running browser window for profile {} (ID: {}): {}",
+          final_profile.name,
+          final_profile.id,
+          e
+        );
+      }
+      return Ok(final_profile);
+    }
+
     if is_running && normalized_url.is_some() {
       // Browser is running and we have a URL to open
       if let Some(url_ref) = normalized_url.as_ref() {
@@ -1377,10 +1693,8 @@ impl BrowserRunner {
           {
             Ok(()) => {
               log::info!("Successfully opened URL in existing browser");
-              self.schedule_profile_window_identity_with_url(
-                &final_profile,
-                Some(url_ref.as_str()),
-              );
+              self
+                .schedule_profile_window_identity_with_url(&final_profile, Some(url_ref.as_str()));
               return Ok(final_profile);
             }
             Err(error) => {
@@ -1403,10 +1717,9 @@ impl BrowserRunner {
                   false
                 });
 
-              let should_retry =
-                running_probe_after_failure
-                  && attempt < max_attempts
-                  && should_retry_open_existing_browser_error(&last_error_message);
+              let should_retry = running_probe_after_failure
+                && attempt < max_attempts
+                && should_retry_open_existing_browser_error(&last_error_message);
 
               if should_retry {
                 let backoff_ms = 250 + (attempt as u64 * 250);
@@ -1568,7 +1881,7 @@ impl BrowserRunner {
     profile: &BrowserProfile,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Handle Camoufox profiles using CamoufoxManager
-    if profile.browser == "camoufox" {
+    if matches!(profile.browser.as_str(), "camoufox" | "bugox") {
       // Search by profile path to find the running Camoufox instance
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
@@ -2028,7 +2341,7 @@ impl BrowserRunner {
     }
 
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if matches!(profile.browser.as_str(), "wayfern" | "bugium") {
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
         crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
@@ -2856,7 +3169,14 @@ fn looks_like_direct_host(value: &str) -> bool {
 }
 
 fn is_firefox_like_browser(browser: &str) -> bool {
-  matches!(browser, "firefox" | "firefox-developer" | "zen" | "camoufox")
+  matches!(
+    browser,
+    "firefox" | "firefox-developer" | "zen" | "camoufox" | "bugox"
+  )
+}
+
+fn should_reuse_existing_running_profile(is_running: bool, normalized_url: Option<&str>) -> bool {
+  is_running && normalized_url.is_none()
 }
 
 fn should_retry_open_existing_browser_error(error_message: &str) -> bool {
@@ -2867,6 +3187,335 @@ fn should_retry_open_existing_browser_error(error_message: &str) -> bool {
     || lower.contains("requestpending")
     || lower.contains("failed to open url in existing browser")
     || lower.contains("failed to open url with profile")
+}
+
+fn build_chromium_profile_app_id(profile_id: &str) -> String {
+  let sanitized: String = profile_id
+    .chars()
+    .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+    .collect();
+  format!("buglogin.profile.{sanitized}")
+}
+
+#[cfg(target_os = "windows")]
+fn build_profile_runtime_tag(profile_name: &str) -> String {
+  let compact: String = profile_name
+    .chars()
+    .filter(|c| c.is_alphanumeric())
+    .take(7)
+    .collect();
+
+  if compact.is_empty() {
+    "profile".to_string()
+  } else {
+    compact.to_lowercase()
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn write_profile_launcher_icon_ico(icon_path: &Path, profile_tag: &str) -> Result<(), String> {
+  let mut image = RgbaImage::from_pixel(128, 128, Rgba([10, 16, 30, 255]));
+
+  // High-contrast inner plate + subtle border for better taskbar readability.
+  for y in 6..122 {
+    for x in 6..122 {
+      let px = if (8..120).contains(&x) && (8..120).contains(&y) {
+        Rgba([16, 28, 52, 255])
+      } else {
+        Rgba([55, 74, 112, 255])
+      };
+      image.put_pixel(x, y, px);
+    }
+  }
+
+  let short_tag: String = profile_tag.chars().take(7).collect();
+  let lines: Vec<String> = split_profile_tag_into_icon_lines(&short_tag);
+
+  let scale = 5u32;
+  let glyph_width = 5 * scale;
+  let glyph_height = 7 * scale;
+  let glyph_spacing = 3u32;
+  let line_spacing = 6u32;
+  let total_height = glyph_height * lines.len() as u32
+    + line_spacing.saturating_mul(lines.len().saturating_sub(1) as u32);
+  let start_y = ((128 - total_height) / 2) as i32;
+  let foreground = Rgba([246, 250, 255, 255]);
+
+  for (line_idx, line) in lines.iter().enumerate() {
+    let line_len = line.chars().count() as u32;
+    if line_len == 0 {
+      continue;
+    }
+    let line_width = line_len * glyph_width + line_len.saturating_sub(1) * glyph_spacing;
+    let start_x = ((128 - line_width) / 2) as i32;
+    let y = start_y + (line_idx as i32 * (glyph_height + line_spacing) as i32);
+
+    for (char_idx, ch) in line.chars().enumerate() {
+      let x = start_x + (char_idx as i32 * (glyph_width + glyph_spacing) as i32);
+      draw_icon_glyph(&mut image, ch, x, y, scale, foreground);
+    }
+  }
+
+  image::DynamicImage::ImageRgba8(image)
+    .save_with_format(icon_path, ImageFormat::Ico)
+    .map_err(|e| format!("Failed to save icon as ICO: {e}"))?;
+
+  Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn split_profile_tag_into_icon_lines(short_tag: &str) -> Vec<String> {
+  let chars: Vec<char> = short_tag.chars().collect();
+  match chars.len() {
+    0 => vec!["profile".chars().take(7).collect()],
+    1..=3 => vec![chars.into_iter().collect()],
+    4..=5 => vec![
+      chars[..3].iter().collect::<String>(),
+      chars[3..].iter().collect::<String>(),
+    ],
+    _ => vec![
+      chars[..3].iter().collect::<String>(),
+      chars[3..5].iter().collect::<String>(),
+      chars[5..].iter().collect::<String>(),
+    ],
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn draw_icon_glyph(canvas: &mut RgbaImage, ch: char, x: i32, y: i32, scale: u32, color: Rgba<u8>) {
+  let rows = icon_glyph_rows(ch);
+  for (row_idx, bits) in rows.iter().enumerate() {
+    for col_idx in 0..5 {
+      if (bits >> (4 - col_idx)) & 1 == 1 {
+        fill_icon_rect(
+          canvas,
+          x + (col_idx as i32 * scale as i32),
+          y + (row_idx as i32 * scale as i32),
+          scale,
+          scale,
+          color,
+        );
+      }
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn fill_icon_rect(
+  canvas: &mut RgbaImage,
+  x: i32,
+  y: i32,
+  width: u32,
+  height: u32,
+  color: Rgba<u8>,
+) {
+  let max_x = canvas.width() as i32;
+  let max_y = canvas.height() as i32;
+
+  for yy in 0..height as i32 {
+    for xx in 0..width as i32 {
+      let px = x + xx;
+      let py = y + yy;
+      if px >= 0 && py >= 0 && px < max_x && py < max_y {
+        canvas.put_pixel(px as u32, py as u32, color);
+      }
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn icon_glyph_rows(ch: char) -> [u8; 7] {
+  match ch {
+    'a' => [
+      0b00000, 0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b01111,
+    ],
+    'b' => [
+      0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b10001, 0b11110,
+    ],
+    'c' => [
+      0b00000, 0b00000, 0b01111, 0b10000, 0b10000, 0b10000, 0b01111,
+    ],
+    'd' => [
+      0b00001, 0b00001, 0b01111, 0b10001, 0b10001, 0b10001, 0b01111,
+    ],
+    'e' => [
+      0b00000, 0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b01111,
+    ],
+    'f' => [
+      0b00110, 0b01000, 0b11100, 0b01000, 0b01000, 0b01000, 0b01000,
+    ],
+    'g' => [
+      0b00000, 0b00000, 0b01111, 0b10001, 0b01111, 0b00001, 0b01110,
+    ],
+    'h' => [
+      0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b10001, 0b10001,
+    ],
+    'i' => [
+      0b00100, 0b00000, 0b01100, 0b00100, 0b00100, 0b00100, 0b01110,
+    ],
+    'j' => [
+      0b00010, 0b00000, 0b00110, 0b00010, 0b00010, 0b10010, 0b01100,
+    ],
+    'k' => [
+      0b10000, 0b10000, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010,
+    ],
+    'l' => [
+      0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+    ],
+    'm' => [
+      0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10101, 0b10101,
+    ],
+    'n' => [
+      0b00000, 0b00000, 0b11110, 0b10001, 0b10001, 0b10001, 0b10001,
+    ],
+    'o' => [
+      0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110,
+    ],
+    'p' => [
+      0b00000, 0b00000, 0b11110, 0b10001, 0b11110, 0b10000, 0b10000,
+    ],
+    'q' => [
+      0b00000, 0b00000, 0b01111, 0b10001, 0b01111, 0b00001, 0b00001,
+    ],
+    'r' => [
+      0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000,
+    ],
+    's' => [
+      0b00000, 0b00000, 0b01111, 0b10000, 0b01110, 0b00001, 0b11110,
+    ],
+    't' => [
+      0b01000, 0b01000, 0b11100, 0b01000, 0b01000, 0b01001, 0b00110,
+    ],
+    'u' => [
+      0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101,
+    ],
+    'v' => [
+      0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100,
+    ],
+    'w' => [
+      0b00000, 0b00000, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010,
+    ],
+    'x' => [
+      0b00000, 0b00000, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001,
+    ],
+    'y' => [
+      0b00000, 0b00000, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110,
+    ],
+    'z' => [
+      0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111,
+    ],
+    'A' => [
+      0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
+    ],
+    'B' => [
+      0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110,
+    ],
+    'C' => [
+      0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111,
+    ],
+    'D' => [
+      0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110,
+    ],
+    'E' => [
+      0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111,
+    ],
+    'F' => [
+      0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000,
+    ],
+    'G' => [
+      0b01111, 0b10000, 0b10000, 0b10111, 0b10001, 0b10001, 0b01110,
+    ],
+    'H' => [
+      0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
+    ],
+    'I' => [
+      0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111,
+    ],
+    'J' => [
+      0b11111, 0b00010, 0b00010, 0b00010, 0b00010, 0b10010, 0b01100,
+    ],
+    'K' => [
+      0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001,
+    ],
+    'L' => [
+      0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111,
+    ],
+    'M' => [
+      0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001,
+    ],
+    'N' => [
+      0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001,
+    ],
+    'O' => [
+      0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
+    ],
+    'P' => [
+      0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000,
+    ],
+    'Q' => [
+      0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101,
+    ],
+    'R' => [
+      0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001,
+    ],
+    'S' => [
+      0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110,
+    ],
+    'T' => [
+      0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100,
+    ],
+    'U' => [
+      0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
+    ],
+    'V' => [
+      0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100,
+    ],
+    'W' => [
+      0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010,
+    ],
+    'X' => [
+      0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001,
+    ],
+    'Y' => [
+      0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100,
+    ],
+    'Z' => [
+      0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111,
+    ],
+    '0' => [
+      0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+    ],
+    '1' => [
+      0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+    ],
+    '2' => [
+      0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+    ],
+    '3' => [
+      0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110,
+    ],
+    '4' => [
+      0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+    ],
+    '5' => [
+      0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110,
+    ],
+    '6' => [
+      0b01110, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+    ],
+    '7' => [
+      0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+    ],
+    '8' => [
+      0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+    ],
+    '9' => [
+      0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110,
+    ],
+    _ => [
+      0b11111, 0b10001, 0b00100, 0b00100, 0b00100, 0b10001, 0b11111,
+    ],
+  }
 }
 
 fn should_fallback_to_new_instance_after_open_url_failure(
@@ -2898,8 +3547,18 @@ fn should_fallback_to_new_instance_after_open_url_failure(
 mod tests {
   use super::{
     should_fallback_to_new_instance_after_open_url_failure,
-    should_retry_open_existing_browser_error,
+    should_retry_open_existing_browser_error, should_reuse_existing_running_profile,
   };
+
+  #[test]
+  fn reuses_running_profile_when_no_url_is_provided() {
+    assert!(should_reuse_existing_running_profile(true, None));
+    assert!(!should_reuse_existing_running_profile(false, None));
+    assert!(!should_reuse_existing_running_profile(
+      true,
+      Some("https://example.com")
+    ));
+  }
 
   #[test]
   fn does_not_fallback_when_profile_is_still_running() {
@@ -2963,6 +3622,455 @@ async fn preflight_check_profile_proxy(profile: &BrowserProfile) -> Result<(), S
     .map_err(|e| format!("Proxy check failed for profile '{}': {e}", profile.name))
 }
 
+async fn ensure_managed_browser_downloaded_for_profile(
+  app_handle: &tauri::AppHandle,
+  browser_runner: &BrowserRunner,
+  profile: &BrowserProfile,
+) -> Result<BrowserProfile, String> {
+  let managed_slug = match profile.browser.as_str() {
+    "bugium" | "wayfern" => Some("wayfern"),
+    "bugox" | "camoufox" => Some("camoufox"),
+    _ => None,
+  };
+
+  let Some(managed_slug) = managed_slug else {
+    return Ok(profile.clone());
+  };
+
+  let browser_type = crate::browser::BrowserType::from_str(managed_slug)
+    .map_err(|e| format!("Invalid managed browser type '{managed_slug}': {e}"))?;
+  let browser = crate::browser::create_browser(browser_type);
+  let binaries_dir = crate::app_dirs::binaries_dir();
+
+  if browser.is_version_downloaded(&profile.version, &binaries_dir) {
+    return Ok(profile.clone());
+  }
+
+  let release_types = crate::browser_version_manager::BrowserVersionManager::instance()
+    .get_browser_release_types(managed_slug)
+    .await
+    .map_err(|e| format!("Failed to resolve latest version for {managed_slug}: {e}"))?;
+  let target_version = release_types.stable.unwrap_or_else(|| profile.version.clone());
+
+  log::info!(
+    "Managed browser binary missing for profile '{}' ({} {}). Auto-downloading {} {}",
+    profile.name,
+    managed_slug,
+    profile.version,
+    managed_slug,
+    target_version
+  );
+
+  let downloaded_version = crate::downloader::download_browser(
+    app_handle.clone(),
+    managed_slug.to_string(),
+    target_version.clone(),
+  )
+  .await
+  .map_err(|e| format!("Failed to auto-download {managed_slug} {target_version}: {e}"))?;
+
+  let persisted_version = if browser.is_version_downloaded(&target_version, &binaries_dir) {
+    target_version.clone()
+  } else if browser.is_version_downloaded(&downloaded_version, &binaries_dir) {
+    downloaded_version.clone()
+  } else {
+    return Err(format!(
+      "Downloaded {managed_slug} but binary is missing for both requested '{target_version}' and downloaded '{downloaded_version}'"
+    ));
+  };
+
+  if persisted_version != profile.version {
+    browser_runner
+      .profile_manager
+      .update_profile_version(app_handle, &profile.id.to_string(), &persisted_version)
+      .map_err(|e| format!("Failed to update profile version after download: {e}"))?;
+    let refreshed = browser_runner
+      .profile_manager
+      .list_profiles()
+      .map_err(|e| format!("Failed to refresh profiles after download: {e}"))?
+      .into_iter()
+      .find(|candidate| candidate.id == profile.id)
+      .unwrap_or_else(|| profile.clone());
+    return Ok(refreshed);
+  }
+
+  Ok(profile.clone())
+}
+
+async fn preflight_check_required_managed_browser_update(
+  profile: &BrowserProfile,
+) -> Result<(), String> {
+  if !matches!(profile.browser.as_str(), "camoufox" | "bugox" | "wayfern" | "bugium") {
+    return Ok(());
+  }
+
+  let update_requirement = BrowserVersionManager::instance()
+    .get_managed_browser_update_requirement(&profile.browser, &profile.version, false)
+    .await
+    .map_err(|e| {
+      format!(
+        "Failed to verify browser update policy for '{}': {e}",
+        profile.name
+      )
+    })?;
+
+  if !update_requirement.is_required {
+    return Ok(());
+  }
+
+  let minimum_note = update_requirement
+    .minimum_supported_version
+    .as_ref()
+    .map(|minimum| format!("minimum supported is {minimum}"))
+    .unwrap_or_else(|| "minimum supported version is not specified".to_string());
+
+  let extra = update_requirement
+    .message
+    .as_ref()
+    .map(|msg| format!(" {msg}"))
+    .unwrap_or_default();
+
+  Err(format!(
+    "Profile '{}' is blocked by required browser update policy for {}. Current: {}, required target: {}, {}. Please update browser binaries before launch.{}",
+    profile.name,
+    profile.browser,
+    profile.version,
+    update_requirement.latest_version,
+    minimum_note,
+    extra
+  ))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserRuntimeProcessSnapshot {
+  pub pid: u32,
+  pub executable_path: Option<String>,
+  pub command_line: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserRuntimeDiagnostic {
+  pub profile_id: String,
+  pub profile_name: String,
+  pub browser: String,
+  pub version: String,
+  pub runtime_state: String,
+  pub is_running: bool,
+  pub stored_process_id: Option<u32>,
+  pub detected_process_id: Option<u32>,
+  pub profile_data_path: String,
+  pub effective_profile_path: String,
+  pub configured_executable_path: Option<String>,
+  pub configured_executable_exists: bool,
+  pub resolved_executable_path: Option<String>,
+  pub resolved_executable_exists: bool,
+  pub profile_launcher_path: Option<String>,
+  pub managed_slug: Option<String>,
+  pub managed_metadata_url: Option<String>,
+  pub process_executable_path: Option<String>,
+  pub process_command_line: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CamoufoxUaVersionAlignment {
+  pub profile_id: String,
+  pub profile_name: String,
+  pub browser: String,
+  pub executable_version: Option<u32>,
+  pub fingerprint_user_agent: Option<String>,
+  pub fingerprint_firefox_version: Option<u32>,
+  pub is_mismatch: bool,
+  pub message: Option<String>,
+}
+
+fn parse_firefox_major_from_ua(user_agent: &str) -> Option<u32> {
+  let marker = "Firefox/";
+  let start = user_agent.find(marker)? + marker.len();
+  let major = user_agent[start..]
+    .chars()
+    .take_while(|ch| ch.is_ascii_digit())
+    .collect::<String>();
+  major.parse::<u32>().ok()
+}
+
+fn managed_browser_slug(browser: &str) -> Option<&'static str> {
+  match browser {
+    "camoufox" | "bugox" => Some("camoufox"),
+    "wayfern" | "bugium" => Some("wayfern"),
+    _ => None,
+  }
+}
+
+fn managed_browser_metadata_url(browser: &str) -> Option<String> {
+  let slug = managed_browser_slug(browser)?;
+  let base = std::env::var("BUGLOGIN_BROWSER_API_BASE")
+    .ok()
+    .map(|value| value.trim().trim_end_matches('/').to_string())
+    .filter(|value| !value.is_empty())
+    .unwrap_or_else(|| "https://api.bugdev.site".to_string());
+  Some(format!("{base}/v1/browser/{slug}.json"))
+}
+
+fn configured_profile_executable_path(profile: &BrowserProfile) -> Option<String> {
+  match profile.browser.as_str() {
+    "camoufox" | "bugox" => profile
+      .camoufox_config
+      .as_ref()
+      .and_then(|config| config.executable_path.clone()),
+    "wayfern" | "bugium" => profile
+      .wayfern_config
+      .as_ref()
+      .and_then(|config| config.executable_path.clone()),
+    _ => None,
+  }
+}
+
+fn resolve_process_snapshot_by_pid(
+  process_id: Option<u32>,
+) -> Option<BrowserRuntimeProcessSnapshot> {
+  use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
+
+  let pid = process_id?;
+  let system = System::new_with_specifics(
+    RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+  );
+  let process = system.process(Pid::from(pid as usize))?;
+  let executable_path = process
+    .exe()
+    .map(|path| path.to_string_lossy().to_string());
+  let command_line = process
+    .cmd()
+    .iter()
+    .filter_map(|value| value.to_str().map(|text| text.to_string()))
+    .collect::<Vec<String>>();
+
+  Some(BrowserRuntimeProcessSnapshot {
+    pid,
+    executable_path,
+    command_line,
+  })
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_profile_launcher_path(
+  profile: &BrowserProfile,
+  resolved_executable_path: Option<&PathBuf>,
+) -> Option<String> {
+  let executable_dir = resolved_executable_path?.parent()?;
+  let sanitized_profile_id: String = profile
+    .id
+    .to_string()
+    .chars()
+    .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+    .collect();
+  let launcher_file_name = format!("buglogin-profile-{sanitized_profile_id}.exe");
+  let launcher_path = executable_dir.join(launcher_file_name);
+  if launcher_path.exists() {
+    Some(launcher_path.to_string_lossy().to_string())
+  } else {
+    None
+  }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_windows_profile_launcher_path(
+  _profile: &BrowserProfile,
+  _resolved_executable_path: Option<&PathBuf>,
+) -> Option<String> {
+  None
+}
+
+#[tauri::command]
+pub async fn get_browser_runtime_diagnostics(
+  app_handle: tauri::AppHandle,
+  profile_ids: Option<Vec<String>>,
+  running_only: Option<bool>,
+  limit: Option<usize>,
+) -> Result<Vec<BrowserRuntimeDiagnostic>, String> {
+  let runner = BrowserRunner::instance();
+  let mut profiles = runner
+    .profile_manager
+    .list_profiles()
+    .map_err(|e| format!("Failed to list profiles: {e}"))?;
+
+  if let Some(filter_ids) = profile_ids {
+    if !filter_ids.is_empty() {
+      let filter_set = filter_ids.into_iter().collect::<std::collections::HashSet<_>>();
+      profiles.retain(|profile| filter_set.contains(&profile.id.to_string()));
+    }
+  }
+
+  profiles.sort_by(|left, right| left.name.cmp(&right.name));
+  let running_only = running_only.unwrap_or(false);
+  let max_items = limit.unwrap_or(80).clamp(1, 250);
+
+  let profiles_dir = runner.profile_manager.get_profiles_dir();
+  let mut diagnostics = Vec::new();
+
+  for profile in profiles.into_iter() {
+    if diagnostics.len() >= max_items {
+      break;
+    }
+
+    let is_running = runner
+      .check_browser_status(app_handle.clone(), &profile)
+      .await
+      .unwrap_or(false);
+
+    let latest_profile = runner
+      .profile_manager
+      .get_profile_by_id(&profile.id)
+      .ok()
+      .flatten()
+      .unwrap_or(profile.clone());
+
+    if running_only && !is_running && latest_profile.process_id.is_none() {
+      continue;
+    }
+
+    let profile_data_path = latest_profile.get_profile_data_path(&profiles_dir);
+    let effective_profile_path =
+      crate::ephemeral_dirs::get_effective_profile_path(&latest_profile, &profiles_dir);
+    let configured_executable_path = configured_profile_executable_path(&latest_profile);
+    let configured_executable_exists = configured_executable_path
+      .as_ref()
+      .map(|path| Path::new(path).exists())
+      .unwrap_or(false);
+
+    let resolved_executable_path = runner.get_browser_executable_path(&latest_profile).ok();
+    let resolved_executable_exists = resolved_executable_path
+      .as_ref()
+      .map(|path| path.exists())
+      .unwrap_or(false);
+    let profile_launcher_path =
+      resolve_windows_profile_launcher_path(&latest_profile, resolved_executable_path.as_ref());
+
+    let process_snapshot = resolve_process_snapshot_by_pid(latest_profile.process_id);
+    let detected_process_id = process_snapshot.as_ref().map(|snapshot| snapshot.pid);
+    let process_executable_path = process_snapshot
+      .as_ref()
+      .and_then(|snapshot| snapshot.executable_path.clone());
+    let process_command_line = process_snapshot
+      .map(|snapshot| snapshot.command_line)
+      .unwrap_or_default();
+
+    let managed_slug = managed_browser_slug(&latest_profile.browser).map(str::to_string);
+    let managed_metadata_url = managed_browser_metadata_url(&latest_profile.browser);
+
+    diagnostics.push(BrowserRuntimeDiagnostic {
+      profile_id: latest_profile.id.to_string(),
+      profile_name: latest_profile.name.clone(),
+      browser: latest_profile.browser.clone(),
+      version: latest_profile.version.clone(),
+      runtime_state: format!("{:?}", latest_profile.runtime_state).to_lowercase(),
+      is_running,
+      stored_process_id: latest_profile.process_id,
+      detected_process_id,
+      profile_data_path: profile_data_path.to_string_lossy().to_string(),
+      effective_profile_path: effective_profile_path.to_string_lossy().to_string(),
+      configured_executable_path,
+      configured_executable_exists,
+      resolved_executable_path: resolved_executable_path
+        .as_ref()
+        .map(|path| path.to_string_lossy().to_string()),
+      resolved_executable_exists,
+      profile_launcher_path,
+      managed_slug,
+      managed_metadata_url,
+      process_executable_path,
+      process_command_line,
+    });
+  }
+
+  Ok(diagnostics)
+}
+
+
+#[tauri::command]
+pub async fn check_camoufox_ua_version_alignment(
+  profile_id: String,
+) -> Result<CamoufoxUaVersionAlignment, String> {
+  let runner = BrowserRunner::instance();
+  let parsed_profile_id = uuid::Uuid::parse_str(profile_id.trim())
+    .map_err(|error| format!("Invalid profile id: {error}"))?;
+  let profile = runner
+    .profile_manager
+    .get_profile_by_id(&parsed_profile_id)
+    .map_err(|error| format!("Failed to get profile: {error}"))?
+    .ok_or_else(|| "Profile not found".to_string())?;
+
+  let browser = profile.browser.clone();
+  if browser != "camoufox" && browser != "bugox" {
+    return Ok(CamoufoxUaVersionAlignment {
+      profile_id: profile.id.to_string(),
+      profile_name: profile.name.clone(),
+      browser,
+      executable_version: None,
+      fingerprint_user_agent: None,
+      fingerprint_firefox_version: None,
+      is_mismatch: false,
+      message: None,
+    });
+  }
+
+  let executable_path = runner
+    .get_browser_executable_path(&profile)
+    .ok()
+    .filter(|path| path.exists());
+  let executable_version = executable_path
+    .as_ref()
+    .and_then(|path| crate::camoufox::config::get_firefox_version(path));
+
+  let fingerprint_user_agent = profile
+    .camoufox_config
+    .as_ref()
+    .and_then(|config| config.fingerprint.as_ref())
+    .and_then(|fingerprint_json| serde_json::from_str::<serde_json::Value>(fingerprint_json).ok())
+    .and_then(|value| {
+      value
+        .get("navigator.userAgent")
+        .and_then(|raw| raw.as_str().map(str::to_string))
+        .or_else(|| {
+          value
+            .get("userAgent")
+            .and_then(|raw| raw.as_str().map(str::to_string))
+        })
+    });
+  let fingerprint_firefox_version = fingerprint_user_agent
+    .as_deref()
+    .and_then(parse_firefox_major_from_ua);
+
+  let is_mismatch = match (executable_version, fingerprint_firefox_version) {
+    (Some(exe_major), Some(fp_major)) => exe_major != fp_major,
+    _ => false,
+  };
+
+  let message = if is_mismatch {
+    Some(format!(
+      "UA/version mismatch detected for profile '{}': executable Firefox/{} but fingerprint UA Firefox/{}. Regenerate fingerprint for this profile before launch.",
+      profile.name,
+      executable_version.unwrap_or_default(),
+      fingerprint_firefox_version.unwrap_or_default()
+    ))
+  } else {
+    None
+  };
+
+  Ok(CamoufoxUaVersionAlignment {
+    profile_id: profile.id.to_string(),
+    profile_name: profile.name.clone(),
+    browser: profile.browser.clone(),
+    executable_version,
+    fingerprint_user_agent,
+    fingerprint_firefox_version,
+    is_mismatch,
+    message,
+  })
+}
+
 #[tauri::command]
 pub async fn launch_browser_profile(
   app_handle: tauri::AppHandle,
@@ -2986,7 +4094,7 @@ pub async fn launch_browser_profile(
   let browser_runner = BrowserRunner::instance();
 
   // Resolve the most up-to-date profile from disk by ID before lock checks.
-  let profile_for_launch = match browser_runner
+  let mut profile_for_launch = match browser_runner
     .profile_manager
     .list_profiles()
     .map_err(|e| format!("Failed to list profiles: {e}"))
@@ -3004,6 +4112,10 @@ pub async fn launch_browser_profile(
     profile_for_launch.id
   );
 
+  profile_for_launch =
+    ensure_managed_browser_downloaded_for_profile(&app_handle, browser_runner, &profile_for_launch)
+      .await?;
+
   // Enforce lock in backend against fresh profile metadata (not stale UI payload).
   crate::team_lock::acquire_team_lock_if_needed(&profile_for_launch).await?;
   let should_release_lock_on_error =
@@ -3020,6 +4132,7 @@ pub async fn launch_browser_profile(
   }
 
   let launch_result: Result<(BrowserProfile, Option<u32>), String> = async {
+  preflight_check_required_managed_browser_update(&profile_for_launch).await?;
   preflight_check_profile_proxy(&profile_for_launch).await?;
 
     // Store the internal proxy settings for passing to launch_browser
@@ -3028,7 +4141,10 @@ pub async fn launch_browser_profile(
 
   // Always start a local proxy before launching (non-Camoufox/Wayfern handled here; they have their own flow)
   // This ensures all traffic goes through the local proxy for monitoring and future features
-  if profile_for_launch.browser != "camoufox" && profile_for_launch.browser != "wayfern" {
+  if !matches!(
+    profile_for_launch.browser.as_str(),
+    "camoufox" | "bugox" | "wayfern" | "bugium"
+  ) {
     // Determine upstream proxy if configured; otherwise use DIRECT (no upstream)
     let mut upstream_proxy = profile_for_launch
       .proxy_id
@@ -3168,18 +4284,18 @@ pub async fn launch_browser_profile(
         profile_for_launch.name,
         error_message
       );
-    if let Err(audit_err) = events::emit_audit_event(
-      "run",
-      "profile",
-      Some(&profile_for_launch.id.to_string()),
-      "failed",
+      if let Err(audit_err) = events::emit_audit_event(
+        "run",
+        "profile",
+        Some(&profile_for_launch.id.to_string()),
+        "failed",
         Some(&format!(
           "Failed to launch profile '{}': {}",
           profile_for_launch.name, error_message
         )),
-    ) {
-      log::warn!("Failed to emit audit event for profile launch failure: {audit_err}");
-    }
+      ) {
+        log::warn!("Failed to emit audit event for profile launch failure: {audit_err}");
+      }
 
       let _ = events::emit(
         "profile-running-changed",
@@ -3228,6 +4344,26 @@ pub async fn launch_browser_profile(
   }
 
   Ok(updated_profile)
+}
+
+#[tauri::command]
+pub async fn launch_browser_profile_by_id(
+  app_handle: tauri::AppHandle,
+  profile_id: String,
+  url: Option<String>,
+) -> Result<BrowserProfile, String> {
+  let browser_runner = BrowserRunner::instance();
+  let profiles = browser_runner
+    .profile_manager
+    .list_profiles()
+    .map_err(|e| format!("Failed to list profiles: {e}"))?;
+
+  let profile = profiles
+    .into_iter()
+    .find(|candidate| candidate.id.to_string() == profile_id)
+    .ok_or_else(|| format!("Profile with ID '{}' not found", profile_id))?;
+
+  launch_browser_profile(app_handle, profile, url).await
 }
 
 #[tauri::command]

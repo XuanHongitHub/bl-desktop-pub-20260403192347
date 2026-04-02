@@ -70,8 +70,8 @@ fn load_snapshot_from_path(path: &Path) -> Result<EntitlementSnapshot, String> {
     return Ok(default_snapshot());
   }
 
-  let content = fs::read_to_string(path)
-    .map_err(|e| format!("Failed to read entitlement state file: {e}"))?;
+  let content =
+    fs::read_to_string(path).map_err(|e| format!("Failed to read entitlement state file: {e}"))?;
   serde_json::from_str::<EntitlementSnapshot>(&content)
     .map_err(|e| format!("Failed to parse entitlement state: {e}"))
 }
@@ -144,7 +144,9 @@ pub async fn get_feature_access_snapshot() -> Result<FeatureAccessSnapshot, Stri
   let pro_features = crate::cloud_auth::CLOUD_AUTH
     .has_active_paid_subscription()
     .await;
-  let sync_encryption = crate::cloud_auth::CLOUD_AUTH.has_pro_or_owner_access().await;
+  let sync_encryption = crate::cloud_auth::CLOUD_AUTH
+    .has_pro_or_owner_access()
+    .await;
 
   Ok(FeatureAccessSnapshot {
     pro_features,
@@ -217,7 +219,10 @@ mod tests {
   #[test]
   fn save_and_load_snapshot_round_trip() {
     let mut temp_path = std::env::temp_dir();
-    temp_path.push(format!("buglogin-entitlement-test-{}.json", uuid::Uuid::new_v4()));
+    temp_path.push(format!(
+      "buglogin-entitlement-test-{}.json",
+      uuid::Uuid::new_v4()
+    ));
 
     let saved = save_snapshot_to_path(&temp_path, EntitlementState::GraceActive)
       .expect("failed to save snapshot");

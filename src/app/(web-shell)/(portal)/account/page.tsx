@@ -24,6 +24,10 @@ import {
 } from "@/components/ui/select";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
+import {
+  computeStorageUsagePercent,
+  formatStorageUsagePercentLabel,
+} from "@/lib/storage-usage";
 
 type AccountQueueSeverity = "low" | "medium" | "high";
 
@@ -57,14 +61,11 @@ export default function AccountOverviewPage() {
   const invoices = billingState?.recentInvoices ?? [];
   const hasPaidPlan = Boolean(subscription?.planId);
 
-  const storagePercent = usage?.storageLimitMb
-    ? Math.min(
-        100,
-        Math.round(
-          (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
-        ),
-      )
-    : 0;
+  const storagePercent = computeStorageUsagePercent(usage);
+  const storagePercentLabel = formatStorageUsagePercentLabel(
+    storagePercent,
+    usage?.storageUsedBytes ?? 0,
+  );
 
   const latestInvoice = invoices[0] ?? null;
   const paidTotal = invoices.reduce(
@@ -148,7 +149,14 @@ export default function AccountOverviewPage() {
 
   const severityBadgeVariant = (severity: AccountQueueSeverity) => {
     if (severity === "high") return "destructive" as const;
-    if (severity === "medium") return "secondary" as const;
+    if (severity === "medium") return "warning" as const;
+    return "info" as const;
+  };
+
+  const statusBadgeVariant = (status: string | null | undefined) => {
+    if (status === "active") return "success" as const;
+    if (status === "past_due") return "destructive" as const;
+    if (status === "canceled") return "warning" as const;
     return "outline" as const;
   };
 
@@ -225,7 +233,7 @@ export default function AccountOverviewPage() {
               <p className="text-sm font-semibold text-foreground">
                 {subscription?.planLabel ?? t("portalSite.account.noPlan")}
               </p>
-              <Badge variant="outline" className="h-5 px-2 text-[10px]">
+              <Badge variant="info" className="h-5 px-2 text-[10px]">
                 {subscription?.billingCycle ??
                   t("portalSite.account.notAvailable")}
               </Badge>
@@ -235,9 +243,12 @@ export default function AccountOverviewPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.account.status")}
             </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
+            <Badge
+              variant={statusBadgeVariant(subscription?.status)}
+              className="mt-1 h-5 px-2 text-[10px] capitalize"
+            >
               {subscription?.status ?? t("portalSite.account.notAvailable")}
-            </p>
+            </Badge>
           </div>
           <div className="p-4">
             <p className="text-xs text-muted-foreground">
@@ -258,7 +269,7 @@ export default function AccountOverviewPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             {t("portalSite.account.queue.title")}
           </h2>
-          <Badge variant="outline">{queueItems.length}</Badge>
+          <Badge variant="warning">{queueItems.length}</Badge>
         </div>
 
         {queueItems.length === 0 ? (
@@ -313,7 +324,7 @@ export default function AccountOverviewPage() {
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <section className="rounded-xl border border-border bg-card/70 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <HardDrive className="h-4 w-4 text-chart-1" />
             <h2 className="text-sm font-semibold text-foreground">
               {t("portalSite.account.usageSnapshot")}
             </h2>
@@ -325,7 +336,7 @@ export default function AccountOverviewPage() {
                   {t("portalSite.account.storageUsage")}
                 </span>
                 <span className="font-medium text-foreground">
-                  {storagePercent}%
+                  {storagePercentLabel}
                 </span>
               </div>
               <Progress value={storagePercent} className="h-2" />
@@ -341,7 +352,7 @@ export default function AccountOverviewPage() {
 
         <section className="rounded-xl border border-border bg-card/70 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <ReceiptText className="h-4 w-4 text-muted-foreground" />
+            <ReceiptText className="h-4 w-4 text-chart-4" />
             <h2 className="text-sm font-semibold text-foreground">
               {t("portalSite.account.latestInvoices")}
             </h2>

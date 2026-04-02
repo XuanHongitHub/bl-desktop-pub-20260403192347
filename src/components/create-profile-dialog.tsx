@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
 import { LoadingButton } from "@/components/loading-button";
 import { SharedCamoufoxConfigForm } from "@/components/shared-camoufox-config-form";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WayfernConfigForm } from "@/components/wayfern-config-form";
 import { useBrowserDownload } from "@/hooks/use-browser-download";
 import { getBrowserIcon } from "@/lib/browser-utils";
+import { cn } from "@/lib/utils";
 import {
   classifyProxyCheckError,
   type ProxyCheckFailureMeta,
@@ -86,6 +87,7 @@ type BrowserTypeString =
 interface CreateProfileDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  mode?: "dialog" | "page";
   onCreateProfile: (profileData: {
     name: string;
     browserStr: BrowserTypeString;
@@ -152,6 +154,7 @@ const browserOptions: BrowserOption[] = [
 export function CreateProfileDialog({
   isOpen,
   onClose,
+  mode = "dialog",
   onCreateProfile,
   selectedGroupId,
   crossOsUnlocked = false,
@@ -160,7 +163,7 @@ export function CreateProfileDialog({
   const [profileName, setProfileName] = useState("");
   const [currentStep, setCurrentStep] = useState<
     "browser-selection" | "browser-config"
-  >("browser-selection");
+  >("browser-config");
   const [activeTab, setActiveTab] = useState("anti-detect");
   const [configSection, setConfigSection] = useState<
     "basic" | "proxy" | "advanced"
@@ -168,7 +171,7 @@ export function CreateProfileDialog({
 
   // Browser selection states
   const [selectedBrowser, setSelectedBrowser] =
-    useState<BrowserTypeString | null>(null);
+    useState<BrowserTypeString | null>("wayfern");
   const [proxyForm, setProxyForm] = useState<ProxyFormState>({
     quickInput: "",
     proxy_type: "http",
@@ -207,39 +210,16 @@ export function CreateProfileDialog({
     os: getCurrentOS() as WayfernOS, // Default to current OS
   }));
 
-  // Handle browser selection from the initial screen
   const handleBrowserSelect = (browser: BrowserTypeString) => {
     setSelectedBrowser(browser);
     setConfigSection("basic");
     setCurrentStep("browser-config");
   };
 
-  // Handle back button
-  const handleBack = () => {
-    setCurrentStep("browser-selection");
-    setSelectedBrowser(null);
-    setProfileName("");
-    setProxyForm({
-      quickInput: "",
-      proxy_type: "http",
-      host: "",
-      port: "",
-      username: "",
-      password: "",
-    });
-    setProxyInputMode("quick");
-    setProxySearchQuery("");
-    setProxyUsageFilter("all");
-    setSelectedExistingProxyId("none");
-    setProxyCheckResult(null);
-    setProxyCheckFailure(null);
-    setConfigSection("basic");
-  };
-
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setCurrentStep("browser-selection");
-    setSelectedBrowser(null);
+    setCurrentStep("browser-config");
+    setSelectedBrowser("wayfern");
     setProfileName("");
     setProxyForm({
       quickInput: "",
@@ -962,9 +942,9 @@ export function CreateProfileDialog({
 
     // Reset all states
     setProfileName("");
-    setCurrentStep("browser-selection");
+    setCurrentStep("browser-config");
     setActiveTab("anti-detect");
-    setSelectedBrowser(null);
+    setSelectedBrowser("wayfern");
     setProxyForm({
       quickInput: "",
       proxy_type: "http",
@@ -1082,7 +1062,61 @@ export function CreateProfileDialog({
   };
 
   const profileNameSection = (
-    <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label>{t("createProfile.antiDetect.title")}</Label>
+        <div className="max-w-[640px]">
+          <Select
+            value={selectedBrowser ?? "wayfern"}
+            onValueChange={(value) =>
+              setSelectedBrowser(value as "wayfern" | "camoufox")
+            }
+          >
+            <SelectTrigger className="h-10 w-[260px]">
+              <div className="flex min-w-0 flex-1 items-center gap-2 truncate">
+                {(() => {
+                  const iconKey = selectedBrowser === "camoufox" ? "camoufox" : "wayfern";
+                  const IconComponent = getBrowserIcon(iconKey);
+                  return IconComponent ? (
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                      <IconComponent className="h-4 w-4" />
+                    </span>
+                  ) : null;
+                })()}
+                <span className="truncate">
+                  {selectedBrowser === "camoufox"
+                    ? t("createProfile.antiDetect.firefox")
+                    : t("createProfile.antiDetect.chromium")}
+                </span>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="wayfern">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const IconComponent = getBrowserIcon("wayfern");
+                    return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                  })()}
+                  <span>{t("createProfile.antiDetect.chromium")}</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="camoufox">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const IconComponent = getBrowserIcon("camoufox");
+                    return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                  })()}
+                  <span>{t("createProfile.antiDetect.firefox")}</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("createProfile.antiDetect.description")}
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="profile-name">{t("createProfile.profileName")}</Label>
         <Input
@@ -1095,6 +1129,7 @@ export function CreateProfileDialog({
             }
           }}
           placeholder={t("createProfile.profileNamePlaceholder")}
+          className="max-w-[640px]"
         />
       </div>
 
@@ -1102,7 +1137,7 @@ export function CreateProfileDialog({
         <>
           <div className="space-y-2">
             <Label>{t("fingerprint.osLabel")}</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex max-w-[640px] flex-wrap items-start gap-2">
               {basicOsOptions.map((os) => (
                 <Button
                   key={os}
@@ -1110,14 +1145,22 @@ export function CreateProfileDialog({
                   size="sm"
                   variant={selectedBasicOs === os ? "default" : "outline"}
                   onClick={() => handleBasicOsChange(os)}
+                  className="h-9 w-[128px] justify-start gap-2 px-3"
                 >
+                  {os === "windows" ? (
+                    <FaWindows className="h-3.5 w-3.5 shrink-0" />
+                  ) : os === "macos" ? (
+                    <FaApple className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <FaLinux className="h-3.5 w-3.5 shrink-0" />
+                  )}
                   {t(`fingerprint.os.${os}`)}
                 </Button>
               ))}
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border bg-card p-3">
+          <div className="max-w-[640px] space-y-3 border-t border-border/70 pt-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="randomize-fingerprint-basic"
@@ -1143,7 +1186,7 @@ export function CreateProfileDialog({
   );
 
   const ephemeralSection = (
-    <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+    <div className="max-w-[640px] space-y-3 border-t border-border/70 pt-3">
       <div className="flex items-center space-x-2">
         <Checkbox
           id="ephemeral"
@@ -1597,15 +1640,14 @@ export function CreateProfileDialog({
     </div>
   );
 
-  return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="my-8 max-h-[90vh] flex w-full max-w-3xl flex-col overflow-hidden p-0">
+  const shellContent = (
+    <>
         <DialogHeader className="shrink-0 px-6 pt-6">
-          <DialogTitle>
+          <h1 className="text-lg font-semibold leading-tight text-foreground">
             {currentStep === "browser-selection"
               ? "Create New Profile"
               : "Configure Profile"}
-          </DialogTitle>
+          </h1>
         </DialogHeader>
 
         <Tabs
@@ -1616,15 +1658,30 @@ export function CreateProfileDialog({
           {/* Tab list hidden - only anti-detect browsers are supported */}
 
           <ScrollArea className="min-h-0 flex-1">
-            <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-4">
+            <div
+              className={cn(
+                "mx-auto w-full px-6 py-4",
+                mode === "page" && currentStep === "browser-config"
+                  ? "max-w-[1180px] lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-5"
+                  : "max-w-3xl",
+              )}
+            >
+              <div
+                className={cn(
+                  "min-w-0 space-y-6",
+                  mode === "page" && currentStep === "browser-config"
+                    ? "lg:max-w-[700px]"
+                    : "",
+                )}
+              >
               {currentStep === "browser-config" && (
-                <div className="space-y-2">
+                <div className="max-w-[640px] space-y-2">
                   <Tabs
                     value={configSection}
                     onValueChange={(value) =>
                       setConfigSection(value as "basic" | "proxy" | "advanced")
                     }
-                    className="w-full"
+                    className="w-full max-w-[760px]"
                   >
                     <TabsList className="grid h-auto w-full grid-cols-3 rounded-none border-b bg-transparent p-0">
                       <TabsTrigger
@@ -1806,7 +1863,7 @@ export function CreateProfileDialog({
                               !getBestAvailableVersion("wayfern") && (
                                 <div className="flex gap-3 items-center p-3 rounded-md border border-yellow-500/50 bg-yellow-500/10">
                                   <p className="text-sm text-yellow-500">
-                                    Wayfern is not available on your platform
+                                    Bugium is not available on your platform
                                     yet.
                                   </p>
                                 </div>
@@ -1821,7 +1878,7 @@ export function CreateProfileDialog({
                                     {(() => {
                                       const bestVersion =
                                         getBestAvailableVersion("wayfern");
-                                      return `Wayfern version (${bestVersion?.version}) needs to be downloaded`;
+                                      return `Bugium version (${bestVersion?.version}) needs to be downloaded`;
                                     })()}
                                   </p>
                                   <LoadingButton
@@ -1848,7 +1905,7 @@ export function CreateProfileDialog({
                                   {(() => {
                                     const bestVersion =
                                       getBestAvailableVersion("wayfern");
-                                    return `✓ Wayfern version (${bestVersion?.version}) is available`;
+                                    return `✓ Bugium version (${bestVersion?.version}) is available`;
                                   })()}
                                 </div>
                               )}
@@ -1857,7 +1914,7 @@ export function CreateProfileDialog({
                                 {(() => {
                                   const bestVersion =
                                     getBestAvailableVersion("wayfern");
-                                  return `Downloading Wayfern version (${bestVersion?.version})...`;
+                                  return `Downloading Bugium version (${bestVersion?.version})...`;
                                 })()}
                               </div>
                             )}
@@ -1904,7 +1961,7 @@ export function CreateProfileDialog({
                               !getBestAvailableVersion("camoufox") && (
                                 <div className="flex gap-3 items-center p-3 rounded-md border border-yellow-500/50 bg-yellow-500/10">
                                   <p className="text-sm text-yellow-500">
-                                    Camoufox is not available on your platform
+                                    Bugox is not available on your platform
                                     yet.
                                   </p>
                                 </div>
@@ -1919,7 +1976,7 @@ export function CreateProfileDialog({
                                     {(() => {
                                       const bestVersion =
                                         getBestAvailableVersion("camoufox");
-                                      return `Camoufox version (${bestVersion?.version}) needs to be downloaded`;
+                                      return `Bugox version (${bestVersion?.version}) needs to be downloaded`;
                                     })()}
                                   </p>
                                   <LoadingButton
@@ -1946,7 +2003,7 @@ export function CreateProfileDialog({
                                   {(() => {
                                     const bestVersion =
                                       getBestAvailableVersion("camoufox");
-                                    return `✓ Camoufox version (${bestVersion?.version}) is available`;
+                                    return `✓ Bugox version (${bestVersion?.version}) is available`;
                                   })()}
                                 </div>
                               )}
@@ -1955,7 +2012,7 @@ export function CreateProfileDialog({
                                 {(() => {
                                   const bestVersion =
                                     getBestAvailableVersion("camoufox");
-                                  return `Downloading Camoufox version (${bestVersion?.version})...`;
+                                  return `Downloading Bugox version (${bestVersion?.version})...`;
                                 })()}
                               </div>
                             )}
@@ -2070,9 +2127,13 @@ export function CreateProfileDialog({
                           </div>
                         ))}
 
-                      {configSection === "proxy" && proxyComposerSection}
+                      {configSection === "proxy" && (
+                        <div className="max-w-[640px]">{proxyComposerSection}</div>
+                      )}
 
-                      {configSection === "advanced" && extensionGroupSection}
+                      {configSection === "advanced" && (
+                        <div className="max-w-[640px]">{extensionGroupSection}</div>
+                      )}
                     </div>
                   </TabsContent>
 
@@ -2177,13 +2238,67 @@ export function CreateProfileDialog({
                         </div>
                       )}
 
-                      {configSection === "proxy" && proxyComposerSection}
+                      {configSection === "proxy" && (
+                        <div className="max-w-[640px]">{proxyComposerSection}</div>
+                      )}
                       {configSection === "advanced" && ephemeralSection}
-                      {configSection === "advanced" && extensionGroupSection}
+                      {configSection === "advanced" && (
+                        <div className="max-w-[640px]">{extensionGroupSection}</div>
+                      )}
                     </div>
                   </TabsContent>
                 </>
               )}
+              </div>
+              {mode === "page" && currentStep === "browser-config" ? (
+                <aside className="mt-6 h-fit border-l border-border/70 pl-4 lg:mt-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {t("createProfile.workspace.previewTitle")}
+                  </p>
+                  <dl className="mt-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        {t("createProfile.workspace.previewBrowser")}
+                      </dt>
+                      <dd className="font-medium text-foreground">
+                        {selectedBrowser ? selectedBrowser : "--"}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        {t("createProfile.workspace.previewName")}
+                      </dt>
+                      <dd className="max-w-[11rem] truncate font-medium text-foreground">
+                        {profileName.trim() || "--"}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        {t("createProfile.workspace.previewProxy")}
+                      </dt>
+                      <dd className="font-medium text-foreground">
+                        {proxyInputMode === "existing"
+                          ? selectedExistingProxyId !== "none"
+                            ? t("createProfile.workspace.previewProxyExisting")
+                            : t("createProfile.workspace.previewProxyNone")
+                          : proxyForm.host.trim()
+                            ? `${proxyForm.proxy_type}://${proxyForm.host}:${proxyForm.port}`
+                            : t("createProfile.workspace.previewProxyNone")}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        {t("createProfile.workspace.previewLaunch")}
+                      </dt>
+                      <dd className="font-medium text-foreground">
+                        {launchAfterCreate
+                          ? t("createProfile.workspace.previewLaunchYes")
+                          : t("createProfile.workspace.previewLaunchNo")}
+                      </dd>
+                    </div>
+                  </dl>
+                </aside>
+              ) : null}
             </div>
           </ScrollArea>
         </Tabs>
@@ -2203,8 +2318,8 @@ export function CreateProfileDialog({
                   {t("createProfile.launchAfterCreate")}
                 </Label>
               </div>
-              <RippleButton variant="outline" onClick={handleBack}>
-                {t("common.buttons.back")}
+              <RippleButton variant="outline" onClick={handleClose}>
+                {t("common.buttons.cancel")}
               </RippleButton>
               <LoadingButton
                 onClick={handleCreate}
@@ -2220,6 +2335,26 @@ export function CreateProfileDialog({
             </RippleButton>
           )}
         </DialogFooter>
+    </>
+  );
+
+  if (mode === "page") {
+    return (
+      <section className="mx-auto h-full min-h-0 w-full max-w-[1220px] overflow-hidden bg-transparent">
+        <div className="flex h-full min-h-0 flex-col">{shellContent}</div>
+      </section>
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent
+        className={cn(
+          "my-8 flex w-full max-w-3xl flex-col overflow-hidden p-0",
+          mode === "dialog" ? "max-h-[90vh]" : "h-[calc(100vh-96px)]",
+        )}
+      >
+        {shellContent}
       </DialogContent>
     </Dialog>
   );

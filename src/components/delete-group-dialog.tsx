@@ -3,7 +3,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import {
   DATA_SCOPE_CHANGED_EVENT,
   getCurrentDataScope,
@@ -67,7 +67,6 @@ export function DeleteGroupDialog({
       );
       setAssociatedProfiles(groupProfiles);
     } catch (err) {
-      console.error("Failed to load associated profiles:", err);
       setError(err instanceof Error ? err.message : "Failed to load profiles");
     } finally {
       setIsLoading(false);
@@ -115,15 +114,14 @@ export function DeleteGroupDialog({
       // Delete the group
       await invoke("delete_profile_group", { groupId: group.id });
 
-      toast.success(t("groupDialogs.toasts.deleted"));
+      showSuccessToast(t("groupDialogs.toasts.deleted"));
       onGroupDeleted();
       onClose();
     } catch (err) {
-      console.error("Failed to delete group:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete group";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsDeleting(false);
     }
@@ -142,15 +140,14 @@ export function DeleteGroupDialog({
         <DialogHeader>
           <DialogTitle>{t("groupDialogs.delete.title")}</DialogTitle>
           <DialogDescription>
-            This action cannot be undone. This will permanently delete the group
-            "{group?.name}".
+            {t("groupDialogs.delete.description", { name: group?.name ?? "" })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {isLoading ? (
             <div className="text-sm text-muted-foreground">
-              Loading associated profiles...
+              {t("groupDialogs.loadingProfiles")}
             </div>
           ) : (
             <>
@@ -158,9 +155,11 @@ export function DeleteGroupDialog({
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label>
-                      Associated Profiles ({associatedProfiles.length})
+                      {t("groupDialogs.delete.associatedProfiles", {
+                        count: associatedProfiles.length,
+                      })}
                     </Label>
-                    <ScrollArea className="h-32 w-full border rounded-md p-3">
+                    <ScrollArea className="h-32 w-full rounded-md border p-3">
                       <div className="space-y-1">
                         {associatedProfiles.map((profile) => (
                           <div key={profile.id} className="text-sm">
@@ -182,16 +181,13 @@ export function DeleteGroupDialog({
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="move" id="move" />
                         <Label htmlFor="move" className="text-sm">
-                          Move profiles to Default group
+                          {t("groupDialogs.delete.moveToDefault")}
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="delete" id="delete" />
-                        <Label
-                          htmlFor="delete"
-                          className="text-sm text-red-600"
-                        >
-                          Delete profiles along with the group
+                        <Label htmlFor="delete" className="text-sm text-destructive">
+                          {t("groupDialogs.delete.deleteWithProfiles")}
                         </Label>
                       </div>
                     </RadioGroup>
@@ -201,14 +197,14 @@ export function DeleteGroupDialog({
 
               {associatedProfiles.length === 0 && !isLoading && (
                 <div className="text-sm text-muted-foreground">
-                  This group has no associated profiles.
+                  {t("groupDialogs.delete.noAssociatedProfiles")}
                 </div>
               )}
             </>
           )}
 
           {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -220,7 +216,7 @@ export function DeleteGroupDialog({
             onClick={handleClose}
             disabled={isDeleting}
           >
-            Cancel
+            {t("common.buttons.cancel")}
           </RippleButton>
           <LoadingButton
             variant="destructive"
@@ -228,10 +224,10 @@ export function DeleteGroupDialog({
             onClick={() => void handleDelete()}
             disabled={isLoading}
           >
-            Delete Group
+            {t("common.buttons.delete")}
             {deleteAction === "delete" &&
               associatedProfiles.length > 0 &&
-              " & Profiles"}
+              ` ${t("groupDialogs.delete.andProfilesSuffix")}`}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

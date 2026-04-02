@@ -202,9 +202,9 @@ export default function AdminSystemPage() {
         </h2>
         <div className="grid gap-2 md:grid-cols-3">
           <Button asChild size="sm" variant="outline" className="justify-start">
-            <Link href="/admin/command-center">
+            <Link href="/admin/dashboard">
               <Link2 className="h-4 w-4" />
-              {t("portalSite.admin.nav.commandCenter")}
+              {t("portalSite.admin.nav.dashboard")}
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="justify-start">
@@ -215,6 +215,11 @@ export default function AdminSystemPage() {
           <Button asChild size="sm" variant="outline" className="justify-start">
             <Link href="/admin/revenue">
               {t("portalSite.admin.nav.revenue")}
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="justify-start">
+            <Link href="/admin/system/browser">
+              {t("portalSite.admin.nav.browserUpdate")}
             </Link>
           </Button>
         </div>

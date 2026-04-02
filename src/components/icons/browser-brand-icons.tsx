@@ -114,7 +114,7 @@ export function BugZenBrowserIcon(props: BrowserGlyphProps) {
 
 export function BugCamoufoxBrowserIcon(props: BrowserGlyphProps) {
   return (
-    <IconShell title="Bug Camoufox Browser" {...props}>
+    <IconShell title="Bugox Browser" {...props}>
       <path d="m9.1 9.2 1.1-2.1 1.1 1.6M14.9 9.2l-1.1-2.1-1.1 1.6" />
       <path
         d="M8.15 13.2c.7 1.85 2.12 2.95 3.86 2.95 2.08 0 3.67-1.35 4.14-3.4-.7.55-1.58.87-2.54.87-1.06 0-2.03-.38-2.8-1.06a3.93 3.93 0 0 1-2.66.64Z"
@@ -128,7 +128,7 @@ export function BugCamoufoxBrowserIcon(props: BrowserGlyphProps) {
 
 export function BugWayfernBrowserIcon(props: BrowserGlyphProps) {
   return (
-    <IconShell title="Bug Wayfern Browser" {...props}>
+    <IconShell title="Bugium Browser" {...props}>
       <path d="m7.4 9.2 1.75 5.25 2.85-3.72 2.85 3.72 1.75-5.25" />
       <path d="M8.25 16.2c1.1.45 2.37.7 3.75.7s2.65-.25 3.75-.7" />
     </IconShell>

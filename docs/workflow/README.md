@@ -21,6 +21,7 @@ Single entrypoint for the repository workflow standard.
 4. References (historical/analysis artifacts)
 - `docs/workflow/references/`
 - `docs/workflow/references/upstream-bugloginbrowser/` (upstream intake canonical log)
+- `docs/workflow/references/tiktok-seller-signup/` (cleaned Sign Up TikTok Seller HTML dataset)
 
 ## Rule
 

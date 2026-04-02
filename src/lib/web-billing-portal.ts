@@ -7,11 +7,18 @@ export type WebBillingPortalRoute =
   | "plans"
   | "management"
   | "accountBilling"
+  | "accountPlan"
   | "adminCommandCenter"
   | "adminWorkspaces"
   | "adminRevenue"
   | "adminAudit"
-  | "adminSystem";
+  | "adminSystem"
+  | "adminCommercePlans"
+  | "adminCommerceCampaigns"
+  | "adminCommerceCoupons"
+  | "adminCommerceLicenses"
+  | "adminCommercePreview"
+  | "adminCommerceAudit";
 
 export interface WebBillingPortalContext {
   controlBaseUrl: string;
@@ -153,6 +160,8 @@ function resolvePortalPath(route: WebBillingPortalRoute): string {
     case "management":
     case "accountBilling":
       return "/account/billing";
+    case "accountPlan":
+      return "/account/plan";
     case "adminCommandCenter":
       return "/admin/command-center";
     case "adminWorkspaces":
@@ -163,6 +172,18 @@ function resolvePortalPath(route: WebBillingPortalRoute): string {
       return "/admin/audit";
     case "adminSystem":
       return "/admin/system";
+    case "adminCommercePlans":
+      return "/admin/commerce/plans";
+    case "adminCommerceCampaigns":
+      return "/admin/commerce/campaigns";
+    case "adminCommerceCoupons":
+      return "/admin/commerce/coupons";
+    case "adminCommerceLicenses":
+      return "/admin/commerce/licenses";
+    case "adminCommercePreview":
+      return "/admin/commerce/preview";
+    case "adminCommerceAudit":
+      return "/admin/commerce/audit";
     default:
       return "/";
   }

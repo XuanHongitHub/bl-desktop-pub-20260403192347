@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import {
   type ColumnDef,
   flexRender,
@@ -8,14 +7,13 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   type PaginationState,
-  type RowSelectionState,
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import type { Dispatch, SetStateAction } from "react";
+import dynamic from "next/dynamic";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
@@ -23,9 +21,9 @@ import { FiWifi } from "react-icons/fi";
 import {
   LuArchive,
   LuCheck,
-  LuCircleStop,
   LuChevronDown,
   LuChevronUp,
+  LuCircleStop,
   LuClock3,
   LuCookie,
   LuEllipsisVertical,
@@ -54,6 +52,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   DropdownMenu,
@@ -87,19 +86,23 @@ import { useBrowserState } from "@/hooks/use-browser-state";
 import { useTableSorting } from "@/hooks/use-table-sorting";
 import { useTeamLocks } from "@/hooks/use-team-locks";
 import {
-  getBrowserIcon,
   getBrowserDisplayName,
+  getBrowserIcon,
   getOSDisplayName,
   getProfileIcon,
   isCrossOsProfile,
 } from "@/lib/browser-utils";
 import { extractRootError } from "@/lib/error-utils";
 import { formatRelativeTime } from "@/lib/flag-utils";
+import {
+  GROUP_APPEARANCE_STORAGE_KEY,
+  GROUP_APPEARANCE_UPDATED_EVENT,
+  readGroupAppearanceMap,
+  sanitizeGroupColor,
+} from "@/lib/group-appearance-store";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { trimName } from "@/lib/name-utils";
-import {
-  canPerformTeamAction,
-} from "@/lib/team-permissions";
+import { canPerformTeamAction } from "@/lib/team-permissions";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import {
@@ -123,6 +126,7 @@ import {
 } from "./data-table-action-bar";
 import MultipleSelector, { type Option } from "./multiple-selector";
 import { ProxyCheckButton } from "./proxy-check-button";
+import { ProxyFormDialog } from "./proxy-form-dialog";
 import { Input } from "./ui/input";
 import { RippleButton } from "./ui/ripple";
 
@@ -156,10 +160,8 @@ const ProfileBypassRulesDialog = dynamic(
   { ssr: false },
 );
 
-const PROFILE_TRANSITION_RECONCILE_INTERVAL_MS = 4_000;
 const PROFILE_LAUNCH_TRANSITION_TIMEOUT_MS = 25_000;
 const PROFILE_STOP_TRANSITION_TIMEOUT_MS = 15_000;
-const PROXY_PRELAUNCH_CHECK_TTL_SECONDS = 300;
 
 function syncPendingTransitionTimestamps(
   activeIds: Set<string>,
@@ -193,7 +195,7 @@ function getSharedCanvasCtx(): CanvasRenderingContext2D | null {
 // causing column definitions to be recreated on every render.
 type TableMeta = {
   t: (key: string, options?: Record<string, unknown>) => string;
-  selectedProfiles: string[];
+  selectedProfilesCount: number;
   selectableCount: number;
   showCheckboxes: boolean;
   isClient: boolean;
@@ -228,6 +230,8 @@ type TableMeta = {
   proxyOverrides: Record<string, string | null>;
   storedProxies: StoredProxy[];
   onOpenProxyCenter?: () => void;
+  openProxyCreateForProfile: (profileId: string) => void;
+  openProxyEditForProfile: (profileId: string, proxy: StoredProxy) => void;
   handleProxySelection: (
     profileId: string,
     proxyId: string | null,
@@ -284,6 +288,9 @@ type TableMeta = {
 
   // Sync
   syncStatuses: Record<string, { status: string; error?: string }>;
+  setSyncStatuses: React.Dispatch<
+    React.SetStateAction<Record<string, { status: string; error?: string }>>
+  >;
   onOpenProfileSyncDialog?: (profile: BrowserProfile) => void;
   onToggleProfileSync?: (profile: BrowserProfile) => void;
   crossOsUnlocked?: boolean;
@@ -304,6 +311,7 @@ type TableMeta = {
   isProfileLockedByAnother: (profileId: string) => boolean;
   getProfileLockEmail: (profileId: string) => string | undefined;
   isReadOnlyRole: boolean;
+  groupColorById: Record<string, string>;
 };
 
 type SyncStatusDot = {
@@ -312,6 +320,18 @@ type SyncStatusDot = {
   animate: boolean;
   encrypted: boolean;
 };
+
+function isRuntimeStateStarting(
+  runtimeState: BrowserProfile["runtime_state"],
+): boolean {
+  return runtimeState === "Starting";
+}
+
+function isRuntimeStateStopping(
+  runtimeState: BrowserProfile["runtime_state"],
+): boolean {
+  return runtimeState === "Stopping" || runtimeState === "Terminating";
+}
 
 function getProfileSyncStatusDot(
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -436,6 +456,27 @@ function extractOsVersionFromProfile(profile: BrowserProfile): string | null {
     // Ignore malformed fingerprint payloads.
   }
 
+  return null;
+}
+
+function resolveFingerprintOs(
+  profile: BrowserProfile,
+): "windows" | "macos" | "linux" | null {
+  const preferredOs = profile.wayfern_config?.os ?? profile.camoufox_config?.os;
+  if (
+    preferredOs === "windows" ||
+    preferredOs === "macos" ||
+    preferredOs === "linux"
+  ) {
+    return preferredOs;
+  }
+  if (
+    profile.host_os === "windows" ||
+    profile.host_os === "macos" ||
+    profile.host_os === "linux"
+  ) {
+    return profile.host_os;
+  }
   return null;
 }
 
@@ -958,8 +999,8 @@ interface ProfilesDataTableProps {
   onDeleteSelectedProfiles: (profileIds: string[]) => Promise<void>;
   onAssignProfilesToGroup: (profileIds: string[]) => void;
   selectedGroupId: string | null;
-  selectedProfiles: string[];
-  onSelectedProfilesChange: Dispatch<SetStateAction<string[]>>;
+  onSelectionChange?: (profileIds: string[]) => void;
+  selectionResetNonce?: number;
   onBulkDelete?: () => void;
   onBulkGroupAssignment?: () => void;
   onBulkProxyAssignment?: () => void;
@@ -986,6 +1027,7 @@ interface ProfilesDataTableProps {
   syncUnlocked?: boolean;
   storedProxies: StoredProxy[];
   vpnConfigs: VpnConfig[];
+  isProxyVpnCatalogLoading?: boolean;
   isLoading?: boolean;
 }
 
@@ -1002,8 +1044,8 @@ export function ProfilesDataTable({
   runningProfiles,
   isUpdating,
   onAssignProfilesToGroup,
-  selectedProfiles,
-  onSelectedProfilesChange,
+  onSelectionChange,
+  selectionResetNonce = 0,
   onBulkDelete,
   onBulkGroupAssignment,
   onBulkProxyAssignment,
@@ -1030,6 +1072,7 @@ export function ProfilesDataTable({
   syncUnlocked = false,
   storedProxies,
   vpnConfigs,
+  isProxyVpnCatalogLoading = false,
   isLoading = false,
 }: ProfilesDataTableProps) {
   const { t } = useTranslation();
@@ -1039,57 +1082,8 @@ export function ProfilesDataTable({
     pageIndex: 0,
     pageSize: 25,
   });
+  const [selectedProfiles, setSelectedProfiles] = React.useState<string[]>([]);
 
-  // Sync external selectedProfiles with table's row selection state
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const prevSelectedProfilesRef = React.useRef<string[]>(selectedProfiles);
-
-  // Update row selection when external selectedProfiles changes
-  React.useEffect(() => {
-    // Only update if selectedProfiles actually changed
-    if (
-      prevSelectedProfilesRef.current.length !== selectedProfiles.length ||
-      !prevSelectedProfilesRef.current.every((id) =>
-        selectedProfiles.includes(id),
-      )
-    ) {
-      const newSelection: RowSelectionState = {};
-      for (const profileId of selectedProfiles) {
-        newSelection[profileId] = true;
-      }
-      setRowSelection(newSelection);
-      prevSelectedProfilesRef.current = selectedProfiles;
-    }
-  }, [selectedProfiles]);
-
-  // Update external selectedProfiles when table selection changes
-  const handleRowSelectionChange = React.useCallback(
-    (updater: React.SetStateAction<RowSelectionState>) => {
-      setRowSelection((prevSelection) => {
-        const newSelection =
-          typeof updater === "function" ? updater(prevSelection) : updater;
-
-        const selectedIds = Object.keys(newSelection).filter(
-          (id) => newSelection[id],
-        );
-
-        // Only update external state if selection actually changed
-        const prevIds = Object.keys(prevSelection).filter(
-          (id) => prevSelection[id],
-        );
-
-        if (
-          selectedIds.length !== prevIds.length ||
-          !selectedIds.every((id) => prevIds.includes(id))
-        ) {
-          onSelectedProfilesChange(selectedIds);
-        }
-
-        return newSelection;
-      });
-    },
-    [onSelectedProfilesChange],
-  );
   const [profileToRename, setProfileToRename] =
     React.useState<BrowserProfile | null>(null);
   const [newProfileName, setNewProfileName] = React.useState("");
@@ -1129,7 +1123,7 @@ export function ProfilesDataTable({
   const [vpnOverrides, setVpnOverrides] = React.useState<
     Record<string, string | null>
   >({});
-  const [showCheckboxes, setShowCheckboxes] = React.useState(false);
+  const showCheckboxes = selectedProfiles.length > 0;
   const [tagsOverrides, setTagsOverrides] = React.useState<
     Record<string, string[]>
   >({});
@@ -1140,6 +1134,13 @@ export function ProfilesDataTable({
   const [openProxySelectorFor, setOpenProxySelectorFor] = React.useState<
     string | null
   >(null);
+  const [proxyFormProfileId, setProxyFormProfileId] = React.useState<
+    string | null
+  >(null);
+  const [editingProxy, setEditingProxy] = React.useState<StoredProxy | null>(
+    null,
+  );
+  const [showProxyFormDialog, setShowProxyFormDialog] = React.useState(false);
   const [checkingProfileId, setCheckingProfileId] = React.useState<
     string | null
   >(null);
@@ -1162,6 +1163,15 @@ export function ProfilesDataTable({
   const [syncStatuses, setSyncStatuses] = React.useState<
     Record<string, { status: string; error?: string }>
   >({});
+  const [groupColorById, setGroupColorById] = React.useState<
+    Record<string, string>
+  >({});
+  const [cachedProxyNamesById, setCachedProxyNamesById] = React.useState<
+    Record<string, string>
+  >({});
+  const [cachedVpnNamesById, setCachedVpnNamesById] = React.useState<
+    Record<string, string>
+  >({});
 
   // Stable refs for volatile state — keeps tableMeta stable when these values
   // change (traffic polls, sync events, proxy checks, user edits). Column cells
@@ -1171,6 +1181,7 @@ export function ProfilesDataTable({
   trafficSnapshotsRef.current = trafficSnapshots;
   const syncStatusesRef = React.useRef(syncStatuses);
   syncStatusesRef.current = syncStatuses;
+  const previousRunningProfilesRef = React.useRef<Set<string>>(new Set());
   const proxyCheckResultsRef = React.useRef(proxyCheckResults);
   proxyCheckResultsRef.current = proxyCheckResults;
   const proxyOverridesRef = React.useRef(proxyOverrides);
@@ -1183,6 +1194,104 @@ export function ProfilesDataTable({
   const [countriesLoaded, setCountriesLoaded] = React.useState(false);
   const hasCloudProxy = storedProxies.some((p) => p.is_cloud_managed);
   const canCreateLocationProxy = hasCloudProxy || crossOsUnlocked;
+  const PROXY_NAME_CACHE_KEY = "buglogin.proxyNameById.v1";
+  const VPN_NAME_CACHE_KEY = "buglogin.vpnNameById.v1";
+
+  React.useEffect(() => {
+    const applyGroupColors = () => {
+      const appearance = readGroupAppearanceMap();
+      const next: Record<string, string> = {};
+      for (const [groupId, config] of Object.entries(appearance)) {
+        if (config?.color) {
+          next[groupId] = sanitizeGroupColor(config.color);
+        }
+      }
+      setGroupColorById(next);
+    };
+
+    const handleAppearanceUpdate = () => {
+      applyGroupColors();
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === GROUP_APPEARANCE_STORAGE_KEY) {
+        applyGroupColors();
+      }
+    };
+
+    applyGroupColors();
+    window.addEventListener(
+      GROUP_APPEARANCE_UPDATED_EVENT,
+      handleAppearanceUpdate as EventListener,
+    );
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(
+        GROUP_APPEARANCE_UPDATED_EVENT,
+        handleAppearanceUpdate as EventListener,
+      );
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const rawProxy = window.localStorage.getItem(PROXY_NAME_CACHE_KEY);
+      if (rawProxy) {
+        const parsed = JSON.parse(rawProxy) as Record<string, string>;
+        if (parsed && typeof parsed === "object") {
+          setCachedProxyNamesById(parsed);
+        }
+      }
+      const rawVpn = window.localStorage.getItem(VPN_NAME_CACHE_KEY);
+      if (rawVpn) {
+        const parsed = JSON.parse(rawVpn) as Record<string, string>;
+        if (parsed && typeof parsed === "object") {
+          setCachedVpnNamesById(parsed);
+        }
+      }
+    } catch {
+      // Ignore local cache parse issues.
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || storedProxies.length === 0) {
+      return;
+    }
+    setCachedProxyNamesById((prev) => {
+      const next = { ...prev };
+      for (const proxy of storedProxies) {
+        next[proxy.id] = proxy.name;
+      }
+      try {
+        window.localStorage.setItem(PROXY_NAME_CACHE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore localStorage write issues.
+      }
+      return next;
+    });
+  }, [storedProxies]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || vpnConfigs.length === 0) {
+      return;
+    }
+    setCachedVpnNamesById((prev) => {
+      const next = { ...prev };
+      for (const vpn of vpnConfigs) {
+        next[vpn.id] = vpn.name;
+      }
+      try {
+        window.localStorage.setItem(VPN_NAME_CACHE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore localStorage write issues.
+      }
+      return next;
+    });
+  }, [vpnConfigs]);
 
   const loadCountries = React.useCallback(async () => {
     if (countriesLoaded || !canCreateLocationProxy || !currentUserId) return;
@@ -1328,6 +1437,39 @@ export function ProfilesDataTable({
     [effectiveTeamRole, handleProxySelection, isEntitlementReadOnly, t],
   );
 
+  const openProxyCreateForProfile = React.useCallback((profileId: string) => {
+    setOpenProxySelectorFor(null);
+    setProxyFormProfileId(profileId);
+    setEditingProxy(null);
+    setShowProxyFormDialog(true);
+  }, []);
+
+  const openProxyEditForProfile = React.useCallback(
+    (profileId: string, proxy: StoredProxy) => {
+      setOpenProxySelectorFor(null);
+      setProxyFormProfileId(profileId);
+      setEditingProxy(proxy);
+      setShowProxyFormDialog(true);
+    },
+    [],
+  );
+
+  const handleProxyFormClose = React.useCallback(() => {
+    setShowProxyFormDialog(false);
+    setProxyFormProfileId(null);
+    setEditingProxy(null);
+  }, []);
+
+  const handleProxyFormSaved = React.useCallback(
+    async (proxy: StoredProxy, mode: "create" | "edit") => {
+      if (mode !== "create" || !proxyFormProfileId) {
+        return;
+      }
+      await handleProxySelection(proxyFormProfileId, proxy.id);
+    },
+    [handleProxySelection, proxyFormProfileId],
+  );
+
   // Use shared browser state hook
   const browserState = useBrowserState(
     profiles,
@@ -1335,6 +1477,28 @@ export function ProfilesDataTable({
     isUpdating,
     launchingProfiles,
     stoppingProfiles,
+  );
+  const profilesById = React.useMemo(
+    () => new Map(profiles.map((profile) => [profile.id, profile])),
+    [profiles],
+  );
+
+  React.useEffect(() => {
+    if (selectionResetNonce === 0) {
+      return;
+    }
+    setSelectedProfiles([]);
+  }, [selectionResetNonce]);
+
+  React.useEffect(() => {
+    onSelectionChange?.(selectedProfiles);
+  }, [onSelectionChange, selectedProfiles]);
+
+  const commitSelectionChange = React.useCallback(
+    (next: React.SetStateAction<string[]>) => {
+      setSelectedProfiles(next);
+    },
+    [],
   );
 
   React.useEffect(() => {
@@ -1351,8 +1515,8 @@ export function ProfilesDataTable({
     );
   }, [stoppingProfiles]);
 
-  // Reconcile pending launch/stop transitions against backend state so the UI
-  // self-heals if a transition event is delayed or missed.
+  // Backend events are the source of truth; keep local transition state as
+  // lightweight optimistic UI with timeout-based self-healing fallback.
   React.useEffect(() => {
     if (!browserState.isClient) {
       return;
@@ -1361,107 +1525,67 @@ export function ProfilesDataTable({
       return;
     }
 
-    let isCancelled = false;
-    let inFlight = false;
+    const liveProfileIds = new Set(profiles.map((profile) => profile.id));
+    const timeoutIds: number[] = [];
+    const now = Date.now();
 
-    const reconcilePendingTransitions = async () => {
-      if (document.visibilityState !== "visible" || inFlight) {
-        return;
+    setLaunchingProfiles((prev) => {
+      if (prev.size === 0) {
+        return prev;
       }
+      const filtered = new Set(
+        Array.from(prev).filter((id) => liveProfileIds.has(id)),
+      );
+      return filtered.size === prev.size ? prev : filtered;
+    });
+    setStoppingProfiles((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      const filtered = new Set(
+        Array.from(prev).filter((id) => liveProfileIds.has(id)),
+      );
+      return filtered.size === prev.size ? prev : filtered;
+    });
 
-      const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
-      const candidateIds = Array.from(
-        new Set([...launchingProfiles, ...stoppingProfiles]),
-      ).filter((id) => profilesById.has(id));
-
-      if (candidateIds.length === 0) {
+    launchingProfiles.forEach((id) => {
+      const startedAt = launchingStartedAtRef.current.get(id) ?? now;
+      const elapsed = now - startedAt;
+      const delay = Math.max(0, PROFILE_LAUNCH_TRANSITION_TIMEOUT_MS - elapsed);
+      const timeoutId = window.setTimeout(() => {
         setLaunchingProfiles((prev) => {
-          if (prev.size === 0) {
+          if (!prev.has(id)) {
             return prev;
           }
-          return new Set(Array.from(prev).filter((id) => profilesById.has(id)));
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
         });
+      }, delay);
+      timeoutIds.push(timeoutId);
+    });
+
+    stoppingProfiles.forEach((id) => {
+      const startedAt = stoppingStartedAtRef.current.get(id) ?? now;
+      const elapsed = now - startedAt;
+      const delay = Math.max(0, PROFILE_STOP_TRANSITION_TIMEOUT_MS - elapsed);
+      const timeoutId = window.setTimeout(() => {
         setStoppingProfiles((prev) => {
-          if (prev.size === 0) {
+          if (!prev.has(id)) {
             return prev;
           }
-          return new Set(Array.from(prev).filter((id) => profilesById.has(id)));
-        });
-        return;
-      }
-
-      inFlight = true;
-      try {
-        const statusMap = await invoke<Record<string, boolean>>(
-          "check_browser_statuses_batch",
-          {
-            profileIds: candidateIds,
-          },
-        );
-
-        if (isCancelled) {
-          return;
-        }
-
-        const now = Date.now();
-        setLaunchingProfiles((prev) => {
-          let changed = false;
           const next = new Set(prev);
-          prev.forEach((id) => {
-            const profile = profilesById.get(id);
-            const isRunning =
-              runningProfiles.has(id) ||
-              (statusMap[id] ?? false) ||
-              profile?.runtime_state === "Running" ||
-              Boolean(profile?.process_id);
-            const startedAt = launchingStartedAtRef.current.get(id) ?? now;
-            const timedOut =
-              now - startedAt >= PROFILE_LAUNCH_TRANSITION_TIMEOUT_MS;
-            if (!profile || isRunning || timedOut) {
-              next.delete(id);
-              changed = true;
-            }
-          });
-          return changed ? next : prev;
+          next.delete(id);
+          return next;
         });
-
-        setStoppingProfiles((prev) => {
-          let changed = false;
-          const next = new Set(prev);
-          prev.forEach((id) => {
-            const profile = profilesById.get(id);
-            const isStillRunning =
-              runningProfiles.has(id) ||
-              (statusMap[id] ?? false) ||
-              profile?.runtime_state === "Running" ||
-              profile?.runtime_state === "Terminating";
-            const startedAt = stoppingStartedAtRef.current.get(id) ?? now;
-            const timedOut =
-              now - startedAt >= PROFILE_STOP_TRANSITION_TIMEOUT_MS;
-            if (!profile || !isStillRunning || timedOut) {
-              next.delete(id);
-              changed = true;
-            }
-          });
-          return changed ? next : prev;
-        });
-      } catch {
-        // Best-effort reconciliation only.
-      } finally {
-        inFlight = false;
-      }
-    };
-
-    void reconcilePendingTransitions();
-    const interval = window.setInterval(() => {
-      void reconcilePendingTransitions();
-    }, PROFILE_TRANSITION_RECONCILE_INTERVAL_MS);
+      }, delay);
+      timeoutIds.push(timeoutId);
+    });
 
     return () => {
-      isCancelled = true;
-      window.clearInterval(interval);
+      timeoutIds.forEach((id) => window.clearTimeout(id));
     };
-  }, [browserState.isClient, launchingProfiles, profiles, runningProfiles, stoppingProfiles]);
+  }, [browserState.isClient, launchingProfiles, profiles, stoppingProfiles]);
 
   // Listen for sync status events
   React.useEffect(() => {
@@ -1519,20 +1643,64 @@ export function ProfilesDataTable({
     });
   }, [runningProfiles]);
 
+  // Surface stop/close feedback early so users can immediately see pending sync.
+  React.useEffect(() => {
+    if (!browserState.isClient) {
+      previousRunningProfilesRef.current = new Set(runningProfiles);
+      return;
+    }
+
+    const previousRunning = previousRunningProfilesRef.current;
+    const stoppedProfileIds: string[] = [];
+    previousRunning.forEach((profileId) => {
+      if (!runningProfiles.has(profileId)) {
+        stoppedProfileIds.push(profileId);
+      }
+    });
+
+    if (stoppedProfileIds.length > 0) {
+      setSyncStatuses((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const profileId of stoppedProfileIds) {
+          const profile = profilesById.get(profileId);
+          const syncEnabled =
+            profile?.sync_mode != null && profile.sync_mode !== "Disabled";
+          if (!syncEnabled) {
+            continue;
+          }
+          const currentStatus = prev[profileId]?.status;
+          if (currentStatus === "syncing" || currentStatus === "waiting") {
+            continue;
+          }
+          next[profileId] = { status: "waiting" };
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+
+    previousRunningProfilesRef.current = new Set(runningProfiles);
+  }, [browserState.isClient, profilesById, runningProfiles]);
+
   // Automatically deselect profiles that become running, updating, launching, or stopping
   React.useEffect(() => {
     const newSet = new Set(selectedProfiles);
     let hasChanges = false;
 
     for (const profileId of selectedProfiles) {
-      const profile = profiles.find((p) => p.id === profileId);
+      const profile = profilesById.get(profileId);
       if (profile) {
         const isRunning =
           (browserState.isClient && runningProfiles.has(profile.id)) ||
           profile.runtime_state === "Running";
         const isParked = profile.runtime_state === "Parked";
-        const isLaunching = launchingProfiles.has(profile.id);
-        const isStopping = stoppingProfiles.has(profile.id);
+        const isLaunching =
+          launchingProfiles.has(profile.id) ||
+          isRuntimeStateStarting(profile.runtime_state);
+        const isStopping =
+          stoppingProfiles.has(profile.id) ||
+          isRuntimeStateStopping(profile.runtime_state);
         const isChecking = checkingProfiles.has(profile.id);
 
         if (isRunning || isParked || isLaunching || isStopping || isChecking) {
@@ -1543,16 +1711,16 @@ export function ProfilesDataTable({
     }
 
     if (hasChanges) {
-      onSelectedProfilesChange(Array.from(newSet));
+      commitSelectionChange(Array.from(newSet));
     }
   }, [
-    profiles,
+    profilesById,
     runningProfiles,
     launchingProfiles,
     stoppingProfiles,
     checkingProfiles,
     browserState.isClient,
-    onSelectedProfilesChange,
+    commitSelectionChange,
     selectedProfiles,
   ]);
 
@@ -1630,10 +1798,16 @@ export function ProfilesDataTable({
     }
   };
 
+  // O(1) Set-based lookup for selected profiles
+  const selectedProfilesSet = React.useMemo(
+    () => new Set(selectedProfiles),
+    [selectedProfiles],
+  );
+
   // Handle icon/checkbox click
   const handleIconClick = React.useCallback(
     (profileId: string) => {
-      const profile = profiles.find((p) => p.id === profileId);
+      const profile = profilesById.get(profileId);
       if (!profile) return;
 
       // Prevent selection of profiles whose browsers are updating
@@ -1641,22 +1815,15 @@ export function ProfilesDataTable({
         return;
       }
 
-      setShowCheckboxes(true);
-      const newSet = new Set(selectedProfiles);
+      const newSet = new Set(selectedProfilesSet);
       if (newSet.has(profileId)) {
         newSet.delete(profileId);
       } else {
         newSet.add(profileId);
       }
-
-      // Hide checkboxes if no profiles are selected
-      if (newSet.size === 0) {
-        setShowCheckboxes(false);
-      }
-
-      onSelectedProfilesChange(Array.from(newSet));
+      commitSelectionChange(Array.from(newSet));
     },
-    [profiles, browserState, onSelectedProfilesChange, selectedProfiles],
+    [profilesById, browserState, selectedProfilesSet, commitSelectionChange],
   );
 
   React.useEffect(() => {
@@ -1668,67 +1835,15 @@ export function ProfilesDataTable({
   // Handle checkbox change
   const handleCheckboxChange = React.useCallback(
     (profileId: string, checked: boolean) => {
-      const newSet = new Set(selectedProfiles);
+      const newSet = new Set(selectedProfilesSet);
       if (checked) {
         newSet.add(profileId);
       } else {
         newSet.delete(profileId);
       }
-
-      // Hide checkboxes if no profiles are selected
-      if (newSet.size === 0) {
-        setShowCheckboxes(false);
-      }
-
-      onSelectedProfilesChange(Array.from(newSet));
+      commitSelectionChange(Array.from(newSet));
     },
-    [onSelectedProfilesChange, selectedProfiles],
-  );
-
-  // Handle select all checkbox
-  const handleToggleAll = React.useCallback(
-    (checked: boolean) => {
-      const newSet = checked
-        ? new Set(
-            profiles
-              .filter((profile) => {
-                const isRunning =
-                  (browserState.isClient && runningProfiles.has(profile.id)) ||
-                  profile.runtime_state === "Running";
-                const isParked = profile.runtime_state === "Parked";
-                const isLaunching = launchingProfiles.has(profile.id);
-                const isStopping = stoppingProfiles.has(profile.id);
-                const isChecking = checkingProfiles.has(profile.id);
-                return (
-                  !isRunning &&
-                  !isParked &&
-                  !isLaunching &&
-                  !isStopping &&
-                  !isChecking
-                );
-              })
-              .map((profile) => profile.id),
-          )
-        : new Set<string>();
-
-      setShowCheckboxes(checked);
-      onSelectedProfilesChange(Array.from(newSet));
-    },
-    [
-      profiles,
-      onSelectedProfilesChange,
-      browserState.isClient,
-      runningProfiles,
-      launchingProfiles,
-      stoppingProfiles,
-      checkingProfiles,
-    ],
-  );
-
-  // O(1) Set-based lookup for selected profiles
-  const selectedProfilesSet = React.useMemo(
-    () => new Set(selectedProfiles),
-    [selectedProfiles],
+    [selectedProfilesSet, commitSelectionChange],
   );
 
   // Memoize selectableProfiles calculation
@@ -1738,8 +1853,12 @@ export function ProfilesDataTable({
         (browserState.isClient && runningProfiles.has(profile.id)) ||
         profile.runtime_state === "Running";
       const isParked = profile.runtime_state === "Parked";
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+      const isLaunching =
+        launchingProfiles.has(profile.id) ||
+        isRuntimeStateStarting(profile.runtime_state);
+      const isStopping =
+        stoppingProfiles.has(profile.id) ||
+        isRuntimeStateStopping(profile.runtime_state);
       const isChecking = checkingProfiles.has(profile.id);
       return (
         !isRunning && !isParked && !isLaunching && !isStopping && !isChecking
@@ -1753,8 +1872,23 @@ export function ProfilesDataTable({
     stoppingProfiles,
     checkingProfiles,
   ]);
+  const selectableProfileIds = React.useMemo(
+    () => selectableProfiles.map((profile) => profile.id),
+    [selectableProfiles],
+  );
 
-  const getRuntimeBadgeClassName = React.useCallback(
+  // Handle select all checkbox
+  const handleToggleAll = React.useCallback(
+    (checked: boolean) => {
+      const newSet = checked
+        ? new Set(selectableProfileIds)
+        : new Set<string>();
+      commitSelectionChange(Array.from(newSet));
+    },
+    [commitSelectionChange, selectableProfileIds],
+  );
+
+  const getRuntimeBadgeVariant = React.useCallback(
     ({
       isRunning,
       isParked,
@@ -1767,17 +1901,23 @@ export function ProfilesDataTable({
       isLaunching: boolean;
       isStopping: boolean;
       isChecking: boolean;
-    }) => {
-      if (isStopping) {
-        return "gap-1 border-destructive/20 bg-destructive/10 text-destructive";
+    }): React.ComponentProps<typeof Badge>["variant"] => {
+      if (isChecking) {
+        return "warning";
       }
-      if (isRunning || isLaunching || isChecking) {
-        return "gap-1 border-primary/20 bg-primary/10 text-primary";
+      if (isStopping) {
+        return "warning";
+      }
+      if (isRunning) {
+        return "success";
+      }
+      if (isLaunching) {
+        return "info";
       }
       if (isParked) {
-        return "gap-1 border-border/60 bg-secondary text-secondary-foreground";
+        return "secondary";
       }
-      return "gap-1 border-border/60 bg-muted text-muted-foreground";
+      return "secondary";
     },
     [],
   );
@@ -1792,7 +1932,7 @@ export function ProfilesDataTable({
   const tableMeta = React.useMemo<TableMeta>(
     () => ({
       t,
-      selectedProfiles,
+      selectedProfilesCount: selectedProfiles.length,
       selectedProfilesSet,
       selectableCount: selectableProfiles.length,
       showCheckboxes,
@@ -1824,6 +1964,8 @@ export function ProfilesDataTable({
       proxyOverrides: proxyOverridesRef.current,
       storedProxies,
       onOpenProxyCenter,
+      openProxyCreateForProfile,
+      openProxyEditForProfile,
       handleProxySelection,
       checkingProfileId,
       proxyCheckResults: proxyCheckResultsRef.current,
@@ -1870,12 +2012,13 @@ export function ProfilesDataTable({
       // Traffic snapshots (lightweight real-time data — accessed via ref to keep tableMeta stable)
       trafficSnapshots: trafficSnapshotsRef.current,
       onOpenTrafficDialog: (profileId: string) => {
-        const profile = profiles.find((p) => p.id === profileId);
+        const profile = profilesById.get(profileId);
         setTrafficDialogProfile({ id: profileId, name: profile?.name });
       },
 
       // Sync (accessed via ref to keep tableMeta stable)
       syncStatuses: syncStatusesRef.current,
+      setSyncStatuses,
       onOpenProfileSyncDialog,
       onToggleProfileSync,
       crossOsUnlocked,
@@ -1894,10 +2037,11 @@ export function ProfilesDataTable({
       getProfileLockEmail: (profileId: string) =>
         getLockInfo(profileId)?.lockedByEmail,
       isReadOnlyRole,
+      groupColorById,
     }),
     [
       t,
-      selectedProfiles,
+      selectedProfiles.length,
       selectedProfilesSet,
       selectableProfiles.length,
       showCheckboxes,
@@ -1919,6 +2063,8 @@ export function ProfilesDataTable({
       // and intentionally excluded from deps to keep tableMeta stable.
       storedProxies,
       onOpenProxyCenter,
+      openProxyCreateForProfile,
+      openProxyEditForProfile,
       handleProxySelection,
       checkingProfileId,
       vpnConfigs,
@@ -1930,7 +2076,7 @@ export function ProfilesDataTable({
       profileToRename,
       newProfileName,
       isRenamingSaving,
-      profiles,
+      profilesById,
       renameError,
       onKillProfile,
       onLaunchProfile,
@@ -1955,6 +2101,7 @@ export function ProfilesDataTable({
       isProfileLocked,
       getLockInfo,
       isReadOnlyRole,
+      groupColorById,
     ],
   );
 
@@ -1968,7 +2115,7 @@ export function ProfilesDataTable({
             <span>
               <Checkbox
                 checked={
-                  meta.selectedProfiles.length === meta.selectableCount &&
+                  meta.selectedProfilesCount === meta.selectableCount &&
                   meta.selectableCount !== 0
                 }
                 onCheckedChange={(value) => meta.handleToggleAll(!!value)}
@@ -1983,15 +2130,19 @@ export function ProfilesDataTable({
           const profile = row.original;
           const browser = profile.browser;
           const IconComponent = getProfileIcon(profile);
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
 
           const isSelected = meta.isProfileSelected(profile.id);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isDisabled = isRunning || isParked || isLaunching || isStopping;
 
           // Cross-OS profiles: show OS icon when checkboxes aren't visible, show checkbox when they are
@@ -2145,8 +2296,12 @@ export function ProfilesDataTable({
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isChecking = meta.checkingProfiles.has(profile.id);
           const isLockedByAnother = meta.isProfileLockedByAnother(profile.id);
           const canLaunch =
@@ -2157,9 +2312,18 @@ export function ProfilesDataTable({
             : meta.browserState.getLaunchTooltipContent(profile);
 
           const handleProfileStop = async (profile: BrowserProfile) => {
+            const previousSyncStatus = meta.syncStatuses[profile.id];
+            const syncEnabled =
+              profile.sync_mode != null && profile.sync_mode !== "Disabled";
             meta.setStoppingProfiles((prev: Set<string>) =>
               new Set(prev).add(profile.id),
             );
+            if (syncEnabled) {
+              meta.setSyncStatuses((prev) => ({
+                ...prev,
+                [profile.id]: { status: "waiting" },
+              }));
+            }
             try {
               await meta.onKillProfile(profile);
             } catch (error) {
@@ -2168,68 +2332,24 @@ export function ProfilesDataTable({
                 next.delete(profile.id);
                 return next;
               });
+              if (syncEnabled) {
+                meta.setSyncStatuses((prev) => {
+                  if (previousSyncStatus) {
+                    return {
+                      ...prev,
+                      [profile.id]: previousSyncStatus,
+                    };
+                  }
+                  const next = { ...prev };
+                  delete next[profile.id];
+                  return next;
+                });
+              }
               throw error;
             }
           };
 
           const handleProfileLaunch = async (profile: BrowserProfile) => {
-            const hasProxyOverride = Object.hasOwn(
-              meta.proxyOverrides,
-              profile.id,
-            );
-            const effectiveProxyId = hasProxyOverride
-              ? meta.proxyOverrides[profile.id]
-              : (profile.proxy_id ?? null);
-            const effectiveProxy = effectiveProxyId
-              ? (meta.storedProxies.find((p) => p.id === effectiveProxyId) ??
-                null)
-              : null;
-            const hasVpnOverride = Object.hasOwn(meta.vpnOverrides, profile.id);
-            const effectiveVpnId = hasVpnOverride
-              ? meta.vpnOverrides[profile.id]
-              : (profile.vpn_id ?? null);
-            const effectiveVpn = effectiveVpnId
-              ? (meta.vpnConfigs.find((v) => v.id === effectiveVpnId) ?? null)
-              : null;
-
-            if (effectiveProxy && !effectiveVpn) {
-              const cached = meta.proxyCheckResults[effectiveProxy.id];
-              const nowSeconds = Math.floor(Date.now() / 1000);
-              const hasFreshProxyCheck =
-                Boolean(cached) &&
-                nowSeconds - (cached?.timestamp ?? 0) <=
-                  PROXY_PRELAUNCH_CHECK_TTL_SECONDS;
-
-              if (!hasFreshProxyCheck) {
-                meta.setCheckingProfiles((prev: Set<string>) =>
-                  new Set(prev).add(profile.id),
-                );
-                // Keep launch responsive: proxy precheck runs in background.
-                void invoke<ProxyCheckResult>("check_proxy_validity", {
-                  proxyId: effectiveProxy.id,
-                  proxySettings: effectiveProxy.proxy_settings,
-                })
-                  .then((result) => {
-                    setProxyCheckResults((prev) => ({
-                      ...prev,
-                      [effectiveProxy.id]: result,
-                    }));
-                  })
-                  .catch((error) => {
-                    showErrorToast(meta.t("toasts.error.profileLaunchFailed"), {
-                      description: extractRootError(error),
-                    });
-                  })
-                  .finally(() => {
-                    meta.setCheckingProfiles((prev: Set<string>) => {
-                      const next = new Set(prev);
-                      next.delete(profile.id);
-                      return next;
-                    });
-                  });
-              }
-            }
-
             meta.setLaunchingProfiles((prev: Set<string>) =>
               new Set(prev).add(profile.id),
             );
@@ -2263,15 +2383,29 @@ export function ProfilesDataTable({
                         !canLaunch && "opacity-50 cursor-not-allowed",
                         canLaunch && "cursor-pointer",
                       )}
-                      onClick={() =>
-                        isRunning
-                          ? handleProfileStop(profile)
-                          : handleProfileLaunch(profile)
-                      }
+                      onClick={() => {
+                        if (isRunning) {
+                          void handleProfileStop(profile).catch(() => {
+                            // onKillProfile handles user-facing errors.
+                          });
+                          return;
+                        }
+                        void handleProfileLaunch(profile).catch(() => {
+                          // onLaunchProfile handles user-facing errors.
+                        });
+                      }}
                     >
-                      {isChecking || isLaunching || isStopping ? (
-                        <div className="flex items-center justify-center">
+                      {isChecking ? (
+                        <div className="flex gap-1.5 items-center justify-center">
                           <Spinner size="sm" className="text-current" />
+                          <span>
+                            {meta.t("proxies.check.tooltips.checking")}
+                          </span>
+                        </div>
+                      ) : isLaunching || isStopping ? (
+                        <div className="flex gap-1.5 items-center justify-center">
+                          <Spinner size="sm" className="text-current" />
+                          <span>{meta.t("profiles.table.syncing")}</span>
                         </div>
                       ) : isRunning ? (
                         <div className="flex gap-1.5 items-center">
@@ -2311,8 +2445,12 @@ export function ProfilesDataTable({
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isChecking = meta.checkingProfiles.has(profile.id);
           const hasProxyOverride = Object.hasOwn(
             meta.proxyOverrides,
@@ -2332,32 +2470,24 @@ export function ProfilesDataTable({
           return (
             <div className="flex gap-2 items-center">
               <Badge
-                variant="outline"
-                className={cn(
-                  "gap-1 px-2 py-0 shadow-none",
-                  getRuntimeBadgeClassName({
-                    isRunning,
-                    isParked,
-                    isLaunching,
-                    isStopping,
-                    isChecking,
-                  }),
-                )}
+                variant={getRuntimeBadgeVariant({
+                  isRunning,
+                  isParked,
+                  isLaunching,
+                  isStopping,
+                  isChecking,
+                })}
+                className="type-ui h-6 gap-1.5 px-2 py-0 shadow-none"
               >
                 {isChecking ? (
                   <>
                     <Spinner size="sm" className="text-current" />
                     <span>{meta.t("proxies.check.tooltips.checking")}</span>
                   </>
-                ) : isLaunching ? (
+                ) : isLaunching || isStopping ? (
                   <>
-                    <LuPlay className="w-3 h-3" />
-                    <span>{meta.t("profiles.actions.launch")}</span>
-                  </>
-                ) : isStopping ? (
-                  <>
-                    <LuCircleStop className="w-3 h-3" />
-                    <span>{meta.t("profiles.actions.stop")}</span>
+                    <Spinner size="sm" className="text-current" />
+                    <span>{meta.t("profiles.table.syncing")}</span>
                   </>
                 ) : isRunning ? (
                   <>
@@ -2471,13 +2601,13 @@ export function ProfilesDataTable({
           const NAME_TRIM_LENGTH = 24;
           const display =
             name.length <= NAME_TRIM_LENGTH ? (
-              <div className="type-ui text-left truncate">
+              <div className="type-ui truncate text-left text-xs font-normal leading-5 text-foreground">
                 {name}
               </div>
             ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="leading-tight">
+                  <span className="type-ui truncate text-xs font-normal leading-5 text-foreground">
                     {trimName(name, NAME_TRIM_LENGTH)}
                   </span>
                 </TooltipTrigger>
@@ -2485,13 +2615,17 @@ export function ProfilesDataTable({
               </Tooltip>
             );
 
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isDisabled =
             isRunning ||
             isParked ||
@@ -2502,25 +2636,33 @@ export function ProfilesDataTable({
           const lockedEmail = meta.getProfileLockEmail(profile.id);
           const isLocked = meta.isProfileLockedByAnother(profile.id);
           const isPinned = meta.isProfilePinned(profile.id);
-          const osName = profile.host_os
-            ? getOSDisplayName(profile.host_os)
-            : null;
+          const groupColor = profile.group_id
+            ? meta.groupColorById[profile.group_id]
+            : undefined;
+          const fingerprintOs = resolveFingerprintOs(profile);
+          const osName = fingerprintOs ? getOSDisplayName(fingerprintOs) : null;
           const osVersion = extractOsVersionFromProfile(profile);
           const OsIcon =
-            profile.host_os === "macos"
+            fingerprintOs === "macos"
               ? FaApple
-              : profile.host_os === "windows"
+              : fingerprintOs === "windows"
                 ? FaWindows
-                : profile.host_os === "linux"
+                : fingerprintOs === "linux"
                   ? FaLinux
                   : null;
 
           return (
             <div className="flex items-center gap-1">
+              {groupColor ? (
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full border border-border/60"
+                  style={{ backgroundColor: groupColor }}
+                />
+              ) : null}
               <button
                 type="button"
                 className={cn(
-                  "px-2 py-1 mr-auto text-left bg-transparent rounded border-none w-48 h-6",
+                  "type-ui mr-auto h-6 w-48 rounded border-none bg-transparent px-2 py-1 text-left text-xs font-normal leading-5",
                   isDisabled
                     ? "opacity-60 cursor-not-allowed"
                     : "cursor-pointer hover:bg-accent/50",
@@ -2561,7 +2703,10 @@ export function ProfilesDataTable({
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="text-xs">
-                      <p>{`${meta.t("profileInfo.fields.hostOs")}: ${osName}`}</p>
+                      <p>{`${meta.t("fingerprint.osLabel")}: ${osName}`}</p>
+                      {profile.host_os && (
+                        <p>{`${meta.t("profileInfo.fields.hostOs")}: ${getOSDisplayName(profile.host_os)}`}</p>
+                      )}
                       {osVersion && (
                         <p>{`${meta.t("fingerprint.platformVersion")}: ${osVersion}`}</p>
                       )}
@@ -2646,13 +2791,17 @@ export function ProfilesDataTable({
         cell: ({ row, table }) => {
           const meta = table.options.meta as TableMeta;
           const profile = row.original;
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isDisabled =
             isRunning ||
             isParked ||
@@ -2682,13 +2831,17 @@ export function ProfilesDataTable({
         cell: ({ row, table }) => {
           const meta = table.options.meta as TableMeta;
           const profile = row.original;
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isDisabled =
             isRunning ||
             isParked ||
@@ -2716,13 +2869,17 @@ export function ProfilesDataTable({
         cell: ({ row, table }) => {
           const meta = table.options.meta as TableMeta;
           const profile = row.original;
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isDisabled =
             isRunning ||
             isParked ||
@@ -2751,12 +2908,38 @@ export function ProfilesDataTable({
             ? (meta.vpnConfigs.find((v) => v.id === effectiveVpnId) ?? null)
             : null;
 
-          const hasAssignment = Boolean(effectiveProxy || effectiveVpn);
+          const cachedVpnName = effectiveVpnId
+            ? cachedVpnNamesById[effectiveVpnId]
+            : undefined;
+          const cachedProxyName = effectiveProxyId
+            ? cachedProxyNamesById[effectiveProxyId]
+            : undefined;
+          const isAssignmentIdPresent = Boolean(
+            effectiveProxyId || effectiveVpnId,
+          );
+          const isResolvingAssignment =
+            isAssignmentIdPresent &&
+            !effectiveProxy &&
+            !effectiveVpn &&
+            isProxyVpnCatalogLoading;
+          const hasAssignment = Boolean(
+            effectiveProxy ||
+              effectiveVpn ||
+              cachedVpnName ||
+              cachedProxyName ||
+              isResolvingAssignment,
+          );
           const displayName = effectiveVpn
             ? effectiveVpn.name
             : effectiveProxy
               ? effectiveProxy.name
-              : "Not Selected";
+              : cachedVpnName
+                ? cachedVpnName
+                : cachedProxyName
+                  ? cachedProxyName
+                  : isResolvingAssignment
+                    ? t("common.buttons.loading")
+                    : t("profiles.table.none");
           const vpnBadge = effectiveVpn
             ? effectiveVpn.vpn_type === "WireGuard"
               ? "WG"
@@ -2815,7 +2998,7 @@ export function ProfilesDataTable({
                         )}
                         <span
                           className={cn(
-                            "text-sm",
+                            "type-ui text-xs font-normal",
                             !hasAssignment && "text-muted-foreground",
                           )}
                         >
@@ -2831,14 +3014,15 @@ export function ProfilesDataTable({
                   )}
                 </Tooltip>
 
-                {!isDisabled && (
+                {!isDisabled && isSelectorOpen && (
                   <PopoverContent
-                    className="w-[240px] p-0"
+                    className="w-[236px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
                     align="end"
                     sideOffset={8}
                   >
-                    <Command>
+                    <Command className="rounded-sm bg-transparent">
                       <CommandInput
+                        className="text-sm"
                         placeholder={
                           meta.canCreateLocationProxy
                             ? meta.t("profiles.table.proxySearchWithCountries")
@@ -2849,12 +3033,13 @@ export function ProfilesDataTable({
                             void meta.loadCountries();
                         }}
                       />
-                      <CommandList>
-                        {meta.onOpenProxyCenter && (
-                          <CommandGroup
-                            heading={meta.t("profiles.table.proxyQuickActions")}
-                          >
+                      <CommandList className="max-h-[280px]">
+                        <CommandGroup
+                          heading={meta.t("profiles.table.proxyQuickActions")}
+                        >
+                          {meta.onOpenProxyCenter ? (
                             <CommandItem
+                              className="h-8 whitespace-nowrap rounded-sm text-sm"
                               value="__open_proxy_center__"
                               onSelect={() => {
                                 meta.setOpenProxySelectorFor(null);
@@ -2862,25 +3047,48 @@ export function ProfilesDataTable({
                               }}
                             >
                               <LuSettings2 className="mr-2 h-4 w-4" />
-                              {meta.t("profiles.table.openProxyCenter")}
+                              <span className="truncate">
+                                {meta.t("profiles.table.openProxyCenter")}
+                              </span>
                             </CommandItem>
+                          ) : null}
+                          <CommandItem
+                            className="h-8 whitespace-nowrap rounded-sm text-sm"
+                            value="__quick_add_proxy__"
+                            onSelect={() => {
+                              meta.openProxyCreateForProfile(profile.id);
+                            }}
+                          >
+                            <LuPlus className="mr-2 h-4 w-4" />
+                            <span className="truncate">
+                              {meta.t("profiles.table.quickAddProxy")}
+                            </span>
+                          </CommandItem>
+                          {effectiveProxy ? (
                             <CommandItem
-                              value="__quick_add_proxy__"
+                              className="h-8 whitespace-nowrap rounded-sm text-sm"
+                              value="__quick_edit_proxy__"
                               onSelect={() => {
-                                meta.setOpenProxySelectorFor(null);
-                                meta.onOpenProxyCenter?.();
+                                meta.openProxyEditForProfile(
+                                  profile.id,
+                                  effectiveProxy,
+                                );
                               }}
                             >
-                              <LuPlus className="mr-2 h-4 w-4" />
-                              {meta.t("profiles.table.quickAddProxy")}
+                              <LuPencil className="mr-2 h-4 w-4" />
+                              <span className="truncate">
+                                {meta.t("proxies.edit")}
+                              </span>
                             </CommandItem>
-                          </CommandGroup>
-                        )}
+                          ) : null}
+                        </CommandGroup>
+                        <CommandSeparator />
                         <CommandEmpty>
                           {meta.t("profiles.table.proxyEmpty")}
                         </CommandEmpty>
                         <CommandGroup>
                           <CommandItem
+                            className="h-8 whitespace-nowrap rounded-sm text-sm"
                             value="__none__"
                             onSelect={() =>
                               void meta.handleProxySelection(profile.id, null)
@@ -2894,11 +3102,14 @@ export function ProfilesDataTable({
                                   : "opacity-0",
                               )}
                             />
-                            {meta.t("profiles.table.none")}
+                            <span className="truncate">
+                              {meta.t("profiles.table.none")}
+                            </span>
                           </CommandItem>
                           {meta.storedProxies.map((proxy) => (
                             <CommandItem
                               key={proxy.id}
+                              className="h-8 whitespace-nowrap rounded-sm text-sm"
                               value={proxy.name}
                               onSelect={() =>
                                 void meta.handleProxySelection(
@@ -2915,7 +3126,7 @@ export function ProfilesDataTable({
                                     : "opacity-0",
                                 )}
                               />
-                              {proxy.name}
+                              <span className="truncate">{proxy.name}</span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -2924,6 +3135,7 @@ export function ProfilesDataTable({
                             {meta.vpnConfigs.map((vpn) => (
                               <CommandItem
                                 key={vpn.id}
+                                className="h-8 whitespace-nowrap rounded-sm text-sm"
                                 value={`vpn-${vpn.name}`}
                                 onSelect={() =>
                                   void meta.handleVpnSelection(
@@ -2946,7 +3158,7 @@ export function ProfilesDataTable({
                                 >
                                   {vpn.vpn_type === "WireGuard" ? "WG" : "OVPN"}
                                 </Badge>
-                                {vpn.name}
+                                <span className="truncate">{vpn.name}</span>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -2968,6 +3180,7 @@ export function ProfilesDataTable({
                                 .map((country) => (
                                   <CommandItem
                                     key={`country-${country.code}`}
+                                    className="h-8 whitespace-nowrap rounded-sm text-sm"
                                     value={`create-${country.name}`}
                                     onSelect={() =>
                                       void meta.handleCreateCountryProxy(
@@ -2977,7 +3190,9 @@ export function ProfilesDataTable({
                                     }
                                   >
                                     <span className="mr-2 h-4 w-4" />+{" "}
-                                    {country.name}
+                                    <span className="truncate">
+                                      {country.name}
+                                    </span>
                                   </CommandItem>
                                 ))}
                             </CommandGroup>
@@ -3020,6 +3235,12 @@ export function ProfilesDataTable({
           const profile = row.original;
           const meta = table.options.meta as TableMeta;
           const syncEntry = meta.syncStatuses[profile.id];
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const liveStatus = syncEntry?.status as
             | "syncing"
             | "waiting"
@@ -3027,11 +3248,13 @@ export function ProfilesDataTable({
             | "error"
             | "disabled"
             | undefined;
+          const effectiveStatus: typeof liveStatus =
+            isLaunching || isStopping ? "syncing" : liveStatus;
 
           const dot = getProfileSyncStatusDot(
             meta.t,
             profile,
-            liveStatus,
+            effectiveStatus,
             syncEntry?.error,
           );
           if (!dot) return null;
@@ -3062,22 +3285,28 @@ export function ProfilesDataTable({
         cell: ({ row, table }) => {
           const meta = table.options.meta as TableMeta;
           const profile = row.original;
-          const isCrossOs = isCrossOsProfile(profile);
+          const isCrossOs = meta.isClient && isCrossOsProfile(profile);
           const isRunning =
             (meta.isClient && meta.runningProfiles.has(profile.id)) ||
             profile.runtime_state === "Running";
           const isParked = profile.runtime_state === "Parked";
-          const isLaunching = meta.launchingProfiles.has(profile.id);
-          const isStopping = meta.stoppingProfiles.has(profile.id);
+          const isLaunching =
+            meta.launchingProfiles.has(profile.id) ||
+            isRuntimeStateStarting(profile.runtime_state);
+          const isStopping =
+            meta.stoppingProfiles.has(profile.id) ||
+            isRuntimeStateStopping(profile.runtime_state);
           const isChecking = meta.checkingProfiles.has(profile.id);
           const isBusy =
             isRunning || isParked || isLaunching || isStopping || isChecking;
           const renameBlocked = isCrossOs || isBusy || meta.isReadOnlyRole;
           const isArchived = isProfileArchived?.(profile.id) ?? false;
           const canManageCookies =
-            meta.cookieManagementUnlocked && Boolean(meta.onOpenCookieManagement);
+            meta.cookieManagementUnlocked &&
+            Boolean(meta.onOpenCookieManagement);
           const canCopyCookies =
-            meta.cookieManagementUnlocked && Boolean(meta.onCopyCookiesToProfile);
+            meta.cookieManagementUnlocked &&
+            Boolean(meta.onCopyCookiesToProfile);
 
           return (
             <div className="flex justify-end items-center">
@@ -3095,7 +3324,9 @@ export function ProfilesDataTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => setProfileForInfoDialog(profile)}>
+                  <DropdownMenuItem
+                    onClick={() => setProfileForInfoDialog(profile)}
+                  >
                     <LuInfo className="h-4 w-4" />
                     {t("profiles.table.profileInfo")}
                   </DropdownMenuItem>
@@ -3199,11 +3430,14 @@ export function ProfilesDataTable({
     ],
     [
       t,
-      getRuntimeBadgeClassName,
+      getRuntimeBadgeVariant,
       getActionButtonClassName,
       isProfileArchived,
       onArchiveProfile,
       onRestoreProfile,
+      cachedProxyNamesById,
+      cachedVpnNamesById,
+      isProxyVpnCatalogLoading,
     ],
   );
 
@@ -3212,11 +3446,9 @@ export function ProfilesDataTable({
     columns,
     state: {
       sorting,
-      rowSelection,
       pagination,
     },
     onSortingChange: handleSortingChange,
-    onRowSelectionChange: handleRowSelectionChange,
     onPaginationChange: setPagination,
     enableRowSelection: (row) => {
       const profile = row.original;
@@ -3224,8 +3456,12 @@ export function ProfilesDataTable({
         (browserState.isClient && runningProfiles.has(profile.id)) ||
         profile.runtime_state === "Running";
       const isParked = profile.runtime_state === "Parked";
-      const isLaunching = launchingProfiles.has(profile.id);
-      const isStopping = stoppingProfiles.has(profile.id);
+      const isLaunching =
+        launchingProfiles.has(profile.id) ||
+        isRuntimeStateStarting(profile.runtime_state);
+      const isStopping =
+        stoppingProfiles.has(profile.id) ||
+        isRuntimeStateStopping(profile.runtime_state);
       const isChecking = checkingProfiles.has(profile.id);
       return (
         !isRunning && !isParked && !isLaunching && !isStopping && !isChecking
@@ -3259,6 +3495,9 @@ export function ProfilesDataTable({
     .filter((column) => shouldRenderColumn(column.id)).length;
 
   const pageRows = table.getRowModel().rows;
+  const handleClearSelection = React.useCallback(() => {
+    commitSelectionChange([]);
+  }, [commitSelectionChange]);
   const activeTrafficProfileIds = React.useMemo(() => {
     const ids = new Set<string>();
     for (const row of pageRows) {
@@ -3273,12 +3512,14 @@ export function ProfilesDataTable({
     return Array.from(ids).sort();
   }, [browserState.isClient, pageRows, runningProfiles]);
   const activeTrafficCount = activeTrafficProfileIds.length;
+  const hasRuntimeTransitions =
+    launchingProfiles.size > 0 || stoppingProfiles.size > 0;
   const tableScrollParentRef = React.useRef<HTMLDivElement | null>(null);
   const rowVirtualizer = useVirtualizer({
     count: pageRows.length,
     getScrollElement: () => tableScrollParentRef.current,
     estimateSize: () => 56,
-    overscan: 10,
+    overscan: 4,
   });
   const virtualRows = rowVirtualizer.getVirtualItems();
   const virtualPaddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
@@ -3303,6 +3544,10 @@ export function ProfilesDataTable({
   React.useEffect(() => {
     if (!browserState.isClient) return;
 
+    if (hasRuntimeTransitions) {
+      return;
+    }
+
     if (activeTrafficCount === 0) {
       setTrafficSnapshots({});
       return;
@@ -3322,7 +3567,10 @@ export function ProfilesDataTable({
         );
         const newSnapshots: Record<string, TrafficSnapshot> = {};
         for (const snapshot of scopedSnapshots) {
-          if (!snapshot.profile_id || !activeProfileIdSet.has(snapshot.profile_id)) {
+          if (
+            !snapshot.profile_id ||
+            !activeProfileIdSet.has(snapshot.profile_id)
+          ) {
             continue;
           }
           const existing = newSnapshots[snapshot.profile_id];
@@ -3337,9 +3585,14 @@ export function ProfilesDataTable({
     };
 
     void fetchTrafficSnapshots();
-    const interval = setInterval(fetchTrafficSnapshots, 5000);
+    const interval = setInterval(fetchTrafficSnapshots, 12000);
     return () => clearInterval(interval);
-  }, [activeTrafficCount, activeTrafficProfileIds, browserState.isClient]);
+  }, [
+    activeTrafficCount,
+    activeTrafficProfileIds,
+    browserState.isClient,
+    hasRuntimeTransitions,
+  ]);
 
   React.useEffect(() => {
     if (!browserState.isClient) return;
@@ -3410,8 +3663,10 @@ export function ProfilesDataTable({
                     if (!row) {
                       return null;
                     }
-                    const rowIsCrossOs = isCrossOsProfile(row.original);
-                    const rowIsPinned = isProfilePinned?.(row.original.id) ?? false;
+                    const rowIsCrossOs =
+                      browserState.isClient && isCrossOsProfile(row.original);
+                    const rowIsPinned =
+                      isProfilePinned?.(row.original.id) ?? false;
                     const crossOsTitle = rowIsCrossOs
                       ? t("crossOs.viewOnly", {
                           os: getOSDisplayName(row.original.host_os ?? ""),
@@ -3526,7 +3781,8 @@ export function ProfilesDataTable({
           const infoIsParked = infoProfile.runtime_state === "Parked";
           const infoIsLaunching = launchingProfiles.has(infoProfile.id);
           const infoIsStopping = stoppingProfiles.has(infoProfile.id);
-          const infoIsCrossOs = isCrossOsProfile(infoProfile);
+          const infoIsCrossOs =
+            browserState.isClient && isCrossOsProfile(infoProfile);
           const infoIsDisabled =
             infoIsRunning ||
             infoIsParked ||
@@ -3541,7 +3797,7 @@ export function ProfilesDataTable({
               storedProxies={storedProxies}
               vpnConfigs={vpnConfigs}
               onOpenTrafficDialog={(profileId) => {
-                const profile = profiles.find((p) => p.id === profileId);
+                const profile = profilesById.get(profileId);
                 setTrafficDialogProfile({ id: profileId, name: profile?.name });
               }}
               onOpenProfileSyncDialog={onOpenProfileSyncDialog}
@@ -3571,8 +3827,16 @@ export function ProfilesDataTable({
             />
           );
         })()}
-      <DataTableActionBar table={table}>
-        <DataTableActionBarSelection table={table} />
+      <DataTableActionBar
+        table={table}
+        visible={selectedProfiles.length > 0}
+        onClearSelection={handleClearSelection}
+      >
+        <DataTableActionBarSelection
+          table={table}
+          selectedCount={selectedProfiles.length}
+          onClearSelection={handleClearSelection}
+        />
         {onBulkGroupAssignment && (
           <DataTableActionBarAction
             tooltip={t("profiles.actions.assignToGroup")}
@@ -3671,6 +3935,12 @@ export function ProfilesDataTable({
         onClose={() => setBypassRulesProfile(null)}
         profileId={bypassRulesProfile?.id ?? null}
         initialRules={bypassRulesProfile?.proxy_bypass_rules ?? []}
+      />
+      <ProxyFormDialog
+        isOpen={showProxyFormDialog}
+        onClose={handleProxyFormClose}
+        editingProxy={editingProxy}
+        onSaved={handleProxyFormSaved}
       />
     </>
   );

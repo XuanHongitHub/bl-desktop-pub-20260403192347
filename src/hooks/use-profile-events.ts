@@ -9,11 +9,28 @@ import {
   getCurrentDataScope,
   scopeEntitiesForContext,
 } from "@/lib/workspace-data-scope";
-import type { BrowserProfile, GroupWithCount } from "@/types";
+import type { BrowserProfile, GroupWithCount, RuntimeState } from "@/types";
 
 const LIST_BROWSER_PROFILES_CACHE_KEY = "list_browser_profiles_light";
 const GROUPS_WITH_COUNTS_CACHE_KEY = "get_groups_with_profile_counts";
 const PROFILE_CACHE_TTL_MS = 3_000;
+
+const RUNTIME_STATE_MAP: Record<string, RuntimeState> = {
+  starting: "Starting",
+  running: "Running",
+  stopping: "Stopping",
+  syncing: "Syncing",
+  parked: "Parked",
+  stopped: "Stopped",
+  crashed: "Crashed",
+  terminating: "Terminating",
+  error: "Error",
+};
+
+function normalizeRuntimeState(raw: string | undefined): RuntimeState | null {
+  if (!raw) return null;
+  return RUNTIME_STATE_MAP[raw.toLowerCase()] ?? null;
+}
 
 interface UseProfileEventsReturn {
   profiles: BrowserProfile[];
@@ -178,9 +195,14 @@ export function useProfileEvents(
     let profilesUnlisten: (() => void) | undefined;
     let profileUpdatedUnlisten: (() => void) | undefined;
     let runningUnlisten: (() => void) | undefined;
+    let runtimeStateUnlisten: (() => void) | undefined;
     let profilesChangedTimer: ReturnType<typeof setTimeout> | null = null;
     setIsLoading(true);
     const runFullRefresh = async () => {
+      if (document.visibilityState !== "visible") {
+        scheduleFullRefresh(6000);
+        return;
+      }
       invalidateInvokeCache(LIST_BROWSER_PROFILES_CACHE_KEY);
       invalidateInvokeCache(GROUPS_WITH_COUNTS_CACHE_KEY);
       lastFullReloadAtRef.current = Date.now();
@@ -189,13 +211,13 @@ export function useProfileEvents(
         await loadGroups();
       }
     };
-    const scheduleFullRefresh = (delayMs = 800) => {
+    const scheduleFullRefresh = (delayMs = 2500) => {
       if (profilesChangedTimer) {
         clearTimeout(profilesChangedTimer);
       }
       profilesChangedTimer = setTimeout(() => {
         profilesChangedTimer = null;
-        const minReloadGapMs = 1500;
+        const minReloadGapMs = 8000;
         const remainingGap =
           minReloadGapMs - (Date.now() - lastFullReloadAtRef.current);
         if (remainingGap > 0) {
@@ -253,10 +275,55 @@ export function useProfileEvents(
             });
             if (shouldRefreshGroups) {
               invalidateInvokeCache(GROUPS_WITH_COUNTS_CACHE_KEY);
-              scheduleFullRefresh(400);
+              scheduleFullRefresh(1200);
             }
           },
         );
+
+        runtimeStateUnlisten = await listen<{
+          id: string;
+          runtime_state: string;
+        }>("profile-runtime-state-changed", (event) => {
+          const { id, runtime_state } = event.payload;
+          const nextRuntimeState = normalizeRuntimeState(runtime_state);
+          if (!nextRuntimeState) {
+            return;
+          }
+
+          setProfiles((prev) => {
+            const index = prev.findIndex((item) => item.id === id);
+            if (index === -1) {
+              return prev;
+            }
+            if (prev[index]?.runtime_state === nextRuntimeState) {
+              return prev;
+            }
+            const next = [...prev];
+            next[index] = {
+              ...next[index],
+              runtime_state: nextRuntimeState,
+            };
+            return next;
+          });
+
+          setRunningProfiles((prev) => {
+            const next = new Set(prev);
+            const shouldRun = nextRuntimeState === "Running";
+            if (shouldRun) {
+              next.add(id);
+            } else if (
+              nextRuntimeState === "Stopped" ||
+              nextRuntimeState === "Crashed" ||
+              nextRuntimeState === "Terminating" ||
+              nextRuntimeState === "Stopping" ||
+              nextRuntimeState === "Parked" ||
+              nextRuntimeState === "Error"
+            ) {
+              next.delete(id);
+            }
+            return next;
+          });
+        });
 
         // Listen for profile running state changes
         runningUnlisten = await listen<{ id: string; is_running: boolean }>(
@@ -311,20 +378,26 @@ export function useProfileEvents(
       if (profilesUnlisten) profilesUnlisten();
       if (profileUpdatedUnlisten) profileUpdatedUnlisten();
       if (runningUnlisten) runningUnlisten();
+      if (runtimeStateUnlisten) runtimeStateUnlisten();
       window.removeEventListener(DATA_SCOPE_CHANGED_EVENT, handleScopeChanged);
     };
   }, [enabled, includeGroups, loadProfiles, loadGroups]);
 
-  // Sync profile running states periodically to ensure consistency
+  // Optional safety polling for running states. Event stream remains the
+  // primary source of truth.
   useEffect(() => {
-    if (!enabled || !includeRunningStateSync) {
+    if (!enabled) {
       setRunningProfiles(new Set());
+      return;
+    }
+    if (!includeRunningStateSync) {
       return;
     }
 
     let isSyncingRunningStates = false;
 
     const syncRunningStates = async () => {
+      if (document.visibilityState !== "visible") return;
       if (profiles.length === 0 || isSyncingRunningStates) return;
 
       const candidateProfiles = profiles.filter((profile) => {
@@ -389,10 +462,10 @@ export function useProfileEvents(
     // Initial sync
     void syncRunningStates();
 
-    // Sync every 30 seconds to catch any missed events
+    // Keep polling very sparse; prefer event-driven updates.
     const interval = setInterval(() => {
       void syncRunningStates();
-    }, 30000);
+    }, 180000);
 
     return () => clearInterval(interval);
   }, [enabled, includeRunningStateSync, profiles]);

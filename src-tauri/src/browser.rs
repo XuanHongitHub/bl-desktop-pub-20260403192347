@@ -44,8 +44,22 @@ impl BrowserType {
       "zen" => Ok(BrowserType::Zen),
       "camoufox" => Ok(BrowserType::Camoufox),
       "wayfern" => Ok(BrowserType::Wayfern),
+      // BugLogin branding aliases (canonical runtime remains camoufox/wayfern).
+      "bugox" => Ok(BrowserType::Camoufox),
+      "bugium" => Ok(BrowserType::Wayfern),
       _ => Err(format!("Unknown browser type: {s}")),
     }
+  }
+}
+
+pub fn canonical_managed_browser_slug(browser: &str) -> &str {
+  match browser {
+    // Runtime canonical engine keys (temporary stable mode):
+    // - bugium is branded alias of wayfern
+    // - bugox is branded alias of camoufox
+    "bugium" => "wayfern",
+    "bugox" => "camoufox",
+    _ => browser,
   }
 }
 
@@ -91,6 +105,7 @@ mod macos {
         name.starts_with("firefox")
           || name.starts_with("zen")
           || name.starts_with("camoufox")
+          || name.starts_with("bugox")
           || name.contains("Browser")
       })
       .map(|entry| entry.path())
@@ -104,7 +119,7 @@ mod macos {
     let executable_path = if candidates.iter().any(|p| {
       p.file_name()
         .and_then(|n| n.to_str())
-        .map(|n| n.starts_with("camoufox"))
+        .map(|n| n.starts_with("camoufox") || n.starts_with("bugox"))
         .unwrap_or(false)
     }) {
       // Find the executable that matches the current architecture
@@ -249,7 +264,7 @@ mod macos {
       .find(|entry| {
         let binding = entry.file_name();
         let name = binding.to_string_lossy();
-        name.contains("Chromium") || name == "Wayfern"
+        name.contains("Chromium") || name == "Wayfern" || name == "Bugium"
       })
       .map(|entry| entry.path())
       .ok_or("No Wayfern executable found in MacOS directory")?;
@@ -332,6 +347,8 @@ mod linux {
       }
       BrowserType::Camoufox => {
         vec![
+          install_dir.join("bugox-bin"),
+          install_dir.join("bugox"),
           install_dir.join("camoufox-bin"),
           install_dir.join("camoufox"),
         ]
@@ -385,11 +402,14 @@ mod linux {
         install_dir.join("bin").join("brave"),
       ],
       BrowserType::Wayfern => vec![
-        // Wayfern extracts to a directory with chromium executable
+        // Bugium/Wayfern extracts to a directory with chromium executable
         install_dir.join("chromium"),
         install_dir.join("chrome"),
+        install_dir.join("bugium"),
         install_dir.join("wayfern"),
         // Subdirectory paths (tar.xz may extract to a subdirectory)
+        install_dir.join("bugium").join("chromium"),
+        install_dir.join("bugium").join("chrome"),
         install_dir.join("wayfern").join("chromium"),
         install_dir.join("wayfern").join("chrome"),
         install_dir.join("chrome-linux").join("chrome"),
@@ -436,6 +456,8 @@ mod linux {
       }
       BrowserType::Camoufox => {
         vec![
+          install_dir.join("bugox-bin"),
+          install_dir.join("bugox"),
           install_dir.join("camoufox-bin"),
           install_dir.join("camoufox"),
         ]
@@ -479,11 +501,14 @@ mod linux {
         install_dir.join("bin").join("brave"),
       ],
       BrowserType::Wayfern => vec![
-        // Wayfern extracts to a directory with chromium executable
+        // Bugium/Wayfern extracts to a directory with chromium executable
         install_dir.join("chromium"),
         install_dir.join("chrome"),
+        install_dir.join("bugium"),
         install_dir.join("wayfern"),
         // Subdirectory paths
+        install_dir.join("bugium").join("chromium"),
+        install_dir.join("bugium").join("chrome"),
         install_dir.join("wayfern").join("chromium"),
         install_dir.join("wayfern").join("chrome"),
         install_dir.join("chrome-linux").join("chrome"),
@@ -525,13 +550,127 @@ mod linux {
 mod windows {
   use super::*;
 
+  fn is_buglogin_profile_launcher_name(name: &str) -> bool {
+    name.starts_with("buglogin-profile-") || name.contains("-buglogin-")
+  }
+
+  fn is_windows_installer_name(name: &str) -> bool {
+    name.contains("installer") || name.contains("setup")
+  }
+
+  fn is_firefox_family_exe_name(name: &str) -> bool {
+    name.starts_with("firefox")
+      || name.starts_with("zen")
+      || name.starts_with("camoufox")
+      || name.starts_with("bugox")
+      || name.contains("browser")
+  }
+
+  fn is_chromium_family_exe_name(name: &str) -> bool {
+    name.contains("chromium")
+      || name.contains("chrome")
+      || name.contains("brave")
+      || name.contains("wayfern")
+      || name.contains("bugium")
+  }
+
+  fn find_firefox_executable_recursive(dir: &Path, depth: usize, max_depth: usize) -> Option<PathBuf> {
+    if depth > max_depth {
+      return None;
+    }
+
+    let mut subdirs = Vec::new();
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+      let path = entry.path();
+      if path.is_file() {
+        if path.extension().is_some_and(|ext| ext == "exe") && is_pe_executable(&path) {
+          let name = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_lowercase();
+          if is_buglogin_profile_launcher_name(&name) {
+            continue;
+          }
+          if is_windows_installer_name(&name) {
+            continue;
+          }
+          if is_firefox_family_exe_name(&name) {
+            return Some(path);
+          }
+        }
+      } else if path.is_dir() {
+        subdirs.push(path);
+      }
+    }
+
+    for subdir in subdirs {
+      if let Some(found) = find_firefox_executable_recursive(&subdir, depth + 1, max_depth) {
+        return Some(found);
+      }
+    }
+
+    None
+  }
+
+  fn find_chromium_executable_recursive(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+  ) -> Option<PathBuf> {
+    if depth > max_depth {
+      return None;
+    }
+
+    let mut subdirs = Vec::new();
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+      let path = entry.path();
+      if path.is_file() {
+        if path.extension().is_some_and(|ext| ext == "exe") && is_pe_executable(&path) {
+          let name = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_lowercase();
+          if is_buglogin_profile_launcher_name(&name) {
+            continue;
+          }
+          if is_windows_installer_name(&name) {
+            continue;
+          }
+          if is_chromium_family_exe_name(&name) {
+            return Some(path);
+          }
+        }
+      } else if path.is_dir() {
+        subdirs.push(path);
+      }
+    }
+
+    for subdir in subdirs {
+      if let Some(found) = find_chromium_executable_recursive(&subdir, depth + 1, max_depth) {
+        return Some(found);
+      }
+    }
+
+    None
+  }
+
   pub fn get_firefox_executable_path(
     install_dir: &Path,
   ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     // On Windows, look for firefox.exe
     let possible_paths = [
       install_dir.join("firefox.exe"),
+      install_dir.join("camoufox.exe"),
+      install_dir.join("bugox.exe"),
       install_dir.join("firefox").join("firefox.exe"),
+      install_dir.join("camoufox").join("camoufox.exe"),
+      install_dir.join("camoufox").join("firefox.exe"),
+      install_dir.join("bugox").join("bugox.exe"),
+      install_dir.join("bugox").join("firefox.exe"),
       install_dir.join("bin").join("firefox.exe"),
     ];
 
@@ -551,15 +690,21 @@ mod windows {
             .unwrap_or_default()
             .to_string_lossy()
             .to_lowercase();
-          if name.starts_with("firefox")
-            || name.starts_with("zen")
-            || name.starts_with("camoufox")
-            || name.contains("browser")
-          {
+          if is_buglogin_profile_launcher_name(&name) {
+            continue;
+          }
+          if is_windows_installer_name(&name) {
+            continue;
+          }
+          if is_firefox_family_exe_name(&name) {
             return Ok(path);
           }
         }
       }
+    }
+
+    if let Some(path) = find_firefox_executable_recursive(install_dir, 0, 4) {
+      return Ok(path);
     }
 
     Err("Firefox executable not found in Windows installation directory".into())
@@ -592,9 +737,12 @@ mod windows {
       BrowserType::Wayfern => vec![
         install_dir.join("chromium.exe"),
         install_dir.join("chrome.exe"),
+        install_dir.join("bugium.exe"),
         install_dir.join("wayfern.exe"),
         install_dir.join("bin").join("chromium.exe"),
         // Subdirectory patterns
+        install_dir.join("bugium").join("chromium.exe"),
+        install_dir.join("bugium").join("chrome.exe"),
         install_dir.join("wayfern").join("chromium.exe"),
         install_dir.join("wayfern").join("chrome.exe"),
         install_dir.join("chrome-win").join("chrome.exe"),
@@ -618,57 +766,28 @@ mod windows {
             .unwrap_or_default()
             .to_string_lossy()
             .to_lowercase();
-          if name.contains("chromium")
-            || name.contains("brave")
-            || name.contains("chrome")
-            || name.contains("wayfern")
-          {
+          if is_buglogin_profile_launcher_name(&name) {
+            continue;
+          }
+          if is_windows_installer_name(&name) {
+            continue;
+          }
+          if is_chromium_family_exe_name(&name) {
             return Ok(path);
           }
         }
       }
     }
 
+    if let Some(path) = find_chromium_executable_recursive(install_dir, 0, 5) {
+      return Ok(path);
+    }
+
     Err("Chromium/Brave/Wayfern executable not found in Windows installation directory".into())
   }
 
   pub fn is_firefox_version_downloaded(install_dir: &Path) -> bool {
-    // On Windows, check for .exe files
-    let possible_executables = [
-      install_dir.join("firefox.exe"),
-      install_dir.join("firefox").join("firefox.exe"),
-      install_dir.join("bin").join("firefox.exe"),
-    ];
-
-    for exe_path in &possible_executables {
-      if exe_path.exists() && exe_path.is_file() {
-        return true;
-      }
-    }
-
-    // Check for any .exe file that looks like a browser
-    if let Ok(entries) = std::fs::read_dir(install_dir) {
-      for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.extension().is_some_and(|ext| ext == "exe") {
-          let name = path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_lowercase();
-          if name.starts_with("firefox")
-            || name.starts_with("zen")
-            || name.starts_with("camoufox")
-            || name.contains("browser")
-          {
-            return true;
-          }
-        }
-      }
-    }
-
-    false
+    get_firefox_executable_path(install_dir).is_ok()
   }
 
   pub fn is_chromium_version_downloaded(install_dir: &Path, browser_type: &BrowserType) -> bool {
@@ -695,9 +814,12 @@ mod windows {
       BrowserType::Wayfern => vec![
         install_dir.join("chromium.exe"),
         install_dir.join("chrome.exe"),
+        install_dir.join("bugium.exe"),
         install_dir.join("wayfern.exe"),
         install_dir.join("bin").join("chromium.exe"),
         // Subdirectory patterns
+        install_dir.join("bugium").join("chromium.exe"),
+        install_dir.join("bugium").join("chrome.exe"),
         install_dir.join("wayfern").join("chromium.exe"),
         install_dir.join("wayfern").join("chrome.exe"),
         install_dir.join("chrome-win").join("chrome.exe"),
@@ -722,15 +844,21 @@ mod windows {
             .unwrap_or_default()
             .to_string_lossy()
             .to_lowercase();
-          if name.contains("chromium")
-            || name.contains("brave")
-            || name.contains("chrome")
-            || name.contains("wayfern")
-          {
+          if is_buglogin_profile_launcher_name(&name) {
+            continue;
+          }
+          if is_windows_installer_name(&name) {
+            continue;
+          }
+          if is_chromium_family_exe_name(&name) {
             return true;
           }
         }
       }
+    }
+
+    if find_chromium_executable_recursive(install_dir, 0, 5).is_some() {
+      return true;
     }
 
     false
@@ -900,7 +1028,7 @@ impl Browser for ChromiumBrowser {
 
     // Add remote debugging if requested
     if let Some(port) = remote_debugging_port {
-      args.push("--remote-debugging-address=0.0.0.0".to_string());
+      args.push("--remote-debugging-address=127.0.0.1".to_string());
       args.push(format!("--remote-debugging-port={port}"));
     }
 
@@ -1026,16 +1154,24 @@ impl Browser for CamoufoxBrowser {
   }
 
   fn is_version_downloaded(&self, version: &str, binaries_dir: &Path) -> bool {
-    let install_dir = binaries_dir.join("camoufox").join(version);
+    let install_dir_camoufox = binaries_dir.join("camoufox").join(version);
+    let install_dir_bugox = binaries_dir.join("bugox").join(version);
+    let install_dirs = [&install_dir_camoufox, &install_dir_bugox];
 
     #[cfg(target_os = "macos")]
-    return macos::is_firefox_version_downloaded(&install_dir);
+    return install_dirs
+      .iter()
+      .any(|install_dir| macos::is_firefox_version_downloaded(install_dir));
 
     #[cfg(target_os = "linux")]
-    return linux::is_firefox_version_downloaded(&install_dir, &BrowserType::Camoufox);
+    return install_dirs.iter().any(|install_dir| {
+      linux::is_firefox_version_downloaded(install_dir, &BrowserType::Camoufox)
+    });
 
     #[cfg(target_os = "windows")]
-    return windows::is_firefox_version_downloaded(&install_dir);
+    return install_dirs
+      .iter()
+      .any(|install_dir| windows::is_firefox_version_downloaded(install_dir));
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     false
@@ -1136,16 +1272,24 @@ impl Browser for WayfernBrowser {
   }
 
   fn is_version_downloaded(&self, version: &str, binaries_dir: &Path) -> bool {
-    let install_dir = binaries_dir.join("wayfern").join(version);
+    let install_dir_wayfern = binaries_dir.join("wayfern").join(version);
+    let install_dir_bugium = binaries_dir.join("bugium").join(version);
+    let install_dirs = [&install_dir_wayfern, &install_dir_bugium];
 
     #[cfg(target_os = "macos")]
-    return macos::is_wayfern_version_downloaded(&install_dir);
+    return install_dirs
+      .iter()
+      .any(|install_dir| macos::is_wayfern_version_downloaded(install_dir));
 
     #[cfg(target_os = "linux")]
-    return linux::is_chromium_version_downloaded(&install_dir, &BrowserType::Wayfern);
+    return install_dirs.iter().any(|install_dir| {
+      linux::is_chromium_version_downloaded(install_dir, &BrowserType::Wayfern)
+    });
 
     #[cfg(target_os = "windows")]
-    return windows::is_chromium_version_downloaded(&install_dir, &BrowserType::Wayfern);
+    return install_dirs.iter().any(|install_dir| {
+      windows::is_chromium_version_downloaded(install_dir, &BrowserType::Wayfern)
+    });
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     false
@@ -1454,7 +1598,7 @@ mod tests {
       "Chromium args should contain remote debugging port"
     );
     assert!(
-      args_with_debug.contains(&"--remote-debugging-address=0.0.0.0".to_string()),
+      args_with_debug.contains(&"--remote-debugging-address=127.0.0.1".to_string()),
       "Chromium args should contain remote debugging address"
     );
 

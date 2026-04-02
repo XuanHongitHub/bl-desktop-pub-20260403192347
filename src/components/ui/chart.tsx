@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
+import type { TooltipProps } from "recharts";
 import type {
   Props as DefaultLegendContentProps,
   LegendPayload,
 } from "recharts/types/component/DefaultLegendContent";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
-import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 
 import { formatLocaleNumber } from "@/lib/locale-format";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ const ChartTooltip = RechartsPrimitive.Tooltip;
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  TooltipContentProps<number, string> &
+  TooltipProps<number, string> &
     React.ComponentProps<"div"> & {
       hideLabel?: boolean;
       hideIndicator?: boolean;

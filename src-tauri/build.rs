@@ -116,13 +116,7 @@ fn stop_locked_dev_binaries() {
 
 #[cfg(target_os = "windows")]
 fn ensure_sidecar_targets_unlocked() {
-  use std::{
-    fs,
-    io::ErrorKind,
-    path::PathBuf,
-    thread,
-    time::Duration,
-  };
+  use std::{fs, io::ErrorKind, path::PathBuf, thread, time::Duration};
 
   let out_dir = match std::env::var("OUT_DIR") {
     Ok(value) => PathBuf::from(value),

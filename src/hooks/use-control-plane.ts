@@ -106,6 +106,8 @@ interface SaveAdminTiktokStateInput {
   bearerKey: string;
   workflowRows: AdminTiktokWorkflowRow[];
   rotationCursor: number;
+  workflowCaptchaProvider?: "none" | "omocaptcha";
+  workflowCaptchaApiKey?: string;
   autoWorkflowRun?: AdminTiktokAutoWorkflowRunState | null;
   operationProgress?: AdminTiktokOperationProgressState | null;
 }
@@ -127,6 +129,7 @@ interface ImportTiktokAutomationAccountsInput {
     source?: "excel_import" | "manual" | "bugidea_pull";
   }>;
   force?: boolean;
+  flowType?: TiktokAutomationFlowType;
 }
 
 interface CreateTiktokAutomationRunInput {
@@ -241,10 +244,17 @@ interface UseControlPlaneResult {
       cookie?: string;
     }>,
   ) => Promise<TiktokCookieSourceRecord[]>;
-  refreshTiktokAutomationAccounts: () => Promise<void>;
-  refreshTiktokAutomationRuns: () => Promise<void>;
+  refreshTiktokAutomationAccounts: (
+    flowType?: TiktokAutomationFlowType,
+  ) => Promise<void>;
+  refreshTiktokAutomationRuns: (
+    flowType?: TiktokAutomationFlowType,
+  ) => Promise<void>;
   importTiktokAutomationAccounts: (
     input: ImportTiktokAutomationAccountsInput,
+  ) => Promise<TiktokAutomationAccountRecord[]>;
+  deleteTiktokAutomationAccount: (
+    accountId: string,
   ) => Promise<TiktokAutomationAccountRecord[]>;
   createTiktokAutomationRun: (
     input: CreateTiktokAutomationRunInput,
@@ -397,6 +407,12 @@ function normalizeAdminTiktokState(
     bearerKey: input?.bearerKey ?? "",
     workflowRows: compactAdminTiktokWorkflowRows(input?.workflowRows),
     rotationCursor: Number(input?.rotationCursor ?? 0),
+    workflowCaptchaProvider:
+      input?.workflowCaptchaProvider === "omocaptcha" ? "omocaptcha" : "none",
+    workflowCaptchaApiKey:
+      typeof input?.workflowCaptchaApiKey === "string"
+        ? input.workflowCaptchaApiKey
+        : "",
     autoWorkflowRun:
       input?.autoWorkflowRun &&
       Array.isArray(input.autoWorkflowRun.queue) &&
@@ -1641,7 +1657,8 @@ export function useControlPlane(
     [canAccessBugIdeaProxy, request, runWithLoading, selectedWorkspaceId],
   );
 
-  const refreshTiktokAutomationAccounts = useCallback(async () => {
+  const refreshTiktokAutomationAccounts = useCallback(
+    async (flowType?: TiktokAutomationFlowType) => {
     if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
       setTiktokAutomationAccounts([]);
       return;
@@ -1665,9 +1682,13 @@ export function useControlPlane(
       setError(null);
       try {
         assertTiktokAutomationSupported();
+        const query =
+          flowType && flowType.trim().length > 0
+            ? `?flowType=${encodeURIComponent(flowType)}`
+            : "";
         const rows = await request<TiktokAutomationAccountRecord[]>(
           "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/accounts`,
+          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/accounts${query}`,
         );
         setTiktokAutomationAccounts(Array.isArray(rows) ? rows : []);
       } catch (requestError) {
@@ -1681,7 +1702,8 @@ export function useControlPlane(
       },
       { blocking: false },
     );
-  }, [
+    },
+    [
     assertTiktokAutomationSupported,
     handleTiktokAutomationUnsupported,
     canAccessBugIdeaProxy,
@@ -1691,9 +1713,11 @@ export function useControlPlane(
     runtime.baseUrl,
     runtime.token,
     selectedWorkspaceId,
-  ]);
+    ],
+  );
 
-  const refreshTiktokAutomationRuns = useCallback(async () => {
+  const refreshTiktokAutomationRuns = useCallback(
+    async (flowType?: TiktokAutomationFlowType) => {
     if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
       setTiktokAutomationRuns([]);
       return;
@@ -1717,9 +1741,13 @@ export function useControlPlane(
       setError(null);
       try {
         assertTiktokAutomationSupported();
+        const query =
+          flowType && flowType.trim().length > 0
+            ? `?flowType=${encodeURIComponent(flowType)}`
+            : "";
         const rows = await request<TiktokAutomationRunRecord[]>(
           "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/runs`,
+          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/runs${query}`,
         );
         setTiktokAutomationRuns(Array.isArray(rows) ? rows : []);
       } catch (requestError) {
@@ -1733,7 +1761,8 @@ export function useControlPlane(
       },
       { blocking: false },
     );
-  }, [
+    },
+    [
     assertTiktokAutomationSupported,
     handleTiktokAutomationUnsupported,
     canAccessBugIdeaProxy,
@@ -1743,7 +1772,8 @@ export function useControlPlane(
     runtime.baseUrl,
     runtime.token,
     selectedWorkspaceId,
-  ]);
+    ],
+  );
 
   const importTiktokAutomationAccounts = useCallback(
     async (input: ImportTiktokAutomationAccountsInput) => {
@@ -1757,6 +1787,46 @@ export function useControlPlane(
           "POST",
           `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/import`,
           input,
+        );
+        const normalizedRows = Array.isArray(rows) ? rows : [];
+        setTiktokAutomationAccounts(normalizedRows);
+        return normalizedRows;
+      }).catch((requestError) => {
+        if (isTiktokAutomationUnsupportedError(requestError)) {
+          handleTiktokAutomationUnsupported();
+        }
+        setError(extractRootError(requestError));
+        throw requestError;
+      });
+    },
+    [
+      assertTiktokAutomationSupported,
+      handleTiktokAutomationUnsupported,
+      canAccessBugIdeaProxy,
+      isTiktokAutomationUnsupportedError,
+      request,
+      runWithLoading,
+      selectedWorkspaceId,
+    ],
+  );
+
+  const deleteTiktokAutomationAccount = useCallback(
+    async (accountId: string) => {
+      if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
+        throw new Error("permission_denied");
+      }
+      const normalizedAccountId = accountId.trim();
+      if (!normalizedAccountId) {
+        throw new Error("account_id_required");
+      }
+      assertTiktokAutomationSupported();
+      return runWithLoading(async () => {
+        setError(null);
+        const rows = await request<TiktokAutomationAccountRecord[]>(
+          "DELETE",
+          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/accounts/${encodeURIComponent(
+            normalizedAccountId,
+          )}`,
         );
         const normalizedRows = Array.isArray(rows) ? rows : [];
         setTiktokAutomationAccounts(normalizedRows);
@@ -2159,6 +2229,7 @@ export function useControlPlane(
     refreshTiktokAutomationAccounts,
     refreshTiktokAutomationRuns,
     importTiktokAutomationAccounts,
+    deleteTiktokAutomationAccount,
     createTiktokAutomationRun,
     getTiktokAutomationRun,
     startTiktokAutomationRun,

@@ -139,14 +139,25 @@ impl AutoUpdater {
     // Check for browser updates and trigger auto-downloads
     match self.check_for_updates().await {
       Ok(update_notifications) => {
-        if !update_notifications.is_empty() {
+        let mut seen_browser_versions: HashSet<String> = HashSet::new();
+        let deduped_notifications: Vec<UpdateNotification> = update_notifications
+          .into_iter()
+          .filter(|notification| {
+            seen_browser_versions.insert(format!(
+              "{}:{}",
+              notification.browser, notification.new_version
+            ))
+          })
+          .collect();
+
+        if !deduped_notifications.is_empty() {
           log::info!(
             "Found {} browser updates to auto-download",
-            update_notifications.len()
+            deduped_notifications.len()
           );
 
           // Trigger automatic downloads for each update
-          for notification in update_notifications {
+          for notification in deduped_notifications {
             log::info!(
               "Auto-downloading {} version {}",
               notification.browser,

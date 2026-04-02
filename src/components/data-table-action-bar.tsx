@@ -18,12 +18,14 @@ interface DataTableActionBarProps<TData>
   extends React.ComponentProps<typeof motion.div> {
   table: Table<TData>;
   visible?: boolean;
+  onClearSelection?: () => void;
   portalContainer?: Element | DocumentFragment | null;
 }
 
 function DataTableActionBar<TData>({
   table,
   visible: visibleProp,
+  onClearSelection,
   portalContainer: portalContainerProp,
   children,
   className,
@@ -37,12 +39,16 @@ function DataTableActionBar<TData>({
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (onClearSelection) {
+          onClearSelection();
+          return;
+        }
         table.toggleAllRowsSelected(false);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [table]);
+  }, [onClearSelection, table]);
 
   const portalContainer =
     portalContainerProp ?? (mounted ? globalThis.document?.body : null);
@@ -128,20 +134,30 @@ function DataTableActionBarAction({
 
 interface DataTableActionBarSelectionProps<TData> {
   table: Table<TData>;
+  selectedCount?: number;
+  onClearSelection?: () => void;
 }
 
 function DataTableActionBarSelection<TData>({
   table,
+  selectedCount,
+  onClearSelection,
 }: DataTableActionBarSelectionProps<TData>) {
   const { t } = useTranslation();
-  const onClearSelection = React.useCallback(() => {
+  const resolvedSelectedCount =
+    selectedCount ?? table.getFilteredSelectedRowModel().rows.length;
+  const handleClearSelection = React.useCallback(() => {
+    if (onClearSelection) {
+      onClearSelection();
+      return;
+    }
     table.toggleAllRowsSelected(false);
-  }, [table]);
+  }, [onClearSelection, table]);
 
   return (
     <div className="flex h-7 items-center rounded-md border pr-1 pl-2.5">
       <span className="whitespace-nowrap text-xs">
-        {table.getFilteredSelectedRowModel().rows.length} selected
+        {resolvedSelectedCount} selected
       </span>
       <div className="mr-1 ml-2 h-4 w-px bg-border" />
       <Tooltip>
@@ -150,7 +166,7 @@ function DataTableActionBarSelection<TData>({
             variant="ghost"
             size="icon"
             className="size-5"
-            onClick={onClearSelection}
+            onClick={handleClearSelection}
           >
             <LuX className="size-3.5" />
           </Button>

@@ -1,4 +1,6 @@
-use crate::api_client::{sort_versions, ApiClient, BrowserRelease};
+use crate::api_client::{
+  sort_versions, ApiClient, BrowserRelease, ManagedBrowserUpdateRequirement,
+};
 use crate::browser::GithubRelease;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -30,11 +32,27 @@ pub struct DownloadInfo {
   pub is_archive: bool, // true for .dmg, .zip, etc.
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BrowserUpdateRequirementResponse {
+  pub browser: String,
+  pub current_version: String,
+  pub latest_version: String,
+  pub is_update_available: bool,
+  pub is_required: bool,
+  pub minimum_supported_version: Option<String>,
+  pub mode: String,
+  pub message: Option<String>,
+}
+
 pub struct BrowserVersionManager {
   api_client: &'static ApiClient,
 }
 
 impl BrowserVersionManager {
+  fn normalize_managed_browser(browser: &str) -> &str {
+    crate::browser::canonical_managed_browser_slug(browser)
+  }
+
   fn new() -> Self {
     Self {
       api_client: ApiClient::instance(),
@@ -51,6 +69,7 @@ impl BrowserVersionManager {
     browser: &str,
   ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let (os, arch) = Self::get_platform_info();
+    let browser = Self::normalize_managed_browser(browser);
 
     match browser {
       "firefox" | "firefox-developer" => Ok(true),
@@ -111,6 +130,56 @@ impl BrowserVersionManager {
       .filter(|browser| self.is_browser_supported(browser).unwrap_or(false))
       .map(|s| s.to_string())
       .collect()
+  }
+
+  pub async fn get_managed_browser_update_requirement(
+    &self,
+    browser: &str,
+    current_version: &str,
+    no_caching: bool,
+  ) -> Result<BrowserUpdateRequirementResponse, Box<dyn std::error::Error + Send + Sync>> {
+    let browser = Self::normalize_managed_browser(browser);
+    let metadata = match browser {
+      "camoufox" => {
+        self
+          .api_client
+          .fetch_bugox_version_with_caching(no_caching)
+          .await?
+      }
+      "wayfern" => {
+        self
+          .api_client
+          .fetch_wayfern_version_with_caching(no_caching)
+          .await?
+      }
+      _ => {
+        return Ok(BrowserUpdateRequirementResponse {
+          browser: browser.to_string(),
+          current_version: current_version.to_string(),
+          latest_version: current_version.to_string(),
+          is_update_available: false,
+          is_required: false,
+          minimum_supported_version: None,
+          mode: "unsupported".to_string(),
+          message: Some("Update policy is only available for managed browsers".to_string()),
+        });
+      }
+    };
+
+    let requirement: ManagedBrowserUpdateRequirement = self
+      .api_client
+      .evaluate_managed_update_requirement(current_version, &metadata);
+
+    Ok(BrowserUpdateRequirementResponse {
+      browser: browser.to_string(),
+      current_version: current_version.to_string(),
+      latest_version: requirement.latest_version,
+      is_update_available: requirement.is_update_available,
+      is_required: requirement.is_required,
+      minimum_supported_version: requirement.minimum_supported_version,
+      mode: requirement.mode,
+      message: requirement.message,
+    })
   }
 
   /// Get cached browser versions immediately (returns None if no cache exists)
@@ -226,6 +295,7 @@ impl BrowserVersionManager {
     browser: &str,
     no_caching: bool,
   ) -> Result<BrowserVersionsResult, Box<dyn std::error::Error + Send + Sync>> {
+    let browser = Self::normalize_managed_browser(browser);
     // Get existing cached versions to compare and merge
     let existing_versions = self
       .api_client
@@ -294,6 +364,7 @@ impl BrowserVersionManager {
     browser: &str,
     no_caching: bool,
   ) -> Result<Vec<BrowserVersionInfo>, Box<dyn std::error::Error + Send + Sync>> {
+    let browser = Self::normalize_managed_browser(browser);
     // For detailed versions, we'll use the merged versions from fetch_browser_versions_with_count
     // to ensure consistency with the version list
     let versions_result = self
@@ -466,6 +537,7 @@ impl BrowserVersionManager {
     &self,
     browser: &str,
   ) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
+    let browser = Self::normalize_managed_browser(browser);
     // Get existing cached versions
     let existing_versions = self
       .api_client
@@ -509,6 +581,7 @@ impl BrowserVersionManager {
     browser: &str,
     version: &str,
   ) -> Result<DownloadInfo, Box<dyn std::error::Error + Send + Sync>> {
+    let browser = Self::normalize_managed_browser(browser);
     let (os, arch) = Self::get_platform_info();
 
     match browser {
@@ -908,6 +981,23 @@ pub async fn get_browser_release_types(
     .map_err(|e| format!("Failed to get release types: {e}"))
 }
 
+#[tauri::command]
+pub async fn get_browser_update_requirement(
+  browser_str: String,
+  current_version: String,
+  no_caching: Option<bool>,
+) -> Result<BrowserUpdateRequirementResponse, String> {
+  let service = BrowserVersionManager::instance();
+  service
+    .get_managed_browser_update_requirement(
+      &browser_str,
+      &current_version,
+      no_caching.unwrap_or(false),
+    )
+    .await
+    .map_err(|e| format!("Failed to evaluate browser update requirement: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -925,6 +1015,7 @@ mod tests {
       base_url.clone(), // firefox_dev_api_base
       base_url.clone(), // github_api_base
       base_url.clone(), // chromium_api_base
+      base_url.clone(), // buglogin_browser_api_base
     )
   }
 

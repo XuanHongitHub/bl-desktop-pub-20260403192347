@@ -235,7 +235,10 @@ fn load_file_overrides() -> HashMap<String, String> {
     if parsed.is_empty() {
       continue;
     }
-    log::info!("app_config: loaded BUGLOGIN_* overrides from {}", file.display());
+    log::info!(
+      "app_config: loaded BUGLOGIN_* overrides from {}",
+      file.display()
+    );
     merged.extend(parsed);
   }
   merged

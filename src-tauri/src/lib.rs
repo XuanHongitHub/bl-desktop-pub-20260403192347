@@ -1,7 +1,13 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use std::env;
-use std::sync::Mutex;
 use calamine::{open_workbook_auto, Data, Reader};
+use chrono::Utc;
+use std::collections::BTreeMap;
+use std::env;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
@@ -41,9 +47,7 @@ fn compute_main_window_geometry<R: Runtime>(app: &tauri::App<R>) -> (f64, f64, f
   let work_x = f64::from(work_area.position.x) / scale_factor;
   let work_y = f64::from(work_area.position.y) / scale_factor;
 
-  let max_width = (work_width - EDGE_PADDING_X * 2.0)
-    .floor()
-    .max(MIN_WIDTH);
+  let max_width = (work_width - EDGE_PADDING_X * 2.0).floor().max(MIN_WIDTH);
   let max_height = (work_height - EDGE_PADDING_TOP - EDGE_PADDING_BOTTOM)
     .floor()
     .max(MIN_HEIGHT);
@@ -69,6 +73,7 @@ mod app_auto_updater;
 pub mod app_dirs;
 mod auto_updater;
 mod browser;
+mod browser_identity_extension;
 mod browser_runner;
 mod browser_version_manager;
 mod browser_window;
@@ -77,13 +82,13 @@ mod camoufox_manager;
 mod default_browser;
 mod downloaded_browsers_registry;
 mod downloader;
+mod entitlement;
 mod ephemeral_dirs;
 mod extension_manager;
 mod extraction;
 mod geoip_downloader;
 mod group_manager;
 mod ip_utils;
-mod entitlement;
 mod platform_browser;
 mod profile;
 mod profile_importer;
@@ -103,9 +108,9 @@ mod cookie_manager;
 pub mod daemon;
 pub mod daemon_client;
 mod daemon_spawn;
-mod local_control_server;
 pub mod daemon_ws;
 pub mod events;
+mod local_control_server;
 mod mcp_server;
 mod tag_manager;
 mod team_lock;
@@ -116,8 +121,9 @@ pub mod vpn_worker_runner;
 pub mod vpn_worker_storage;
 
 use browser_runner::{
-  check_browser_exists, kill_browser_profile, launch_browser_profile, open_url_with_profile,
-  park_browser_profile,
+  check_browser_exists, kill_browser_profile, launch_browser_profile, launch_browser_profile_by_id,
+  open_url_with_profile, park_browser_profile, get_browser_runtime_diagnostics,
+  check_camoufox_ua_version_alignment,
 };
 
 use profile::manager::{
@@ -130,8 +136,8 @@ use profile::manager::{
 
 use browser_version_manager::{
   fetch_browser_versions_cached_first, fetch_browser_versions_with_count,
-  fetch_browser_versions_with_count_cached_first, get_supported_browsers,
-  is_browser_supported_on_platform,
+  fetch_browser_versions_with_count_cached_first, get_browser_update_requirement,
+  get_supported_browsers, is_browser_supported_on_platform,
 };
 
 use downloaded_browsers_registry::{
@@ -152,10 +158,11 @@ use settings_manager::{
 use sync::{
   check_has_e2e_password, delete_e2e_password, enable_sync_for_all_entities,
   get_groups_in_use_by_synced_profiles, get_proxies_in_use_by_synced_profiles,
-  get_unsynced_entity_counts, get_vpns_in_use_by_synced_profiles, is_group_in_use_by_synced_profile,
-  is_proxy_in_use_by_synced_profile, is_vpn_in_use_by_synced_profile, request_profile_sync,
-  set_e2e_password, set_extension_group_sync_enabled, set_extension_sync_enabled,
-  set_group_sync_enabled, set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
+  get_unsynced_entity_counts, get_vpns_in_use_by_synced_profiles,
+  is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
+  is_vpn_in_use_by_synced_profile, request_profile_sync, set_e2e_password,
+  set_extension_group_sync_enabled, set_extension_sync_enabled, set_group_sync_enabled,
+  set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
 };
 
 use tag_manager::get_all_tags;
@@ -167,6 +174,10 @@ use version_updater::{
   trigger_manual_version_update,
 };
 
+use app_auto_updater::{
+  check_for_app_updates, check_for_app_updates_manual, download_and_prepare_app_update,
+  restart_application,
+};
 use auto_updater::{
   check_for_browser_updates, complete_browser_update_with_auto_update, dismiss_update_notification,
 };
@@ -391,7 +402,8 @@ fn read_profile_tiktok_cookie_headers_bulk(
 ) -> std::collections::HashMap<String, String> {
   let mut rows = std::collections::HashMap::new();
   for profile_id in profile_ids {
-    if let Ok(cookie_header) = cookie_manager::CookieManager::read_tiktok_cookie_header(&profile_id) {
+    if let Ok(cookie_header) = cookie_manager::CookieManager::read_tiktok_cookie_header(&profile_id)
+    {
       rows.insert(profile_id, cookie_header);
     }
   }
@@ -489,7 +501,9 @@ async fn bugidea_tiktok_request(
     normalized_path
   );
   let http_fallback_url = if allow_http_fallback {
-    https_url.strip_prefix("https://").map(|rest| format!("http://{rest}"))
+    https_url
+      .strip_prefix("https://")
+      .map(|rest| format!("http://{rest}"))
   } else {
     None
   };
@@ -539,14 +553,8 @@ async fn bugidea_tiktok_request(
 
           let status_code = status.as_u16();
           let retryable_status =
-            status_code == 408 ||
-            status_code == 425 ||
-            status_code == 429 ||
-            status_code >= 500;
-          last_error = Some(format!(
-            "BugIdea {} [{}]: {}",
-            status_code, url, text
-          ));
+            status_code == 408 || status_code == 425 || status_code == 429 || status_code >= 500;
+          last_error = Some(format!("BugIdea {} [{}]: {}", status_code, url, text));
           if retryable_status && attempt < max_attempts {
             let backoff_ms = 300_u64.saturating_mul(attempt as u64);
             tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
@@ -557,15 +565,14 @@ async fn bugidea_tiktok_request(
         Err(error) => {
           let message = error.to_string();
           let lowered = message.to_ascii_lowercase();
-          let retryable_error =
-            error.is_timeout() ||
-            error.is_connect() ||
-            lowered.contains("tls") ||
-            lowered.contains("ssl") ||
-            lowered.contains("handshake") ||
-            lowered.contains("connection reset") ||
-            lowered.contains("connection refused") ||
-            lowered.contains("eof");
+          let retryable_error = error.is_timeout()
+            || error.is_connect()
+            || lowered.contains("tls")
+            || lowered.contains("ssl")
+            || lowered.contains("handshake")
+            || lowered.contains("connection reset")
+            || lowered.contains("connection refused")
+            || lowered.contains("eof");
           last_error = Some(format!("BugIdea request failed [{}]: {message}", url));
           if retryable_error && attempt < max_attempts {
             let backoff_ms = 300_u64.saturating_mul(attempt as u64);
@@ -680,7 +687,10 @@ fn read_tiktok_account_cookie_source(
         phone_index = Some(index);
       } else if matches!(header.as_str(), "api_phone" | "api-phone" | "phone_api") {
         api_phone_index = Some(index);
-      } else if matches!(header.as_str(), "cookie" | "cookie_tiktok" | "tiktok_cookie") {
+      } else if matches!(
+        header.as_str(),
+        "cookie" | "cookie_tiktok" | "tiktok_cookie"
+      ) {
         cookie_index = Some(index);
       }
     }
@@ -715,6 +725,1150 @@ fn read_tiktok_account_cookie_source(
   }
 
   Ok(rows_out)
+}
+
+#[derive(serde::Serialize)]
+struct TiktokSellerSeedRow {
+  profile: String,
+  phone: String,
+  api_phone: String,
+  email: String,
+  api_mail: String,
+  proxy: String,
+  first_name: String,
+  last_name: String,
+  full_name: String,
+  company_name: String,
+  ein: String,
+  ssn: String,
+  dob: String,
+  gender: String,
+  address: String,
+  city: String,
+  state: String,
+  zip: String,
+  file: String,
+  doc_type: String,
+  raw: BTreeMap<String, String>,
+}
+
+fn normalize_seed_header(value: &str) -> String {
+  value
+    .trim()
+    .replace('\u{feff}', "")
+    .to_lowercase()
+    .chars()
+    .map(|c| {
+      if c.is_ascii_alphanumeric() {
+        c
+      } else {
+        '_'
+      }
+    })
+    .collect::<String>()
+    .trim_matches('_')
+    .to_string()
+}
+
+fn detect_delimited_separator(line: &str) -> Option<char> {
+  let comma_count = line.matches(',').count();
+  let semicolon_count = line.matches(';').count();
+  let tab_count = line.matches('\t').count();
+  if comma_count == 0 && semicolon_count == 0 && tab_count == 0 {
+    return None;
+  }
+  if tab_count >= comma_count && tab_count >= semicolon_count {
+    return Some('\t');
+  }
+  if comma_count >= semicolon_count {
+    return Some(',');
+  }
+  Some(';')
+}
+
+fn split_delimited_line(line: &str, separator: char) -> Vec<String> {
+  let mut columns: Vec<String> = Vec::new();
+  let mut current = String::new();
+  let mut in_quotes = false;
+  let chars: Vec<char> = line.chars().collect();
+  let mut index = 0usize;
+
+  while index < chars.len() {
+    let ch = chars[index];
+    if ch == '"' {
+      if in_quotes && chars.get(index + 1) == Some(&'"') {
+        current.push('"');
+        index += 2;
+        continue;
+      }
+      in_quotes = !in_quotes;
+      index += 1;
+      continue;
+    }
+    if !in_quotes && ch == separator {
+      columns.push(current.trim().to_string());
+      current.clear();
+      index += 1;
+      continue;
+    }
+    current.push(ch);
+    index += 1;
+  }
+
+  columns.push(current.trim().to_string());
+  columns
+}
+
+fn header_index(headers: &[String], candidates: &[&str]) -> Option<usize> {
+  headers
+    .iter()
+    .position(|header| candidates.iter().any(|candidate| header == candidate))
+}
+
+fn row_has_seed_signal(row: &TiktokSellerSeedRow) -> bool {
+  !row.profile.is_empty()
+    || !row.proxy.is_empty()
+    || !row.full_name.is_empty()
+    || !row.company_name.is_empty()
+    || !row.ein.is_empty()
+    || !row.ssn.is_empty()
+    || !row.address.is_empty()
+    || !row.file.is_empty()
+    || !row.raw.is_empty()
+    || !row.phone.is_empty()
+    || !row.api_phone.is_empty()
+    || !row.email.is_empty()
+    || !row.api_mail.is_empty()
+}
+
+fn looks_like_profile_token(value: &str) -> bool {
+  let trimmed = value.trim().to_ascii_lowercase();
+  if trimmed.is_empty() {
+    return false;
+  }
+  trimmed.starts_with("pt-") || trimmed.starts_with("pt_")
+}
+
+fn detect_seed_header_line(headers: &[String]) -> bool {
+  if headers.is_empty() {
+    return false;
+  }
+  let known_tokens = headers
+    .iter()
+    .filter(|header| {
+      matches!(
+        header.as_str(),
+        "tinh_trang"
+          | "note"
+          | "proxy"
+          | "profile"
+          | "phone"
+          | "pt_146"
+          | "pt146"
+          | "mail"
+          | "hotmail"
+          | "pass_mail"
+          | "mail_khoi_phuc"
+          | "2fa_mail"
+          | "name"
+          | "dob"
+          | "gender"
+          | "address"
+          | "citi"
+          | "bang"
+          | "zip"
+          | "ein"
+          | "name_llc"
+          | "info_llc"
+          | "file"
+          | "type"
+      )
+    })
+    .count();
+  known_tokens >= 2
+}
+
+fn row_has_seed_signal_legacy(row: &TiktokSellerSeedRow) -> bool {
+  !row.phone.is_empty()
+    || !row.api_phone.is_empty()
+    || !row.email.is_empty()
+    || !row.api_mail.is_empty()
+}
+
+fn normalize_seed_phone_like_value(value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  if trimmed.contains('@') || trimmed.contains("://") {
+    return trimmed.to_string();
+  }
+  let digits = trimmed
+    .chars()
+    .filter(|ch| ch.is_ascii_digit())
+    .collect::<String>();
+  if !digits.is_empty() {
+    return digits;
+  }
+  trimmed.to_string()
+}
+
+fn extract_email_like_value(value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  if trimmed.contains('@') {
+    return trimmed.to_string();
+  }
+  String::new()
+}
+
+fn split_phone_with_api_hint(value: &str) -> (String, String) {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return (String::new(), String::new());
+  }
+
+  if let Some((left, right)) = trimmed.split_once("----") {
+    let phone = normalize_seed_phone_like_value(left);
+    let api_phone = right.trim().to_string();
+    return (phone, api_phone);
+  }
+
+  (normalize_seed_phone_like_value(trimmed), String::new())
+}
+
+fn split_hotmail_bundle(value: &str) -> (String, String) {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return (String::new(), String::new());
+  }
+
+  let parts = trimmed
+    .split('|')
+    .map(str::trim)
+    .filter(|part| !part.is_empty())
+    .collect::<Vec<_>>();
+  if parts.is_empty() {
+    return (String::new(), String::new());
+  }
+
+  let email = parts
+    .first()
+    .map(|value| extract_email_like_value(value))
+    .unwrap_or_default();
+  let api_mail = parts
+    .get(3)
+    .map(|value| value.to_string())
+    .unwrap_or_default();
+  (email, api_mail)
+}
+
+fn map_seed_row_from_columns(
+  headers: &[String],
+  columns: &[String],
+  include_raw: bool,
+) -> Option<TiktokSellerSeedRow> {
+  let get = |index: Option<usize>| -> String {
+    index
+      .and_then(|idx| columns.get(idx))
+      .map(|value| value.trim().to_string())
+      .unwrap_or_default()
+  };
+
+  let mut profile = get(header_index(
+    headers,
+    &[
+      "profile",
+      "profile_name",
+      "profile_code",
+      "profile_id",
+      "pt",
+      "pt_code",
+    ],
+  ));
+  let phone_raw = get(header_index(
+    headers,
+    &[
+      "phone",
+      "phone_number",
+      "phone_no",
+      "mobile",
+      "mobile_number",
+      "sdt",
+      "pt_146",
+      "pt146",
+    ],
+  ));
+  let mut api_phone = get(header_index(
+    headers,
+    &[
+      "api_phone",
+      "api_phone_url",
+      "phone_api",
+      "phone_api_url",
+      "api_sms_phone",
+    ],
+  ));
+  let (phone, phone_api_hint) = split_phone_with_api_hint(&phone_raw);
+  if api_phone.is_empty() && !phone_api_hint.is_empty() {
+    api_phone = phone_api_hint;
+  }
+
+  let mut email = get(header_index(
+    headers,
+    &[
+      "email",
+      "mail",
+      "email_address",
+      "mail_address",
+      "hotmail",
+      "hot_mail",
+      "outlook",
+    ],
+  ));
+  let mut api_mail = get(header_index(
+    headers,
+    &[
+      "api_mail",
+      "api_email",
+      "mail_api",
+      "email_api",
+      "api_mail_url",
+      "api_email_url",
+    ],
+  ));
+  let hotmail_bundle = get(header_index(headers, &["hotmail", "hot_mail", "outlook"]));
+  let (hotmail_email, hotmail_api_mail) = split_hotmail_bundle(&hotmail_bundle);
+  if email.is_empty() {
+    email = hotmail_email;
+  }
+  if api_mail.is_empty() {
+    api_mail = hotmail_api_mail;
+  }
+  let proxy = get(header_index(
+    headers,
+    &["proxy", "proxy_raw", "proxy_string", "proxy_full", "proxy_value"],
+  ));
+  if profile.is_empty() && looks_like_profile_token(&proxy) {
+    profile = proxy.clone();
+  }
+  let first_name = get(header_index(headers, &["first_name", "firstname", "first"]));
+  let last_name = get(header_index(headers, &["last_name", "lastname", "last"]));
+  let full_name = get(header_index(headers, &["full_name", "name", "contact_name"]));
+  let company_name = get(header_index(
+    headers,
+    &[
+      "company_name",
+      "business_name",
+      "shop_name",
+      "store_name",
+      "entity_name",
+      "name_llc",
+      "llc_name",
+    ],
+  ));
+  let ein = normalize_seed_phone_like_value(&get(header_index(
+    headers,
+    &["ein", "tax_id", "taxid", "tin"],
+  )));
+  let ssn = normalize_seed_phone_like_value(&get(header_index(
+    headers,
+    &["ssn", "social_security", "social_security_number"],
+  )));
+  let dob = get(header_index(
+    headers,
+    &["dob", "birth_date", "date_of_birth"],
+  ));
+  let gender = get(header_index(headers, &["gender", "sex"]));
+  let address = get(header_index(
+    headers,
+    &[
+      "address",
+      "street_address",
+      "business_address",
+      "address_llc",
+      "street",
+    ],
+  ));
+  let city = get(header_index(headers, &["city", "citi", "city_llc", "citi_llc"]));
+  let state = get(header_index(headers, &["state", "bang", "state_llc", "bang_llc"]));
+  let zip = normalize_seed_phone_like_value(&get(header_index(
+    headers,
+    &["zip", "zip_code", "postal_code", "zip_llc"],
+  )));
+  let file = get(header_index(
+    headers,
+    &[
+      "file",
+      "pdf",
+      "document",
+      "document_file",
+      "document_path",
+      "doc_path",
+      "pdf_path",
+      "ein_pdf",
+      "ssn_pdf",
+    ],
+  ));
+  let doc_type = get(header_index(
+    headers,
+    &["type", "file_type", "document_type", "doc_type"],
+  ));
+
+  let mut raw = BTreeMap::new();
+  if include_raw {
+    for (idx, header) in headers.iter().enumerate() {
+      let value = columns.get(idx).cloned().unwrap_or_default();
+      if !header.is_empty() && !value.trim().is_empty() {
+        raw.insert(header.clone(), value.trim().to_string());
+      }
+    }
+  }
+
+  let mapped = TiktokSellerSeedRow {
+    profile,
+    phone,
+    api_phone,
+    email,
+    api_mail,
+    proxy,
+    first_name,
+    last_name,
+    full_name,
+    company_name,
+    ein,
+    ssn,
+    dob,
+    gender,
+    address,
+    city,
+    state,
+    zip,
+    file,
+    doc_type,
+    raw,
+  };
+
+  if row_has_seed_signal(&mapped) || row_has_seed_signal_legacy(&mapped) {
+    Some(mapped)
+  } else {
+    None
+  }
+}
+
+fn parse_seed_rows_from_text(raw_text: &str) -> Vec<TiktokSellerSeedRow> {
+  let lines = raw_text
+    .split('\n')
+    .map(|line| line.trim().trim_matches('\r'))
+    .filter(|line| !line.is_empty())
+    .collect::<Vec<_>>();
+  if lines.is_empty() {
+    return Vec::new();
+  }
+
+  let separator = detect_delimited_separator(lines[0]).unwrap_or(',');
+  let header_candidates = split_delimited_line(lines[0], separator)
+    .into_iter()
+    .map(|value| normalize_seed_header(&value))
+    .collect::<Vec<_>>();
+  let phone_index = header_index(
+    &header_candidates,
+    &[
+      "phone",
+      "phone_number",
+      "mobile",
+      "mobile_number",
+      "sdt",
+      "pt_146",
+      "pt146",
+    ],
+  );
+  let email_index = header_index(
+    &header_candidates,
+    &[
+      "email",
+      "mail",
+      "email_address",
+      "mail_address",
+      "hotmail",
+      "hot_mail",
+      "outlook",
+    ],
+  );
+  let api_phone_index = header_index(
+    &header_candidates,
+    &["api_phone", "api_phone_url", "phone_api", "phone_api_url"],
+  );
+  let api_mail_index = header_index(
+    &header_candidates,
+    &["api_mail", "api_email", "mail_api", "email_api"],
+  );
+  let has_header = detect_seed_header_line(&header_candidates)
+    || phone_index.is_some()
+    || email_index.is_some()
+    || api_phone_index.is_some()
+    || api_mail_index.is_some();
+  let data_lines = if has_header { &lines[1..] } else { &lines[..] };
+
+  let mut rows = Vec::new();
+  if has_header {
+    for line in data_lines {
+      let columns = split_delimited_line(line, separator);
+      if let Some(row) = map_seed_row_from_columns(&header_candidates, &columns, true) {
+        rows.push(row);
+      }
+    }
+  } else {
+    for token in raw_text
+      .split(['\n', ',', ';', '\t', ' '])
+      .map(str::trim)
+      .filter(|token| !token.is_empty())
+    {
+      let normalized = normalize_seed_phone_like_value(token);
+      if normalized.is_empty() {
+        continue;
+      }
+      rows.push(TiktokSellerSeedRow {
+        profile: String::new(),
+        phone: normalized,
+        api_phone: String::new(),
+        email: String::new(),
+        api_mail: String::new(),
+        proxy: String::new(),
+        first_name: String::new(),
+        last_name: String::new(),
+        full_name: String::new(),
+        company_name: String::new(),
+        ein: String::new(),
+        ssn: String::new(),
+        dob: String::new(),
+        gender: String::new(),
+        address: String::new(),
+        city: String::new(),
+        state: String::new(),
+        zip: String::new(),
+        file: String::new(),
+        doc_type: String::new(),
+        raw: BTreeMap::new(),
+      });
+    }
+  }
+
+  rows
+}
+
+#[tauri::command]
+fn parse_tiktok_seller_seed_file(
+  file_name: String,
+  content_base64: String,
+) -> Result<Vec<TiktokSellerSeedRow>, String> {
+  use base64::Engine as _;
+
+  let decoded_bytes = base64::engine::general_purpose::STANDARD
+    .decode(content_base64.trim())
+    .map_err(|error| format!("Failed to decode seed file bytes: {error}"))?;
+  let lower_name = file_name.trim().to_lowercase();
+  let parse_as_delimited = lower_name.ends_with(".csv")
+    || lower_name.ends_with(".tsv")
+    || lower_name.ends_with(".txt");
+
+  if parse_as_delimited {
+    let text = String::from_utf8_lossy(&decoded_bytes).to_string();
+    return Ok(parse_seed_rows_from_text(&text));
+  }
+
+  let extension = lower_name
+    .rsplit('.')
+    .next()
+    .filter(|ext| !ext.is_empty())
+    .unwrap_or("xlsx");
+  let mut temp_file = tempfile::Builder::new()
+    .prefix("buglogin-seller-seed-")
+    .suffix(&format!(".{extension}"))
+    .tempfile()
+    .map_err(|error| format!("Failed to create temp seed file: {error}"))?;
+  temp_file
+    .write_all(&decoded_bytes)
+    .map_err(|error| format!("Failed to write temp seed file: {error}"))?;
+  temp_file
+    .flush()
+    .map_err(|error| format!("Failed to flush temp seed file: {error}"))?;
+
+  let mut workbook = open_workbook_auto(temp_file.path())
+    .map_err(|error| format!("Failed to open seed workbook: {error}"))?;
+  let mut parsed_rows: Vec<TiktokSellerSeedRow> = Vec::new();
+
+  for sheet_name in workbook.sheet_names().to_owned() {
+    let range = workbook
+      .worksheet_range(&sheet_name)
+      .map_err(|error| format!("Failed to read seed sheet '{sheet_name}': {error}"))?;
+    let mut rows = range.rows();
+    let Some(header_row) = rows.next() else {
+      continue;
+    };
+    let headers = header_row
+      .iter()
+      .map(|cell| normalize_seed_header(&spreadsheet_cell_to_string(Some(cell))))
+      .collect::<Vec<_>>();
+    if headers.is_empty() {
+      continue;
+    }
+
+    for row in rows {
+      let columns = row
+        .iter()
+        .map(|cell| spreadsheet_cell_to_string(Some(cell)))
+        .collect::<Vec<_>>();
+      if let Some(parsed) = map_seed_row_from_columns(&headers, &columns, true) {
+        parsed_rows.push(parsed);
+      }
+    }
+  }
+
+  Ok(parsed_rows)
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AutomationOutputRecordInput {
+  workspace_id: String,
+  run_id: Option<String>,
+  flow_type: Option<String>,
+  item_id: Option<String>,
+  status: Option<String>,
+  step: Option<String>,
+  profile_id: Option<String>,
+  profile_name: Option<String>,
+  phone: Option<String>,
+  api_phone: Option<String>,
+  email: Option<String>,
+  api_mail: Option<String>,
+  payload: Option<serde_json::Value>,
+  emitted_at: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct AutomationOutputAppendResult {
+  written: bool,
+  path: String,
+}
+
+#[tauri::command]
+fn append_automation_output_record(
+  input: AutomationOutputRecordInput,
+) -> Result<AutomationOutputAppendResult, String> {
+  let settings = settings_manager::SettingsManager::instance()
+    .load_settings()
+    .map_err(|error| format!("Failed to load settings: {error}"))?;
+
+  if !settings.automation_output_enabled {
+    return Ok(AutomationOutputAppendResult {
+      written: false,
+      path: String::new(),
+    });
+  }
+
+  let output_dir_raw = settings
+    .automation_output_dir
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .ok_or_else(|| "automation_output_dir is not configured".to_string())?;
+  let output_dir = PathBuf::from(output_dir_raw);
+  fs::create_dir_all(&output_dir)
+    .map_err(|error| format!("Failed to create automation output dir: {error}"))?;
+
+  let day_stamp = Utc::now().format("%Y-%m-%d").to_string();
+  let file_path = output_dir.join(format!("buglogin-automation-{day_stamp}.jsonl"));
+  let emitted_at = input
+    .emitted_at
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(ToString::to_string)
+    .unwrap_or_else(|| Utc::now().to_rfc3339());
+
+  let record = serde_json::json!({
+    "emittedAt": emitted_at,
+    "workspaceId": input.workspace_id,
+    "runId": input.run_id,
+    "flowType": input.flow_type,
+    "itemId": input.item_id,
+    "status": input.status,
+    "step": input.step,
+    "profileId": input.profile_id,
+    "profileName": input.profile_name,
+    "phone": input.phone,
+    "apiPhone": input.api_phone,
+    "email": input.email,
+    "apiMail": input.api_mail,
+    "payload": input.payload.unwrap_or(serde_json::Value::Null),
+  });
+  let line = serde_json::to_string(&record)
+    .map_err(|error| format!("Failed to serialize automation output record: {error}"))?;
+
+  let mut file = OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&file_path)
+    .map_err(|error| format!("Failed to open automation output file: {error}"))?;
+  file
+    .write_all(format!("{line}\n").as_bytes())
+    .map_err(|error| format!("Failed to append automation output file: {error}"))?;
+
+  Ok(AutomationOutputAppendResult {
+    written: true,
+    path: file_path.to_string_lossy().to_string(),
+  })
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StartTiktokProbeSessionInput {
+  profile_id: Option<String>,
+  profile_name: Option<String>,
+  flow_type: Option<String>,
+  start_url: Option<String>,
+  browser_type: Option<String>,
+  executable_path: Option<String>,
+  proxy_url: Option<String>,
+  headless: Option<bool>,
+  max_duration_seconds: Option<u64>,
+  seed_payload: Option<serde_json::Value>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StartTiktokProbeSessionResult {
+  started: bool,
+  output_dir: String,
+  pid: Option<u32>,
+  command: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadTiktokProbeProgressInput {
+  output_dir: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TiktokProbeProgressSnapshot {
+  found: bool,
+  output_dir: String,
+  is_running: bool,
+  ended: bool,
+  success_detected: bool,
+  current_step: Option<String>,
+  last_action: Option<String>,
+  last_event_at: Option<String>,
+  error: Option<String>,
+}
+
+fn slugify_probe_token(value: &str) -> String {
+  let normalized = value
+    .trim()
+    .chars()
+    .map(|ch| {
+      if ch.is_ascii_alphanumeric() {
+        ch.to_ascii_lowercase()
+      } else {
+        '_'
+      }
+    })
+    .collect::<String>();
+  let compact = normalized
+    .split('_')
+    .filter(|part| !part.is_empty())
+    .collect::<Vec<_>>()
+    .join("_");
+  if compact.is_empty() {
+    "probe".to_string()
+  } else {
+    compact
+  }
+}
+
+fn resolve_probe_script_path() -> Result<PathBuf, String> {
+  if let Ok(explicit) = env::var("BUGLOGIN_TIKTOK_PROBE_SCRIPT") {
+    let explicit_path = PathBuf::from(explicit.trim());
+    if explicit_path.exists() {
+      return Ok(explicit_path);
+    }
+  }
+
+  let cwd = env::current_dir().map_err(|error| format!("Failed to resolve cwd: {error}"))?;
+  let candidates = [
+    cwd.join("scripts/tiktok_seller_probe_session.mjs"),
+    cwd.join("../scripts/tiktok_seller_probe_session.mjs"),
+    cwd.join("scripts/tiktok_seller_probe_session.py"),
+    cwd.join("../scripts/tiktok_seller_probe_session.py"),
+  ];
+  for candidate in candidates {
+    if candidate.exists() {
+      return Ok(candidate);
+    }
+  }
+  Err(
+    "Probe script not found. Expected scripts/tiktok_seller_probe_session.py".to_string(),
+  )
+}
+
+fn map_probe_step(stage: &str, action: &str) -> String {
+  let normalized_stage = stage.trim().to_ascii_lowercase();
+  let normalized_action = action.trim().to_ascii_lowercase();
+  match (normalized_stage.as_str(), normalized_action.as_str()) {
+    ("intent_question", "choose_intent_seller") => "seller_intent_choose".to_string(),
+    ("intent_question", "submit_intent") => "seller_intent_submit".to_string(),
+    ("business_type", "select_sole_proprietorship") => {
+      "seller_business_type_select_sole".to_string()
+    }
+    ("business_type", "submit_business_type") => "seller_business_type_submit".to_string(),
+    ("business_details", "fill_business_details") => "seller_business_details_fill".to_string(),
+    ("business_details", "upload_supporting_document") => {
+      "seller_business_details_upload_document".to_string()
+    }
+    ("business_details", "ready_to_verify_business_details") => {
+      "seller_business_details_ready_no_submit".to_string()
+    }
+    ("register_entry", "fill_contact") => "seller_signup_fill_contact".to_string(),
+    ("register_entry", "click_continue") => "seller_signup_submit_contact".to_string(),
+    ("otp", "fill_otp") => "seller_signup_fill_otp".to_string(),
+    ("otp", "submit_otp") => "seller_signup_submit_otp".to_string(),
+    ("business_info", "fill_business_fields") => "seller_business_fill_fields".to_string(),
+    ("business_info", "submit_business_step") => "seller_business_submit_step".to_string(),
+    ("ein_verify", "fill_ein_step_fields") => "seller_ein_fill".to_string(),
+    ("ein_verify", "upload_supporting_document") => "seller_ein_upload_document".to_string(),
+    ("ein_verify", "fill_ein") => "seller_ein_fill".to_string(),
+    ("ein_verify", "submit_verify") => "seller_ein_verify_submit".to_string(),
+    ("blocked", _) => "seller_blocked_captcha_or_verify".to_string(),
+    _ => {
+      if normalized_stage.is_empty() {
+        "seller_probe_running".to_string()
+      } else if normalized_action.is_empty() {
+        format!("seller_{}", normalized_stage)
+      } else {
+        format!("seller_{}_{}", normalized_stage, normalized_action)
+      }
+    }
+  }
+}
+
+#[tauri::command]
+fn read_tiktok_probe_progress(
+  input: ReadTiktokProbeProgressInput,
+) -> Result<TiktokProbeProgressSnapshot, String> {
+  let output_dir = PathBuf::from(input.output_dir.trim());
+  if !output_dir.exists() {
+    return Ok(TiktokProbeProgressSnapshot {
+      found: false,
+      output_dir: output_dir.to_string_lossy().to_string(),
+      is_running: false,
+      ended: false,
+      success_detected: false,
+      current_step: None,
+      last_action: None,
+      last_event_at: None,
+      error: None,
+    });
+  }
+
+  let events_path = output_dir.join("events.jsonl");
+  if !events_path.exists() {
+    return Ok(TiktokProbeProgressSnapshot {
+      found: true,
+      output_dir: output_dir.to_string_lossy().to_string(),
+      is_running: false,
+      ended: false,
+      success_detected: false,
+      current_step: Some("seller_probe_started".to_string()),
+      last_action: None,
+      last_event_at: None,
+      error: None,
+    });
+  }
+
+  let mut current_step: Option<String> = None;
+  let mut last_action: Option<String> = None;
+  let mut last_event_at: Option<String> = None;
+  let mut ended = false;
+  let mut success_detected = false;
+  let mut error: Option<String> = None;
+
+  let content = fs::read_to_string(&events_path)
+    .map_err(|err| format!("Failed to read probe events file: {err}"))?;
+  for line in content.lines() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+      continue;
+    }
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+      continue;
+    };
+    let at = value
+      .get("at")
+      .and_then(|v| v.as_str())
+      .map(|v| v.to_string());
+    let kind = value.get("kind").and_then(|v| v.as_str()).unwrap_or_default();
+    if at.is_some() {
+      last_event_at = at;
+    }
+    if kind == "auto_action" {
+      let stage = value
+        .get("stage")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+      let action = value
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+      current_step = Some(map_probe_step(stage, action));
+      if !stage.is_empty() || !action.is_empty() {
+        last_action = Some(format!("{stage}:{action}"));
+      }
+    }
+    if kind == "auto_action" {
+      let stage = value
+        .get("stage")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+      let action = value
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+      let result = value
+        .get("result")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+
+      let explicit_completion = (stage == "completion"
+        && (action == "signup_completed" || action == "onboarding_completed"))
+        || (stage == "ein_verify" && action == "submit_verify" && result == "clicked");
+      if explicit_completion {
+        success_detected = true;
+        current_step = Some("seller_signup_completed".to_string());
+        last_action = Some(format!("{stage}:{action}"));
+      }
+    }
+    if kind == "session_end" {
+      ended = true;
+    }
+    if kind == "session_error" {
+      ended = true;
+      error = value
+        .get("error")
+        .and_then(|v| v.as_str())
+        .map(|v| v.to_string())
+        .or_else(|| Some("seller_probe_session_error".to_string()));
+    }
+  }
+
+  let is_running = if ended {
+    false
+  } else {
+    match fs::metadata(&events_path).and_then(|meta| meta.modified()) {
+      Ok(modified) => modified.elapsed().map(|elapsed| elapsed.as_secs() <= 20).unwrap_or(false),
+      Err(_) => false,
+    }
+  };
+
+  Ok(TiktokProbeProgressSnapshot {
+    found: true,
+    output_dir: output_dir.to_string_lossy().to_string(),
+    is_running,
+    ended,
+    success_detected,
+    current_step,
+    last_action,
+    last_event_at,
+    error,
+  })
+}
+
+#[tauri::command]
+fn start_tiktok_probe_session(
+  input: StartTiktokProbeSessionInput,
+) -> Result<StartTiktokProbeSessionResult, String> {
+  let settings = settings_manager::SettingsManager::instance()
+    .load_settings()
+    .map_err(|error| format!("Failed to load settings: {error}"))?;
+
+  let base_output_dir = settings
+    .automation_output_dir
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(PathBuf::from)
+    .unwrap_or_else(|| {
+      env::temp_dir()
+        .join("buglogin")
+        .join("automation-output")
+    });
+  let profile_token = input
+    .profile_name
+    .as_deref()
+    .or(input.profile_id.as_deref())
+    .unwrap_or("profile");
+  let profile_slug = slugify_probe_token(profile_token);
+  let stamp = Utc::now().format("%Y%m%d-%H%M%S").to_string();
+  let session_dir = base_output_dir
+    .join("probes")
+    .join(Utc::now().format("%Y-%m-%d").to_string())
+    .join(format!("{stamp}-{profile_slug}"));
+  fs::create_dir_all(&session_dir)
+    .map_err(|error| format!("Failed to create probe output dir: {error}"))?;
+
+  let seed_json = serde_json::json!({
+    "profileId": input.profile_id,
+    "profileName": input.profile_name,
+    "flowType": input.flow_type,
+    "startUrl": input.start_url,
+    "browserType": input.browser_type,
+    "executablePath": input.executable_path,
+    "proxyUrl": input.proxy_url,
+    "maxDurationSeconds": input.max_duration_seconds,
+    "seedPayload": input.seed_payload,
+    "createdAt": Utc::now().to_rfc3339(),
+  });
+  let seed_path = session_dir.join("seed.json");
+  fs::write(
+    &seed_path,
+    serde_json::to_string_pretty(&seed_json)
+      .map_err(|error| format!("Failed to serialize probe seed: {error}"))?,
+  )
+  .map_err(|error| format!("Failed to write probe seed file: {error}"))?;
+
+  let script_path = resolve_probe_script_path()?;
+  let script_extension = script_path
+    .extension()
+    .and_then(|ext| ext.to_str())
+    .map(|ext| ext.to_ascii_lowercase())
+    .unwrap_or_default();
+  let use_node_runtime = script_extension == "mjs" || script_extension == "js";
+  let runtime_bin = if use_node_runtime {
+    env::var("BUGLOGIN_NODE_PATH")
+      .ok()
+      .map(|value| value.trim().to_string())
+      .filter(|value| !value.is_empty())
+      .unwrap_or_else(|| "node".to_string())
+  } else {
+    env::var("BUGLOGIN_PYTHON_PATH")
+      .ok()
+      .map(|value| value.trim().to_string())
+      .filter(|value| !value.is_empty())
+      .unwrap_or_else(|| "python".to_string())
+  };
+
+  let start_url = input
+    .start_url
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .unwrap_or("https://seller-us.tiktok.com/account/register")
+    .to_string();
+
+  let browser_hint = input
+    .browser_type
+    .as_deref()
+    .map(str::trim)
+    .unwrap_or("firefox")
+    .to_ascii_lowercase();
+  let browser_type = match browser_hint.as_str() {
+    "chromium" | "brave" => "chromium",
+    _ => "firefox",
+  };
+
+  let mut command = Command::new(&runtime_bin);
+  let headless = input.headless.unwrap_or(true);
+  let headless_value = if headless { "true" } else { "false" };
+  command.arg(&script_path);
+  command.arg("--output-dir").arg(&session_dir);
+  command.arg("--start-url").arg(start_url);
+  command.arg("--browser-type").arg(browser_type);
+  command.arg("--seed-file").arg(&seed_path);
+  command.arg("--headless").arg(headless_value);
+  if let Some(seconds) = input.max_duration_seconds {
+    if seconds > 0 {
+      command.arg("--max-duration-seconds").arg(seconds.to_string());
+    }
+  }
+  if let Some(executable_path) = input
+    .executable_path
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--executable-path").arg(executable_path);
+  }
+  if let Some(proxy_url) = input
+    .proxy_url
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--proxy").arg(proxy_url);
+  }
+
+  let stdout_log = session_dir.join("probe.stdout.log");
+  let stderr_log = session_dir.join("probe.stderr.log");
+  let stdout_file = OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&stdout_log)
+    .map_err(|error| format!("Failed to open probe stdout log: {error}"))?;
+  let stderr_file = OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&stderr_log)
+    .map_err(|error| format!("Failed to open probe stderr log: {error}"))?;
+  command.stdout(Stdio::from(stdout_file));
+  command.stderr(Stdio::from(stderr_file));
+  command.stdin(Stdio::null());
+
+  let rendered = format!(
+    "{} {}",
+    runtime_bin,
+    [
+      script_path.to_string_lossy().to_string(),
+      "--output-dir".to_string(),
+      session_dir.to_string_lossy().to_string(),
+      "--start-url".to_string(),
+      seed_json["startUrl"].as_str().unwrap_or_default().to_string(),
+      "--browser-type".to_string(),
+      browser_type.to_string(),
+      "--headless".to_string(),
+      headless_value.to_string(),
+      "--proxy".to_string(),
+      input
+        .proxy_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_default()
+        .to_string(),
+    ]
+    .join(" ")
+  );
+
+  let child = command
+    .spawn()
+    .map_err(|error| format!("Failed to start TikTok probe session: {error}"))?;
+
+  Ok(StartTiktokProbeSessionResult {
+    started: true,
+    output_dir: session_dir.to_string_lossy().to_string(),
+    pid: Some(child.id()),
+    command: rendered,
+  })
 }
 
 #[tauri::command]
@@ -808,9 +1962,7 @@ async fn get_all_traffic_snapshots() -> Result<Vec<crate::traffic_stats::Traffic
 async fn get_traffic_snapshots_for_profiles(
   profile_ids: Vec<String>,
 ) -> Result<Vec<crate::traffic_stats::TrafficSnapshot>, String> {
-  Ok(crate::traffic_stats::get_traffic_snapshots_for_profiles_realtime(
-    &profile_ids,
-  ))
+  Ok(crate::traffic_stats::get_traffic_snapshots_for_profiles_realtime(&profile_ids))
 }
 
 #[tauri::command]
@@ -1150,9 +2302,7 @@ pub fn run() {
   let startup_urls: Vec<String> = args
     .iter()
     .filter(|arg| {
-      arg.starts_with("buglogin://")
-        || arg.starts_with("http://")
-        || arg.starts_with("https://")
+      arg.starts_with("buglogin://") || arg.starts_with("http://") || arg.starts_with("https://")
     })
     .cloned()
     .collect();
@@ -1236,6 +2386,29 @@ pub fn run() {
       // Recover ephemeral dir mappings from RAM-backed storage (tmpfs/ramdisk)
       ephemeral_dirs::recover_ephemeral_dirs();
 
+      // One-time managed browser migration (stable runtime mode):
+      // bugium/bugox -> wayfern/camoufox (profiles, registry, binaries folders).
+      {
+        let registry = downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
+        if let Err(e) = registry.load() {
+          log::warn!("Failed to load downloaded browsers registry on startup: {e}");
+        } else {
+          match registry.migrate_legacy_managed_state() {
+            Ok(changes) if !changes.is_empty() => {
+              log::info!(
+                "Managed browser migration applied ({} changes): {}",
+                changes.len(),
+                changes.join(", ")
+              );
+            }
+            Ok(_) => {}
+            Err(e) => {
+              log::warn!("Managed browser migration failed: {e}");
+            }
+          }
+        }
+      }
+
       // Start the daemon for tray icon
       if let Err(e) = daemon_spawn::ensure_daemon_running() {
         log::warn!("Failed to start daemon: {e}");
@@ -1246,6 +2419,37 @@ pub fn run() {
           log::warn!("Failed to start local control server: {e}");
         }
       });
+
+      #[cfg(target_os = "windows")]
+      {
+        // Bootstrap icon patching once before users start launching profiles.
+        // This avoids opening browser windows with a temporary original icon.
+        let bootstrap_result = std::thread::spawn(|| {
+          let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|error| format!("Failed to build icon bootstrap runtime: {error}"))?;
+          runtime.block_on(crate::downloader::patch_all_installed_browser_icons_windows_once())
+        })
+        .join();
+
+        match bootstrap_result {
+          Ok(Ok((patched, skipped, failed))) => {
+            log::info!(
+              "Windows browser icon bootstrap completed: patched={}, skipped={}, failed={}",
+              patched,
+              skipped,
+              failed
+            );
+          }
+          Ok(Err(error)) => {
+            log::warn!("Windows browser icon bootstrap failed: {error}");
+          }
+          Err(_) => {
+            log::warn!("Windows browser icon bootstrap panicked");
+          }
+        }
+      }
 
       // Register this GUI's PID in daemon state so the daemon can kill us directly
       daemon_spawn::register_gui_pid();
@@ -1485,8 +2689,7 @@ pub fn run() {
       if is_app_auto_update_enabled() {
         tauri::async_runtime::spawn(async move {
           let updater = app_auto_updater::AppAutoUpdater::instance();
-          let mut interval =
-            tokio::time::interval(tokio::time::Duration::from_secs(3 * 60 * 60));
+          let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3 * 60 * 60));
 
           loop {
             interval.tick().await;
@@ -1569,22 +2772,6 @@ pub fn run() {
         }
       });
 
-      #[cfg(target_os = "windows")]
-      tauri::async_runtime::spawn(async move {
-        match crate::downloader::patch_all_installed_browser_icons_windows_once().await {
-          Ok((patched, failed)) => {
-            log::info!(
-              "Windows browser icon startup check completed: patched={}, failed={}",
-              patched,
-              failed
-            );
-          }
-          Err(e) => {
-            log::warn!("Windows browser icon startup check failed: {e}");
-          }
-        }
-      });
-
       // Start proxy cleanup task for dead browser processes
       let app_handle_proxy_cleanup = app.handle().clone();
       tauri::async_runtime::spawn(async move {
@@ -1615,7 +2802,9 @@ pub fn run() {
       // Periodically broadcast browser running status to the frontend
       let app_handle_status = app.handle().clone();
       tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        // Lower probe frequency to prioritize UI smoothness over immediate
+        // running-state convergence on large profile sets.
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_running_states: std::collections::HashMap<String, bool> =
           std::collections::HashMap::new();
@@ -1624,7 +2813,8 @@ pub fn run() {
         loop {
           interval.tick().await;
           full_probe_counter = full_probe_counter.saturating_add(1);
-          let run_full_probe = if full_probe_counter >= 12 {
+          // Full probe roughly every 15 minutes (30s * 30).
+          let run_full_probe = if full_probe_counter >= 30 {
             full_probe_counter = 0;
             true
           } else {
@@ -1646,11 +2836,8 @@ pub fn run() {
               || profile.process_id.is_some()
               || matches!(
                 profile.runtime_state,
-                crate::profile::types::RuntimeState::Running
-                  | crate::profile::types::RuntimeState::Parked
-                  | crate::profile::types::RuntimeState::Starting
+                crate::profile::types::RuntimeState::Starting
                   | crate::profile::types::RuntimeState::Stopping
-                  | crate::profile::types::RuntimeState::Syncing
                   | crate::profile::types::RuntimeState::Terminating
               );
             if !should_probe {
@@ -1843,7 +3030,11 @@ pub fn run() {
         // refresh_access_token call needed.
         if cloud_auth::CLOUD_AUTH.is_logged_in().await {
           if let Err(e) = cloud_auth::CLOUD_AUTH.get_or_refresh_sync_token().await {
-            log::warn!("Failed to refresh cloud sync token on startup: {e}");
+            if e.to_ascii_lowercase().contains("not logged in") {
+              log::debug!("Skipping cloud sync token refresh on startup while logged out: {e}");
+            } else {
+              log::warn!("Failed to refresh cloud sync token on startup: {e}");
+            }
           }
           cloud_auth::CLOUD_AUTH.sync_cloud_proxy().await;
         }
@@ -1864,12 +3055,16 @@ pub fn run() {
       list_browser_profiles,
       list_browser_profiles_light,
       launch_browser_profile,
+      launch_browser_profile_by_id,
+      get_browser_runtime_diagnostics,
+      check_camoufox_ua_version_alignment,
       fetch_browser_versions_with_count,
       fetch_browser_versions_cached_first,
       fetch_browser_versions_with_count_cached_first,
       get_downloaded_browser_versions,
       get_all_tags,
       get_browser_release_types,
+      get_browser_update_requirement,
       update_profile_proxy,
       update_profile_vpn,
       update_profiles_proxy,
@@ -1901,6 +3096,10 @@ pub fn run() {
       check_for_browser_updates,
       dismiss_update_notification,
       complete_browser_update_with_auto_update,
+      check_for_app_updates,
+      check_for_app_updates_manual,
+      download_and_prepare_app_update,
+      restart_application,
       detect_existing_profiles,
       import_browser_profile,
       check_missing_binaries,
@@ -1980,6 +3179,10 @@ pub fn run() {
       export_profile_cookies,
       bugidea_tiktok_request,
       read_tiktok_account_cookie_source,
+      parse_tiktok_seller_seed_file,
+      append_automation_output_record,
+      start_tiktok_probe_session,
+      read_tiktok_probe_progress,
       check_wayfern_terms_accepted,
       check_wayfern_downloaded,
       accept_wayfern_terms,

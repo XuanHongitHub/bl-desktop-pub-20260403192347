@@ -9,10 +9,10 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
+  type TooltipProps,
   XAxis,
   YAxis,
 } from "recharts";
-import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import {
   Dialog,
   DialogContent,
@@ -214,7 +214,7 @@ export function TrafficDetailsDialog({
 
   // Tooltip render function
   const renderTooltip = React.useCallback(
-    (props: TooltipContentProps<number, string>) => {
+    (props: TooltipProps<number, string>) => {
       const { active, payload, label } = props;
       if (!active || !payload?.length) return null;
 

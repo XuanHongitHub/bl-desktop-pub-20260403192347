@@ -35,6 +35,15 @@ test("maps new admin command center route to /admin/command-center", () => {
   assert.equal(url, "https://buglogin.com/admin/command-center");
 });
 
+test("maps admin commerce plans route to /admin/commerce/plans", () => {
+  const url = buildWebBillingPortalUrl({
+    baseUrl: "https://buglogin.com",
+    route: "adminCommercePlans",
+  });
+
+  assert.equal(url, "https://buglogin.com/admin/commerce/plans");
+});
+
 test("keeps legacy management route aligned with account billing", () => {
   const url = buildWebBillingPortalUrl({
     baseUrl: "https://buglogin.com",

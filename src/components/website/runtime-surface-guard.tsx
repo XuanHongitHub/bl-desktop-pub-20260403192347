@@ -3,24 +3,34 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+  type RuntimeSurface,
+  resolveRuntimeSurface,
+  shouldRedirectDesktopGuard,
+  shouldRedirectWebGuard,
+  shouldRenderDesktopGuardChildren,
+  shouldRenderWebGuardChildren,
+} from "@/lib/runtime-surface-guard";
 
 export function WebRuntimeOnlyGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isDesktopRuntime = isTauri();
+  const [runtimeSurface, setRuntimeSurface] =
+    useState<RuntimeSurface>("unknown");
 
   useEffect(() => {
-    if (!isDesktopRuntime) {
-      return;
-    }
-    if (pathname.startsWith("/desktop")) {
+    setRuntimeSurface(resolveRuntimeSurface(isTauri()));
+  }, []);
+
+  useEffect(() => {
+    if (!shouldRedirectWebGuard(runtimeSurface, pathname)) {
       return;
     }
     router.replace("/desktop");
-  }, [isDesktopRuntime, pathname, router]);
+  }, [runtimeSurface, pathname, router]);
 
-  if (isDesktopRuntime) {
+  if (!shouldRenderWebGuardChildren(runtimeSurface)) {
     return null;
   }
 
@@ -30,19 +40,21 @@ export function WebRuntimeOnlyGuard({ children }: { children: ReactNode }) {
 export function DesktopRuntimeOnlyGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isDesktopRuntime = isTauri();
+  const [runtimeSurface, setRuntimeSurface] =
+    useState<RuntimeSurface>("unknown");
 
   useEffect(() => {
-    if (isDesktopRuntime) {
-      return;
-    }
-    if (pathname === "/" || pathname.startsWith("/signin")) {
+    setRuntimeSurface(resolveRuntimeSurface(isTauri()));
+  }, []);
+
+  useEffect(() => {
+    if (!shouldRedirectDesktopGuard(runtimeSurface, pathname)) {
       return;
     }
     router.replace("/");
-  }, [isDesktopRuntime, pathname, router]);
+  }, [runtimeSurface, pathname, router]);
 
-  if (!isDesktopRuntime) {
+  if (!shouldRenderDesktopGuardChildren(runtimeSurface)) {
     return null;
   }
 

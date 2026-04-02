@@ -24,11 +24,14 @@ const BROWSER_NAME_MAP: Record<string, string> = {
   zen: "Zen Browser",
   brave: "Brave",
   chromium: "Chromium",
-  camoufox: "Camoufox",
-  wayfern: "Wayfern",
+  bugox: "Bugox",
+  bugium: "Bugium",
 };
 
 const BROWSER_ALIAS_MAP: Record<string, string> = {
+  // Legacy internal keys -> new managed browser keys
+  wayfern: "bugium",
+  camoufox: "bugox",
   chrome: "chromium",
   "google-chrome": "chromium",
   "chrome-stable": "chromium",
@@ -46,8 +49,8 @@ const BROWSER_ICON_MAP: Record<string, BrowserIconComponent> = {
   zen: BugZenBrowserIcon,
   brave: BugBraveBrowserIcon,
   chromium: BugChromiumBrowserIcon,
-  camoufox: BugCamoufoxBrowserIcon,
-  wayfern: BugWayfernBrowserIcon,
+  bugox: BugCamoufoxBrowserIcon,
+  bugium: BugWayfernBrowserIcon,
 };
 
 function formatUnknownBrowserName(browserType: string): string {

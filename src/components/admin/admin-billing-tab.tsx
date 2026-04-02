@@ -92,12 +92,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
   }, []);
 
   const updateCustomPlanNumber = (
-    key:
-      | "monthlyPrice"
-      | "yearlyPrice"
-      | "profiles"
-      | "members"
-      | "storageGb",
+    key: "monthlyPrice" | "yearlyPrice" | "profiles" | "members" | "storageGb",
     value: string,
   ) => {
     const numeric = Number(value);
@@ -135,7 +130,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
         <Card className="border-border/50 shadow-sm rounded-xl overflow-hidden flex flex-col h-fit">
           <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
             <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-purple-500" />
+              <ShieldCheck className="h-4 w-4 text-chart-1" />
               {t("adminWorkspace.entitlementControl.title")}
             </CardTitle>
             <CardDescription className="text-[13px]">
@@ -156,7 +151,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
               <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
                 <Button
                   variant="outline"
-                  className="h-9 shadow-sm hover:shadow-md transition-shadow hover:text-emerald-500 hover:border-emerald-500/30"
+                  className="h-9 border-border/70 shadow-sm transition-shadow hover:border-chart-2/40 hover:text-chart-2 hover:shadow-md"
                   onClick={() => props.handleSetEntitlement("active")}
                   disabled={props.isBusy}
                 >
@@ -164,7 +159,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-9 shadow-sm hover:shadow-md transition-shadow hover:text-blue-500 hover:border-blue-500/30"
+                  className="h-9 border-border/70 shadow-sm transition-shadow hover:border-chart-1/40 hover:text-chart-1 hover:shadow-md"
                   onClick={() => props.handleSetEntitlement("grace_active")}
                   disabled={props.isBusy}
                 >
@@ -172,7 +167,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-9 shadow-sm hover:shadow-md transition-shadow hover:text-red-500 hover:border-red-500/30"
+                  className="h-9 border-border/70 shadow-sm transition-shadow hover:border-destructive/40 hover:text-destructive hover:shadow-md"
                   onClick={() => props.handleSetEntitlement("read_only")}
                   disabled={props.isBusy}
                 >
@@ -187,7 +182,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
           <CardHeader className="bg-muted/30 border-b border-border/50 pb-4 flex flex-row items-start justify-between gap-3">
             <div className="space-y-1">
               <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-                <BadgePercent className="w-4 h-4 text-orange-500" />
+                <BadgePercent className="h-4 w-4 text-chart-4" />
                 {t("adminWorkspace.billing.couponTitle")}
               </CardTitle>
               <CardDescription className="text-[13px]">
@@ -336,11 +331,12 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                       </TableRow>
                     ) : (
                       props.coupons.map((coupon) => (
-                        <TableRow key={coupon.id} className="hover:bg-accent/50">
+                        <TableRow
+                          key={coupon.id}
+                          className="hover:bg-accent/50"
+                        >
                           <TableCell className="text-[13px] font-mono font-bold text-foreground">
-                            <Badge variant="outline">
-                              {coupon.code}
-                            </Badge>
+                            <Badge variant="outline">{coupon.code}</Badge>
                           </TableCell>
                           <TableCell className="text-[13px]">
                             {coupon.source === "internal"
@@ -349,7 +345,7 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              variant={coupon.revokedAt ? "outline" : "secondary"}
+                              variant={coupon.revokedAt ? "warning" : "success"}
                               className="text-[11px] font-medium"
                             >
                               {coupon.revokedAt
@@ -531,7 +527,6 @@ export function AdminBillingTab(props: AdminBillingTabProps) {
                   disabled={props.isBusy}
                 />
               </div>
-
             </TabsContent>
 
             <TabsContent

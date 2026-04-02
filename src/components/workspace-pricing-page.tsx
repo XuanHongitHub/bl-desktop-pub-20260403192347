@@ -4,9 +4,9 @@ import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { extractRootError } from "@/lib/error-utils";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { openWebBillingPortal } from "@/lib/web-billing-desktop";
 import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
-import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { CloudUser, TeamRole } from "@/types";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -43,17 +43,21 @@ export function WorkspacePricingPage({
   workspaceCount,
 }: WorkspacePricingPageProps) {
   const { t } = useTranslation();
-  const [openingRoute, setOpeningRoute] = useState<WebBillingPortalRoute | null>(
-    null,
-  );
+  const [openingRoute, setOpeningRoute] =
+    useState<WebBillingPortalRoute | null>(null);
 
   const canManageBilling =
     user.platformRole === "platform_admin" ||
     teamRole === "owner" ||
     teamRole === "admin";
-  const workspaceDisplayName = workspaceName?.trim() || t("shell.workspaceSwitcher.current");
-  const currentPlan = workspacePlanLabel?.trim() || user.plan || t("pricingPage.freePlanLabel");
-  const workspaceTotal = Math.max(1, workspaceCount ?? user.workspaceSeeds?.length ?? 1);
+  const workspaceDisplayName =
+    workspaceName?.trim() || t("shell.workspaceSwitcher.current");
+  const currentPlan =
+    workspacePlanLabel?.trim() || user.plan || t("pricingPage.freePlanLabel");
+  const workspaceTotal = Math.max(
+    1,
+    workspaceCount ?? user.workspaceSeeds?.length ?? 1,
+  );
   const routeOrder: WebBillingPortalRoute[] =
     user.platformRole === "platform_admin"
       ? ["pricing", "management", "adminCommandCenter"]
@@ -114,13 +118,15 @@ export function WorkspacePricingPage({
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="h-7 px-2 text-[11px]">
-              {t("webBilling.desktopWorkspace", { workspace: workspaceDisplayName })}
+            <Badge variant="info" className="h-7 px-2 text-[11px]">
+              {t("webBilling.desktopWorkspace", {
+                workspace: workspaceDisplayName,
+              })}
             </Badge>
-            <Badge variant="outline" className="h-7 px-2 text-[11px]">
+            <Badge variant="success" className="h-7 px-2 text-[11px]">
               {t("webBilling.desktopPlan", { plan: currentPlan })}
             </Badge>
-            <Badge variant="outline" className="h-7 px-2 text-[11px]">
+            <Badge variant="warning" className="h-7 px-2 text-[11px]">
               {t("webBilling.desktopWorkspaceCount", { count: workspaceTotal })}
             </Badge>
           </div>

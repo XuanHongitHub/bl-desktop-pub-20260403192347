@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
+import { ProxyInlineManager } from "@/components/proxy-inline-manager";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -133,6 +134,10 @@ export function ProxyAssignmentDialog({
       : selectionType === "vpn"
         ? `vpn-${selectedId}`
         : (selectedId ?? "none");
+  const selectedProxy =
+    selectionType === "proxy" && selectedId
+      ? (storedProxies.find((proxy) => proxy.id === selectedId) ?? null)
+      : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -210,6 +215,16 @@ export function ProxyAssignmentDialog({
                 )}
               </SelectContent>
             </Select>
+            <div className="flex flex-wrap gap-2">
+              <ProxyInlineManager
+                selectedProxy={selectedProxy}
+                disabled={isAssigning}
+                onCreated={(proxy) => {
+                  setSelectionType("proxy");
+                  setSelectedId(proxy.id);
+                }}
+              />
+            </div>
           </div>
 
           {error && (

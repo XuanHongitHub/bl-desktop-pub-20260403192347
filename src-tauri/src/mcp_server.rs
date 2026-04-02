@@ -971,7 +971,12 @@ impl McpServer {
     // Filter to only Wayfern and Camoufox profiles
     let filtered: Vec<&BrowserProfile> = profiles
       .iter()
-      .filter(|p| p.browser == "wayfern" || p.browser == "camoufox")
+      .filter(|p| {
+        p.browser == "wayfern"
+          || p.browser == "camoufox"
+          || p.browser == "bugium"
+          || p.browser == "bugox"
+      })
       .collect();
 
     Ok(serde_json::json!({

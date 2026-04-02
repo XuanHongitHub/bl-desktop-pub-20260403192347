@@ -56,7 +56,7 @@ export function WayfernTermsDialog({
         <DialogHeader>
           <DialogTitle>{t("wayfernTerms.title")}</DialogTitle>
           <DialogDescription>
-            Before using BugLogin, you must read and agree to Wayfern's Terms
+            Before using BugLogin, you must read and agree to Bugium's Terms
             and Conditions.
           </DialogDescription>
         </DialogHeader>
@@ -66,12 +66,12 @@ export function WayfernTermsDialog({
             Please review the Terms and Conditions at:
           </p>
           <a
-            href="https://wayfern.com/terms-and-conditions"
+            href="https://buglogin.com/terms-and-conditions"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline text-sm font-medium block"
           >
-            https://wayfern.com/terms-and-conditions
+            https://buglogin.com/terms-and-conditions
           </a>
           <p className="text-sm text-muted-foreground">
             By clicking "I Accept", you agree to be bound by these terms.

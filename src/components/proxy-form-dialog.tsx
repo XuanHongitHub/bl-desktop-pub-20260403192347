@@ -38,12 +38,17 @@ interface ProxyFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   editingProxy?: StoredProxy | null;
+  onSaved?: (
+    proxy: StoredProxy,
+    mode: "create" | "edit",
+  ) => void | Promise<void>;
 }
 
 export function ProxyFormDialog({
   isOpen,
   onClose,
   editingProxy,
+  onSaved,
 }: ProxyFormDialogProps) {
   const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -282,15 +287,20 @@ export function ProxyFormDialog({
 
     setIsSubmitting(true);
     try {
+      let savedProxy: StoredProxy | null = null;
       if (editingProxy) {
         await invoke("update_stored_proxy", {
           proxyId: editingProxy.id,
           name: formData.name.trim(),
           proxySettings,
         });
+        const updatedProxies =
+          await invoke<StoredProxy[]>("get_stored_proxies");
+        savedProxy =
+          updatedProxies.find((proxy) => proxy.id === editingProxy.id) ?? null;
         showSuccessToast(t("proxies.form.messages.updated"));
       } else {
-        await invoke("create_stored_proxy", {
+        savedProxy = await invoke<StoredProxy>("create_stored_proxy", {
           name: formData.name.trim(),
           proxySettings,
         });
@@ -298,6 +308,9 @@ export function ProxyFormDialog({
       }
 
       await emit("stored-proxies-changed");
+      if (savedProxy) {
+        await onSaved?.(savedProxy, editingProxy ? "edit" : "create");
+      }
       onClose();
     } catch (error) {
       const errorMessage =
@@ -308,7 +321,7 @@ export function ProxyFormDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [editingProxy, formData.name, onClose, proxySettings, t]);
+  }, [editingProxy, formData.name, onClose, onSaved, proxySettings, t]);
 
   const handleClose = useCallback(() => {
     if (!isSubmitting) {

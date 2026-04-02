@@ -3,7 +3,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
   Dialog,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -44,16 +44,15 @@ export function CreateGroupDialog({
         name: groupName.trim(),
       });
 
-      toast.success(t("groupDialogs.toasts.created"));
+      showSuccessToast(t("groupDialogs.toasts.created"));
       onGroupCreated(newGroup);
       setGroupName("");
       onClose();
     } catch (err) {
-      console.error("Failed to create group:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to create group";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsCreating(false);
     }
@@ -71,7 +70,7 @@ export function CreateGroupDialog({
         <DialogHeader>
           <DialogTitle>{t("groupDialogs.create.title")}</DialogTitle>
           <DialogDescription>
-            Create a new group to organize your browser profiles.
+            {t("groupDialogs.create.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -82,7 +81,7 @@ export function CreateGroupDialog({
             </Label>
             <Input
               id="group-name"
-              placeholder="Enter group name..."
+              placeholder={t("groupDialogs.placeholders.groupName")}
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
               onKeyDown={(e) => {
@@ -95,7 +94,7 @@ export function CreateGroupDialog({
           </div>
 
           {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -107,14 +106,14 @@ export function CreateGroupDialog({
             onClick={handleClose}
             disabled={isCreating}
           >
-            Cancel
+            {t("common.buttons.cancel")}
           </RippleButton>
           <LoadingButton
             isLoading={isCreating}
             onClick={() => void handleCreate()}
             disabled={!groupName.trim()}
           >
-            Create
+            {t("common.buttons.create")}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

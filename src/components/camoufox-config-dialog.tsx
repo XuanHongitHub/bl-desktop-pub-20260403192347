@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SharedCamoufoxConfigForm } from "@/components/shared-camoufox-config-form";
 import {
+  validateCamoufoxFingerprintConsistency,
+  validateWayfernFingerprintConsistency,
+} from "@/lib/fingerprint-consistency";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -15,7 +19,9 @@ import { WayfernConfigForm } from "@/components/wayfern-config-form";
 import type {
   BrowserProfile,
   CamoufoxConfig,
+  CamoufoxFingerprintConfig,
   CamoufoxOS,
+  WayfernFingerprintConfig,
   WayfernConfig,
 } from "@/types";
 
@@ -91,9 +97,40 @@ export function CamoufoxConfigDialog({
 
     // Validate fingerprint JSON if it exists
     if (config.fingerprint) {
+      let parsedFingerprint: CamoufoxFingerprintConfig | WayfernFingerprintConfig | null =
+        null;
       try {
-        JSON.parse(config.fingerprint);
+        parsedFingerprint = JSON.parse(config.fingerprint) as
+          | CamoufoxFingerprintConfig
+          | WayfernFingerprintConfig;
       } catch (_error) {
+        const { toast } = await import("sonner");
+        toast.error(t("camoufoxConfigDialog.toasts.invalidFingerprint"), {
+          description: t(
+            "camoufoxConfigDialog.toasts.invalidFingerprintDescription",
+          ),
+        });
+        return;
+      }
+      if (!parsedFingerprint || typeof parsedFingerprint !== "object") {
+        const { toast } = await import("sonner");
+        toast.error(t("camoufoxConfigDialog.toasts.invalidFingerprint"), {
+          description: t(
+            "camoufoxConfigDialog.toasts.invalidFingerprintDescription",
+          ),
+        });
+        return;
+      }
+
+      const issues =
+        profile.browser === "wayfern"
+          ? validateWayfernFingerprintConsistency(
+              parsedFingerprint as WayfernFingerprintConfig,
+            )
+          : validateCamoufoxFingerprintConsistency(
+              parsedFingerprint as CamoufoxFingerprintConfig,
+            );
+      if (issues.length > 0) {
         const { toast } = await import("sonner");
         toast.error(t("camoufoxConfigDialog.toasts.invalidFingerprint"), {
           description: t(
@@ -147,7 +184,7 @@ export function CamoufoxConfigDialog({
     return null;
   }
 
-  const browserName = profile.browser === "wayfern" ? "Wayfern" : "Camoufox";
+  const browserName = profile.browser === "wayfern" ? "Bugium" : "Bugox";
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

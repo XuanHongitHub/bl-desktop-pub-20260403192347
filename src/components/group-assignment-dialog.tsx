@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
-import { toast } from "sonner";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
 import { LoadingButton } from "@/components/loading-button";
 import {
@@ -29,6 +28,7 @@ import {
   getCurrentDataScope,
   scopeEntitiesForContext,
 } from "@/lib/workspace-data-scope";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -69,7 +69,6 @@ export function GroupAssignmentDialog({
       );
       setGroups(scopedGroups);
     } catch (err) {
-      console.error("Failed to load groups:", err);
       setError(err instanceof Error ? err.message : "Failed to load groups");
     } finally {
       setIsLoading(false);
@@ -87,21 +86,23 @@ export function GroupAssignmentDialog({
 
       const groupName = selectedGroupId
         ? groups.find((g) => g.id === selectedGroupId)?.name || "Unknown Group"
-        : "Default";
+        : t("groupAssignmentDialog.labels.defaultNoGroup");
 
-      toast.success(
-        `Successfully assigned ${selectedProfiles.length} profile(s) to ${groupName}`,
+      showSuccessToast(
+        t("groupAssignmentDialog.toasts.assigned", {
+          count: selectedProfiles.length,
+          group: groupName,
+        }),
       );
       onAssignmentComplete();
       onClose();
     } catch (err) {
-      console.error("Failed to assign profiles to group:", err);
       const errorMessage =
         err instanceof Error
           ? err.message
           : "Failed to assign profiles to group";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsAssigning(false);
     }
@@ -111,6 +112,7 @@ export function GroupAssignmentDialog({
     groups,
     onAssignmentComplete,
     onClose,
+    t,
   ]);
 
   useEffect(() => {
@@ -140,14 +142,16 @@ export function GroupAssignmentDialog({
         <DialogHeader>
           <DialogTitle>{t("groupAssignmentDialog.title")}</DialogTitle>
           <DialogDescription>
-            Assign {selectedProfiles.length} selected profile(s) to a group.
+            {t("groupAssignmentDialog.description", {
+              count: selectedProfiles.length,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>{t("groupAssignmentDialog.labels.selectedProfiles")}</Label>
-            <ScrollArea className="p-3 bg-muted rounded-md max-h-32">
+            <ScrollArea className="max-h-32 rounded-md bg-muted p-3">
               <ul className="text-sm space-y-1">
                 {selectedProfiles.map((profileId) => {
                   // Find the profile name for display
@@ -176,12 +180,13 @@ export function GroupAssignmentDialog({
                 className="h-7 px-2 text-xs"
                 onClick={() => setCreateDialogOpen(true)}
               >
-                <GoPlus className="mr-1 w-3 h-3" /> Create Group
+                <GoPlus className="mr-1 h-3 w-3" />{" "}
+                {t("groupAssignmentDialog.actions.createGroup")}
               </RippleButton>
             </div>
             {isLoading ? (
               <div className="text-sm text-muted-foreground">
-                Loading groups...
+                {t("groupAssignmentDialog.loadingGroups")}
               </div>
             ) : (
               <Select
@@ -191,7 +196,9 @@ export function GroupAssignmentDialog({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a group" />
+                  <SelectValue
+                    placeholder={t("groupAssignmentDialog.labels.selectGroup")}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">
@@ -208,7 +215,7 @@ export function GroupAssignmentDialog({
           </div>
 
           {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -220,14 +227,14 @@ export function GroupAssignmentDialog({
             onClick={onClose}
             disabled={isAssigning}
           >
-            Cancel
+            {t("common.buttons.cancel")}
           </RippleButton>
           <LoadingButton
             isLoading={isAssigning}
             onClick={() => void handleAssign()}
             disabled={isLoading}
           >
-            Assign
+            {t("common.buttons.apply")}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

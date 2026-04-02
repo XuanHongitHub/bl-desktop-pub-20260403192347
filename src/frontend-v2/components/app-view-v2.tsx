@@ -136,7 +136,7 @@ export function AppViewV2() {
 
       addToSet(setLaunchingIds, profile.id);
       try {
-        await invoke("launch_browser_profile", { profile });
+        await invoke("launch_browser_profile_by_id", { profileId: profile.id });
         showSuccessToast(t("toasts.success.profileLaunched"));
       } catch (invokeError) {
         showErrorToast(t("toasts.error.profileLaunchFailed"), {

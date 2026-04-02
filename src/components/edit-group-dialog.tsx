@@ -3,7 +3,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { LoadingButton } from "@/components/loading-button";
 import {
   Dialog,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
@@ -56,15 +56,14 @@ export function EditGroupDialog({
         name: groupName.trim(),
       });
 
-      toast.success(t("groupDialogs.toasts.updated"));
+      showSuccessToast(t("groupDialogs.toasts.updated"));
       onGroupUpdated(updatedGroup);
       onClose();
     } catch (err) {
-      console.error("Failed to update group:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to update group";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsUpdating(false);
     }
@@ -81,7 +80,7 @@ export function EditGroupDialog({
         <DialogHeader>
           <DialogTitle>{t("groupDialogs.edit.title")}</DialogTitle>
           <DialogDescription>
-            Update the name of the group "{group?.name}".
+            {t("groupDialogs.edit.description", { name: group?.name ?? "" })}
           </DialogDescription>
         </DialogHeader>
 
@@ -92,7 +91,7 @@ export function EditGroupDialog({
             </Label>
             <Input
               id="group-name"
-              placeholder="Enter group name..."
+              placeholder={t("groupDialogs.placeholders.groupName")}
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
               onKeyDown={(e) => {
@@ -105,7 +104,7 @@ export function EditGroupDialog({
           </div>
 
           {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -117,14 +116,14 @@ export function EditGroupDialog({
             onClick={handleClose}
             disabled={isUpdating}
           >
-            Cancel
+            {t("common.buttons.cancel")}
           </RippleButton>
           <LoadingButton
             isLoading={isUpdating}
             onClick={() => void handleUpdate()}
             disabled={!groupName.trim() || groupName === group?.name}
           >
-            Update Group
+            {t("common.buttons.save")}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

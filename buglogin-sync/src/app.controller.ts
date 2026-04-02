@@ -67,6 +67,14 @@ export class AppController {
     const controlStateFileConfigured = Boolean(
       this.configService.get<string>("CONTROL_STATE_FILE"),
     );
+    const releaseApiTokenConfigured = Boolean(
+      this.configService.get<string>("BUGLOGIN_RELEASE_API_TOKEN"),
+    );
+    const releaseStorageMode =
+      this.configService.get<string>("BROWSER_RELEASE_STORAGE")?.trim() || "s3";
+    const releaseS3Key =
+      this.configService.get<string>("BROWSER_RELEASE_S3_KEY")?.trim() ||
+      "meta/browser-release-state.json";
 
     return {
       auth: {
@@ -88,6 +96,11 @@ export class AppController {
       s3: {
         s3EndpointConfigured,
         s3BucketConfigured,
+      },
+      browserRelease: {
+        releaseApiTokenConfigured,
+        releaseStorageMode,
+        releaseS3Key,
       },
     };
   }

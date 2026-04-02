@@ -47,6 +47,35 @@ impl ProfileManager {
     crate::app_dirs::binaries_dir()
   }
 
+  fn resolve_existing_managed_executable_path(
+    &self,
+    browser: &str,
+    version: &str,
+  ) -> Option<PathBuf> {
+    let browser_type = BrowserType::from_str(browser).ok()?;
+    let browser_runtime = create_browser(browser_type);
+    let binaries_dir = self.get_binaries_dir();
+
+    let install_roots: Vec<&str> = match browser {
+      "camoufox" | "bugox" => vec!["camoufox", "bugox"],
+      "wayfern" | "bugium" => vec!["wayfern", "bugium"],
+      other => vec![other],
+    };
+
+    for install_root in install_roots {
+      let install_dir = binaries_dir.join(install_root).join(version);
+      let executable_path = match browser_runtime.get_executable_path(&install_dir) {
+        Ok(path) => path,
+        Err(_) => continue,
+      };
+      if executable_path.exists() {
+        return Some(executable_path);
+      }
+    }
+
+    None
+  }
+
   #[allow(clippy::too_many_arguments)]
   pub async fn create_profile_with_group(
     &self,
@@ -99,7 +128,7 @@ impl ProfileManager {
     }
 
     // For Camoufox profiles, generate fingerprint during creation
-    let final_camoufox_config = if browser == "camoufox" {
+    let final_camoufox_config = if matches!(browser, "camoufox" | "bugox") {
       let mut config = camoufox_config.unwrap_or_else(|| {
         log::info!("Creating default Camoufox config for profile: {name}");
         crate::camoufox_manager::CamoufoxConfig::default()
@@ -107,25 +136,15 @@ impl ProfileManager {
 
       // Always ensure executable_path is set to the user's binary location
       if config.executable_path.is_none() {
-        let mut browser_dir = self.get_binaries_dir();
-        browser_dir.push(browser);
-        browser_dir.push(version);
-
-        #[cfg(target_os = "macos")]
-        let binary_path = browser_dir
-          .join("Camoufox.app")
-          .join("Contents")
-          .join("MacOS")
-          .join("camoufox");
-
-        #[cfg(target_os = "windows")]
-        let binary_path = browser_dir.join("camoufox.exe");
-
-        #[cfg(target_os = "linux")]
-        let binary_path = browser_dir.join("camoufox");
-
-        config.executable_path = Some(binary_path.to_string_lossy().to_string());
-        log::info!("Set Camoufox executable path: {:?}", config.executable_path);
+        if let Some(binary_path) = self.resolve_existing_managed_executable_path(browser, version) {
+          config.executable_path = Some(binary_path.to_string_lossy().to_string());
+          log::info!("Set Camoufox executable path: {:?}", config.executable_path);
+        } else {
+          log::info!(
+            "Camoufox executable not resolved at create time for profile '{}', using dynamic resolution at launch/fingerprint time",
+            name
+          );
+        }
       }
 
       // Pass upstream proxy information to config for fingerprint generation
@@ -163,51 +182,65 @@ impl ProfileManager {
 
       // Generate fingerprint if not already provided
       if config.fingerprint.is_none() {
-        log::info!("Generating fingerprint for Camoufox profile: {name}");
+        let executable_exists = config
+          .executable_path
+          .as_ref()
+          .map(|path| std::path::Path::new(path).exists())
+          .unwrap_or(false);
+        if !executable_exists {
+          log::warn!(
+            "Skipping Camoufox fingerprint generation for '{}' during profile creation because browser executable is not available yet",
+            name
+          );
+        } else {
+          log::info!("Generating fingerprint for Camoufox profile: {name}");
 
-        // Use the camoufox launcher to generate the config
+          // Use the camoufox launcher to generate the config
 
-        // Create a temporary profile for fingerprint generation
-        let temp_profile = BrowserProfile {
-          id: uuid::Uuid::new_v4(),
-          name: name.to_string(),
-          browser: browser.to_string(),
-          version: version.to_string(),
-          proxy_id: proxy_id.clone(),
-          vpn_id: None,
-          process_id: None,
-          last_launch: None,
-          release_type: release_type.to_string(),
-          camoufox_config: None,
-          wayfern_config: None,
-          group_id: group_id.clone(),
-          tags: Vec::new(),
-          note: None,
-          sync_mode: SyncMode::Disabled,
-          encryption_salt: None,
-          last_sync: None,
-          host_os: None,
-          ephemeral: false,
-          extension_group_id: None,
-          proxy_bypass_rules: Vec::new(),
-          created_by_id: None,
-          created_by_email: None,
-          runtime_state: RuntimeState::Stopped,
-        };
+          // Create a temporary profile for fingerprint generation
+          let temp_profile = BrowserProfile {
+            id: uuid::Uuid::new_v4(),
+            name: name.to_string(),
+            browser: browser.to_string(),
+            version: version.to_string(),
+            proxy_id: proxy_id.clone(),
+            vpn_id: None,
+            process_id: None,
+            last_launch: None,
+            release_type: release_type.to_string(),
+            camoufox_config: None,
+            wayfern_config: None,
+            group_id: group_id.clone(),
+            tags: Vec::new(),
+            note: None,
+            sync_mode: SyncMode::Disabled,
+            encryption_salt: None,
+            last_sync: None,
+            host_os: None,
+            ephemeral: false,
+            extension_group_id: None,
+            proxy_bypass_rules: Vec::new(),
+            created_by_id: None,
+            created_by_email: None,
+            runtime_state: RuntimeState::Stopped,
+          };
 
-        match self
-          .camoufox_manager
-          .generate_fingerprint_config(app_handle, &temp_profile, &config)
-          .await
-        {
-          Ok(generated_fingerprint) => {
-            config.fingerprint = Some(generated_fingerprint);
-            log::info!("Successfully generated fingerprint for profile: {name}");
-          }
-          Err(e) => {
-            return Err(
-              format!("Failed to generate fingerprint for Camoufox profile '{name}': {e}").into(),
-            );
+          match self
+            .camoufox_manager
+            .generate_fingerprint_config(app_handle, &temp_profile, &config)
+            .await
+          {
+            Ok(generated_fingerprint) => {
+              config.fingerprint = Some(generated_fingerprint);
+              log::info!("Successfully generated fingerprint for profile: {name}");
+            }
+            Err(e) => {
+              log::warn!(
+                "Failed to generate fingerprint for Camoufox profile '{}' during creation: {}. Profile will be created and fingerprint will be generated at launch time.",
+                name,
+                e
+              );
+            }
           }
         }
       } else {
@@ -224,7 +257,7 @@ impl ProfileManager {
     };
 
     // For Wayfern profiles, generate fingerprint during creation
-    let final_wayfern_config = if browser == "wayfern" {
+    let final_wayfern_config = if matches!(browser, "wayfern" | "bugium") {
       let mut config = wayfern_config.unwrap_or_else(|| {
         log::info!("Creating default Wayfern config for profile: {name}");
         crate::wayfern_manager::WayfernConfig::default()
@@ -232,25 +265,15 @@ impl ProfileManager {
 
       // Always ensure executable_path is set to the user's binary location
       if config.executable_path.is_none() {
-        let mut browser_dir = self.get_binaries_dir();
-        browser_dir.push(browser);
-        browser_dir.push(version);
-
-        #[cfg(target_os = "macos")]
-        let binary_path = browser_dir
-          .join("Chromium.app")
-          .join("Contents")
-          .join("MacOS")
-          .join("Chromium");
-
-        #[cfg(target_os = "windows")]
-        let binary_path = browser_dir.join("chrome.exe");
-
-        #[cfg(target_os = "linux")]
-        let binary_path = browser_dir.join("chrome");
-
-        config.executable_path = Some(binary_path.to_string_lossy().to_string());
-        log::info!("Set Wayfern executable path: {:?}", config.executable_path);
+        if let Some(binary_path) = self.resolve_existing_managed_executable_path(browser, version) {
+          config.executable_path = Some(binary_path.to_string_lossy().to_string());
+          log::info!("Set Wayfern executable path: {:?}", config.executable_path);
+        } else {
+          log::info!(
+            "Wayfern executable not resolved at create time for profile '{}', using dynamic resolution at launch/fingerprint time",
+            name
+          );
+        }
       }
 
       // Pass upstream proxy information to config for fingerprint generation
@@ -287,49 +310,63 @@ impl ProfileManager {
 
       // Generate fingerprint if not already provided
       if config.fingerprint.is_none() {
-        log::info!("Generating fingerprint for Wayfern profile: {name}");
+        let executable_exists = config
+          .executable_path
+          .as_ref()
+          .map(|path| std::path::Path::new(path).exists())
+          .unwrap_or(false);
+        if !executable_exists {
+          log::warn!(
+            "Skipping Wayfern fingerprint generation for '{}' during profile creation because browser executable is not available yet",
+            name
+          );
+        } else {
+          log::info!("Generating fingerprint for Wayfern profile: {name}");
 
-        // Create a temporary profile for fingerprint generation
-        let temp_profile = BrowserProfile {
-          id: uuid::Uuid::new_v4(),
-          name: name.to_string(),
-          browser: browser.to_string(),
-          version: version.to_string(),
-          proxy_id: proxy_id.clone(),
-          vpn_id: None,
-          process_id: None,
-          last_launch: None,
-          release_type: release_type.to_string(),
-          camoufox_config: None,
-          wayfern_config: None,
-          group_id: group_id.clone(),
-          tags: Vec::new(),
-          note: None,
-          sync_mode: SyncMode::Disabled,
-          encryption_salt: None,
-          last_sync: None,
-          host_os: None,
-          ephemeral: false,
-          extension_group_id: None,
-          proxy_bypass_rules: Vec::new(),
-          created_by_id: None,
-          created_by_email: None,
-          runtime_state: RuntimeState::Stopped,
-        };
+          // Create a temporary profile for fingerprint generation
+          let temp_profile = BrowserProfile {
+            id: uuid::Uuid::new_v4(),
+            name: name.to_string(),
+            browser: browser.to_string(),
+            version: version.to_string(),
+            proxy_id: proxy_id.clone(),
+            vpn_id: None,
+            process_id: None,
+            last_launch: None,
+            release_type: release_type.to_string(),
+            camoufox_config: None,
+            wayfern_config: None,
+            group_id: group_id.clone(),
+            tags: Vec::new(),
+            note: None,
+            sync_mode: SyncMode::Disabled,
+            encryption_salt: None,
+            last_sync: None,
+            host_os: None,
+            ephemeral: false,
+            extension_group_id: None,
+            proxy_bypass_rules: Vec::new(),
+            created_by_id: None,
+            created_by_email: None,
+            runtime_state: RuntimeState::Stopped,
+          };
 
-        match self
-          .wayfern_manager
-          .generate_fingerprint_config(app_handle, &temp_profile, &config)
-          .await
-        {
-          Ok(generated_fingerprint) => {
-            config.fingerprint = Some(generated_fingerprint);
-            log::info!("Successfully generated fingerprint for Wayfern profile: {name}");
-          }
-          Err(e) => {
-            return Err(
-              format!("Failed to generate fingerprint for Wayfern profile '{name}': {e}").into(),
-            );
+          match self
+            .wayfern_manager
+            .generate_fingerprint_config(app_handle, &temp_profile, &config)
+            .await
+          {
+            Ok(generated_fingerprint) => {
+              config.fingerprint = Some(generated_fingerprint);
+              log::info!("Successfully generated fingerprint for Wayfern profile: {name}");
+            }
+            Err(e) => {
+              log::warn!(
+                "Failed to generate fingerprint for Wayfern profile '{}' during creation: {}. Profile will be created and fingerprint will be generated at launch time.",
+                name,
+                e
+              );
+            }
           }
         }
       } else {
@@ -503,7 +540,9 @@ impl ProfileManager {
       } else {
         cache_value.profiles.push(profile.clone());
       }
-      cache_value.profiles_by_id.insert(profile.id, profile.clone());
+      cache_value
+        .profiles_by_id
+        .insert(profile.id, profile.clone());
     }
   }
 
@@ -534,7 +573,11 @@ impl ProfileManager {
     }
 
     let profiles = self.list_profiles()?;
-    Ok(profiles.into_iter().find(|profile| profile.id == *profile_id))
+    Ok(
+      profiles
+        .into_iter()
+        .find(|profile| profile.id == *profile_id),
+    )
   }
 
   pub fn get_profile_by_id_str(
@@ -724,16 +767,64 @@ impl ProfileManager {
       .map_err(|_| format!("Invalid browser type: {}", profile.browser))?;
     let browser = create_browser(browser_type.clone());
     let binaries_dir = self.get_binaries_dir();
+    let mut resolved_version = version.to_string();
+    let requested_downloaded = browser.is_version_downloaded(version, &binaries_dir);
 
-    if !browser.is_version_downloaded(version, &binaries_dir) {
+    if !requested_downloaded {
+      let managed_slug = crate::browser::canonical_managed_browser_slug(&profile.browser);
+      if matches!(managed_slug, "bugium" | "bugox") {
+        let registry = DownloadedBrowsersRegistry::instance();
+        let mut candidates = registry.get_downloaded_versions(managed_slug);
+
+        // Include on-disk version folders in case registry is stale.
+        let managed_dir = binaries_dir.join(managed_slug);
+        if let Ok(entries) = std::fs::read_dir(&managed_dir) {
+          for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+              if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                candidates.push(name.to_string());
+              }
+            }
+          }
+        }
+
+        candidates.sort();
+        candidates.dedup();
+
+        let strip_buglogin_suffix =
+          |value: &str| -> String { value.split("-buglogin.").next().unwrap_or(value).to_string() };
+
+        let requested_base = strip_buglogin_suffix(version);
+        if let Some(candidate) = candidates.into_iter().find(|candidate| {
+          let candidate_base = strip_buglogin_suffix(candidate);
+          candidate == version
+            || candidate.starts_with(&format!("{version}-"))
+            || version.starts_with(&format!("{candidate}-"))
+            || candidate_base == requested_base
+        }) {
+          if browser.is_version_downloaded(&candidate, &binaries_dir) {
+            log::info!(
+              "Resolved managed browser version mismatch for profile '{}': requested '{}' -> using '{}'",
+              profile.name,
+              version,
+              candidate
+            );
+            resolved_version = candidate;
+          }
+        }
+      }
+    }
+
+    if !browser.is_version_downloaded(&resolved_version, &binaries_dir) {
       return Err(format!("Browser version {version} is not downloaded").into());
     }
 
     // Update version
-    profile.version = version.to_string();
+    profile.version = resolved_version;
 
     // Update the release_type based on the version and browser
-    profile.release_type = if is_browser_version_nightly(&profile.browser, version, None) {
+    profile.release_type = if is_browser_version_nightly(&profile.browser, &profile.version, None) {
       "nightly".to_string()
     } else {
       "stable".to_string()
@@ -1370,12 +1461,12 @@ impl ProfileManager {
     profile: &BrowserProfile,
   ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     // Handle Camoufox profiles using CamoufoxManager-based status checking
-    if profile.browser == "camoufox" {
+    if matches!(profile.browser.as_str(), "camoufox" | "bugox") {
       return self.check_camoufox_status(&app_handle, profile).await;
     }
 
     // Handle Wayfern profiles using WayfernManager-based status checking
-    if profile.browser == "wayfern" {
+    if matches!(profile.browser.as_str(), "wayfern" | "bugium") {
       return self.check_wayfern_status(&app_handle, profile).await;
     }
 
@@ -1440,6 +1531,8 @@ impl ProfileManager {
             "zen" => exe_name.contains("zen"),
             "chromium" => exe_name.contains("chromium"),
             "brave" => exe_name.contains("brave"),
+            "bugox" => exe_name.contains("camoufox") || exe_name.starts_with("buglogin-profile-"),
+            "bugium" => exe_name.contains("wayfern") || exe_name.contains("chrome"),
             // Camoufox is handled via CamoufoxManager, not PID-based checking
             _ => false,
           };
@@ -1455,7 +1548,7 @@ impl ProfileManager {
           let profile_path_match = cmd.iter().any(|s| {
             let arg = s.to_str().unwrap_or("");
             // For Firefox-based browsers, check for exact profile path match
-            if profile.browser == "camoufox" {
+            if matches!(profile.browser.as_str(), "camoufox" | "bugox") {
               // Camoufox uses user_data_dir like Chromium browsers
               arg.contains(&format!("--user-data-dir={profile_data_path_str}"))
                 || arg == profile_data_path_str
@@ -1569,7 +1662,10 @@ impl ProfileManager {
       );
       if let Some(process) = system.process(Pid::from(existing_pid as usize)) {
         let exe_name = process.name().to_string_lossy().to_lowercase();
-        if exe_name.contains("camoufox") || exe_name.contains("firefox") {
+        if exe_name.contains("camoufox")
+          || exe_name.contains("firefox")
+          || exe_name.starts_with("buglogin-profile-")
+        {
           return Ok(true);
         }
       }
@@ -1864,6 +1960,9 @@ impl ProfileManager {
       "user_pref(\"extensions.update.enabled\", true);".to_string(),
       "user_pref(\"extensions.update.autoUpdateDefault\", true);".to_string(),
       "user_pref(\"extensions.autoDisableScopes\", 0);".to_string(),
+      "user_pref(\"xpinstall.signatures.required\", false);".to_string(),
+      "user_pref(\"extensions.langpacks.signatures.required\", false);".to_string(),
+      "user_pref(\"extensions.enabledScopes\", 15);".to_string(),
       // Completely disable browser update checking
       "user_pref(\"app.update.enabled\", false);".to_string(),
       "user_pref(\"app.update.auto\", false);".to_string(),
@@ -1939,6 +2038,19 @@ impl ProfileManager {
     ]
   }
 
+  fn is_global_rtc_disabled_for_all_browsers(&self) -> bool {
+    match crate::settings_manager::SettingsManager::instance().load_settings() {
+      Ok(settings) => settings.disable_rtc_for_all_browsers,
+      Err(error) => {
+        log::warn!(
+          "Failed to load app settings for RTC policy; defaulting to disabled: {}",
+          error
+        );
+        true
+      }
+    }
+  }
+
   pub fn apply_proxy_settings_to_profile(
     &self,
     profile_data_path: &Path,
@@ -1956,6 +2068,7 @@ impl ProfileManager {
     }
 
     let mut preferences = Vec::new();
+    let disable_rtc_for_all_browsers = self.is_global_rtc_disabled_for_all_browsers();
 
     // Add common Firefox preferences (like disabling default browser check)
     preferences.extend(self.get_common_firefox_preferences());
@@ -2019,13 +2132,25 @@ impl ProfileManager {
       // Disable QUIC/HTTP3 - it bypasses HTTP proxy
       "user_pref(\"network.http.http3.enable\", false);".to_string(),
       "user_pref(\"network.http.http3.enabled\", false);".to_string(),
-      // Prevent WebRTC from leaking real IP when behind proxy
-      "user_pref(\"media.peerconnection.ice.default_address_only\", true);".to_string(),
-      "user_pref(\"media.peerconnection.ice.no_host\", true);".to_string(),
-      "user_pref(\"media.peerconnection.ice.proxy_only_if_behind_proxy\", true);".to_string(),
       // Disable Do Not Track header (unusual fingerprint signal)
       "user_pref(\"privacy.donottrackheader.enabled\", false);".to_string(),
     ]);
+
+    if disable_rtc_for_all_browsers {
+      preferences.extend([
+        "user_pref(\"media.peerconnection.enabled\", false);".to_string(),
+        "user_pref(\"media.peerconnection.ice.default_address_only\", true);".to_string(),
+        "user_pref(\"media.peerconnection.ice.no_host\", true);".to_string(),
+        "user_pref(\"media.peerconnection.ice.proxy_only_if_behind_proxy\", true);".to_string(),
+      ]);
+    } else {
+      preferences.extend([
+        "user_pref(\"media.peerconnection.enabled\", true);".to_string(),
+        "user_pref(\"media.peerconnection.ice.default_address_only\", false);".to_string(),
+        "user_pref(\"media.peerconnection.ice.no_host\", false);".to_string(),
+        "user_pref(\"media.peerconnection.ice.proxy_only_if_behind_proxy\", false);".to_string(),
+      ]);
+    }
 
     // Write settings to user.js file
     let user_js_content = preferences.join("\n");
@@ -2046,6 +2171,7 @@ impl ProfileManager {
     let user_js_path = profile_data_path.join("user.js");
     let prefs_js_path = profile_data_path.join("prefs.js");
     let mut preferences = Vec::new();
+    let disable_rtc_for_all_browsers = self.is_global_rtc_disabled_for_all_browsers();
 
     // Get the UUID directory (parent of profile data directory)
     let uuid_dir = profile_data_path
@@ -2067,6 +2193,11 @@ impl ProfileManager {
     preferences.push("user_pref(\"network.proxy.socks_port\", 0);".to_string());
     preferences.push("user_pref(\"network.proxy.socks_version\", 5);".to_string());
     preferences.push("user_pref(\"network.proxy.no_proxies_on\", \"\");".to_string());
+    if disable_rtc_for_all_browsers {
+      preferences.push("user_pref(\"media.peerconnection.enabled\", false);".to_string());
+    } else {
+      preferences.push("user_pref(\"media.peerconnection.enabled\", true);".to_string());
+    }
 
     // Create a direct proxy PAC file in UUID directory
     let pac_content = "function FindProxyForURL(url, host) { return 'DIRECT'; }";

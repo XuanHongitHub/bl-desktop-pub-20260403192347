@@ -10,6 +10,27 @@ function hasNonEmptyValue(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function resolveCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
+  const raw = env.BUGLOGIN_ALLOWED_ORIGINS?.trim() ?? "";
+  if (raw) {
+    return raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (isEmbeddedLocalControlEnv(env)) {
+    return ["*"];
+  }
+
+  return [
+    "https://bugdev.site",
+    "https://buglogin.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ];
+}
+
 function isEmbeddedLocalControlEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
@@ -81,6 +102,9 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env) {
   if (!hasNonEmptyValue(env.CONTROL_API_TOKEN) && !hasNonEmptyValue(env.SYNC_TOKEN)) {
     missing.push("CONTROL_API_TOKEN or SYNC_TOKEN");
   }
+  if (!hasNonEmptyValue(env.BUGLOGIN_RELEASE_API_TOKEN)) {
+    missing.push("BUGLOGIN_RELEASE_API_TOKEN");
+  }
 
   if (missing.length > 0) {
     throw new Error(
@@ -98,8 +122,9 @@ async function bootstrap() {
   app.use(json({ limit: "2mb" }));
   app.use(urlencoded({ extended: true, limit: "2mb" }));
 
+  const allowedOrigins = resolveCorsOrigins();
   app.enableCors({
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",

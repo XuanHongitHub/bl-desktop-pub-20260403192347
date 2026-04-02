@@ -709,8 +709,10 @@ impl CamoufoxManager {
       // Check if this is a Camoufox/Firefox process
       let exe_name = process.name().to_string_lossy().to_lowercase();
       let is_firefox_like = exe_name.contains("firefox")
+        || exe_name.contains("bugox")
         || exe_name.contains("camoufox")
-        || exe_name.contains("firefox-bin");
+        || exe_name.contains("firefox-bin")
+        || exe_name.starts_with("buglogin-profile-");
 
       if !is_firefox_like {
         continue;
@@ -798,12 +800,14 @@ impl CamoufoxManager {
       let cmd_match = cmd.iter().any(|arg| {
         let arg_str = arg.to_str().unwrap_or("");
         let arg_lower = arg_str.to_lowercase();
-        arg_lower.contains("camoufox")
+        arg_lower.contains("bugox")
+          || arg_lower.contains("camoufox")
           || arg_lower.contains("camoufox-worker")
           || arg_lower.contains("firefox")
       });
       let exe_lower = process.name().to_string_lossy().to_lowercase();
-      let exe_match = exe_lower.contains("camoufox") || exe_lower.contains("firefox");
+      let exe_match =
+        exe_lower.contains("bugox") || exe_lower.contains("camoufox") || exe_lower.contains("firefox");
 
       if cmd_match || exe_match {
         // Found running Camoufox process
@@ -1099,11 +1103,8 @@ mod tests {
 
   #[test]
   fn test_build_launch_args_with_url_and_headless() {
-    let args = CamoufoxManager::build_launch_args(
-      "/path/to/profile",
-      Some("https://example.com"),
-      true,
-    );
+    let args =
+      CamoufoxManager::build_launch_args("/path/to/profile", Some("https://example.com"), true);
 
     assert_eq!(
       args,

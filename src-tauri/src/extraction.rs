@@ -34,9 +34,13 @@ impl Extractor {
     exe_path: &Path,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Determine browser type from the destination directory path
-    let browser_type = if dest_dir.to_string_lossy().contains("camoufox") {
+    let browser_type = if dest_dir.to_string_lossy().contains("bugox")
+      || dest_dir.to_string_lossy().contains("camoufox")
+    {
       "camoufox"
-    } else if dest_dir.to_string_lossy().contains("wayfern") {
+    } else if dest_dir.to_string_lossy().contains("bugium")
+      || dest_dir.to_string_lossy().contains("wayfern")
+    {
       "wayfern"
     } else if dest_dir.to_string_lossy().contains("firefox") {
       "firefox"
@@ -957,7 +961,9 @@ impl Extractor {
       "zen.exe",
       "brave.exe",
       "camoufox.exe",
+      "bugox.exe",
       "wayfern.exe",
+      "bugium.exe",
     ];
 
     // First try priority executable names
@@ -1018,6 +1024,9 @@ impl Extractor {
               .and_then(|n| n.to_str())
               .unwrap_or("")
               .to_lowercase();
+            if file_name.contains("installer") || file_name.contains("setup") {
+              continue;
+            }
 
             // Check if it's a browser executable
             if file_name.contains("firefox")
@@ -1027,7 +1036,9 @@ impl Extractor {
               || file_name.contains("brave")
               || file_name.contains("browser")
               || file_name.contains("camoufox")
+              || file_name.contains("bugox")
               || file_name.contains("wayfern")
+              || file_name.contains("bugium")
             {
               return Ok(path);
             }

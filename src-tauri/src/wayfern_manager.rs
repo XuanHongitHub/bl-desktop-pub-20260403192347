@@ -5,7 +5,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -139,12 +139,10 @@ impl WayfernManager {
       None => true,
       Some(serde_json::Value::Bool(enabled)) => *enabled,
       Some(serde_json::Value::Number(n)) => n.as_i64().unwrap_or(1) != 0,
-      Some(serde_json::Value::String(s)) => {
-        !matches!(
-          s.trim().to_ascii_lowercase().as_str(),
-          "false" | "0" | "off" | "disabled" | "no"
-        )
-      }
+      Some(serde_json::Value::String(s)) => !matches!(
+        s.trim().to_ascii_lowercase().as_str(),
+        "false" | "0" | "off" | "disabled" | "no"
+      ),
       Some(_) => true,
     }
   }
@@ -245,7 +243,12 @@ impl WayfernManager {
     }
 
     if let Some(obj) = fingerprint.as_object_mut() {
-      for key in ["localStorage", "sessionStorage", "indexedDb", "cookieEnabled"] {
+      for key in [
+        "localStorage",
+        "sessionStorage",
+        "indexedDb",
+        "cookieEnabled",
+      ] {
         if obj.get(key).and_then(|v| v.as_bool()) != Some(true) {
           obj.insert(key.to_string(), json!(true));
         }
@@ -276,7 +279,10 @@ impl WayfernManager {
 
   fn locale_from_country_code(country_code: &str) -> Option<String> {
     let selector = crate::camoufox::geolocation::LocaleSelector::new().ok()?;
-    selector.from_region(country_code).ok().map(|l| l.as_string())
+    selector
+      .from_region(country_code)
+      .ok()
+      .map(|l| l.as_string())
   }
 
   async fn get_runtime_user_agent(&self, ws_url: &str) -> Option<String> {
@@ -372,24 +378,87 @@ impl WayfernManager {
   async fn wait_for_cdp_ready(
     &self,
     port: u16,
+    process_id: Option<u32>,
+    stderr_log_path: Option<&Path>,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = format!("http://127.0.0.1:{port}/json/version");
-    let max_attempts = 50;
-    let delay = Duration::from_millis(100);
+    // Bugium cold starts can legitimately take longer than 5s on slower
+    // machines (proxy setup, extension load, first profile init). Prefer
+    // smooth reliability over fast-fail.
+    let max_attempts = 200;
+    let delay = Duration::from_millis(150);
+    let total_wait_ms = max_attempts as u64 * delay.as_millis() as u64;
+    log::info!(
+      "Waiting for CDP readiness on port {port} (max {} attempts, ~{}ms)",
+      max_attempts,
+      total_wait_ms
+    );
 
     for attempt in 0..max_attempts {
-      match self.http_client.get(&url).send().await {
+      // Do not fail-fast solely on launcher PID death on Windows.
+      // `buglogin-profile-*.exe` may exit after handing off to the real browser
+      // process, while CDP is still coming up on the same port.
+
+      match self
+        .http_client
+        .get(&url)
+        .timeout(Duration::from_millis(500))
+        .send()
+        .await
+      {
         Ok(resp) if resp.status().is_success() => {
           log::info!("CDP ready on port {port} after {attempt} attempts");
           return Ok(());
         }
         _ => {
+          if let Some(pid) = process_id {
+            if attempt % 20 == 0 {
+              use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
+              let mut system = System::new_with_specifics(
+                RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+              );
+              system.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::everything(),
+              );
+              if system.process(Pid::from_u32(pid)).is_none() {
+                log::warn!(
+                  "Wayfern launcher PID {} is no longer running while waiting for CDP on port {} (handoff to child process may have occurred)",
+                  pid,
+                  port
+                );
+              }
+            }
+          }
+          if attempt > 0 && attempt % 20 == 0 {
+            log::info!("CDP still not ready on port {port} after {attempt} attempts");
+          }
           tokio::time::sleep(delay).await;
         }
       }
     }
 
-    Err(format!("CDP not ready after {max_attempts} attempts on port {port}").into())
+    let stderr_tail = stderr_log_path
+      .and_then(|path| std::fs::read_to_string(path).ok())
+      .map(|content| {
+        let lines: Vec<&str> = content.lines().collect();
+        let start = lines.len().saturating_sub(30);
+        lines[start..].join("\n")
+      })
+      .filter(|tail| !tail.trim().is_empty());
+
+    if let Some(tail) = stderr_tail {
+      Err(
+        format!(
+          "CDP not ready after {max_attempts} attempts on port {port}. Last stderr lines:\n{}",
+          tail
+        )
+        .into(),
+      )
+    } else {
+      Err(format!("CDP not ready after {max_attempts} attempts on port {port}").into())
+    }
   }
 
   async fn get_cdp_targets(
@@ -400,6 +469,52 @@ impl WayfernManager {
     let resp = self.http_client.get(&url).send().await?;
     let targets: Vec<CdpTarget> = resp.json().await?;
     Ok(targets)
+  }
+
+  fn is_cdp_method_not_found(error: &str, method: &str) -> bool {
+    error.contains("\"code\":-32601")
+      || error.contains("wasn't found") && error.contains(method)
+      || error.contains("Method not found")
+  }
+
+  async fn apply_standard_fingerprint_fallback(
+    &self,
+    ws_url: &str,
+    fingerprint: &serde_json::Value,
+  ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Some(user_agent) = fingerprint.get("userAgent").and_then(|v| v.as_str()) {
+      let _ = self
+        .send_cdp_command(
+          ws_url,
+          "Network.setUserAgentOverride",
+          json!({ "userAgent": user_agent }),
+        )
+        .await;
+    }
+
+    if let Some(timezone) = fingerprint.get("timezone").and_then(|v| v.as_str()) {
+      let _ = self
+        .send_cdp_command(
+          ws_url,
+          "Emulation.setTimezoneOverride",
+          json!({ "timezoneId": timezone }),
+        )
+        .await;
+    }
+
+    let latitude = fingerprint.get("latitude").and_then(|v| v.as_f64());
+    let longitude = fingerprint.get("longitude").and_then(|v| v.as_f64());
+    if let (Some(lat), Some(lon)) = (latitude, longitude) {
+      let _ = self
+        .send_cdp_command(
+          ws_url,
+          "Emulation.setGeolocationOverride",
+          json!({ "latitude": lat, "longitude": lon, "accuracy": 10 }),
+        )
+        .await;
+    }
+
+    Ok(())
   }
 
   async fn send_cdp_command(
@@ -511,7 +626,7 @@ impl WayfernManager {
       let _ = std::fs::remove_dir_all(&temp_profile_dir);
     };
 
-    if let Err(e) = self.wait_for_cdp_ready(port).await {
+    if let Err(e) = self.wait_for_cdp_ready(port, child_id, None).await {
       cleanup().await;
       return Err(e);
     }
@@ -556,8 +671,15 @@ impl WayfernManager {
       .await;
 
     if let Err(e) = refresh_result {
-      cleanup().await;
-      return Err(format!("Failed to refresh fingerprint: {e}").into());
+      let error_text = e.to_string();
+      if Self::is_cdp_method_not_found(&error_text, "Wayfern.refreshFingerprint") {
+        log::warn!(
+          "Wayfern.refreshFingerprint not available in this runtime; continuing with existing fingerprint state"
+        );
+      } else {
+        cleanup().await;
+        return Err(format!("Failed to refresh fingerprint: {e}").into());
+      }
     }
 
     let runtime_user_agent = self.get_runtime_user_agent(&ws_url).await;
@@ -592,8 +714,39 @@ impl WayfernManager {
         normalized
       }
       Err(e) => {
-        cleanup().await;
-        return Err(format!("Failed to get fingerprint: {e}").into());
+        let error_text = e.to_string();
+        if Self::is_cdp_method_not_found(&error_text, "Wayfern.getFingerprint") {
+          log::warn!(
+            "Wayfern.getFingerprint not available in this runtime; falling back to stored fingerprint config when possible"
+          );
+          if let Some(raw_fingerprint) = config.fingerprint.as_deref() {
+            if let Ok(mut fallback_fp) = serde_json::from_str::<serde_json::Value>(raw_fingerprint) {
+              self
+                .sync_fingerprint_with_proxy_context(
+                  profile,
+                  config,
+                  config.proxy.as_deref(),
+                  &mut fallback_fp,
+                )
+                .await;
+              if let Some(runtime_ua) = runtime_user_agent.as_deref() {
+                Self::sync_runtime_user_agent(&mut fallback_fp, runtime_ua);
+              }
+              Self::enforce_storage_signals(&mut fallback_fp, profile.ephemeral);
+              Self::ensure_timezone_defaults(&mut fallback_fp);
+              fallback_fp
+            } else {
+              cleanup().await;
+              return Err(format!("Failed to parse stored fingerprint config after Wayfern.getFingerprint missing: {e}").into());
+            }
+          } else {
+            cleanup().await;
+            return Err(format!("Failed to get fingerprint: {e}").into());
+          }
+        } else {
+          cleanup().await;
+          return Err(format!("Failed to get fingerprint: {e}").into());
+        }
       }
     };
 
@@ -656,6 +809,8 @@ impl WayfernManager {
     let port = Self::find_free_port().await?;
     log::info!("Launching Wayfern on CDP port {port}");
 
+    // Keep launch args close to Wayfern's known-stable baseline.
+    // Avoid over-constraining flags that can break forked Chromium builds.
     let mut args = vec![
       format!("--remote-debugging-port={port}"),
       "--remote-debugging-address=127.0.0.1".to_string(),
@@ -664,16 +819,6 @@ impl WayfernManager {
       "--no-first-run".to_string(),
       "--no-default-browser-check".to_string(),
       "--disable-background-mode".to_string(),
-      "--disable-component-update".to_string(),
-      "--disable-background-timer-throttling".to_string(),
-      "--crash-server-url=".to_string(),
-      "--disable-updater".to_string(),
-      "--disable-session-crashed-bubble".to_string(),
-      "--hide-crash-restore-bubble".to_string(),
-      "--restore-last-session".to_string(),
-      "--disable-infobars".to_string(),
-      "--disable-quic".to_string(),
-      "--disable-features=DialMediaRouteProvider".to_string(),
       "--use-mock-keychain".to_string(),
       "--password-store=basic".to_string(),
     ];
@@ -691,21 +836,61 @@ impl WayfernManager {
     }
 
     if !extension_paths.is_empty() {
-      args.push(format!("--load-extension={}", extension_paths.join(",")));
+      let extension_csv = extension_paths.join(",");
+      args.push(format!("--load-extension={extension_csv}"));
+      args.push(format!("--disable-extensions-except={extension_csv}"));
+      if extension_csv.contains(".buglogin-runtime-identity-ext") {
+        log::info!(
+          "Wayfern runtime identity extension enabled for profile {}",
+          profile.name
+        );
+      }
     }
 
     // Don't add URL to args - we'll navigate via CDP after setting fingerprint
     // This ensures fingerprint is applied at navigation commit time
 
+    log::info!(
+      "Wayfern executable resolved: {} | args_count={}",
+      executable_path.display(),
+      args.len()
+    );
+    let stderr_log_path = std::env::temp_dir().join(format!(
+      "buglogin-wayfern-launch-{}-{}.log",
+      profile
+        .id
+        .to_string()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+        .collect::<String>(),
+      port
+    ));
+    let stderr_log_file = std::fs::OpenOptions::new()
+      .create(true)
+      .write(true)
+      .truncate(true)
+      .open(&stderr_log_path)
+      .map_err(|e| format!("Failed to create Wayfern stderr log file: {e}"))?;
+    let stdout_log_file = stderr_log_file
+      .try_clone()
+      .map_err(|e| format!("Failed to clone Wayfern stderr log file handle: {e}"))?;
+
+    log::info!(
+      "Wayfern launch stdout/stderr redirected to {}",
+      stderr_log_path.display()
+    );
+
     let mut cmd = TokioCommand::new(&executable_path);
     cmd.args(&args);
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
+    cmd.stdout(Stdio::from(stdout_log_file));
+    cmd.stderr(Stdio::from(stderr_log_file));
 
     let child = cmd.spawn()?;
     let process_id = child.id();
 
-    self.wait_for_cdp_ready(port).await?;
+    self
+      .wait_for_cdp_ready(port, process_id, Some(&stderr_log_path))
+      .await?;
 
     // Get CDP targets first - needed for both fingerprint and navigation
     let targets = self.get_cdp_targets(port).await?;
@@ -793,7 +978,26 @@ impl WayfernManager {
               "Successfully applied fingerprint to page target: {:?}",
               result
             ),
-            Err(e) => log::error!("Failed to apply fingerprint to target: {e}"),
+            Err(e) => {
+              let error_text = e.to_string();
+              if Self::is_cdp_method_not_found(&error_text, "Wayfern.setFingerprint") {
+                log::warn!(
+                  "Wayfern.setFingerprint not available in this runtime; applying standard CDP fallback"
+                );
+                if let Err(fallback_error) = self
+                  .apply_standard_fingerprint_fallback(ws_url, &fingerprint_for_cdp)
+                  .await
+                {
+                  log::warn!(
+                    "Standard fingerprint fallback failed for target {}: {}",
+                    ws_url,
+                    fallback_error
+                  );
+                }
+              } else {
+                log::warn!("Failed to apply fingerprint to target: {}", error_text);
+              }
+            }
           }
         }
       }
@@ -1032,9 +1236,11 @@ impl WayfernManager {
       }
 
       let exe_name = process.name().to_string_lossy().to_lowercase();
-      let is_chromium_like = exe_name.contains("wayfern")
+      let is_chromium_like = exe_name.contains("bugium")
+        || exe_name.contains("wayfern")
         || exe_name.contains("chromium")
-        || exe_name.contains("chrome");
+        || exe_name.contains("chrome")
+        || exe_name.starts_with("buglogin-profile-");
 
       if !is_chromium_like {
         continue;
@@ -1183,7 +1389,10 @@ mod tests {
     let mut fingerprint = serde_json::json!({});
     WayfernManager::ensure_timezone_defaults(&mut fingerprint);
     assert_eq!(fingerprint.get("timezone"), Some(&serde_json::json!("UTC")));
-    assert_eq!(fingerprint.get("timezoneOffset"), Some(&serde_json::json!(0)));
+    assert_eq!(
+      fingerprint.get("timezoneOffset"),
+      Some(&serde_json::json!(0))
+    );
   }
 
   #[test]

@@ -27,6 +27,10 @@ pub struct DownloadedBrowsersRegistry {
 }
 
 impl DownloadedBrowsersRegistry {
+  fn canonical_browser_key(browser: &str) -> &str {
+    crate::browser::canonical_managed_browser_slug(browser)
+  }
+
   fn new() -> Self {
     Self {
       data: Mutex::new(RegistryData::default()),
@@ -74,26 +78,34 @@ impl DownloadedBrowsersRegistry {
   }
 
   pub fn add_browser(&self, info: DownloadedBrowserInfo) {
+    let canonical_browser = Self::canonical_browser_key(&info.browser).to_string();
+    let normalized_info = DownloadedBrowserInfo {
+      browser: canonical_browser.clone(),
+      version: info.version,
+      file_path: info.file_path,
+    };
     let mut data = self.data.lock().unwrap();
     data
       .browsers
-      .entry(info.browser.clone())
+      .entry(canonical_browser)
       .or_default()
-      .insert(info.version.clone(), info);
+      .insert(normalized_info.version.clone(), normalized_info);
   }
 
   pub fn remove_browser(&self, browser: &str, version: &str) -> Option<DownloadedBrowserInfo> {
     let mut data = self.data.lock().unwrap();
-    data.browsers.get_mut(browser)?.remove(version)
+    let canonical = Self::canonical_browser_key(browser);
+    data.browsers.get_mut(canonical).and_then(|v| v.remove(version))
   }
 
   /// Check if browser is registered in the registry (without disk validation)
   /// This method only checks the in-memory registry and does not validate file existence
   pub fn is_browser_registered(&self, browser: &str, version: &str) -> bool {
+    let canonical = Self::canonical_browser_key(browser);
     let data = self.data.lock().unwrap();
     data
       .browsers
-      .get(browser)
+      .get(canonical)
       .and_then(|versions| versions.get(version))
       .is_some()
   }
@@ -133,12 +145,84 @@ impl DownloadedBrowsersRegistry {
   }
 
   pub fn get_downloaded_versions(&self, browser: &str) -> Vec<String> {
+    let canonical = Self::canonical_browser_key(browser);
     let data = self.data.lock().unwrap();
     data
       .browsers
-      .get(browser)
+      .get(canonical)
       .map(|versions| versions.keys().cloned().collect())
       .unwrap_or_default()
+  }
+
+  pub fn migrate_legacy_managed_state(
+    &self,
+  ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut changes = Vec::new();
+
+    {
+      let mut data = self.data.lock().unwrap();
+      for (branded, legacy) in [("bugium", "wayfern"), ("bugox", "camoufox")] {
+        if let Some(mut branded_versions) = data.browsers.remove(branded) {
+          for info in branded_versions.values_mut() {
+            info.browser = legacy.to_string();
+          }
+          data
+            .browsers
+            .entry(legacy.to_string())
+            .or_default()
+            .extend(branded_versions);
+          changes.push(format!("registry:{branded}->{legacy}"));
+        }
+      }
+    }
+
+    let binaries_dir = crate::app_dirs::binaries_dir();
+    for (branded, legacy) in [("bugium", "wayfern"), ("bugox", "camoufox")] {
+      let branded_dir = binaries_dir.join(branded);
+      let legacy_dir = binaries_dir.join(legacy);
+      if !branded_dir.exists() {
+        continue;
+      }
+      if !legacy_dir.exists() {
+        std::fs::rename(&branded_dir, &legacy_dir)?;
+        changes.push(format!("binaries:{branded}->{legacy}"));
+      } else {
+        for entry in std::fs::read_dir(&branded_dir)?.flatten() {
+          let src = entry.path();
+          let dst = legacy_dir.join(entry.file_name());
+          if !dst.exists() {
+            let _ = std::fs::rename(&src, &dst);
+          }
+        }
+        let _ = std::fs::remove_dir_all(&branded_dir);
+        changes.push(format!("binaries:merged:{branded}->{legacy}"));
+      }
+    }
+
+    let profiles = self
+      .profile_manager
+      .list_profiles()
+      .map_err(|e| format!("Failed to list profiles for browser migration: {e}"))?;
+    for mut profile in profiles {
+      let migrated_browser = match profile.browser.as_str() {
+        "bugium" => Some("wayfern"),
+        "bugox" => Some("camoufox"),
+        _ => None,
+      };
+      if let Some(new_browser) = migrated_browser {
+        profile.browser = new_browser.to_string();
+        self
+          .profile_manager
+          .save_profile(&profile)
+          .map_err(|e| format!("Failed to save migrated profile {}: {e}", profile.id))?;
+        changes.push(format!("profile:{}=>{}", profile.id, new_browser));
+      }
+    }
+
+    if !changes.is_empty() {
+      self.save()?;
+    }
+    Ok(changes)
   }
 
   #[cfg(target_os = "windows")]
@@ -174,7 +258,7 @@ impl DownloadedBrowsersRegistry {
   ) -> Result<(), String> {
     // Only mark as completed after verification succeeds
     let info = DownloadedBrowserInfo {
-      browser: browser.to_string(),
+      browser: Self::canonical_browser_key(browser).to_string(),
       version: version.to_string(),
       file_path,
     };
@@ -818,7 +902,9 @@ impl DownloadedBrowsersRegistry {
 
       // Check if the version is downloaded
       if !browser.is_version_downloaded(&profile.version, &binaries_dir) {
-        missing_binaries.push((profile.name, profile.browser, profile.version));
+        let canonical_browser =
+          crate::browser::canonical_managed_browser_slug(&profile.browser).to_string();
+        missing_binaries.push((profile.name, canonical_browser, profile.version));
       }
     }
 
@@ -851,11 +937,77 @@ impl DownloadedBrowsersRegistry {
       }
     }
 
+    // Managed browsers are handled globally (one download per browser),
+    // not per profile/version request.
+    let mut ensured_managed = Vec::new();
+    for managed_browser in ["wayfern", "camoufox"] {
+      let existing = self.get_downloaded_versions(managed_browser);
+      if existing.is_empty() {
+        let release_types = crate::browser_version_manager::BrowserVersionManager::instance()
+          .get_browser_release_types(managed_browser)
+          .await
+          .map_err(|e| format!("Failed to get release type for {managed_browser}: {e}"))?;
+        if let Some(latest) = release_types.stable {
+          match crate::downloader::download_browser(
+            app_handle.clone(),
+            managed_browser.to_string(),
+            latest.clone(),
+          )
+          .await
+          {
+            Ok(_) => {
+              ensured_managed.push(format!("{managed_browser} {latest}"));
+            }
+            Err(e) => {
+              let err_text = e.to_string();
+              if err_text.contains("is already being downloaded") {
+                log::info!(
+                  "Managed browser {} {} is already being downloaded; skip duplicate",
+                  managed_browser,
+                  latest
+                );
+              } else {
+                log::error!(
+                  "Failed to ensure managed browser {} {}: {}",
+                  managed_browser,
+                  latest,
+                  err_text
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     let missing_binaries = self.check_missing_binaries().await?;
     let mut downloaded = Vec::new();
+    downloaded.extend(ensured_managed);
 
+    // Deduplicate download requests by browser+version to avoid thundering herd
+    // when many profiles share the same managed browser build.
+    let mut grouped_missing: std::collections::HashMap<(String, String), Vec<String>> =
+      std::collections::HashMap::new();
     for (profile_name, browser, version) in missing_binaries {
-      log::info!("Downloading missing binary for profile '{profile_name}': {browser} {version}");
+      if matches!(browser.as_str(), "wayfern" | "camoufox") {
+        // Managed browsers are ensured once globally above.
+        continue;
+      }
+      grouped_missing
+        .entry((browser, version))
+        .or_default()
+        .push(profile_name);
+    }
+
+    for ((browser, version), profile_names) in grouped_missing {
+      let profile_hint = if profile_names.len() == 1 {
+        format!("'{}'", profile_names[0])
+      } else {
+        format!("{} profiles", profile_names.len())
+      };
+      log::info!(
+        "Downloading missing binary for {profile_hint}: {browser} {version}"
+      );
 
       match crate::downloader::download_browser(
         app_handle.clone(),
@@ -866,7 +1018,7 @@ impl DownloadedBrowsersRegistry {
       {
         Ok(_) => {
           downloaded.push(format!(
-            "{browser} {version} (for profile '{profile_name}')"
+            "{browser} {version} (for {profile_hint})"
           ));
 
           // After successful download, update profiles that use this browser to the new version
@@ -893,7 +1045,16 @@ impl DownloadedBrowsersRegistry {
           }
         }
         Err(e) => {
-          log::error!("Failed to download {browser} {version} for profile '{profile_name}': {e}");
+          let err_text = e.to_string();
+          if err_text.contains("is already being downloaded") {
+            log::info!(
+              "Skipped duplicate download request for {browser} {version} ({profile_hint}): {err_text}"
+            );
+          } else {
+            log::error!(
+              "Failed to download {browser} {version} ({profile_hint}): {err_text}"
+            );
+          }
         }
       }
     }
@@ -921,10 +1082,11 @@ impl DownloadedBrowsersRegistry {
     #[cfg(target_os = "windows")]
     {
       match crate::downloader::patch_all_installed_browser_icons_windows_once().await {
-        Ok((patched, failed)) => {
+        Ok((patched, skipped, failed)) => {
           log::info!(
-            "Post-ensure icon patch completed: patched={}, failed={}",
+            "Post-ensure icon patch completed: patched={}, skipped={}, failed={}",
             patched,
+            skipped,
             failed
           );
         }
@@ -1307,8 +1469,18 @@ pub async fn ensure_active_browsers_downloaded(
 
   #[cfg(target_os = "windows")]
   {
-    if let Err(e) = crate::downloader::patch_all_installed_browser_icons_windows_once().await {
-      log::warn!("Post-auto-download icon patch failed: {e}");
+    match crate::downloader::patch_all_installed_browser_icons_windows_once().await {
+      Ok((patched, skipped, failed)) => {
+        log::info!(
+          "Post-auto-download icon patch completed: patched={}, skipped={}, failed={}",
+          patched,
+          skipped,
+          failed
+        );
+      }
+      Err(e) => {
+        log::warn!("Post-auto-download icon patch failed: {e}");
+      }
     }
   }
 

@@ -16,6 +16,7 @@ use axum::{
 };
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, Mutex};
@@ -164,6 +165,26 @@ struct RunProfileRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 struct OpenUrlRequest {
   url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct PublicBrowserUpdatePolicy {
+  #[serde(skip_serializing_if = "Option::is_none")]
+  mode: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  required: Option<bool>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  min_supported_version: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct PublicBrowserMetadataResponse {
+  version: String,
+  downloads: HashMap<String, Option<String>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  update_policy: Option<PublicBrowserUpdatePolicy>,
 }
 
 #[derive(OpenApi)]
@@ -333,6 +354,7 @@ impl ApiServer {
       .with_state(ws_state);
 
     let app = Router::new()
+      .route("/v1/browser/{slug}.json", get(get_public_browser_metadata))
       .nest("/v1", v1_routes)
       .nest("/ws", ws_routes)
       .route("/openapi.json", get(move || async move { Json(api) }))
@@ -367,6 +389,75 @@ impl ApiServer {
     self.port = None;
     Ok(())
   }
+}
+
+async fn get_public_browser_metadata(
+  Path(slug): Path<String>,
+) -> Result<Json<PublicBrowserMetadataResponse>, StatusCode> {
+  let slug_normalized = slug.trim().to_lowercase();
+  let env_prefix = match slug_normalized.as_str() {
+    "bugox" => "BUGLOGIN_BUGOX",
+    "bugium" => "BUGLOGIN_BUGIUM",
+    _ => return Err(StatusCode::NOT_FOUND),
+  };
+
+  let version_key = format!("{env_prefix}_VERSION");
+  let version = std::env::var(&version_key).unwrap_or_else(|_| "0.0.0".to_string());
+
+  let mut downloads: HashMap<String, Option<String>> = HashMap::new();
+  for platform in [
+    "windows-x64",
+    "windows-arm64",
+    "linux-x64",
+    "linux-arm64",
+    "macos-x64",
+    "macos-arm64",
+  ] {
+    let env_key = format!(
+      "{}_{}",
+      env_prefix,
+      platform.to_uppercase().replace('-', "_")
+    );
+    let value = std::env::var(&env_key).ok().and_then(|raw| {
+      let trimmed = raw.trim().to_string();
+      if trimmed.is_empty() {
+        None
+      } else {
+        Some(trimmed)
+      }
+    });
+    downloads.insert(platform.to_string(), value);
+  }
+
+  let mode = std::env::var(format!("{env_prefix}_UPDATE_MODE")).ok();
+  let required = std::env::var(format!("{env_prefix}_REQUIRED"))
+    .ok()
+    .and_then(|v| match v.to_lowercase().as_str() {
+      "1" | "true" | "yes" => Some(true),
+      "0" | "false" | "no" => Some(false),
+      _ => None,
+    });
+  let min_supported_version = std::env::var(format!("{env_prefix}_MIN_SUPPORTED_VERSION")).ok();
+  let message = std::env::var(format!("{env_prefix}_UPDATE_MESSAGE")).ok();
+
+  let has_policy =
+    mode.is_some() || required.is_some() || min_supported_version.is_some() || message.is_some();
+  let update_policy = if has_policy {
+    Some(PublicBrowserUpdatePolicy {
+      mode,
+      required,
+      min_supported_version,
+      message,
+    })
+  } else {
+    None
+  };
+
+  Ok(Json(PublicBrowserMetadataResponse {
+    version,
+    downloads,
+    update_policy,
+  }))
 }
 
 // Terms and Conditions check middleware

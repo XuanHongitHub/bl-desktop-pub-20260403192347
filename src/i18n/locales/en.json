@@ -283,8 +283,42 @@
       "title": "Advanced",
       "clearCache": "Clear All Version Cache",
       "clearCacheDescription": "Clear all cached browser version data and refresh all browser versions from their sources. This will force a fresh download of version information for all browsers.",
+      "disableRtcForAllBrowsersTitle": "Disable RTC For All Browsers",
+      "disableRtcForAllBrowsersDescription": "When enabled, WebRTC is disabled globally for all browser profiles. Default is enabled for privacy-safe behavior.",
+      "disableRtcForAllBrowsersAdminOnly": "Only platform admins can change this setting.",
+      "automationOutputTitle": "Automation Output Connector",
+      "automationOutputDescription": "Admin-only sink for automation results. Set output folder on a synced Drive path and keep OAuth key paths ready for shared account workflows.",
+      "automationOutputAdminOnly": "Only platform admins can change automation output settings.",
+      "automationOutputDirLabel": "Output folder",
+      "automationOutputDirPlaceholder": "e.g. F:\\DriveSync\\BugLogin\\outputs",
+      "automationDriveFolderIdLabel": "Drive folder ID",
+      "automationDriveFolderIdPlaceholder": "Google Drive folder id",
+      "automationDriveOauthClientLabel": "OAuth client JSON path",
+      "automationDriveOauthClientPlaceholder": "Absolute path to oauth-web-client.json",
+      "automationDriveOauthRefreshLabel": "OAuth refresh JSON path",
+      "automationDriveOauthRefreshPlaceholder": "Absolute path to oauth-user.json",
       "clearCacheFailed": "Failed to clear cache",
-      "unknownError": "Unknown error occurred"
+      "unknownError": "Unknown error occurred",
+      "browserRuntimeTitle": "Browser Runtime Check",
+      "browserRuntimeDescription": "Inspect which executable/path each profile is using and whether the process command line matches the expected profile data directory.",
+      "browserRuntimeCheckAction": "Check Browser Runtime",
+      "browserRuntimeChecked": "Browser runtime check completed",
+      "browserRuntimeCheckedCount": "{{count}} profiles inspected",
+      "browserRuntimeCheckFailed": "Failed to inspect browser runtime",
+      "browserRuntimeLastChecked": "Last checked: {{time}}",
+      "browserRuntimeEmpty": "No diagnostics yet. Click \"Check Browser Runtime\".",
+      "browserRuntimeRunning": "Running",
+      "browserRuntimeStopped": "Stopped",
+      "browserRuntimeResolvedExists": "Resolved executable exists",
+      "browserRuntimeResolvedMissing": "Resolved executable missing",
+      "browserRuntimeColumns": {
+        "profile": "Profile",
+        "browser": "Browser",
+        "state": "State",
+        "process": "Process",
+        "executable": "Executable",
+        "paths": "Profile Paths"
+      }
     }
   },
   "vpnForm": {
@@ -417,7 +451,7 @@
     "mcp": {
       "enableTitle": "Enable MCP Server (Model Context Protocol)",
       "enableDescription": "Allow AI assistants like Claude Desktop to control browsers.",
-      "acceptTermsHint": "(Accept Wayfern terms in Settings first)",
+      "acceptTermsHint": "(Accept Bugium terms in Settings first)",
       "claudeConfigTitle": "Claude Desktop Configuration",
       "claudeConfigDescription": "Copy this configuration to your Claude Desktop config file at",
       "availableTools": "Available Tools",
@@ -595,20 +629,32 @@
       "groupName": "Group Name"
     },
     "create": {
-      "title": "Create New Group"
+      "title": "Create New Group",
+      "description": "Create a new group to organize your browser profiles."
     },
     "edit": {
-      "title": "Edit Group"
+      "title": "Edit Group",
+      "description": "Update the name of the group \"{{name}}\"."
     },
     "delete": {
       "title": "Delete Group",
-      "profilesPrompt": "What should happen to these profiles?"
+      "profilesPrompt": "What should happen to these profiles?",
+      "description": "This action cannot be undone. This will permanently delete the group \"{{name}}\".",
+      "associatedProfiles": "Associated Profiles ({{count}})",
+      "moveToDefault": "Move profiles to ungrouped",
+      "deleteWithProfiles": "Delete profiles along with the group",
+      "noAssociatedProfiles": "This group has no associated profiles.",
+      "andProfilesSuffix": "& Profiles"
     },
     "toasts": {
       "created": "Group created successfully",
       "updated": "Group updated successfully",
       "deleted": "Group deleted successfully"
-    }
+    },
+    "placeholders": {
+      "groupName": "Enter group name..."
+    },
+    "loadingProfiles": "Loading associated profiles..."
   },
   "releaseTypeSelector": {
     "empty": "No release types available."
@@ -644,7 +690,7 @@
     }
   },
   "wayfernTerms": {
-    "title": "Wayfern Terms and Conditions",
+    "title": "Bugium Terms and Conditions",
     "toasts": {
       "accepted": "Terms accepted successfully",
       "acceptFailed": "Failed to accept terms"
@@ -655,7 +701,16 @@
     "labels": {
       "selectedProfiles": "Selected Profiles:",
       "assignToGroup": "Assign to Group:",
-      "defaultNoGroup": "Default (No Group)"
+      "defaultNoGroup": "No group",
+      "selectGroup": "Select a group"
+    },
+    "description": "Assign {{count}} selected profile(s) to a group.",
+    "loadingGroups": "Loading groups...",
+    "actions": {
+      "createGroup": "Create Group"
+    },
+    "toasts": {
+      "assigned": "Assigned {{count}} profile(s) to {{group}}"
     }
   },
   "proxyAssignmentDialog": {
@@ -669,9 +724,139 @@
   },
   "groupManagementDialog": {
     "title": "Manage Profile Groups",
+    "description": "Create, edit, and delete profile groups. Profiles without a group will appear in the \"Default\" group.",
     "groupsLabel": "Groups",
+    "totalGroups": "{{count}} groups",
+    "searchPlaceholder": "Search groups...",
+    "syncFilterLabel": "Sync filter",
+    "syncFilterAll": "All sync states",
+    "syncFilterEnabled": "Sync enabled",
+    "syncFilterDisabled": "Sync disabled",
+    "loading": "Loading groups...",
+    "noGroups": "No groups created yet. Create your first group using the button above.",
+    "noResults": "No groups match the current search/filter.",
+    "paginationSummary": "Showing {{from}}-{{to}} of {{total}} groups",
     "columns": {
-      "profiles": "Profiles"
+      "profiles": "Profiles",
+      "syncHealth": "Sync health"
+    },
+    "metrics": {
+      "drift": "Sync drift",
+      "ruleMatch": "Rule match",
+      "blocked": "Blocked"
+    },
+    "sidebar": {
+      "rename": "Rename",
+      "share": "Share",
+      "color": "Color label",
+      "memberAccess": "Member access",
+      "delete": "Delete"
+    },
+    "tooltips": {
+      "defaultSyncBlocked": "The default group cannot be edited or synced",
+      "syncDisableBlockedGroup": "Sync cannot be disabled while this group is used by synced profiles",
+      "disableSync": "Disable sync",
+      "enableSync": "Enable sync",
+      "defaultRenameBlocked": "The default group cannot be renamed",
+      "editGroup": "Edit group",
+      "defaultDeleteBlocked": "The default group cannot be deleted",
+      "deleteGroup": "Delete group"
+    },
+    "toast": {
+      "syncDisabled": "Sync disabled",
+      "syncEnabled": "Sync enabled",
+      "syncUpdateFailed": "Failed to update sync",
+      "noRowsSelected": "No groups selected",
+      "noEligibleRows": "No eligible groups for this action",
+      "bulkSyncEnabled": "Enabled sync for {{count}} groups",
+      "bulkSyncDisabled": "Disabled sync for {{count}} groups",
+      "bulkSyncPartial": "{{count}} groups failed to update",
+      "noMembersSelected": "No member profiles selected",
+      "noCandidatesSelected": "No profiles selected to add",
+      "selectTargetGroup": "Please choose a target group",
+      "membersMovedToDefault": "Moved {{count}} profile(s) to ungrouped",
+      "membersMovedToGroup": "Moved {{count}} profile(s) to {{group}}",
+      "candidatesAdded": "Added {{count}} profile(s) to {{group}}",
+      "memberActionFailed": "Failed to update group members"
+    },
+    "workspaceDescription": "Manage workspace groups with filters, bulk actions, and member operations.",
+    "sortLabel": "Sort",
+    "sort": {
+      "nameAsc": "Name (A-Z)",
+      "nameDesc": "Name (Z-A)",
+      "profilesDesc": "Most profiles first",
+      "profilesAsc": "Fewest profiles first"
+    },
+    "bulkBar": {
+      "selected": "{{count}} groups selected",
+      "enableSync": "Enable sync",
+      "disableSync": "Disable sync",
+      "clearSelection": "Clear selection",
+      "selectPage": "Select current page"
+    },
+    "detail": {
+      "title": "Group details"
+    },
+    "tabs": {
+      "members": "Members",
+      "policies": "Policies",
+      "sync": "Sync",
+      "activity": "Activity"
+    },
+    "members": {
+      "searchPlaceholder": "Search profiles in this group...",
+      "searchOutsidePlaceholder": "Search profiles outside this group...",
+      "noGroupSelected": "Select a group to view details.",
+      "currentMembers": "Profiles in this group",
+      "availableProfiles": "Profiles outside this group",
+      "emptyInGroup": "No profiles in this group.",
+      "emptyCandidates": "No available profiles to add.",
+      "moveToDefault": "Move to ungrouped",
+      "moveToGroup": "Move to Group",
+      "addToGroup": "Add selected to group",
+      "targetGroupPlaceholder": "Select target group",
+      "statusAll": "All status"
+    },
+    "settings": {
+      "title": "Group settings",
+      "color": "Color label",
+      "share": "Share",
+      "memberAccess": "Who can view members",
+      "sharePrivate": "Private",
+      "shareTeam": "Team",
+      "sharePublic": "Public",
+      "accessOwnerAdmin": "Owner + Admin",
+      "accessAllMembers": "All members"
+    },
+    "policies": {
+      "syncPolicy": "Sync policy",
+      "syncEnabled": "Sync enabled",
+      "syncDisabled": "Sync disabled",
+      "protectedState": "Protection state",
+      "defaultProtected": "Default group (protected)",
+      "customManaged": "Custom managed group",
+      "memberCount": "Members",
+      "description": "Group policy derives from sync state and default-group protection rules."
+    },
+    "syncHealth": {
+      "currentStatus": "Current status",
+      "lastSync": "Last sync",
+      "never": "Never synced",
+      "inUseBySynced": "In use by synced profiles",
+      "inUse": "In use",
+      "notInUse": "Not in use"
+    },
+    "activity": {
+      "empty": "No activity yet for this group.",
+      "lastSuccessfulSync": "Most recent successful sync",
+      "groupCreated": "Created group {{name}}",
+      "groupUpdated": "Updated group {{name}}",
+      "groupDeleted": "Deleted group {{name}}",
+      "syncEnabled": "Enabled sync for {{name}}",
+      "syncDisabled": "Disabled sync for {{name}}",
+      "membersMovedToDefault": "Moved {{count}} profile(s) from {{name}} to ungrouped",
+      "membersMovedToGroup": "Moved {{count}} profile(s) from {{source}} to {{target}}",
+      "membersAdded": "Added {{count}} profile(s) to {{name}}"
     }
   },
   "header": {
@@ -812,11 +997,24 @@
   "createProfile": {
     "title": "Create New Profile",
     "configureTitle": "Configure Profile",
+    "workspace": {
+      "title": "Create Profile",
+      "description": "Build profile settings in a full workspace flow instead of a modal.",
+      "previewTitle": "Overview",
+      "previewBrowser": "Browser",
+      "previewName": "Name",
+      "previewProxy": "Proxy",
+      "previewProxyNone": "No proxy",
+      "previewProxyExisting": "Saved proxy",
+      "previewLaunch": "Launch after create",
+      "previewLaunchYes": "Enabled",
+      "previewLaunchNo": "Disabled"
+    },
     "antiDetect": {
       "title": "Anti-Detect Browser",
       "description": "Choose a browser with anti-detection capabilities",
-      "chromium": "Wayfern",
-      "firefox": "Camoufox",
+      "chromium": "Bugium",
+      "firefox": "Bugox",
       "badge": "Anti-Detect Browser"
     },
     "regular": {
@@ -829,6 +1027,7 @@
     "launchAfterCreate": "Launch browser after create",
     "sections": {
       "basic": "Basic",
+      "proxy": "Proxy",
       "advanced": "Advanced",
       "basicHint": "Set profile name and required browser basics.",
       "proxyHint": "Choose an existing proxy or quick add a new one.",
@@ -1136,7 +1335,7 @@
   },
   "config": {
     "camoufox": {
-      "title": "Camoufox Configuration",
+      "title": "Bugox Configuration",
       "fingerprint": {
         "title": "Fingerprint",
         "randomize": "Randomize on Launch",
@@ -1170,7 +1369,7 @@
       }
     },
     "wayfern": {
-      "title": "Wayfern Configuration",
+      "title": "Bugium Configuration",
       "fingerprint": {
         "title": "Fingerprint",
         "randomize": "Randomize on Launch",
@@ -1261,7 +1460,7 @@
       "profileCreateFailed": "Failed to create profile",
       "profileLimitReached": "Profile limit reached: {{used}}/{{limit}} profiles are already in this workspace.",
       "profileCreateSyncServerMissing": "Sync server URL is not configured. Open Sync settings to update it.",
-      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting requires a paid plan and wayfernToken. Use the current OS or configure wayfernToken.",
+      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting requires a paid plan and bugiumToken. Use the current OS or configure bugiumToken.",
       "profileDeleteFailed": "Failed to delete profile",
       "profileUpdateFailed": "Failed to update profile",
       "profileLaunchFailed": "Failed to launch profile",
@@ -1286,6 +1485,8 @@
       "downloading": "Downloading {{browser}} {{version}}",
       "extracting": "Extracting {{browser}} {{version}}",
       "verifying": "Verifying {{browser}} {{version}}",
+      "launchingProfile": "Launching profile '{{name}}'...",
+      "stoppingProfile": "Stopping profile '{{name}}'...",
       "syncing": "Syncing...",
       "syncingProfile": "Syncing profile '{{name}}'...",
       "syncingProfileWithProgress": "{{count}} files ({{size}})",
@@ -1309,8 +1510,8 @@
     "chromium": "Chromium",
     "brave": "Brave",
     "zen": "Zen Browser",
-    "camoufox": "Camoufox",
-    "wayfern": "Wayfern"
+    "camoufox": "Bugox",
+    "wayfern": "Bugium"
   },
   "fingerprint": {
     "crossOsWarning": "Spoofing fingerprint for a different operating system is less reliable because it is impossible to perfectly mimic all underlying components. Use with caution.",
@@ -1421,8 +1622,8 @@
   "warnings": {
     "windowResizeTitle": "Custom Window Dimensions",
     "windowResizeDescription": "Changing browser window dimensions may increase the chance of website detection that browser information is spoofed.",
-    "windowResizeCamoufoxTitle": "Viewport Locked by Camoufox",
-    "windowResizeCamoufoxDescription": "Camoufox locks the viewport to the spoofed screen dimensions for anti-fingerprinting. Resizing the window may cause cropped or grey areas. This is expected behavior.",
+    "windowResizeCamoufoxTitle": "Viewport Locked by Bugox",
+    "windowResizeCamoufoxDescription": "Bugox locks the viewport to the spoofed screen dimensions for anti-fingerprinting. Resizing the window may cause cropped or grey areas. This is expected behavior.",
     "dontShowAgain": "Don't show this again",
     "continue": "Continue",
     "cancel": "Cancel"
@@ -1832,7 +2033,7 @@
     "featureProfiles": "{{count}} managed profiles",
     "featureMembers": "{{count}} team members",
     "featureStorage": "{{count}} GB sync storage",
-        "featureSupport": "{{level}} support",
+    "featureSupport": "{{level}} support",
     "support": {
       "email": "Email",
       "priority": "Priority",
@@ -2007,6 +2208,30 @@
           "billing": {
             "title": "Revenue Control",
             "description": "Coupons, entitlement operations, and billing controls."
+          },
+          "commercePlans": {
+            "title": "Commerce · Plans",
+            "description": "Versioned plan catalog and publish flow."
+          },
+          "commerceCampaigns": {
+            "title": "Commerce · Campaigns",
+            "description": "Schedule and prioritize promotional campaigns."
+          },
+          "commerceCoupons": {
+            "title": "Commerce · Coupons",
+            "description": "Coupon quota, limits, and status controls."
+          },
+          "commerceLicenses": {
+            "title": "Commerce · Licenses",
+            "description": "License pool lifecycle: reserve, bind, revoke, rotate."
+          },
+          "commercePreview": {
+            "title": "Commerce · Price Preview",
+            "description": "Simulate final price for workspace + campaign + coupon."
+          },
+          "commerceAudit": {
+            "title": "Commerce · Audit",
+            "description": "Trace all commerce mutations with actor and timestamp."
           },
           "audit": {
             "title": "Audit & Compliance",
@@ -2262,7 +2487,7 @@
       "customPlanProfiles": "Managed profiles",
       "customPlanMembers": "Team members",
       "customPlanStorage": "Sync storage (GB)",
-            "customPlanRecommended": "Recommended badge",
+      "customPlanRecommended": "Recommended badge",
       "customPlanRecommendedYes": "Yes",
       "customPlanRecommendedNo": "No",
       "customPlanSaveAction": "Save Enterprise plan",
@@ -2329,6 +2554,15 @@
         "phoneListPlaceholder": "One phone per line or comma-separated values",
         "phoneFileTitle": "Phone file import",
         "phoneFileHint": "{{count}} phones loaded from CSV/TXT file (Excel-exported).",
+        "importPreviewTitle": "Review imported rows",
+        "importPreviewDescription": "{{count}} row(s) parsed from file. Confirm to add this file as a batch.",
+        "importPreviewConfirm": "Add to batch",
+        "probeModeLabel": "Probe mode (Seller)",
+        "probeModeHint": "When enabled, each opened Seller profile starts a live probe session that records requests, DOM inputs/forms, screenshots, and HTML snapshots.",
+        "probeNoSession": "Probe mode is enabled. Waiting for the first seller profile to open.",
+        "probeLastOutput": "Latest probe output: {{path}}",
+        "probeSessionStarted": "Seller probe started for {{profile}}. Output: {{path}}",
+        "probeSessionFailed": "Failed to start seller probe for {{profile}}: {{reason}}",
         "phoneFileImported": "Imported {{count}} phones from file.",
         "phoneFileFailed": "Failed to read phone file.",
         "phoneFileExcelUnsupported": "Direct .xlsx/.xls import is not supported yet. Export to CSV/TSV/TXT and import again.",
@@ -2372,10 +2606,46 @@
         "bulkRemove": "Remove selected",
         "bulkNoRunnable": "No runnable profile in selection (all are disabled).",
         "searchPlaceholder": "Search profile, phone, API phone, proxy, or cookie...",
-        "empty": "No semi-auto profile tasks yet.",
+        "empty": "No profiles yet.",
         "filters": {
           "allStatuses": "All statuses",
           "empty": "No profiles match the current filter."
+        },
+        "tabs": {
+          "results": "Result",
+          "queue": "Queued",
+          "logs": "Logs"
+        },
+        "queue": {
+          "summary": "{{count}} queued run(s)",
+          "actionFailed": "Failed to execute queue action.",
+          "columns": {
+            "runId": "Run ID",
+            "status": "Status",
+            "progress": "Progress",
+            "updated": "Updated"
+          },
+          "actions": {
+            "view": "View",
+            "start": "Start",
+            "pause": "Pause",
+            "resume": "Resume",
+            "stop": "Stop"
+          }
+        },
+        "logs": {
+          "summary": "{{count}} log row(s)",
+          "columns": {
+            "status": "Status",
+            "step": "Step",
+            "profile": "Profile",
+            "detail": "Detail",
+            "updated": "Updated"
+          },
+          "actions": {
+            "copy": "Log row copied.",
+            "copyLabel": "Copy"
+          }
         },
         "phoneLabel": "Phone",
         "apiPhoneLabel": "API Phone",
@@ -2487,12 +2757,56 @@
         },
         "proxyLoadFailed": "Failed to load stored proxies.",
         "proxyNotAvailable": "No proxy matched the keyword. Add proxy or change keyword.",
-        "browserVersionRequired": "No downloaded browser version found for the selected browser.",
+        "downloadBrowser": "Download browser",
+        "downloadBrowserSuccess": "Downloaded {{browser}} {{version}} successfully.",
+        "downloadBrowserFailed": "Failed to download browser for this workspace.",
+        "downloadPreparing": "Preparing browser runtime...",
+        "downloadFetching": "Fetching versions for {{browser}}...",
+        "downloadAttempt": "Trying {{browser}} {{version}}...",
+        "downloadFallbackBrowser": "Trying fallback browser {{browser}}...",
+        "downloadReady": "{{browser}} {{version}} is ready.",
+        "browserVersionRequired": "Could not prepare any browser runtime. Try Download browser, then retry.",
+        "browserFallbackSelected": "Using {{selected}} because {{preferred}} is not ready on this machine yet.",
+        "sellerCamoufoxOnly": "Seller automation is locked to Camoufox. Download a working Camoufox version, then retry.",
+        "sellerUaVersionMismatch": "Camoufox fingerprint UA does not match installed runtime version. Regenerate fingerprint for this profile and retry launch.",
+        "sellerBrowserRuntimeRequired": "Seller automation requires Camoufox runtime. Current profile browser is {{browser}}.",
         "browserUpdated": "Updated browser preference to {{browser}} for profile {{profile}}.",
+        "sellerConfigBrowser": "Runtime browser",
+        "sellerConfigProxy": "Runtime proxy",
+        "sellerConfigProxyKeep": "Keep current proxy",
+        "sellerConfigProxyNone": "No proxy",
+        "sellerConfigApply": "Apply to selected",
+        "sellerConfigApplied": "Applied runtime config to {{count}} profile(s).",
+        "sellerConfigApplyFailed": "Failed to apply seller runtime config.",
+        "sellerConfigHint": "{{count}} selected profile(s).",
+        "sellerSeedChooseFile": "Choose seed file",
+        "sellerSeedNoFile": "No file selected.",
+        "sellerConfigQuickProxy": "Quick proxy",
+        "sellerConfigQuickProxyPlaceholder": "host:port:user:pass",
+        "sellerConfigQuickProxyAdd": "Add",
+        "sellerConfigQuickProxyRequired": "Enter a quick proxy before adding.",
+        "sellerConfigQuickProxyInvalid": "Quick proxy format is invalid.",
+        "sellerConfigQuickProxyAdded": "Added proxy {{name}} and selected it.",
+        "sellerConfigQuickProxyFailed": "Failed to add quick proxy.",
+        "sellerConfigRotationType": "Rotation type",
+        "sellerConfigRotationTimed": "Auto rotate",
+        "sellerConfigRotationContinuous": "Continuous rotate",
+        "sellerConfigRotationSeconds": "Rotate every",
+        "sellerConfigRotationLink": "Rotation link",
+        "sellerConfigRotationLinkPlaceholder": "https://...",
+        "sellerConfigRotationLinkRequired": "Rotation link is required for continuous rotate.",
+        "sellerConfigRotationSecondsInvalid": "Rotation interval is invalid.",
+        "sellerConfigRotationTimedSummary": "Auto rotate every {{seconds}}s.",
+        "sellerConfigRotationContinuousSummary": "Continuous rotate uses rotation link.",
+        "sellerRuntimeMigrated": "Migrated {{profile}} to Camoufox profile {{next}} for Seller launch.",
         "apiPhoneMissing": "API Phone URL is missing for this profile.",
         "captchaServiceMissing": "Captcha service is not configured for this profile.",
         "createBatchSuccess": "Created {{count}} profiles with proxy {{proxy}}.",
+        "batchReadyRun": "Batch prepared with {{count}} account(s). Click Run when ready.",
         "createBatchFailed": "Failed to create profile batch.",
+        "profileNotFound": "Profile was not found in workspace runtime list.",
+        "profileDeleted": "Profile removed from automation queue.",
+        "profileDeleteFailed": "Failed to remove profile from automation queue.",
         "startProfileSuccess": "Opened browser profile {{profile}}.",
         "startProfileFailed": "Failed to start browser profile.",
         "signupCredentialReady": "Credentials for {{profile}}: {{username}} / {{password}}",
@@ -2737,8 +3051,10 @@
     },
     "sections": {
       "profiles": "Profiles",
+      "groups": "Groups",
       "automation": "Automation",
       "automationSignupTiktok": "Sign Up Tiktok",
+      "automationSignupTiktokSeller": "Sign Up Tiktok Seller",
       "automationUpdateCookies": "Update Cookies",
       "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy Center",
@@ -2936,7 +3252,7 @@
     "compareProfiles": "Managed profiles",
     "compareMembers": "Team members",
     "compareStorage": "Sync storage",
-        "compareAutomation": "Automation capacity",
+    "compareAutomation": "Automation capacity",
     "compareAutomationStarter": "Basic",
     "compareAutomationGrowth": "Standard",
     "compareAutomationScale": "Advanced",
@@ -3403,6 +3719,37 @@
       "description": "BugLogin combines a desktop antidetect browser with a web control layer for pricing, authentication, checkout, account billing, and super admin workflows without turning the browser app into a billing shell.",
       "primaryCta": "Download desktop app",
       "secondaryCta": "View workspace demo",
+      "farmerSection": {
+        "title": "Manage multiple accounts safely",
+        "description": "Isolate profiles, stabilize fingerprints, and reduce cross-account risk as your team scales.",
+        "learnMore": "View docs",
+        "core": {
+          "title": "Core architecture for anti-detect teams",
+          "description": "Every session runs through isolated browser components, so your operators can launch, sync, and hand over work without cross-account leakage.",
+          "point1": "Profile isolation per account",
+          "point2": "Deterministic startup for repeatable sessions",
+          "point3": "Scale team workflows with safer execution",
+          "imageAlt": "BugLogin core components visual"
+        },
+        "analytics": {
+          "title": "Core components",
+          "description": "The base modules that keep profile runtime stable at scale."
+        },
+        "abTesting": {
+          "title": "Session consistency",
+          "description": "Keep browser behavior, identity signals, and startup flow predictable."
+        },
+        "seo": {
+          "title": "Team-ready operations",
+          "description": "Built for operators to launch, sync, and hand over profiles safely."
+        },
+        "overview": {
+          "title": "Component health",
+          "liveVisitors": "Runtime modules",
+          "uniqueVisitors": "Isolation score",
+          "totalPageviews": "Sync reliability"
+        }
+      },
       "demoWorkspace": {
         "eyebrow": "Workspace demo",
         "title": "One surface for profile runtime, proxy, and VPN",
@@ -3439,7 +3786,7 @@
         "log2": "18:51 · OTP fetched · form advanced",
         "log3": "18:52 · Cookie extracted · outbox synced",
         "profilesLog1": "18:50 · Launch profile + attach local proxy",
-        "profilesLog2": "18:51 · Camoufox PID mapped + state running",
+        "profilesLog2": "18:51 · Bugox PID mapped + state running",
         "profilesLog3": "18:52 · Close profile + outbox replay ok",
         "proxyLog1": "18:50 · Proxy worker boot + port reserved",
         "proxyLog2": "18:51 · Upstream healthcheck fallback passed",
@@ -3460,6 +3807,237 @@
         "ops": {
           "value": "24/7",
           "label": "web billing and admin visibility"
+        }
+      },
+      "clone": {
+        "trustLabel": "Trusted by operators across major platforms",
+        "trustDescription": "Built for teams running multi-account workflows on high-sensitivity channels where identity stability and account safety decide performance.",
+        "intro": {
+          "title": "The secure anti-detect browser workflow for multi-account operations",
+          "description": "Need to run multiple accounts for growth and operations without constant blocks? BugLogin isolates profile identities, controls browser fingerprints, and lets teams operate channels like TikTok, Instagram, Telegram, and marketplaces with clearer safety guardrails.",
+          "pills": {
+            "multi": "Multiple accounts",
+            "fast": "Scale faster",
+            "safe": "Keep account safety"
+          }
+        },
+        "cta": {
+          "tryFree": "Try for free",
+          "download": "Download BugLogin"
+        },
+        "platforms": {
+          "facebook": "Facebook",
+          "amazon": "Amazon",
+          "google": "Google",
+          "tiktok": "TikTok",
+          "linkedin": "LinkedIn",
+          "discord": "Discord"
+        },
+        "blocked": {
+          "eyebrow": "Account blocked by major platforms?",
+          "title": "Stay undetectable with unique browser fingerprints.",
+          "description": "Browser fingerprints are built from signals like IP, Geo, cookies, WebGL, WebGPU, and canvas. BugLogin helps isolate and stabilize these signals per profile to reduce tracking correlation across accounts.",
+          "panelTitle": "Common account restriction states",
+          "states": {
+            "disabled": "Account disabled",
+            "temp": "Temporary lock",
+            "limited": "Feature-restricted account",
+            "permanent": "Permanent ban risk"
+          }
+        },
+        "pain": {
+          "eyebrow": "Common bottlenecks at scale",
+          "title": "Account bans, identity leaks, and team drift slow down growth.",
+          "description": "Once profile volume grows, small setup mistakes become expensive incidents. BugLogin gives teams a controlled operating model before those incidents pile up."
+        },
+        "problems": {
+          "risk": {
+            "title": "Repeated suspensions from weak isolation",
+            "description": "When profile environments bleed signals, platforms can connect accounts and trigger cascading restrictions."
+          },
+          "identity": {
+            "title": "Unstable fingerprint and network posture",
+            "description": "Mismatch between browser identity and network conditions creates volatility that hurts account health."
+          },
+          "scale": {
+            "title": "Scaling volume without losing control",
+            "description": "As operators and workspaces expand, role boundaries and process discipline become essential."
+          }
+        },
+        "solution": {
+          "eyebrow": "What BugLogin provides",
+          "title": "A safer multi-account execution layer from setup to daily operations.",
+          "description": "Use one structured surface to launch profiles, enforce team controls, and keep governance readable while volume grows.",
+          "items": {
+            "fingerprint": {
+              "title": "Per-profile fingerprint isolation",
+              "description": "Run each profile in a dedicated identity container to reduce cross-link risk."
+            },
+            "proxy": {
+              "title": "Network and proxy consistency",
+              "description": "Attach stable endpoints and policies so identity signals stay coherent over time."
+            },
+            "team": {
+              "title": "Workspace-level role boundaries",
+              "description": "Separate ownership and execution responsibilities before team growth introduces access chaos."
+            },
+            "automation": {
+              "title": "Operator workflow readiness",
+              "description": "Prepare repeatable routines for launch, verification, and handoff across shifts."
+            },
+            "sync": {
+              "title": "Reliable state synchronization",
+              "description": "Keep critical runtime and control states aligned to avoid blind spots during operations."
+            },
+            "audit": {
+              "title": "Action traceability and review",
+              "description": "Track key decisions and account-impacting actions so teams can diagnose incidents faster."
+            }
+          }
+        },
+        "security": {
+          "eyebrow": "Safety and stability first",
+          "title": "Operate faster while keeping risk controls visible.",
+          "description": "BugLogin is designed for teams that need sustained throughput, clear ownership, and fewer surprises in production.",
+          "points": {
+            "runtime": "Desktop runtime remains focused on profile execution, not billing distractions.",
+            "policy": "Role and workspace boundaries enforce who can launch, edit, and approve critical actions.",
+            "billing": "Billing and entitlement stay visible in web control so planning decisions are always informed."
+          },
+          "stats": {
+            "profiles": {
+              "value": "1,000+",
+              "label": "profiles managed in active workflows"
+            },
+            "uptime": {
+              "value": "24/7",
+              "label": "operator visibility across billing and governance"
+            },
+            "teams": {
+              "value": "25",
+              "label": "seats supported on enterprise-grade workspace setups"
+            }
+          }
+        },
+        "industries": {
+          "eyebrow": "Built for real-world use cases",
+          "title": "Run the same safety model across different growth channels.",
+          "description": "From acquisition to operations, teams keep a consistent identity and control framework.",
+          "seeMore": "See more",
+          "items": {
+            "affiliate": {
+              "title": "Affiliate Marketing",
+              "description": "Operate diversified campaign accounts with cleaner separation and safer iteration loops.",
+              "highlights": "Affiliate on Facebook|Google Ads Accounts Management|TikTok Affiliate Marketing"
+            },
+            "ecommerce": {
+              "title": "E-commerce Operations",
+              "description": "Manage storefront and support accounts with lower cross-account linkage exposure.",
+              "highlights": "E-commerce Ebay|E-commerce Shopify|E-commerce Shopee|E-commerce Temu"
+            },
+            "social": {
+              "title": "Social Media Scaling",
+              "description": "Launch and maintain social account fleets while keeping operational standards consistent.",
+              "highlights": "Social Marketing|Instagram Operations|Telegram Campaign Workflows"
+            },
+            "agency": {
+              "title": "Agency and Media Buying",
+              "description": "Coordinate multiple client workspaces with stronger permission control and auditability.",
+              "highlights": "Digital Agency Operations|Campaign Research Workspaces|Multi-client Access Controls"
+            },
+            "data": {
+              "title": "Data and Automation Workflows",
+              "description": "Prepare stable profile environments for repetitive data tasks and automation handoff.",
+              "highlights": "Web Scraping Workflows|Data Collection Profiles|Automation-ready Sessions"
+            },
+            "crypto": {
+              "title": "Crypto and High-Risk Verticals",
+              "description": "Apply strict runtime hygiene where account trust and access continuity are critical.",
+              "highlights": "Crypto Operations|Airdrop Workflows|Geo-Restricted Access Control"
+            }
+          }
+        },
+        "featureStack": {
+          "eyebrow": "Account safety and stability",
+          "title": "Core capabilities teams use to run multi-account workflows daily",
+          "items": {
+            "multi": {
+              "title": "Seamless multi-account management",
+              "description": "Create realistic browser profiles and manage operational accounts from one place with lower lock and suspension risk."
+            },
+            "browsers": {
+              "title": "Chrome and Firefox-based stealth engines",
+              "description": "Choose the runtime engine that fits your process and extension stack while maintaining anti-detect controls."
+            },
+            "automation": {
+              "title": "Smart automation without risky shortcuts",
+              "description": "Use RPA, API, and synchronized actions to standardize repetitive tasks across multiple profile windows."
+            },
+            "security": {
+              "title": "Advanced security controls",
+              "description": "Use login alerts, abnormal access controls, and stronger guardrails to protect team operations."
+            }
+          }
+        },
+        "visual": {
+          "eyebrow": "Product view",
+          "title": "A closer look at BugLogin in real operations",
+          "items": {
+            "ops": {
+              "title": "Operator workspace execution",
+              "description": "Launch, monitor, and hand over profile operations with clearer day-to-day visibility."
+            },
+            "security": {
+              "title": "Security-centered profile control",
+              "description": "Keep account environments isolated while preserving practical speed for production teams."
+            },
+            "network": {
+              "title": "Network and runtime consistency",
+              "description": "Align browser identity and network conditions to reduce unstable account behavior."
+            }
+          }
+        },
+        "finalCta": {
+          "title": "Manage multiple accounts on one device with stronger safety controls",
+          "description": "Start with a safer profile execution baseline, then scale team workflows with clear governance and stable runtime."
+        },
+        "reviews": {
+          "eyebrow": "Customer feedback",
+          "title": "What operators and teams highlight most",
+          "items": {
+            "opsLead": {
+              "quote": "Profile isolation plus proxy consistency gave our operations team a much more stable execution baseline.",
+              "author": "Operations Lead · Performance Marketing Team"
+            },
+            "agencyOwner": {
+              "quote": "Role boundaries and workspace governance made it much easier to coordinate client accounts safely.",
+              "author": "Agency Owner · Media Buying"
+            },
+            "affiliate": {
+              "quote": "Automation routines helped us cut repetitive profile tasks while keeping account behavior controlled.",
+              "author": "Affiliate Operator"
+            },
+            "ecom": {
+              "quote": "Compared with generic setups, this workflow gives clearer visibility when accounts need intervention.",
+              "author": "E-commerce Growth Manager"
+            }
+          }
+        },
+        "press": {
+          "items": {
+            "finance": {
+              "source": "Industry Finance Coverage",
+              "excerpt": "Highlights the need for secure and stable multi-account management in modern digital operations."
+            },
+            "security": {
+              "source": "Security Publication",
+              "excerpt": "Emphasizes stronger controls like access boundaries, encryption practices, and anomaly alerts."
+            },
+            "media": {
+              "source": "Marketing Media",
+              "excerpt": "Notes that anti-detect workflows are becoming core infrastructure for high-volume teams."
+            }
+          }
         }
       },
       "mockup": {
@@ -3522,63 +4100,79 @@
           "billing": "Billing"
         }
       },
-      "capabilitiesEyebrow": "Why this feels different",
-      "capabilitiesTitle": "A real product surface, not a brochure of cards.",
-      "capabilitiesDescription": "Visual proof from the product, focused copy, and direct actions into auth, pricing, and workspace control.",
+      "capabilitiesEyebrow": "Built for high-volume operations",
+      "capabilitiesTitle": "Scale multi-account workflows without trading off safety.",
+      "capabilitiesDescription": "BugLogin combines stable browser runtime, strict workspace controls, and predictable billing so teams can scale campaigns with less account risk.",
       "features": {
         "stealth": {
-          "title": "Browser runtime remains the hero",
-          "description": "Landing and auth sections highlight real profile operations instead of generic SaaS billing language."
+          "title": "Fingerprint isolation designed for longevity",
+          "description": "Each profile runs in a separated environment with controlled signals to reduce cross-account linkage and lower lock risk."
         },
         "workspace": {
-          "title": "Web portal reads real workspace state",
-          "description": "Plans, invoices, and entitlement are rendered from the same authority already serving the desktop runtime."
+          "title": "Team workspace governance by default",
+          "description": "Permissions, ownership boundaries, and operator responsibilities stay explicit as account volume, members, and workflows grow."
         },
         "billing": {
-          "title": "Checkout stays separate from runtime",
-          "description": "Payments and account billing stay on web while desktop remains optimized for profile execution."
+          "title": "Operational visibility from one control layer",
+          "description": "Plan state, entitlement, and account billing stay readable and auditable without interrupting daily profile execution."
         }
       },
       "steps": {
         "signin": {
-          "title": "Authenticate once through one auth hub",
-          "description": "Email/password, OTP, Google OAuth, and invite acceptance converge into a single entry point."
+          "title": "Create a secure operator baseline",
+          "description": "Sign in, assign workspace roles, and establish access rules before launching high-risk account operations."
         },
         "checkout": {
-          "title": "Bind a workspace before checkout",
-          "description": "Each checkout session is tied to a real workspace first, so entitlement state never drifts."
+          "title": "Prepare clean runtime conditions",
+          "description": "Bind profiles with proxies and network policies first so each operation starts with consistent identity signals."
         },
         "operate": {
-          "title": "Control on web, execute in desktop",
-          "description": "Billing and admin stay on web; heavy profile runtime remains in the desktop app."
+          "title": "Execute at scale with clear guardrails",
+          "description": "Run daily profile volume in desktop while web keeps billing, governance, and risk monitoring aligned."
         }
       },
-      "splitEyebrow": "From interest to action",
-      "splitTitle": "One flow from first visit to production workspace.",
-      "splitDescription": "Sign in, bind a workspace, then run operations with clear boundaries between web control and desktop runtime.",
+      "splitEyebrow": "From setup to stable scale",
+      "splitTitle": "A practical path to safer multi-account growth.",
+      "splitDescription": "Standardize setup, enforce role boundaries, and run production workloads with clearer operational control.",
       "splitCards": {
         "account": {
-          "title": "Real account billing for users",
-          "description": "Users can inspect plans, usage, invoices, and restart checkout when needed."
+          "title": "Operator-ready account management",
+          "description": "Track plan usage, profile capacity, and renewal timing early so teams avoid runtime disruptions."
         },
         "admin": {
-          "title": "Super admin for internal operations",
-          "description": "Platform admins can monitor workspace health, revenue signals, audit logs, and system readiness from the same website."
+          "title": "Management visibility for scaling teams",
+          "description": "Monitor workspace health, billing posture, and audit signals in one place before incidents spread."
         }
       },
       "faqTitle": "Frequently asked questions",
       "faq": {
+        "fingerprint": {
+          "q": "What is a browser fingerprint in this context?",
+          "a": "It is a set of technical browser and device signals used by websites to identify sessions. BugLogin helps isolate and stabilize those signals per profile."
+        },
+        "proxy": {
+          "q": "Can I run proxy and profile mapping consistently?",
+          "a": "Yes. The workflow is built to keep identity and network configuration aligned so teams can reduce noisy account behavior."
+        },
+        "automation": {
+          "q": "Is automation supported for repetitive tasks?",
+          "a": "Yes. Teams can combine API and automation routines to execute recurring actions while preserving workspace controls."
+        },
         "security": {
-          "q": "Is the web portal detached from desktop data?",
-          "a": "No. The portal only reads and writes against the same authority already used by the desktop product, so plan and billing state stay consistent."
+          "q": "Can BugLogin help reduce multi-account suspension risk?",
+          "a": "Yes. BugLogin focuses on profile isolation, stable runtime behavior, and controlled workspace operations so teams can run larger volumes more safely."
         },
         "billing": {
-          "q": "Where is payment handled?",
-          "a": "Public payments run through Stripe checkout. After completion, the portal returns users to account billing to read the updated state."
+          "q": "How does billing fit into daily operations?",
+          "a": "Billing and entitlement stay visible on the web layer, while execution stays in desktop. Teams can upgrade, renew, and audit without disrupting runtime."
         },
         "desktop": {
-          "q": "Do users work on web or desktop after login?",
-          "a": "Desktop remains the main product. The website owns marketing, auth, checkout, billing, and super admin surfaces."
+          "q": "Who is this best for?",
+          "a": "BugLogin fits teams handling multi-account marketing, e-commerce, social operations, or data workflows that need safer scale and tighter control."
+        },
+        "team": {
+          "q": "How does team collaboration stay safe as we scale?",
+          "a": "Workspace-level permissions, ownership boundaries, and action traceability help teams collaborate without losing control."
         }
       }
     },
@@ -3866,12 +4460,90 @@
       },
       "nav": {
         "overview": "Overview",
+        "dashboard": "Dashboard",
         "commandCenter": "Command Center",
+        "incidentBoard": "Incident Board",
         "workspaces": "Workspaces",
+        "memberships": "Memberships",
+        "abuseTrust": "Abuse & Trust",
+        "impersonationCenter": "Impersonation Center",
         "revenue": "Revenue",
+        "subscriptions": "Subscriptions",
+        "invoices": "Invoices",
+        "coupons": "Coupons",
+        "policyCenter": "Policy Center",
+        "dataGovernance": "Data Governance",
+        "jobsQueues": "Jobs & Queues",
+        "featureFlags": "Feature Flags",
+        "supportConsole": "Support Console",
         "audit": "Audit",
         "auditLog": "Audit log",
-        "system": "System"
+        "system": "System",
+        "browserUpdate": "Browser Update"
+      },
+      "menu": {
+        "commandCenter": "Command Center",
+        "identityWorkspace": "Identity & Workspace",
+        "revenueCommerce": "Revenue & Commerce",
+        "governanceSecurity": "Governance & Security",
+        "operations": "Operations"
+      },
+      "placeholder": {
+        "requiredNow": "Required first",
+        "description": "This area has a finalized IA and is ready for detailed data-table and admin action implementation.",
+        "scope": "{{section}} currently runs on the required-first super admin scaffold.",
+        "tableTitle": "Immediate implementation backlog",
+        "tableDescription": "This scaffold keeps the UI contract stable while API wiring and policy flows are implemented next.",
+        "todoAction": "Define data table + action permissions",
+        "todoReason": "Production needs real API mapping, RBAC guardrails, and audit trail coverage."
+      },
+      "incidentBoard": {
+        "title": "Incident Board",
+        "description": "Priority queue of workspaces that need operator action by risk, subscription health, and entitlement signal.",
+        "loadFailed": "Unable to load incident board data.",
+        "metrics": {
+          "total": "Total incidents",
+          "highRisk": "High risk",
+          "pastDue": "Past due"
+        },
+        "tableTitle": "Priority handling queue",
+        "tableDescription": "This table helps operators focus on workspaces likely to create support tickets or runtime disruptions.",
+        "empty": "No priority incidents right now."
+      },
+      "memberships": {
+        "title": "Memberships",
+        "description": "Review cross-workspace memberships from one consolidated table for faster access checks.",
+        "loadFailed": "Unable to load memberships data.",
+        "search": "Search by email, user ID, workspace, role...",
+        "memberCount": "{{count}} members",
+        "workspaceCount": "{{count}} workspaces",
+        "tableTitle": "Membership directory",
+        "tableDescription": "Data is loaded directly from each workspace member list.",
+        "empty": "No matching memberships found."
+      },
+      "subscriptions": {
+        "title": "Subscriptions",
+        "description": "Track workspace subscription states in one place to keep billing operations stable.",
+        "search": "Search workspace, plan, source, status...",
+        "metrics": {
+          "total": "Total workspaces",
+          "active": "Active",
+          "pastDue": "Past due"
+        },
+        "columns": {
+          "source": "Source",
+          "expiresAt": "Expires at"
+        },
+        "status": {
+          "active": "Active",
+          "past_due": "Past due",
+          "canceled": "Canceled"
+        },
+        "cycle": {
+          "monthly": "Monthly",
+          "yearly": "Yearly"
+        },
+        "empty": "No matching subscriptions found."
       },
       "metrics": {
         "workspaces": "Workspaces",
@@ -3910,6 +4582,80 @@
         "systemTitle": "Platform readiness",
         "systemDescription": "A concise read on auth, Stripe, and sync availability."
       },
+      "dashboard": {
+        "title": "Super admin dashboard",
+        "description": "Global live view for workspace health, revenue pressure, and operational risk.",
+        "attentionQueue": "Attention queue",
+        "allRiskLevels": "All risk levels",
+        "timeRangeLabel": "Time range",
+        "timeRanges": {
+          "today": "Today",
+          "yesterday": "Yesterday",
+          "last7Days": "Last 7 days",
+          "thisMonth": "This month",
+          "lastMonth": "Last month",
+          "statistics": "Statistics",
+          "all": "All"
+        },
+        "windowAll": "All time",
+        "windowValue": "{{start}} - {{end}}",
+        "usage": "Storage",
+        "profilesLimit": "Profiles",
+        "totalMembers": "Total members",
+        "totalProfiles": "Total profiles",
+        "averageStorageUsage": "Avg storage usage",
+        "revenueWindow": "Revenue window",
+        "revenueTrend": "Revenue trend (recent invoices)",
+        "insightsTitle": "Operational insights",
+        "revenueInWindow": "Revenue in range",
+        "invoicesInWindow": "Invoices in range",
+        "pastDueWorkspaces": "Past-due workspaces",
+        "highRiskRatio": "High-risk ratio",
+        "insightHints": {
+          "revenue": "Total paid invoice value in this range.",
+          "invoices": "Number of invoices captured in this range.",
+          "pastDue": "Workspaces currently flagged as past due.",
+          "risk": "Share of high-risk workspaces in this range."
+        },
+        "deltaCompared": "{{value}} vs previous window",
+        "deltaUnavailable": "No previous window to compare.",
+        "filters": {
+          "status": {
+            "all": "All statuses",
+            "active": "Active",
+            "past_due": "Past due",
+            "canceled": "Canceled"
+          },
+          "risk": {
+            "all": "All risks",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High"
+          }
+        },
+        "subscriptionStatus": {
+          "active": "Active",
+          "past_due": "Past due",
+          "canceled": "Canceled"
+        },
+        "averageInvoiceValue": "Average invoice",
+        "activeValue": "{{count}} active subscriptions",
+        "highRiskValue": "{{count}} high-risk workspaces",
+        "topRiskTitle": "Top risk workspaces",
+        "lastInvoiceAt": "Latest invoice",
+        "capacityLeaders": "Capacity leaders",
+        "storageLeaders": "Storage",
+        "profileLeaders": "Profiles",
+        "workspaceLeaderboard": "Workspace leaderboard",
+        "proxyLeaders": "Proxy",
+        "identityHint": "Audit role changes and membership spikes before billing windows close.",
+        "errors": {
+          "loadFailed": "Unable to load dashboard data.",
+          "loadRevenueFailed": "Unable to load revenue data for dashboard."
+        },
+        "planMix": "Workspace mix by plan",
+        "searchPlaceholder": "Search workspace, plan, status..."
+      },
       "workspaces": {
         "title": "Workspaces across the system.",
         "description": "This view gives platform admins a fast way to inspect workspace health, limits, and usage in one place.",
@@ -3917,7 +4663,30 @@
         "tableDescription": "Data is pulled directly from the existing admin workspace health endpoint.",
         "canceled": "Canceled workspaces",
         "searchPlaceholder": "Search workspace...",
-        "allStatuses": "All statuses"
+        "allStatuses": "All statuses",
+        "actions": {
+          "manage": "Manage",
+          "saveSubscription": "Save subscription"
+        },
+        "manage": {
+          "title": "Workspace subscription config",
+          "description": "Update plan runtime for {{workspace}}.",
+          "plan": "Plan",
+          "billingCycle": "Billing cycle",
+          "profileLimit": "Profile limit",
+          "expiresAt": "Expires at",
+          "planLabel": "Plan label",
+          "planLabelPlaceholder": "Optional display label"
+        },
+        "errors": {
+          "connectionMissing": "Control connection is missing.",
+          "invalidProfileLimit": "Profile limit must be greater than 0.",
+          "invalidExpiry": "Expiry time must be in the future.",
+          "updateFailed": "Unable to update workspace subscription."
+        },
+        "toasts": {
+          "subscriptionUpdated": "Workspace subscription updated."
+        }
       },
       "revenue": {
         "title": "Revenue signals and entitlement state.",
@@ -3957,6 +4726,198 @@
         "hintStripeDescription": "Public checkout should only be exposed when both the Stripe secret and webhook are fully ready.",
         "hintSyncTitle": "Check S3 and control state",
         "hintSyncDescription": "If usage or entitlement appears out of sync, verify the sync storage and control state pipeline first."
+      },
+      "browserUpdate": {
+        "title": "Browser release and update policy",
+        "description": "Manage release API destination, token handoff, and default update policy for Bugium and Bugox release automation.",
+        "required": "Required",
+        "secretTitle": "Release API secrets",
+        "policyTitle": "Default update policy",
+        "envTitle": "Environment template",
+        "actions": {
+          "generateToken": "Generate token",
+          "saveLocal": "Save local draft",
+          "copyToken": "Copy token",
+          "copyEnv": "Copy env"
+        },
+        "fields": {
+          "releaseApiUrl": "Release API URL",
+          "releaseApiToken": "Release API token",
+          "updateMode": "Update mode (optional|required)",
+          "minSupportedVersion": "Minimum supported version",
+          "updateMessage": "Update message",
+          "updateMessagePlaceholder": "Security patch required before next launch."
+        },
+        "toastTokenGenerated": "A new release token has been generated.",
+        "toastSaved": "Browser update draft has been saved locally.",
+        "toastSaveFailed": "Unable to save browser update draft.",
+        "toastCopyFailed": "Unable to copy value to clipboard.",
+        "toastTokenCopied": "Release token copied.",
+        "toastEnvCopied": "Environment template copied."
+      }
+    },
+    "commerce": {
+      "eyebrow": "Commerce control",
+      "search": "Search by code, name, status...",
+      "loading": "Loading commerce data...",
+      "empty": "No records available.",
+      "errors": {
+        "connectionMissing": "Control connection is missing.",
+        "requiredFields": "Please complete required fields.",
+        "loadFailed": "Unable to load data.",
+        "createFailed": "Unable to create record.",
+        "actionFailed": "Unable to complete action."
+      },
+      "toasts": {
+        "planCreated": "Plan created.",
+        "planPublished": "Plan version published.",
+        "campaignCreated": "Campaign created.",
+        "couponCreated": "Coupon created.",
+        "licenseCreated": "License created.",
+        "couponRedeemed": "Coupon redeemed.",
+        "licenseRedeemed": "License redeemed.",
+        "previewReady": "Price preview generated.",
+        "actionDone": "Action completed."
+      },
+      "actions": {
+        "refresh": "Refresh",
+        "publish": "Publish",
+        "pause": "Pause",
+        "activate": "Activate",
+        "disable": "Disable",
+        "revoke": "Revoke",
+        "rotate": "Rotate",
+        "runPreview": "Run preview",
+        "createPlan": "Create plan",
+        "createCampaign": "Create campaign",
+        "createCoupon": "Create coupon",
+        "createLicense": "Create license",
+        "redeemCoupon": "Redeem coupon",
+        "redeemLicense": "Redeem license"
+      },
+      "support": {
+        "email": "Email support",
+        "priority": "Priority support",
+        "dedicated": "Dedicated support"
+      },
+      "columns": {
+        "plan": "Plan",
+        "campaign": "Campaign",
+        "coupon": "Coupon",
+        "license": "License",
+        "line": "Line item",
+        "entity": "Entity",
+        "price": "Price",
+        "limits": "Limits",
+        "status": "Status",
+        "window": "Window",
+        "usage": "Usage",
+        "action": "Action",
+        "actor": "Actor",
+        "time": "Time",
+        "amount": "Amount",
+        "binding": "Binding",
+        "profiles": "profiles",
+        "members": "members"
+      },
+      "fields": {
+        "planCode": "Plan code",
+        "planName": "Plan name",
+        "monthlyPrice": "Monthly (USD)",
+        "yearlyPrice": "Yearly (USD)",
+        "campaignName": "Campaign name",
+        "discountPercent": "Discount (%)",
+        "priority": "Priority",
+        "maxRedemptions": "Max redemptions",
+        "maxPerUser": "Max / user",
+        "maxPerWorkspace": "Max / workspace",
+        "couponCode": "Coupon code",
+        "licenseKey": "License key",
+        "workspaceId": "Workspace ID",
+        "interval": "Interval",
+        "campaignId": "Campaign ID",
+        "seats": "Seats",
+        "profileQuota": "Profile quota"
+      },
+      "plans": {
+        "title": "Plans catalog and versioning",
+        "description": "Create plans, update limits, and publish new plan versions without mutating running versions."
+      },
+      "campaigns": {
+        "title": "Campaign scheduler",
+        "description": "Control campaign windows, priorities, and activation state."
+      },
+      "coupons": {
+        "title": "Coupons and redemption limits",
+        "description": "Issue, monitor, and disable coupons with quota controls."
+      },
+      "licenses": {
+        "title": "License pool management",
+        "description": "Manage license lifecycle, workspace bindings, and rotation/revoke actions."
+      },
+      "preview": {
+        "title": "Checkout rule preview",
+        "description": "Simulate plan + campaign + coupon and verify final amount before checkout.",
+        "empty": "Run a preview to inspect pricing breakdown."
+      },
+      "audit": {
+        "title": "Commerce audit trail",
+        "description": "Review actor-level history for plan, campaign, coupon, and license operations."
+      },
+      "accountPlan": {
+        "description": "Pick plans, redeem coupon, or activate license without leaving account workspace context.",
+        "couponTitle": "Redeem coupon",
+        "licenseTitle": "Redeem license key"
+      }
+    },
+    "adminUsers": {
+      "navTitle": "User Management",
+      "eyebrow": "Super admin",
+      "title": "User directory and role control",
+      "description": "Manage users across workspaces and update role assignments from one table.",
+      "scopeBadge": "Platform scope",
+      "search": "Search email, user ID, workspace...",
+      "loading": "Loading users...",
+      "empty": "No users found.",
+      "actions": {
+        "refresh": "Refresh"
+      },
+      "create": {
+        "title": "Create account",
+        "description": "Create a new login account directly from admin panel.",
+        "emailPlaceholder": "user@company.com",
+        "passwordPlaceholder": "Password (min 8 chars)",
+        "roleUser": "Standard user",
+        "rolePlatformAdmin": "Platform admin",
+        "action": "Create user"
+      },
+      "filters": {
+        "allWorkspaces": "All workspaces",
+        "allRoles": "All roles"
+      },
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member",
+        "viewer": "Viewer"
+      },
+      "columns": {
+        "user": "User",
+        "workspace": "Workspace",
+        "role": "Role",
+        "joinedAt": "Joined"
+      },
+      "toasts": {
+        "roleUpdated": "User role updated.",
+        "userCreated": "User account created."
+      },
+      "errors": {
+        "connectionMissing": "Control connection is missing.",
+        "loadFailed": "Unable to load users.",
+        "updateFailed": "Unable to update user role.",
+        "createFailed": "Unable to create user account.",
+        "createInvalidEmail": "Please enter a valid email.",
+        "createInvalidPassword": "Password must be at least 8 characters."
       }
     },
     "help": {

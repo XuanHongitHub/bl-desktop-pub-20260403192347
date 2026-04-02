@@ -232,6 +232,7 @@ export function PlatformAdminWorkspace({
     bulkCreateTiktokCookies,
     replaceTiktokCookieSources,
     importTiktokAutomationAccounts,
+    deleteTiktokAutomationAccount,
     createTiktokAutomationRun,
     getTiktokAutomationRun,
     startTiktokAutomationRun,
@@ -826,6 +827,7 @@ export function PlatformAdminWorkspace({
         bulkCreateTiktokCookies={bulkCreateTiktokCookies}
         replaceTiktokCookieSources={replaceTiktokCookieSources}
         importTiktokAutomationAccounts={importTiktokAutomationAccounts}
+        deleteTiktokAutomationAccount={deleteTiktokAutomationAccount}
         createTiktokAutomationRun={createTiktokAutomationRun}
         getTiktokAutomationRun={getTiktokAutomationRun}
         startTiktokAutomationRun={startTiktokAutomationRun}
@@ -985,6 +987,7 @@ export function PlatformAdminWorkspace({
           bulkCreateTiktokCookies={bulkCreateTiktokCookies}
           replaceTiktokCookieSources={replaceTiktokCookieSources}
           importTiktokAutomationAccounts={importTiktokAutomationAccounts}
+          deleteTiktokAutomationAccount={deleteTiktokAutomationAccount}
           createTiktokAutomationRun={createTiktokAutomationRun}
           getTiktokAutomationRun={getTiktokAutomationRun}
           startTiktokAutomationRun={startTiktokAutomationRun}

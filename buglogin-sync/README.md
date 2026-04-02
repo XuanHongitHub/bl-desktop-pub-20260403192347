@@ -102,6 +102,29 @@ $ pnpm run start:dev
 $ pnpm run start:prod
 ```
 
+## Windows Dev (BugLogin Browser Release API)
+
+Use this flow if `api.bugdev.site` is Cloudflare tunnel to local machine.
+
+1. Start local API at `localhost:12342`:
+```powershell
+cd E:\bug-login\buglogin-sync
+pnpm run init:win:browser-release-dev
+pnpm run start:win:dev-api
+```
+
+2. Start Cloudflare tunnel (new terminal):
+```powershell
+cd E:\bug-login\buglogin-sync
+pnpm run tunnel:win:cloudflare -- -Hostname api.bugdev.site -Port 12342
+```
+
+3. Smoke check local and published manifests (new terminal):
+```powershell
+cd E:\bug-login\buglogin-sync
+pnpm run check:win:browser-release -- -BaseUrl http://127.0.0.1:12342 -PublishSample
+```
+
 ## Run tests
 
 ```bash

@@ -1,8 +1,8 @@
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use lazy_static::lazy_static;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 

@@ -64,11 +64,15 @@ export type SyncMode = "Disabled" | "Regular" | "Encrypted";
 
 export type SyncStatus = "Disabled" | "Syncing" | "Synced" | "Error";
 export type RuntimeState =
+  | "Starting"
   | "Running"
+  | "Stopping"
+  | "Syncing"
   | "Parked"
   | "Stopped"
   | "Crashed"
-  | "Terminating";
+  | "Terminating"
+  | "Error";
 
 export interface SyncSettings {
   sync_server_url?: string;
@@ -244,6 +248,110 @@ export interface ControlCoupon {
   createdBy: string;
 }
 
+export type CommercePlanInterval = "monthly" | "yearly";
+export type CommercePlanStatus = "draft" | "active" | "archived";
+export type CommerceCampaignStatus =
+  | "scheduled"
+  | "running"
+  | "paused"
+  | "ended";
+export type CommerceCouponStatus = "active" | "disabled" | "expired";
+export type CommerceLicenseStatus =
+  | "available"
+  | "reserved"
+  | "active"
+  | "revoked"
+  | "expired";
+
+export interface CommercePlan {
+  id: string;
+  code: string;
+  name: string;
+  status: CommercePlanStatus;
+  version: number;
+  profiles: number;
+  members: number;
+  storageGb: number;
+  proxyGb: number;
+  monthlyPriceUsd: number;
+  yearlyPriceUsd: number;
+  supportTier: "email" | "priority" | "dedicated";
+  createdAt: string;
+  updatedAt: string;
+  flowType?: TiktokAutomationFlowType;
+}
+
+export interface CommerceCampaign {
+  id: string;
+  name: string;
+  status: CommerceCampaignStatus;
+  priority: number;
+  exclusive: boolean;
+  discountPercent: number;
+  startsAt: string;
+  endsAt: string;
+  targetPlans: string[];
+  targetWorkspaceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommerceCoupon {
+  id: string;
+  code: string;
+  status: CommerceCouponStatus;
+  discountPercent: number;
+  maxRedemptions: number;
+  redeemedCount: number;
+  maxPerUser: number;
+  maxPerWorkspace: number;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommerceLicenseKey {
+  id: string;
+  keyMasked: string;
+  status: CommerceLicenseStatus;
+  planCode: string;
+  seats: number;
+  profileQuota: number;
+  workspaceId: string | null;
+  userId: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommercePricePreviewLine {
+  code: "base_plan" | "addon" | "campaign" | "coupon" | "tax" | "final";
+  label: string;
+  amountUsd: number;
+}
+
+export interface CommercePricePreviewResult {
+  workspaceId: string;
+  planCode: string;
+  interval: CommercePlanInterval;
+  campaignId: string | null;
+  couponCode: string | null;
+  lines: CommercePricePreviewLine[];
+  finalAmountUsd: number;
+  calculatedAt: string;
+}
+
+export interface CommerceAuditEvent {
+  id: string;
+  entityType: "plan" | "campaign" | "coupon" | "license";
+  entityId: string;
+  action: string;
+  actorUserId: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface ControlAuditLog {
   id: string;
   action: string;
@@ -310,7 +418,10 @@ export interface TiktokCookieSourceRecord {
   updatedAt: string;
 }
 
-export type TiktokAutomationFlowType = "signup" | "update_cookie";
+export type TiktokAutomationFlowType =
+  | "signup"
+  | "signup_seller"
+  | "update_cookie";
 export type TiktokAutomationRunMode = "auto" | "semi";
 export type TiktokAutomationRunStatus =
   | "queued"
@@ -332,6 +443,7 @@ export type TiktokAutomationItemStatus =
 export interface TiktokAutomationAccountRecord {
   id: string;
   workspaceId: string;
+  flowType: TiktokAutomationFlowType;
   phone: string;
   apiPhone: string;
   cookie: string;
@@ -426,6 +538,8 @@ export interface AdminTiktokState {
   bearerKey: string;
   workflowRows: AdminTiktokWorkflowRow[];
   rotationCursor: number;
+  workflowCaptchaProvider?: "none" | "omocaptcha";
+  workflowCaptchaApiKey?: string;
   autoWorkflowRun?: AdminTiktokAutoWorkflowRunState | null;
   operationProgress?: AdminTiktokOperationProgressState | null;
   updatedAt: string;
@@ -1130,6 +1244,8 @@ export interface VpnStatus {
 
 export type AppSection =
   | "profiles"
+  | "profiles-create"
+  | "groups"
   | "bugidea-automation"
   | "proxies"
   | "pricing"
@@ -1138,11 +1254,30 @@ export type AppSection =
   | "workspace-owner-directory"
   | "workspace-owner-permissions"
   | "super-admin-overview"
+  | "super-admin-incident-board"
   | "super-admin-workspace"
+  | "super-admin-memberships"
+  | "super-admin-abuse-trust"
+  | "super-admin-users"
   | "super-admin-billing"
+  | "super-admin-subscriptions"
+  | "super-admin-invoices"
   | "super-admin-cookies"
+  | "super-admin-policy-center"
+  | "super-admin-data-governance"
+  | "super-admin-jobs-queues"
+  | "super-admin-feature-flags"
+  | "super-admin-support-console"
+  | "super-admin-impersonation-center"
+  | "super-admin-browser-update"
   | "super-admin-audit"
   | "super-admin-system"
+  | "super-admin-commerce-plans"
+  | "super-admin-commerce-campaigns"
+  | "super-admin-commerce-coupons"
+  | "super-admin-commerce-licenses"
+  | "super-admin-commerce-preview"
+  | "super-admin-commerce-audit"
   | "super-admin-analytics"
   | "workspace-admin-overview"
   | "workspace-admin-directory"

@@ -536,9 +536,16 @@ pub fn get_firefox_version(executable_path: &Path) -> Option<u32> {
   if let Ok(content) = std::fs::read_to_string(&version_path) {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
       if let Some(version_str) = json.get("version").and_then(|v| v.as_str()) {
-        // Parse major version from "135.0" or similar
-        let major: u32 = version_str.split('.').next()?.parse().ok()?;
-        return Some(major);
+        // Parse major version from values like:
+        // - "135.0"
+        // - "v135.0.1"
+        // - "135.0.1-beta.24"
+        let cleaned = version_str.trim_start_matches(|c: char| c == 'v' || c == 'V');
+        if let Some(major_part) = cleaned.split('.').next() {
+          if let Ok(major) = major_part.parse::<u32>() {
+            return Some(major);
+          }
+        }
       }
     }
   }
@@ -569,6 +576,23 @@ mod tests {
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0";
     let replaced = replace_ff_version(ua, 140);
     assert!(replaced.contains("140.0"));
+  }
+
+  #[test]
+  fn test_get_firefox_version_accepts_v_prefix() {
+    let unique = format!("buglogin-camoufox-version-test-{}", std::process::id());
+    let dir = std::env::temp_dir().join(unique);
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+
+    let executable_path = dir.join("camoufox.exe");
+    std::fs::write(&executable_path, b"").expect("create fake exe");
+    std::fs::write(dir.join("version.json"), "{\"version\":\"v135.0.1\"}")
+      .expect("write version json");
+
+    let parsed = get_firefox_version(&executable_path);
+    assert_eq!(parsed, Some(135));
+
+    let _ = std::fs::remove_dir_all(&dir);
   }
 
   #[test]

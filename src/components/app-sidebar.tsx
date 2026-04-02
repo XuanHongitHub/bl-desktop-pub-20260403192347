@@ -41,12 +41,20 @@ type NavLeafItem = {
   id: AppSection;
   labelKey: string;
   icon: ComponentType<{ className?: string }>;
-  automationFlowPreset?: "signup" | "update_cookie";
+  automationFlowPreset?: "signup" | "signup_seller" | "update_cookie";
 };
 
 type NavGroupItem = {
   type: "group";
-  id: "workspace-billing" | "automation-menu";
+  id:
+    | "workspace-billing"
+    | "automation-menu"
+    | "commerce-menu"
+    | "super-command-menu"
+    | "super-identity-menu"
+    | "super-revenue-menu"
+    | "super-governance-menu"
+    | "super-operations-menu";
   labelKey: string;
   icon: ComponentType<{ className?: string }>;
   children: NavLeafItem[];
@@ -60,9 +68,9 @@ type NavSection = {
   items: NavEntry[];
 };
 const SIDEBAR_NAV_ITEM_CLASS =
-  "group flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-xs font-semibold leading-[1.2] tracking-normal transition-colors";
+  "group flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-xs font-semibold leading-[1.2] tracking-normal transition-colors";
 const SIDEBAR_NAV_CHILD_ITEM_CLASS =
-  "group flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[11px] font-semibold tracking-normal transition-colors";
+  "group flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-[11px] font-semibold tracking-normal transition-colors";
 const SIDEBAR_NAV_ICON_CLASS = "h-4 w-4 shrink-0";
 const SIDEBAR_ACCOUNT_TITLE_CLASS =
   "truncate text-xs leading-[1.25] font-semibold tracking-normal text-sidebar-foreground";
@@ -84,6 +92,13 @@ const PROFILES_NAV_ITEM: NavLeafItem = {
   icon: getSectionIcon("profiles"),
 };
 
+const GROUPS_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "groups",
+  labelKey: "shell.sections.groups",
+  icon: getSectionIcon("groups"),
+};
+
 const AUTOMATION_SIGNUP_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "bugidea-automation",
@@ -100,12 +115,24 @@ const AUTOMATION_UPDATE_COOKIES_NAV_ITEM: NavLeafItem = {
   automationFlowPreset: "update_cookie",
 };
 
+const AUTOMATION_SIGNUP_TIKTOK_SELLER_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "bugidea-automation",
+  labelKey: "shell.sections.automationSignupTiktokSeller",
+  icon: UserRound,
+  automationFlowPreset: "signup_seller",
+};
+
 const AUTOMATION_NAV_GROUP: NavGroupItem = {
   type: "group",
   id: "automation-menu",
   labelKey: "shell.sections.automation",
   icon: getSectionIcon("bugidea-automation"),
-  children: [AUTOMATION_SIGNUP_NAV_ITEM, AUTOMATION_UPDATE_COOKIES_NAV_ITEM],
+  children: [
+    AUTOMATION_SIGNUP_NAV_ITEM,
+    AUTOMATION_SIGNUP_TIKTOK_SELLER_NAV_ITEM,
+    AUTOMATION_UPDATE_COOKIES_NAV_ITEM,
+  ],
 };
 
 const PROXIES_NAV_ITEM: NavLeafItem = {
@@ -138,6 +165,7 @@ const SETTINGS_NAV_ITEM: NavLeafItem = {
 
 const WORKSPACE_NAV_BASE_ITEMS: NavLeafItem[] = [
   PROFILES_NAV_ITEM,
+  GROUPS_NAV_ITEM,
   PROXIES_NAV_ITEM,
   INTEGRATIONS_NAV_ITEM,
   SETTINGS_NAV_ITEM,
@@ -185,37 +213,175 @@ const WORKSPACE_OWNER_PANEL_NAV_ITEMS: NavLeafItem[] = [
   },
 ];
 
-const SUPER_ADMIN_PANEL_NAV_ITEMS: NavLeafItem[] = [
-  {
-    type: "item",
-    id: "super-admin-overview",
-    labelKey: "adminWorkspace.panelTree.super.pages.command.title",
-    icon: getSectionIcon("super-admin-overview"),
-  },
-  {
-    type: "item",
-    id: "super-admin-workspace",
-    labelKey: "adminWorkspace.panelTree.super.pages.workspace.title",
-    icon: getSectionIcon("super-admin-workspace"),
-  },
-  {
-    type: "item",
-    id: "super-admin-billing",
-    labelKey: "adminWorkspace.panelTree.super.pages.billing.title",
-    icon: getSectionIcon("super-admin-billing"),
-  },
-  {
-    type: "item",
-    id: "super-admin-audit",
-    labelKey: "adminWorkspace.panelTree.super.pages.audit.title",
-    icon: getSectionIcon("super-admin-audit"),
-  },
-  {
-    type: "item",
-    id: "super-admin-cookies",
-    labelKey: "adminWorkspace.panelTree.super.pages.cookies.title",
-    icon: getSectionIcon("super-admin-cookies"),
-  },
+const COMMERCE_COUPONS_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "super-admin-commerce-coupons",
+  labelKey: "portalSite.admin.nav.coupons",
+  icon: getSectionIcon("super-admin-commerce-coupons"),
+};
+
+const COMMERCE_AUDIT_NAV_ITEM: NavLeafItem = {
+  type: "item",
+  id: "super-admin-commerce-audit",
+  labelKey: "adminWorkspace.panelTree.super.pages.commerceAudit.title",
+  icon: getSectionIcon("super-admin-commerce-audit"),
+};
+
+const SUPER_ADMIN_COMMAND_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "super-command-menu",
+  labelKey: "portalSite.admin.menu.commandCenter",
+  icon: getSectionIcon("super-admin-overview"),
+  children: [
+    {
+      type: "item",
+      id: "super-admin-overview",
+      labelKey: "portalSite.admin.nav.dashboard",
+      icon: getSectionIcon("super-admin-overview"),
+    },
+    {
+      type: "item",
+      id: "super-admin-incident-board",
+      labelKey: "portalSite.admin.nav.incidentBoard",
+      icon: getSectionIcon("super-admin-incident-board"),
+    },
+    {
+      type: "item",
+      id: "super-admin-jobs-queues",
+      labelKey: "portalSite.admin.nav.jobsQueues",
+      icon: getSectionIcon("super-admin-jobs-queues"),
+    },
+    {
+      type: "item",
+      id: "super-admin-support-console",
+      labelKey: "portalSite.admin.nav.supportConsole",
+      icon: getSectionIcon("super-admin-support-console"),
+    },
+  ],
+};
+
+const SUPER_ADMIN_IDENTITY_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "super-identity-menu",
+  labelKey: "portalSite.admin.menu.identityWorkspace",
+  icon: getSectionIcon("super-admin-workspace"),
+  children: [
+    {
+      type: "item",
+      id: "super-admin-workspace",
+      labelKey: "portalSite.admin.nav.workspaces",
+      icon: getSectionIcon("super-admin-workspace"),
+    },
+    {
+      type: "item",
+      id: "super-admin-memberships",
+      labelKey: "portalSite.admin.nav.memberships",
+      icon: getSectionIcon("super-admin-memberships"),
+    },
+    {
+      type: "item",
+      id: "super-admin-users",
+      labelKey: "portalSite.adminUsers.navTitle",
+      icon: getSectionIcon("super-admin-users"),
+    },
+    {
+      type: "item",
+      id: "super-admin-abuse-trust",
+      labelKey: "portalSite.admin.nav.abuseTrust",
+      icon: getSectionIcon("super-admin-abuse-trust"),
+    },
+    {
+      type: "item",
+      id: "super-admin-impersonation-center",
+      labelKey: "portalSite.admin.nav.impersonationCenter",
+      icon: getSectionIcon("super-admin-impersonation-center"),
+    },
+  ],
+};
+
+const SUPER_ADMIN_REVENUE_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "super-revenue-menu",
+  labelKey: "portalSite.admin.menu.revenueCommerce",
+  icon: getSectionIcon("super-admin-billing"),
+  children: [
+    {
+      type: "item",
+      id: "super-admin-subscriptions",
+      labelKey: "portalSite.admin.nav.subscriptions",
+      icon: getSectionIcon("super-admin-subscriptions"),
+    },
+    {
+      type: "item",
+      id: "super-admin-invoices",
+      labelKey: "portalSite.admin.nav.invoices",
+      icon: getSectionIcon("super-admin-invoices"),
+    },
+    COMMERCE_COUPONS_NAV_ITEM,
+  ],
+};
+
+const SUPER_ADMIN_GOVERNANCE_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "super-governance-menu",
+  labelKey: "portalSite.admin.menu.governanceSecurity",
+  icon: getSectionIcon("super-admin-policy-center"),
+  children: [
+    {
+      type: "item",
+      id: "super-admin-policy-center",
+      labelKey: "portalSite.admin.nav.policyCenter",
+      icon: getSectionIcon("super-admin-policy-center"),
+    },
+    {
+      type: "item",
+      id: "super-admin-data-governance",
+      labelKey: "portalSite.admin.nav.dataGovernance",
+      icon: getSectionIcon("super-admin-data-governance"),
+    },
+    {
+      type: "item",
+      id: "super-admin-feature-flags",
+      labelKey: "portalSite.admin.nav.featureFlags",
+      icon: getSectionIcon("super-admin-feature-flags"),
+    },
+    {
+      type: "item",
+      id: "super-admin-audit",
+      labelKey: "portalSite.admin.nav.audit",
+      icon: getSectionIcon("super-admin-audit"),
+    },
+  ],
+};
+
+const SUPER_ADMIN_OPERATIONS_NAV_GROUP: NavGroupItem = {
+  type: "group",
+  id: "super-operations-menu",
+  labelKey: "portalSite.admin.menu.operations",
+  icon: getSectionIcon("super-admin-system"),
+  children: [
+    {
+      type: "item",
+      id: "super-admin-browser-update",
+      labelKey: "portalSite.admin.nav.browserUpdate",
+      icon: getSectionIcon("super-admin-browser-update"),
+    },
+    {
+      type: "item",
+      id: "super-admin-system",
+      labelKey: "portalSite.admin.nav.system",
+      icon: getSectionIcon("super-admin-system"),
+    },
+    COMMERCE_AUDIT_NAV_ITEM,
+  ],
+};
+
+const SUPER_ADMIN_PANEL_NAV_ITEMS: NavEntry[] = [
+  SUPER_ADMIN_COMMAND_NAV_GROUP,
+  SUPER_ADMIN_IDENTITY_NAV_GROUP,
+  SUPER_ADMIN_REVENUE_NAV_GROUP,
+  SUPER_ADMIN_GOVERNANCE_NAV_GROUP,
+  SUPER_ADMIN_OPERATIONS_NAV_GROUP,
 ];
 
 function isSuperAdminPanelSection(section: AppSection): boolean {
@@ -364,7 +530,7 @@ function AppSidebarComponent({
       ? "workspace-owner"
       : "workspace";
   const [automationFlowSelection, setAutomationFlowSelection] = useState<
-    "signup" | "update_cookie"
+    "signup" | "signup_seller" | "update_cookie"
   >("signup");
   const effectiveActiveSection = activeSection;
   const roleLabel = isPlatformAdmin
@@ -384,7 +550,7 @@ function AppSidebarComponent({
   );
 
   const persistAutomationFlowPreset = useCallback(
-    (flowPreset?: "signup" | "update_cookie") => {
+    (flowPreset?: "signup" | "signup_seller" | "update_cookie") => {
       if (!flowPreset || typeof window === "undefined") {
         return;
       }
@@ -411,7 +577,11 @@ function AppSidebarComponent({
       const persistedFlow = window.localStorage.getItem(
         AUTOMATION_FLOW_STORAGE_KEY,
       );
-      if (persistedFlow === "signup" || persistedFlow === "update_cookie") {
+      if (
+        persistedFlow === "signup" ||
+        persistedFlow === "signup_seller" ||
+        persistedFlow === "update_cookie"
+      ) {
         setAutomationFlowSelection(persistedFlow);
       }
     } catch {
@@ -488,6 +658,7 @@ function AppSidebarComponent({
 
     const platformItemIds = new Set<AppSection>([
       "profiles",
+      "groups",
       "bugidea-automation",
     ]);
     const platformItems: NavEntry[] = [];
@@ -524,6 +695,31 @@ function AppSidebarComponent({
     "workspace-billing":
       activeSection === "pricing" || activeSection === "billing",
     "automation-menu": true,
+    "commerce-menu": activeSection.startsWith("super-admin-commerce-"),
+    "super-command-menu":
+      activeSection.startsWith("super-admin-overview") ||
+      activeSection.startsWith("super-admin-incident-board") ||
+      activeSection.startsWith("super-admin-jobs-queues") ||
+      activeSection.startsWith("super-admin-support-console"),
+    "super-identity-menu":
+      activeSection.startsWith("super-admin-workspace") ||
+      activeSection.startsWith("super-admin-memberships") ||
+      activeSection.startsWith("super-admin-users") ||
+      activeSection.startsWith("super-admin-abuse-trust") ||
+      activeSection.startsWith("super-admin-impersonation-center"),
+    "super-revenue-menu":
+      activeSection.startsWith("super-admin-billing") ||
+      activeSection.startsWith("super-admin-subscriptions") ||
+      activeSection.startsWith("super-admin-invoices") ||
+      activeSection.startsWith("super-admin-commerce-coupons"),
+    "super-governance-menu":
+      activeSection.startsWith("super-admin-policy-center") ||
+      activeSection.startsWith("super-admin-data-governance") ||
+      activeSection.startsWith("super-admin-feature-flags") ||
+      activeSection.startsWith("super-admin-audit"),
+    "super-operations-menu":
+      activeSection.startsWith("super-admin-system") ||
+      activeSection.startsWith("super-admin-commerce-audit"),
   }));
 
   useEffect(() => {
@@ -540,6 +736,24 @@ function AppSidebarComponent({
       return {
         ...prev,
         "workspace-billing": true,
+      };
+    });
+  }, [activeSection, panelMode]);
+
+  useEffect(() => {
+    if (panelMode !== "super-admin") {
+      return;
+    }
+    if (!activeSection.startsWith("super-admin-commerce-")) {
+      return;
+    }
+    setExpandedNavGroups((prev) => {
+      if (prev["commerce-menu"]) {
+        return prev;
+      }
+      return {
+        ...prev,
+        "commerce-menu": true,
       };
     });
   }, [activeSection, panelMode]);
@@ -597,10 +811,12 @@ function AppSidebarComponent({
     return "plan-badge-tier-free";
   }, []);
   const resolveWorkspacePlanLabel = useCallback(
-    (workspace?: {
-      planLabel?: string;
-      details?: string;
-    } | null) => {
+    (
+      workspace?: {
+        planLabel?: string;
+        details?: string;
+      } | null,
+    ) => {
       const rawPlan = workspace?.planLabel?.trim();
       if (rawPlan) {
         return rawPlan;
@@ -741,10 +957,14 @@ function AppSidebarComponent({
             Number.isFinite(workspace.profilesUsed) &&
             workspace.profilesUsed >= 0;
           const workspaceLimitBadge = hasUsageQuota
-            ? formatWorkspaceQuotaBadge(workspace.profileLimit, workspace.profilesUsed)
+            ? formatWorkspaceQuotaBadge(
+                workspace.profileLimit,
+                workspace.profilesUsed,
+              )
             : null;
           const workspacePlanBadge = resolveWorkspacePlanLabel(workspace);
-          const workspacePlanToneClass = resolvePlanToneClass(workspacePlanBadge);
+          const workspacePlanToneClass =
+            resolvePlanToneClass(workspacePlanBadge);
           return (
             <DropdownMenuItem
               key={workspace.id}
@@ -868,8 +1088,8 @@ function AppSidebarComponent({
   };
 
   const renderNavChildItem = (item: NavLeafItem) => {
-    const Icon = item.icon;
     const isActive = isChildSectionActive(item);
+
     return (
       <button
         type="button"
@@ -879,19 +1099,12 @@ function AppSidebarComponent({
         }}
         className={cn(
           SIDEBAR_NAV_CHILD_ITEM_CLASS,
+          "h-8 gap-2.5 px-3 text-[12px] font-medium",
           isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
         )}
       >
-        <Icon
-          className={cn(
-            SIDEBAR_NAV_ICON_CLASS,
-            isActive
-              ? "text-sidebar-accent-foreground"
-              : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
-          )}
-        />
         <span className="min-w-0 truncate">{t(item.labelKey)}</span>
       </button>
     );
@@ -939,7 +1152,6 @@ function AppSidebarComponent({
             className="w-[220px]"
           >
             {item.children.map((child) => {
-              const ChildIcon = child.icon;
               const isChildActive = isChildSectionActive(child);
               const childKey = `${child.id}:${child.automationFlowPreset ?? "default"}`;
               return (
@@ -954,10 +1166,7 @@ function AppSidebarComponent({
                     isChildActive && "bg-sidebar-accent",
                   )}
                 >
-                  <ChildIcon
-                    className={`${SIDEBAR_NAV_ICON_CLASS} text-sidebar-foreground/70`}
-                  />
-                  <span className="text-[11px] leading-[1.25] font-[600] tracking-normal text-sidebar-foreground">
+                  <span className="text-xs font-medium leading-[1.25] tracking-normal text-sidebar-foreground">
                     {t(child.labelKey)}
                   </span>
                   {isChildActive && (
@@ -1009,7 +1218,7 @@ function AppSidebarComponent({
               : "grid-rows-[0fr] opacity-0",
           )}
         >
-          <div className="min-h-0 space-y-0.5">
+          <div className="min-h-0 space-y-0.5 border-l border-sidebar-border/70 pl-2">
             {item.children.map((child) => {
               const childKey = `${child.id}:${child.automationFlowPreset ?? "default"}`;
               return <div key={childKey}>{renderNavChildItem(child)}</div>;
@@ -1208,7 +1417,7 @@ function AppSidebarComponent({
                     >
                       {selectedWorkspaceSubLabel}
                     </p>
-                    {selectedWorkspace && (
+                    {selectedWorkspace &&
                       (() => {
                         const hasUsageQuota =
                           !preferPlanBadgeOnly &&
@@ -1231,7 +1440,8 @@ function AppSidebarComponent({
                             </Badge>
                           );
                         }
-                        const selectedPlanBadge = resolveWorkspacePlanLabel(selectedWorkspace);
+                        const selectedPlanBadge =
+                          resolveWorkspacePlanLabel(selectedWorkspace);
                         return (
                           <Badge
                             variant="default"
@@ -1243,8 +1453,7 @@ function AppSidebarComponent({
                             {selectedPlanBadge}
                           </Badge>
                         );
-                      })()
-                    )}
+                      })()}
                   </div>
                 </div>
                 <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/70 transition-transform group-data-[state=open]:rotate-180" />

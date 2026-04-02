@@ -108,7 +108,9 @@ impl GeoIPDownloader {
       .list_profiles()
       .map_err(|e| format!("Failed to list profiles: {e}"))?;
 
-    let has_camoufox_profiles = profiles.iter().any(|profile| profile.browser == "camoufox");
+    let has_camoufox_profiles = profiles
+      .iter()
+      .any(|profile| profile.browser == "camoufox" || profile.browser == "bugox");
 
     if has_camoufox_profiles {
       return Ok(!Self::is_geoip_database_available() || Self::is_geoip_stale());

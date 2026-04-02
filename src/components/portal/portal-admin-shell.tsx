@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
   {
-    href: "/admin/command-center",
-    key: "portalSite.admin.nav.commandCenter",
+    href: "/admin/dashboard",
+    key: "portalSite.admin.nav.dashboard",
     icon: Gauge,
   },
   {
@@ -44,8 +44,8 @@ const ADMIN_NAV = [
 ] as const;
 
 function isAdminActive(pathname: string, href: string): boolean {
-  if (href === "/admin/command-center") {
-    return pathname === "/admin" || pathname === href;
+  if (href === "/admin/dashboard") {
+    return pathname === "/admin" || pathname === href || pathname === "/admin/command-center";
   }
   return pathname === href;
 }

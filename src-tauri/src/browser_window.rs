@@ -1,6 +1,7 @@
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
 mod platform_windows {
+  use std::collections::HashSet;
   use ::sysinfo::{Pid, System};
   use ::windows::core::{BOOL, PCWSTR};
   use ::windows::Win32::Foundation::{HWND, LPARAM};
@@ -23,7 +24,7 @@ mod platform_windows {
   }
 
   struct TitleEnumContext {
-    pid: u32,
+    pids: HashSet<u32>,
     title_utf16: Vec<u16>,
     matched: bool,
   }
@@ -84,7 +85,7 @@ mod platform_windows {
       GetWindowThreadProcessId(hwnd, Some(&mut window_pid));
     }
 
-    if window_pid != ctx.pid {
+    if !ctx.pids.contains(&window_pid) {
       return BOOL(1);
     }
 
@@ -94,14 +95,6 @@ mod platform_windows {
     if !is_visible {
       return BOOL(1);
     }
-    // SAFETY: hwnd is valid during callback.
-    let Ok(owner) = (unsafe { GetWindow(hwnd, GW_OWNER) }) else {
-      return BOOL(1);
-    };
-    if !owner.is_invalid() {
-      return BOOL(1);
-    }
-
     // SAFETY: title_utf16 is null-terminated and valid for this callback lifetime.
     let _ = unsafe { SetWindowTextW(hwnd, PCWSTR(ctx.title_utf16.as_ptr())) };
 
@@ -140,36 +133,14 @@ mod platform_windows {
   }
 
   fn build_profile_short_label(profile_name: &str) -> String {
-    let parts: Vec<&str> = profile_name
-      .split(|c: char| !c.is_alphanumeric())
-      .filter(|part| !part.is_empty())
-      .collect();
-
-    if parts.len() >= 2 {
-      let first = parts[0]
-        .chars()
-        .next()
-        .map(|c| c.to_uppercase().to_string())
-        .unwrap_or_default();
-      let second = parts[1]
-        .chars()
-        .next()
-        .map(|c| c.to_uppercase().to_string())
-        .unwrap_or_default();
-      let combined = format!("{first}{second}");
-      if !combined.is_empty() {
-        return combined;
-      }
-    }
-
     let compact: String = profile_name
       .chars()
       .filter(|c| c.is_alphanumeric())
-      .take(3)
+      .take(7)
       .collect();
 
     if compact.is_empty() {
-      "PF".to_string()
+      "PROFILE".to_string()
     } else {
       compact.to_uppercase()
     }
@@ -222,12 +193,34 @@ mod platform_windows {
     title.chars().take(144).collect()
   }
 
-  fn set_profile_title_once(pid: u32, title: &str) -> bool {
+  fn collect_process_tree_pids(root_pid: u32) -> HashSet<u32> {
+    let mut pids = HashSet::new();
+    pids.insert(root_pid);
+
+    let system = System::new_all();
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for (pid, process) in system.processes() {
+        if let Some(parent) = process.parent() {
+          let parent_u32 = parent.as_u32();
+          let pid_u32 = pid.as_u32();
+          if pids.contains(&parent_u32) && pids.insert(pid_u32) {
+            changed = true;
+          }
+        }
+      }
+    }
+
+    pids
+  }
+
+  fn set_profile_title_once(root_pid: u32, title: &str) -> bool {
     let mut title_utf16: Vec<u16> = title.encode_utf16().collect();
     title_utf16.push(0);
 
     let mut ctx = TitleEnumContext {
-      pid,
+      pids: collect_process_tree_pids(root_pid),
       title_utf16,
       matched: false,
     };
@@ -245,7 +238,7 @@ mod platform_windows {
 
   fn is_process_running(pid: u32) -> bool {
     let system = System::new_all();
-    system.process(Pid::from(pid as usize)).is_some()
+    system.process(Pid::from_u32(pid)).is_some()
   }
 
   async fn set_profile_title_with_retry(pid: u32, title: String) -> Result<(), String> {

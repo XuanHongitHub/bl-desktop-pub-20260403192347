@@ -82,7 +82,7 @@ impl CookieManager {
     let profile_data_path = profile.get_profile_data_path(profiles_dir);
 
     match profile.browser.as_str() {
-      "wayfern" => {
+      "wayfern" | "bugium" => {
         let path = profile_data_path.join("Default").join("Cookies");
         if path.exists() {
           Ok(path)
@@ -90,7 +90,7 @@ impl CookieManager {
           Err(format!("Cookie database not found at: {}", path.display()))
         }
       }
-      "camoufox" => {
+      "camoufox" | "bugox" => {
         let path = profile_data_path.join("cookies.sqlite");
         if path.exists() {
           Ok(path)
@@ -190,7 +190,11 @@ impl CookieManager {
   }
 
   fn normalize_domain(domain: &str) -> String {
-    domain.trim().to_lowercase().trim_start_matches('.').to_string()
+    domain
+      .trim()
+      .to_lowercase()
+      .trim_start_matches('.')
+      .to_string()
   }
 
   fn is_tiktok_shop_domain(domain: &str) -> bool {
@@ -216,8 +220,8 @@ impl CookieManager {
     let db_path = Self::get_cookie_db_path(profile, &profiles_dir)?;
 
     match profile.browser.as_str() {
-      "camoufox" => Self::read_firefox_cookies(&db_path),
-      "wayfern" => Self::read_chrome_cookies(&db_path),
+      "camoufox" | "bugox" => Self::read_firefox_cookies(&db_path),
+      "wayfern" | "bugium" => Self::read_chrome_cookies(&db_path),
       _ => Err(format!("Unsupported browser type: {}", profile.browser)),
     }
   }
@@ -476,8 +480,8 @@ impl CookieManager {
 
     let source_db_path = Self::get_cookie_db_path(source, &profiles_dir)?;
     let all_cookies = match source.browser.as_str() {
-      "camoufox" => Self::read_firefox_cookies(&source_db_path)?,
-      "wayfern" => Self::read_chrome_cookies(&source_db_path)?,
+      "camoufox" | "bugox" => Self::read_firefox_cookies(&source_db_path)?,
+      "wayfern" | "bugium" => Self::read_chrome_cookies(&source_db_path)?,
       _ => return Err(format!("Unsupported browser type: {}", source.browser)),
     };
 
@@ -543,8 +547,8 @@ impl CookieManager {
       };
 
       let write_result = match target.browser.as_str() {
-        "camoufox" => Self::write_firefox_cookies(&target_db_path, &cookies_to_copy),
-        "wayfern" => Self::write_chrome_cookies(&target_db_path, &cookies_to_copy),
+        "camoufox" | "bugox" => Self::write_firefox_cookies(&target_db_path, &cookies_to_copy),
+        "wayfern" | "bugium" => Self::write_chrome_cookies(&target_db_path, &cookies_to_copy),
         _ => {
           results.push(CookieCopyResult {
             target_profile_id: target_id.clone(),
@@ -808,8 +812,8 @@ impl CookieManager {
     let db_path = Self::get_cookie_db_path(profile, &profiles_dir)?;
 
     let write_result = match profile.browser.as_str() {
-      "camoufox" => Self::write_firefox_cookies(&db_path, &cookies),
-      "wayfern" => Self::write_chrome_cookies(&db_path, &cookies),
+      "camoufox" | "bugox" => Self::write_firefox_cookies(&db_path, &cookies),
+      "wayfern" | "bugium" => Self::write_chrome_cookies(&db_path, &cookies),
       _ => return Err(format!("Unsupported browser type: {}", profile.browser)),
     };
 

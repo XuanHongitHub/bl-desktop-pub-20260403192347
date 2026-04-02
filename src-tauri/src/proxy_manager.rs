@@ -1090,10 +1090,7 @@ impl ProxyManager {
   }
 
   // Get cached proxy check results in bulk
-  pub fn get_cached_proxy_checks(
-    &self,
-    proxy_ids: &[String],
-  ) -> HashMap<String, ProxyCheckResult> {
+  pub fn get_cached_proxy_checks(&self, proxy_ids: &[String]) -> HashMap<String, ProxyCheckResult> {
     let mut results = HashMap::new();
     for proxy_id in proxy_ids {
       if let Some(cached) = self.load_proxy_check_cache(proxy_id) {

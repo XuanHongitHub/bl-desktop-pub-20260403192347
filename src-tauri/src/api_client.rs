@@ -338,6 +338,83 @@ pub struct BrowserRelease {
 pub struct WayfernVersionInfo {
   pub version: String,
   pub downloads: HashMap<String, Option<String>>,
+  #[serde(default, alias = "policy", alias = "updatePolicy")]
+  pub update_policy: BrowserUpdatePolicy,
+  #[serde(
+    default,
+    alias = "required",
+    alias = "force_update",
+    alias = "forceUpdate"
+  )]
+  pub required: Option<bool>,
+  #[serde(
+    default,
+    alias = "minimum_supported_version",
+    alias = "min_supported_version",
+    alias = "minimumSupportedVersion",
+    alias = "minSupportedVersion"
+  )]
+  pub minimum_supported_version: Option<String>,
+  #[serde(default, alias = "update_mode", alias = "updateMode")]
+  pub update_mode: Option<String>,
+  #[serde(default)]
+  pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct BrowserUpdatePolicy {
+  #[serde(default, alias = "update_mode", alias = "updateMode")]
+  pub mode: Option<String>,
+  #[serde(
+    default,
+    alias = "required",
+    alias = "force_update",
+    alias = "forceUpdate"
+  )]
+  pub required: Option<bool>,
+  #[serde(
+    default,
+    alias = "minimum_supported_version",
+    alias = "min_supported_version",
+    alias = "minimumSupportedVersion",
+    alias = "minSupportedVersion"
+  )]
+  pub min_supported_version: Option<String>,
+  #[serde(default)]
+  pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ManagedBrowserUpdateRequirement {
+  pub latest_version: String,
+  pub is_update_available: bool,
+  pub is_required: bool,
+  pub minimum_supported_version: Option<String>,
+  pub mode: String,
+  pub message: Option<String>,
+}
+
+impl WayfernVersionInfo {
+  pub fn normalized_update_policy(&self) -> BrowserUpdatePolicy {
+    BrowserUpdatePolicy {
+      mode: self
+        .update_policy
+        .mode
+        .clone()
+        .or_else(|| self.update_mode.clone()),
+      required: self.update_policy.required.or(self.required),
+      min_supported_version: self
+        .update_policy
+        .min_supported_version
+        .clone()
+        .or_else(|| self.minimum_supported_version.clone()),
+      message: self
+        .update_policy
+        .message
+        .clone()
+        .or_else(|| self.message.clone()),
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -364,9 +441,18 @@ pub struct ApiClient {
   firefox_dev_api_base: String,
   github_api_base: String,
   chromium_api_base: String,
+  buglogin_browser_api_base: String,
 }
 
 impl ApiClient {
+  fn resolve_buglogin_browser_api_base() -> String {
+    std::env::var("BUGLOGIN_BROWSER_API_BASE")
+      .ok()
+      .map(|v| v.trim().trim_end_matches('/').to_string())
+      .filter(|v| !v.is_empty())
+      .unwrap_or_else(|| "https://api.bugdev.site".to_string())
+  }
+
   pub fn new() -> Self {
     let client = Client::builder()
       .timeout(std::time::Duration::from_secs(30))
@@ -380,6 +466,7 @@ impl ApiClient {
       github_api_base: "https://api.github.com".to_string(),
       chromium_api_base: "https://commondatastorage.googleapis.com/chromium-browser-snapshots"
         .to_string(),
+      buglogin_browser_api_base: Self::resolve_buglogin_browser_api_base(),
     }
   }
 
@@ -452,6 +539,7 @@ impl ApiClient {
     firefox_dev_api_base: String,
     github_api_base: String,
     chromium_api_base: String,
+    buglogin_browser_api_base: String,
   ) -> Self {
     Self {
       client: Client::new(),
@@ -459,6 +547,7 @@ impl ApiClient {
       firefox_dev_api_base,
       github_api_base,
       chromium_api_base,
+      buglogin_browser_api_base,
     }
   }
 
@@ -828,32 +917,6 @@ impl ApiClient {
     Ok(filtered_releases)
   }
 
-  /// Check if a Camoufox release has compatible assets for the given platform and architecture
-  fn has_compatible_camoufox_asset(
-    &self,
-    assets: &[crate::browser::GithubAsset],
-    os: &str,
-    arch: &str,
-  ) -> bool {
-    let (os_name, arch_name) = match (os, arch) {
-      ("windows", "x64") => ("win", "x86_64"),
-      ("windows", "arm64") => ("win", "arm64"),
-      ("linux", "x64") => ("lin", "x86_64"),
-      ("linux", "arm64") => ("lin", "arm64"),
-      ("macos", "x64") => ("mac", "x86_64"),
-      ("macos", "arm64") => ("mac", "arm64"),
-      _ => return false,
-    };
-
-    // Look for assets matching the pattern: camoufox-{version}-beta.{number}-{os}.{arch}.zip
-    // The separator before OS is a dash, e.g., camoufox-135.0.1-beta.24-lin.x86_64.zip
-    let pattern = format!("-{os_name}.{arch_name}.zip");
-    assets.iter().any(|asset| {
-      let name = asset.name.to_lowercase();
-      name.starts_with("camoufox-") && name.ends_with(&pattern)
-    })
-  }
-
   fn has_compatible_brave_asset(assets: &[crate::browser::GithubAsset], os: &str) -> bool {
     match os {
       "windows" => {
@@ -884,6 +947,29 @@ impl ApiClient {
     }
   }
 
+  fn has_compatible_camoufox_asset(
+    &self,
+    assets: &[crate::browser::GithubAsset],
+    os: &str,
+    arch: &str,
+  ) -> bool {
+    let (os_name, arch_name) = match (os, arch) {
+      ("windows", "x64") => ("win", "x86_64"),
+      ("windows", "arm64") => ("win", "arm64"),
+      ("linux", "x64") => ("lin", "x86_64"),
+      ("linux", "arm64") => ("lin", "arm64"),
+      ("macos", "x64") => ("mac", "x86_64"),
+      ("macos", "arm64") => ("mac", "arm64"),
+      _ => return false,
+    };
+
+    let pattern = format!("-{os_name}.{arch_name}.zip");
+    assets.iter().any(|asset| {
+      let name = asset.name.to_lowercase();
+      name.starts_with("camoufox-") && name.ends_with(&pattern)
+    })
+  }
+
   /// Get platform and architecture information  
   fn get_platform_info() -> (String, String) {
     let os = if cfg!(target_os = "windows") {
@@ -905,6 +991,37 @@ impl ApiClient {
     };
 
     (os.to_string(), arch.to_string())
+  }
+
+  async fn fetch_buglogin_wayfern_like_version(
+    &self,
+    browser_slug: &str,
+  ) -> Result<WayfernVersionInfo, Box<dyn std::error::Error + Send + Sync>> {
+    let base = self.buglogin_browser_api_base.trim_end_matches('/');
+    let url = format!("{base}/v1/browser/{browser_slug}.json");
+    let response = self
+      .client
+      .get(&url)
+      .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+      .send()
+      .await
+      .map_err(|e| format!("request failed for {url}: {e}"))?;
+
+    if !response.status().is_success() {
+      return Err(format!("status {} for {url}", response.status()).into());
+    }
+
+    let parsed = response
+      .json::<WayfernVersionInfo>()
+      .await
+      .map_err(|e| format!("invalid response at {url}: {e}"))?;
+    log::info!(
+      "Fetched managed browser metadata for {} from {} (version: {})",
+      browser_slug,
+      url,
+      parsed.version
+    );
+    Ok(parsed)
   }
 
   pub async fn fetch_chromium_latest_version(
@@ -1015,28 +1132,7 @@ impl ApiClient {
     // Filter releases that have assets compatible with the current platform
     let mut compatible_releases: Vec<GithubRelease> = releases
       .into_iter()
-      .enumerate()
-      .filter_map(|(i, release)| {
-        let has_compatible = self.has_compatible_camoufox_asset(&release.assets, &os, &arch);
-        if !has_compatible {
-          log::info!(
-            "Release {} ({}) has no compatible assets for {}/{}",
-            i,
-            release.tag_name,
-            os,
-            arch
-          );
-          log::info!(
-            "  Available assets: {:?}",
-            release.assets.iter().map(|a| &a.name).collect::<Vec<_>>()
-          );
-        }
-        if has_compatible {
-          Some(release)
-        } else {
-          None
-        }
-      })
+      .filter(|release| self.has_compatible_camoufox_asset(&release.assets, &os, &arch))
       .collect();
 
     log::info!(
@@ -1044,26 +1140,9 @@ impl ApiClient {
       compatible_releases.len()
     );
 
-    // Sort by version (latest first) with debugging
-    log::info!(
-      "Before sorting: {:?}",
-      compatible_releases
-        .iter()
-        .map(|r| &r.tag_name)
-        .take(10)
-        .collect::<Vec<_>>()
-    );
+    // Sort by version (latest first)
     sort_github_releases(&mut compatible_releases);
-    log::info!(
-      "After sorting: {:?}",
-      compatible_releases
-        .iter()
-        .map(|r| &r.tag_name)
-        .take(10)
-        .collect::<Vec<_>>()
-    );
 
-    // Cache the results (unless bypassing cache)
     if !no_caching {
       if let Err(e) = self.save_cached_github_releases("camoufox", &compatible_releases) {
         log::error!("Failed to cache Camoufox releases: {e}");
@@ -1075,9 +1154,66 @@ impl ApiClient {
     Ok(compatible_releases)
   }
 
-  fn load_cached_wayfern_version(&self) -> Option<WayfernVersionInfo> {
+  pub async fn fetch_bugox_version_with_caching(
+    &self,
+    no_caching: bool,
+  ) -> Result<WayfernVersionInfo, Box<dyn std::error::Error + Send + Sync>> {
+    if !no_caching {
+      if let Some(cached_version) = self.load_cached_managed_version("bugox") {
+        log::info!("Using cached Bugox version: {}", cached_version.version);
+        return Ok(cached_version);
+      }
+    }
+
+    let version_info = self.fetch_buglogin_wayfern_like_version("bugox").await?;
+    log::info!("Fetched Bugox version: {}", version_info.version);
+
+    if !no_caching {
+      if let Err(e) = self.save_cached_managed_version("bugox", &version_info) {
+        log::error!("Failed to cache Bugox version: {e}");
+      }
+    }
+
+    Ok(version_info)
+  }
+
+  pub fn evaluate_managed_update_requirement(
+    &self,
+    current_version: &str,
+    metadata: &WayfernVersionInfo,
+  ) -> ManagedBrowserUpdateRequirement {
+    let normalized_policy = metadata.normalized_update_policy();
+    let min_supported = normalized_policy.min_supported_version.clone();
+    let mode = normalized_policy
+      .mode
+      .as_deref()
+      .unwrap_or("optional")
+      .to_lowercase();
+
+    let required_by_flag = normalized_policy.required.unwrap_or(false);
+    let required_by_mode = matches!(mode.as_str(), "required" | "mandatory" | "force");
+    let required_by_min_supported = min_supported
+      .as_ref()
+      .map(|minimum| compare_versions(current_version, minimum) == std::cmp::Ordering::Less)
+      .unwrap_or(false);
+
+    let is_update_available = is_version_newer(&metadata.version, current_version);
+    let is_required = (required_by_flag || required_by_mode || required_by_min_supported)
+      && (is_update_available || required_by_min_supported);
+
+    ManagedBrowserUpdateRequirement {
+      latest_version: metadata.version.clone(),
+      is_update_available,
+      is_required,
+      minimum_supported_version: min_supported,
+      mode,
+      message: normalized_policy.message.clone(),
+    }
+  }
+
+  fn load_cached_managed_version(&self, slug: &str) -> Option<WayfernVersionInfo> {
     let cache_dir = Self::get_cache_dir().ok()?;
-    let cache_file = cache_dir.join("wayfern_version.json");
+    let cache_file = cache_dir.join(format!("{slug}_version.json"));
 
     if !cache_file.exists() {
       return None;
@@ -1086,16 +1222,26 @@ impl ApiClient {
     let content = fs::read_to_string(&cache_file).ok()?;
     let cached_data: CachedWayfernData = serde_json::from_str(&content).ok()?;
 
-    // Always use cached Wayfern version - cache never expires, only gets updated
+    // Guard against stale pre-managed cache entries (e.g. "146.x-1.1" without
+    // BugLogin suffix). If detected, ignore and remove cache so callers refetch
+    // fresh metadata from /v1/browser/{slug}.json.
+    let version = cached_data.version_info.version.as_str();
+    let is_managed_slug = matches!(slug, "bugium" | "bugox");
+    if is_managed_slug && !version.contains("-buglogin.") {
+      let _ = fs::remove_file(&cache_file);
+      return None;
+    }
+
     Some(cached_data.version_info)
   }
 
-  fn save_cached_wayfern_version(
+  fn save_cached_managed_version(
     &self,
+    slug: &str,
     version_info: &WayfernVersionInfo,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cache_dir = Self::get_cache_dir()?;
-    let cache_file = cache_dir.join("wayfern_version.json");
+    let cache_file = cache_dir.join(format!("{slug}_version.json"));
 
     let cached_data = CachedWayfernData {
       version_info: version_info.clone(),
@@ -1104,11 +1250,26 @@ impl ApiClient {
 
     let content = serde_json::to_string_pretty(&cached_data)?;
     fs::write(&cache_file, content)?;
+    Ok(())
+  }
+
+  fn load_cached_wayfern_version(&self) -> Option<WayfernVersionInfo> {
+    self.load_cached_managed_version("wayfern")
+  }
+
+  fn save_cached_wayfern_version(
+    &self,
+    version_info: &WayfernVersionInfo,
+  ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    self.save_cached_managed_version("wayfern", version_info)?;
     log::info!("Cached Wayfern version: {}", version_info.version);
     Ok(())
   }
 
-  /// Fetch Wayfern version info from the BugLogin metadata endpoint.
+  /// Fetch Wayfern version info.
+  /// Preferred source is official `download.wayfern.com/version.json`.
+  /// If official source fails (non-2xx/invalid JSON), fallback to managed
+  /// metadata endpoint `/v1/browser/bugium.json`.
   pub async fn fetch_wayfern_version_with_caching(
     &self,
     no_caching: bool,
@@ -1121,22 +1282,58 @@ impl ApiClient {
       }
     }
 
-    log::info!("Fetching Wayfern version from configured metadata endpoint");
-    let url = "https://bugloginbrowser.com/wayfern.json";
-
-    let response = self
+    let version_info = match self
       .client
-      .get(url)
-      .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+      .get("https://download.wayfern.com/version.json")
       .send()
-      .await?;
-
-    if !response.status().is_success() {
-      return Err(format!("Failed to fetch Wayfern version: {}", response.status()).into());
-    }
-
-    let version_info: WayfernVersionInfo = response.json().await?;
-    log::info!("Fetched Wayfern version: {}", version_info.version);
+      .await
+    {
+      Ok(response) => {
+        if response.status().is_success() {
+          match response.json::<WayfernVersionInfo>().await {
+            Ok(parsed) => {
+              log::info!("Fetched Wayfern version from official endpoint: {}", parsed.version);
+              parsed
+            }
+            Err(parse_error) => {
+              log::warn!(
+                "Failed parsing official Wayfern version response, falling back to managed metadata: {}",
+                parse_error
+              );
+              let fallback = self.fetch_buglogin_wayfern_like_version("bugium").await?;
+              log::info!(
+                "Fetched Wayfern version from managed metadata fallback: {}",
+                fallback.version
+              );
+              fallback
+            }
+          }
+        } else {
+          log::warn!(
+            "Official Wayfern version endpoint returned status {}, falling back to managed metadata",
+            response.status()
+          );
+          let fallback = self.fetch_buglogin_wayfern_like_version("bugium").await?;
+          log::info!(
+            "Fetched Wayfern version from managed metadata fallback: {}",
+            fallback.version
+          );
+          fallback
+        }
+      }
+      Err(request_error) => {
+        log::warn!(
+          "Failed requesting official Wayfern version endpoint, falling back to managed metadata: {}",
+          request_error
+        );
+        let fallback = self.fetch_buglogin_wayfern_like_version("bugium").await?;
+        log::info!(
+          "Fetched Wayfern version from managed metadata fallback: {}",
+          fallback.version
+        );
+        fallback
+      }
+    };
 
     // Cache the results (unless bypassing cache)
     if !no_caching {
@@ -1263,6 +1460,7 @@ mod tests {
       base_url.clone(), // firefox_dev_api_base
       base_url.clone(), // github_api_base
       base_url.clone(), // chromium_api_base
+      base_url.clone(), // buglogin_browser_api_base
     )
   }
 

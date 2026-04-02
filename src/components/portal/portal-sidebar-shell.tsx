@@ -3,7 +3,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PortalHeaderControls } from "@/components/portal/portal-header-controls";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +14,7 @@ import type { AppSection, TeamRole } from "@/types";
 type PortalSidebarMode = "account" | "admin";
 
 function mapAccountPathToSection(pathname: string): AppSection {
+  if (pathname.startsWith("/account/plan")) return "pricing";
   if (pathname.startsWith("/account/billing")) return "pricing";
   if (pathname.startsWith("/account/invoices")) return "billing";
   if (pathname.startsWith("/account/settings")) return "settings";
@@ -23,13 +24,13 @@ function mapAccountPathToSection(pathname: string): AppSection {
 function mapAccountSectionToPath(section: AppSection): string {
   switch (section) {
     case "pricing":
-      return "/account/billing";
+      return "/account/plan";
     case "billing":
       return "/account/invoices";
     case "settings":
       return "/account/settings";
     case "super-admin-overview":
-      return "/admin/command-center";
+      return "/admin/dashboard";
     case "profiles":
     default:
       return "/account";
@@ -37,8 +38,47 @@ function mapAccountSectionToPath(section: AppSection): string {
 }
 
 function mapAdminPathToSection(pathname: string): AppSection {
+  if (pathname.startsWith("/admin/dashboard")) return "super-admin-overview";
+  if (pathname.startsWith("/admin/incident-board"))
+    return "super-admin-incident-board";
+  if (pathname.startsWith("/admin/memberships"))
+    return "super-admin-memberships";
+  if (pathname.startsWith("/admin/abuse-trust"))
+    return "super-admin-abuse-trust";
+  if (pathname.startsWith("/admin/subscriptions"))
+    return "super-admin-subscriptions";
+  if (pathname.startsWith("/admin/invoices")) return "super-admin-invoices";
+  if (pathname.startsWith("/admin/coupons"))
+    return "super-admin-commerce-coupons";
+  if (pathname.startsWith("/admin/policy-center"))
+    return "super-admin-policy-center";
+  if (pathname.startsWith("/admin/data-governance"))
+    return "super-admin-data-governance";
+  if (pathname.startsWith("/admin/jobs-queues"))
+    return "super-admin-jobs-queues";
+  if (pathname.startsWith("/admin/system/browser"))
+    return "super-admin-browser-update";
+  if (pathname.startsWith("/admin/feature-flags"))
+    return "super-admin-feature-flags";
+  if (pathname.startsWith("/admin/support-console"))
+    return "super-admin-support-console";
+  if (pathname.startsWith("/admin/impersonation-center"))
+    return "super-admin-impersonation-center";
+  if (pathname.startsWith("/admin/commerce/plans"))
+    return "super-admin-commerce-plans";
+  if (pathname.startsWith("/admin/commerce/campaigns"))
+    return "super-admin-commerce-campaigns";
+  if (pathname.startsWith("/admin/commerce/coupons"))
+    return "super-admin-commerce-coupons";
+  if (pathname.startsWith("/admin/commerce/licenses"))
+    return "super-admin-commerce-licenses";
+  if (pathname.startsWith("/admin/commerce/preview"))
+    return "super-admin-commerce-preview";
+  if (pathname.startsWith("/admin/commerce/audit"))
+    return "super-admin-commerce-audit";
   if (pathname.startsWith("/admin/workspaces")) return "super-admin-workspace";
-  if (pathname.startsWith("/admin/revenue")) return "super-admin-billing";
+  if (pathname.startsWith("/admin/users")) return "super-admin-users";
+  if (pathname.startsWith("/admin/revenue")) return "super-admin-subscriptions";
   if (pathname.startsWith("/admin/audit")) return "super-admin-audit";
   if (pathname.startsWith("/admin/system")) return "super-admin-system";
   return "super-admin-overview";
@@ -46,10 +86,48 @@ function mapAdminPathToSection(pathname: string): AppSection {
 
 function mapAdminSectionToPath(section: AppSection): string {
   switch (section) {
+    case "super-admin-incident-board":
+      return "/admin/incident-board";
     case "super-admin-workspace":
       return "/admin/workspaces";
+    case "super-admin-memberships":
+      return "/admin/memberships";
+    case "super-admin-abuse-trust":
+      return "/admin/abuse-trust";
+    case "super-admin-users":
+      return "/admin/users";
+    case "super-admin-subscriptions":
+      return "/admin/subscriptions";
+    case "super-admin-invoices":
+      return "/admin/invoices";
+    case "super-admin-commerce-plans":
+      return "/admin/commerce/plans";
+    case "super-admin-commerce-campaigns":
+      return "/admin/commerce/campaigns";
+    case "super-admin-commerce-coupons":
+      return "/admin/coupons";
+    case "super-admin-commerce-licenses":
+      return "/admin/commerce/licenses";
+    case "super-admin-commerce-preview":
+      return "/admin/commerce/preview";
+    case "super-admin-commerce-audit":
+      return "/admin/commerce/audit";
     case "super-admin-billing":
       return "/admin/revenue";
+    case "super-admin-policy-center":
+      return "/admin/policy-center";
+    case "super-admin-data-governance":
+      return "/admin/data-governance";
+    case "super-admin-jobs-queues":
+      return "/admin/jobs-queues";
+    case "super-admin-feature-flags":
+      return "/admin/feature-flags";
+    case "super-admin-support-console":
+      return "/admin/support-console";
+    case "super-admin-impersonation-center":
+      return "/admin/impersonation-center";
+    case "super-admin-browser-update":
+      return "/admin/system/browser";
     case "super-admin-audit":
       return "/admin/audit";
     case "super-admin-cookies":
@@ -59,7 +137,7 @@ function mapAdminSectionToPath(section: AppSection): string {
       return "/account";
     case "super-admin-overview":
     default:
-      return "/admin/command-center";
+      return "/admin/dashboard";
   }
 }
 
@@ -107,14 +185,32 @@ function PortalSidebarShell({
     [billingState?.subscription.planLabel, selectedWorkspaceId, workspaces],
   );
 
+  useEffect(() => {
+    if (mode !== "admin") {
+      return;
+    }
+
+    const workspaceId = searchParams.get("workspaceId");
+    if (!workspaceId) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("workspaceId");
+    const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(nextHref);
+  }, [mode, pathname, router, searchParams]);
+
   const handleSectionChange = (section: AppSection) => {
     const nextPath =
       mode === "admin"
         ? mapAdminSectionToPath(section)
         : mapAccountSectionToPath(section);
     const params = new URLSearchParams(searchParams.toString());
-    if (selectedWorkspaceId) {
+    if (mode !== "admin" && selectedWorkspaceId) {
       params.set("workspaceId", selectedWorkspaceId);
+    } else if (mode === "admin") {
+      params.delete("workspaceId");
     }
     const nextHref = params.toString()
       ? `${nextPath}?${params.toString()}`
@@ -130,6 +226,11 @@ function PortalSidebarShell({
 
   const handleWorkspaceChange = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
+
+    if (mode === "admin") {
+      return;
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     params.set("workspaceId", workspaceId);
     router.replace(`${pathname}?${params.toString()}`);

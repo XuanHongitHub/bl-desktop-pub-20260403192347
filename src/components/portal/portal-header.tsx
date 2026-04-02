@@ -28,6 +28,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useWebsiteShellVariant } from "@/components/website/website-shell-context";
 import { useWebPortalSession } from "@/hooks/use-web-portal-session";
 import { cn } from "@/lib/utils";
@@ -45,7 +52,7 @@ const PORTAL_ACCOUNT_TITLE_CLASS =
 const PORTAL_ACCOUNT_META_CLASS =
   "truncate text-[11px] leading-[1.25] font-medium text-muted-foreground";
 const PORTAL_ACCOUNT_ACTION_CLASS =
-  "rounded-md px-2.5 py-2 text-xs leading-[1.2] font-semibold [&_svg:not([class*='size-'])]:size-4";
+  "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs leading-[1.2] font-semibold [&_svg:not([class*='size-'])]:size-4";
 const NAV_LABEL_FALLBACK: Record<string, string> = {
   "portalSite.nav.home": "Home",
   "portalSite.nav.product": "Product",
@@ -91,6 +98,7 @@ export function PortalHeader() {
   const [mounted, setMounted] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -114,6 +122,16 @@ export function PortalHeader() {
     }
     setAvatarLoaded(false);
   }, [identityAvatar]);
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const userInitial =
     (identityName || identityLabel).trim().charAt(0).toUpperCase() || "B";
   const signedNavItems = [
@@ -121,7 +139,7 @@ export function PortalHeader() {
     { href: "/account", key: "portalSite.nav.account" },
     { href: "/pricing", key: "portalSite.nav.pricing" },
     ...(platformRole === "platform_admin"
-      ? [{ href: "/admin/command-center", key: "portalSite.nav.admin" }]
+      ? [{ href: "/admin/dashboard", key: "portalSite.nav.admin" }]
       : []),
   ] as const;
   const navItems =
@@ -159,8 +177,8 @@ export function PortalHeader() {
       )}
     >
       <div className={cn("h-16", headerWidthClass)}>
-        <div className="relative flex h-full items-stretch justify-between">
-          <div className="flex min-w-[120px] shrink-0 items-center lg:min-w-[160px]">
+        <div className="flex h-full items-center gap-3 lg:gap-5">
+          <div className="flex min-w-[120px] shrink-0 items-center">
             <Link
               href="/"
               aria-label={homeAriaLabel}
@@ -176,7 +194,7 @@ export function PortalHeader() {
 
           <nav
             aria-label="Main"
-            className="absolute inset-y-0 left-1/2 hidden -translate-x-1/2 items-stretch justify-center gap-1 md:flex"
+            className="hidden min-w-0 flex-1 items-stretch justify-center gap-0.5 lg:flex"
           >
             {navItems.map((item) => {
               const active = isActivePath(pathname, item.href);
@@ -185,7 +203,7 @@ export function PortalHeader() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "relative inline-flex h-full items-center px-4 text-[15px] font-medium leading-none tracking-[-0.015em] transition-colors duration-200",
+                    "relative inline-flex h-full items-center px-2.5 text-[14px] font-medium leading-none tracking-[-0.015em] transition-colors duration-200 xl:px-4 xl:text-[15px]",
                     active
                       ? "text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -202,15 +220,15 @@ export function PortalHeader() {
             })}
           </nav>
 
-          <div className="flex min-w-[120px] shrink-0 items-center justify-end lg:min-w-[160px]">
-            <div className="flex items-center gap-2 md:hidden">
+          <div className="ml-auto flex min-w-[120px] shrink-0 items-center justify-end lg:min-w-[180px]">
+            <div className="flex items-center gap-2 lg:hidden">
               {mounted ? (
                 <PortalHeaderControls showAccount={false} />
               ) : (
                 <div className="h-8 min-w-[92px]" />
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
                   <button
                     type="button"
                     aria-label={menuAriaLabel}
@@ -219,99 +237,122 @@ export function PortalHeader() {
                   >
                     <Menu className="h-4 w-4" />
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-[224px] max-w-[calc(100vw-20px)] border-border bg-popover text-popover-foreground"
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  className="w-[min(86vw,320px)] border-border bg-background p-0 text-foreground"
                 >
-                  {navItems.map((item) => (
-                    <DropdownMenuItem asChild key={item.href}>
-                      <Link href={item.href}>{renderNavLabel(item.key)}</Link>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  {canRenderSignedSession ? (
-                    <>
-                      <DropdownMenuLabel className="space-y-0.5 px-3 pt-2 pb-1.5">
-                        <p className={PORTAL_ACCOUNT_TITLE_CLASS}>
-                          {identityName}
-                        </p>
-                        <p className={PORTAL_ACCOUNT_META_CLASS}>
-                          {identityLabel}
-                        </p>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        asChild
-                        className={PORTAL_ACCOUNT_ACTION_CLASS}
-                      >
-                        <Link href={dashboardHref}>
-                          <LayoutDashboard className="h-4 w-4" />
-                          {renderNavLabel("portalSite.nav.dashboard")}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        className={PORTAL_ACCOUNT_ACTION_CLASS}
-                      >
-                        <Link href="/account/billing">
-                          <CreditCard className="h-4 w-4" />
-                          {renderNavLabel("portalSite.nav.billing")}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        className={PORTAL_ACCOUNT_ACTION_CLASS}
-                      >
-                        <Link href="/account/invoices">
-                          <ReceiptText className="h-4 w-4" />
-                          {t("portalSite.account.nav.invoices")}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        className={PORTAL_ACCOUNT_ACTION_CLASS}
-                      >
-                        <Link href="/account/settings">
-                          <Settings className="h-4 w-4" />
-                          {t("portalSite.account.nav.settings")}
-                        </Link>
-                      </DropdownMenuItem>
-                      {platformRole === "platform_admin" ? (
-                        <DropdownMenuItem
-                          asChild
-                          className={PORTAL_ACCOUNT_ACTION_CLASS}
-                        >
-                          <Link href="/admin/command-center">
-                            <Shield className="h-4 w-4" />
-                            {renderNavLabel("portalSite.nav.admin")}
+                  <div className="flex h-full flex-col">
+                    <div className="border-b border-border/70 px-4 py-3">
+                      <SheetTitle className="text-sm font-semibold">
+                        {menuAriaLabel}
+                      </SheetTitle>
+                    </div>
+
+                    <nav className="space-y-1 px-2 py-2">
+                      {navItems.map((item) => (
+                        <SheetClose asChild key={item.href}>
+                          <Link
+                            href={item.href}
+                            className="flex items-center rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
+                          >
+                            {renderNavLabel(item.key)}
                           </Link>
-                        </DropdownMenuItem>
-                      ) : null}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => void handleLogout()}
-                        className={PORTAL_ACCOUNT_ACTION_CLASS}
-                      >
-                        <LogOut className="h-4 w-4" />
-                        {renderNavLabel("portalSite.nav.signOut")}
-                      </DropdownMenuItem>
-                    </>
-                  ) : (
-                    <DropdownMenuItem
-                      asChild
-                      className={PORTAL_ACCOUNT_ACTION_CLASS}
-                    >
-                      <Link href="/signin">
-                        {renderNavLabel("portalSite.nav.signIn")}
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                        </SheetClose>
+                      ))}
+                    </nav>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto border-t border-border/70 px-2 py-2">
+                      {canRenderSignedSession ? (
+                        <>
+                          <div className="space-y-0.5 px-3 py-2">
+                            <p className={PORTAL_ACCOUNT_TITLE_CLASS}>
+                              {identityName}
+                            </p>
+                            <p className={PORTAL_ACCOUNT_META_CLASS}>
+                              {identityLabel}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <SheetClose asChild>
+                              <Link
+                                href={dashboardHref}
+                                className={PORTAL_ACCOUNT_ACTION_CLASS}
+                              >
+                                <LayoutDashboard className="h-4 w-4" />
+                                {renderNavLabel("portalSite.nav.dashboard")}
+                              </Link>
+                            </SheetClose>
+                            <SheetClose asChild>
+                              <Link
+                                href="/account/billing"
+                                className={PORTAL_ACCOUNT_ACTION_CLASS}
+                              >
+                                <CreditCard className="h-4 w-4" />
+                                {renderNavLabel("portalSite.nav.billing")}
+                              </Link>
+                            </SheetClose>
+                            <SheetClose asChild>
+                              <Link
+                                href="/account/invoices"
+                                className={PORTAL_ACCOUNT_ACTION_CLASS}
+                              >
+                                <ReceiptText className="h-4 w-4" />
+                                {t("portalSite.account.nav.invoices")}
+                              </Link>
+                            </SheetClose>
+                            <SheetClose asChild>
+                              <Link
+                                href="/account/settings"
+                                className={PORTAL_ACCOUNT_ACTION_CLASS}
+                              >
+                                <Settings className="h-4 w-4" />
+                                {t("portalSite.account.nav.settings")}
+                              </Link>
+                            </SheetClose>
+                            {platformRole === "platform_admin" ? (
+                              <SheetClose asChild>
+                                <Link
+                                  href="/admin/dashboard"
+                                  className={PORTAL_ACCOUNT_ACTION_CLASS}
+                                >
+                                  <Shield className="h-4 w-4" />
+                                  {renderNavLabel("portalSite.nav.admin")}
+                                </Link>
+                              </SheetClose>
+                            ) : null}
+                            <SheetClose asChild>
+                              <button
+                                type="button"
+                                onClick={() => void handleLogout()}
+                                className={cn(
+                                  PORTAL_ACCOUNT_ACTION_CLASS,
+                                  "text-left",
+                                )}
+                              >
+                                <LogOut className="h-4 w-4" />
+                                {renderNavLabel("portalSite.nav.signOut")}
+                              </button>
+                            </SheetClose>
+                          </div>
+                        </>
+                      ) : (
+                        <SheetClose asChild>
+                          <Link
+                            href="/signin"
+                            className="flex rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
+                          >
+                            {renderNavLabel("portalSite.nav.signIn")}
+                          </Link>
+                        </SheetClose>
+                      )}
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
 
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden items-center gap-2 lg:flex">
               {mounted ? (
                 <PortalHeaderControls showAccount={false} />
               ) : (
@@ -411,7 +452,7 @@ export function PortalHeader() {
                           asChild
                           className={PORTAL_ACCOUNT_ACTION_CLASS}
                         >
-                          <Link href="/admin/command-center">
+                          <Link href="/admin/dashboard">
                             <Shield className="h-4 w-4" />
                             {t("portalSite.nav.admin")}
                           </Link>

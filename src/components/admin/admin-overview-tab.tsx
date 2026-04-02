@@ -68,6 +68,20 @@ function formatAuditTimestamp(value: string): string {
   return formatLocaleDateTime(date);
 }
 
+function statusBadgeVariant(
+  status: ControlAdminWorkspaceHealthRow["subscriptionStatus"],
+) {
+  if (status === "past_due") return "destructive" as const;
+  if (status === "canceled") return "warning" as const;
+  return "success" as const;
+}
+
+function riskBadgeVariant(level: ControlAdminWorkspaceHealthRow["riskLevel"]) {
+  if (level === "high") return "destructive" as const;
+  if (level === "medium") return "warning" as const;
+  return "info" as const;
+}
+
 export function AdminOverviewTab({
   isPlatformAdmin,
   workspaceScopedOnly = false,
@@ -306,7 +320,8 @@ export function AdminOverviewTab({
                       {t("adminWorkspace.ui.planLabel")}
                     </p>
                     <p className="mt-1 text-[13px] font-semibold text-foreground">
-                      {selectedWorkspace?.planLabel ?? t("adminWorkspace.ui.noPlanLabel")}
+                      {selectedWorkspace?.planLabel ??
+                        t("adminWorkspace.ui.noPlanLabel")}
                     </p>
                   </div>
                   <div className="rounded-md border border-border/70 bg-background px-3 py-2">
@@ -349,7 +364,9 @@ export function AdminOverviewTab({
           <Card key={metric.key} className="border-border/70 shadow-none">
             <CardContent className="flex items-center justify-between p-4">
               <div>
-                <p className="text-[11px] text-muted-foreground">{metric.label}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {metric.label}
+                </p>
                 <p className="mt-1 text-[20px] font-semibold text-foreground">
                   {metric.value}
                 </p>
@@ -399,7 +416,7 @@ export function AdminOverviewTab({
                       {service.label}
                     </p>
                     <Badge
-                      variant={service.isReady ? "secondary" : "outline"}
+                      variant={service.isReady ? "success" : "warning"}
                       className="mt-2 h-5 px-2 text-[10px]"
                     >
                       {service.isReady
@@ -415,7 +432,9 @@ export function AdminOverviewTab({
               <p className="text-[11px] text-muted-foreground">
                 {t("adminWorkspace.overview.configStatus")}
               </p>
-              <p className="mt-1 text-[12px] text-foreground">{configSummary}</p>
+              <p className="mt-1 text-[12px] text-foreground">
+                {configSummary}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -436,7 +455,10 @@ export function AdminOverviewTab({
               <p className="text-[11px] text-muted-foreground">
                 {t("adminWorkspace.overview.entitlement")}
               </p>
-              <Badge variant="secondary" className="mt-2 h-6 px-2.5 text-[11px]">
+              <Badge
+                variant="secondary"
+                className="mt-2 h-6 px-2.5 text-[11px]"
+              >
                 {entitlementLabel}
               </Badge>
             </div>
@@ -470,9 +492,15 @@ export function AdminOverviewTab({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("adminWorkspace.analytics.columns.workspace")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.plan")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.risk")}</TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.workspace")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.plan")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.risk")}
+                  </TableHead>
                   <TableHead>{t("adminWorkspace.columns.action")}</TableHead>
                   <TableHead>{t("adminWorkspace.columns.reason")}</TableHead>
                 </TableRow>
@@ -485,15 +513,13 @@ export function AdminOverviewTab({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[12px]">{queueItem.row.planLabel}</span>
+                        <span className="text-[12px]">
+                          {queueItem.row.planLabel}
+                        </span>
                         <Badge
-                          variant={
-                            queueItem.row.subscriptionStatus === "past_due"
-                              ? "destructive"
-                              : queueItem.row.subscriptionStatus === "canceled"
-                                ? "secondary"
-                                : "outline"
-                          }
+                          variant={statusBadgeVariant(
+                            queueItem.row.subscriptionStatus,
+                          )}
                           className="text-[10px]"
                         >
                           {t(
@@ -504,16 +530,12 @@ export function AdminOverviewTab({
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          queueItem.row.riskLevel === "high"
-                            ? "destructive"
-                            : queueItem.row.riskLevel === "medium"
-                              ? "secondary"
-                              : "outline"
-                        }
+                        variant={riskBadgeVariant(queueItem.row.riskLevel)}
                         className="text-[10px]"
                       >
-                        {t(`adminWorkspace.analytics.risk.${queueItem.row.riskLevel}`)}
+                        {t(
+                          `adminWorkspace.analytics.risk.${queueItem.row.riskLevel}`,
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-[12px] font-medium">

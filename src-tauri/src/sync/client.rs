@@ -131,28 +131,28 @@ impl SyncClient {
     let mut objects = Vec::new();
 
     loop {
-    let response = self
-      .client
-      .post(self.url("list"))
-      .header("Authorization", format!("Bearer {}", self.token))
-      .json(&ListRequest {
-        prefix: prefix.to_string(),
-        max_keys: Some(1000),
+      let response = self
+        .client
+        .post(self.url("list"))
+        .header("Authorization", format!("Bearer {}", self.token))
+        .json(&ListRequest {
+          prefix: prefix.to_string(),
+          max_keys: Some(1000),
           continuation_token: continuation_token.clone(),
-      })
-      .send()
-      .await
-      .map_err(|e| SyncError::NetworkError(e.to_string()))?;
+        })
+        .send()
+        .await
+        .map_err(|e| SyncError::NetworkError(e.to_string()))?;
 
-    if response.status().is_client_error() {
-      let status = response.status();
-      let body = response.text().await.unwrap_or_default();
-      return Err(SyncError::AuthError(format!("({status}) {body}")));
-    }
+      if response.status().is_client_error() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(SyncError::AuthError(format!("({status}) {body}")));
+      }
 
       let mut page: ListResponse = response
-      .json()
-      .await
+        .json()
+        .await
         .map_err(|e| SyncError::SerializationError(e.to_string()))?;
 
       objects.append(&mut page.objects);

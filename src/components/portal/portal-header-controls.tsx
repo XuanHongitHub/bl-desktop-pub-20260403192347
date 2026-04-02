@@ -217,7 +217,7 @@ export function PortalHeaderControls({
                 </DropdownMenuItem>
                 {platformRole === "platform_admin" ? (
                   <DropdownMenuItem
-                    onSelect={() => router.push("/admin/command-center")}
+                    onSelect={() => router.push("/admin/dashboard")}
                     className={PORTAL_ACCOUNT_ACTION_CLASS}
                   >
                     <Shield className="text-muted-foreground" />

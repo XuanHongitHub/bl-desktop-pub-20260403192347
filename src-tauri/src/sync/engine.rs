@@ -1712,9 +1712,9 @@ impl SyncEngine {
     let mut profiles_to_check: HashMap<String, String> = HashMap::new();
     for obj in list_response.objects {
       if let Some(profile_id) = extract_profile_id_from_manifest_key(&obj.key, None) {
-          profiles_to_check.insert(profile_id.to_string(), String::new());
-        }
+        profiles_to_check.insert(profile_id.to_string(), String::new());
       }
+    }
 
     // Also list team profiles if user is on a team
     if let Some(auth) = crate::cloud_auth::CLOUD_AUTH.get_user().await {
@@ -1725,13 +1725,13 @@ impl SyncEngine {
           for obj in team_list.objects {
             if let Some(profile_id) =
               extract_profile_id_from_manifest_key(&obj.key, Some(&team_prefix))
-              {
-                profiles_to_check.insert(profile_id.to_string(), team_prefix.clone());
-              }
+            {
+              profiles_to_check.insert(profile_id.to_string(), team_prefix.clone());
             }
           }
         }
       }
+    }
 
     log::info!(
       "Found {} profiles in remote storage, checking for missing ones...",
@@ -2136,7 +2136,10 @@ pub async fn set_profile_sync_mode(
 
   // If switching to Encrypted, verify eligibility, password, and generate salt
   if new_mode == SyncMode::Encrypted {
-    if !crate::cloud_auth::CLOUD_AUTH.has_pro_or_owner_access().await {
+    if !crate::cloud_auth::CLOUD_AUTH
+      .has_pro_or_owner_access()
+      .await
+    {
       return Err("Profile encryption is available for Pro users and team owners.".to_string());
     }
     if !encryption::has_e2e_password() {

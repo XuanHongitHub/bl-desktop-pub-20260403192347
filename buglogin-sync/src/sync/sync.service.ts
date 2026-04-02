@@ -61,13 +61,20 @@ export class SyncService implements OnModuleInit {
   >();
 
   constructor(private configService: ConfigService) {
-    const endpoint =
-      this.configService.get<string>("S3_ENDPOINT") || "http://localhost:8987";
+    const allowLocalDefaults =
+      process.env.NODE_ENV !== "production" ||
+      process.env.BUGLOGIN_EMBEDDED_LOCAL_CONTROL === "1";
+    const endpoint = this.configService.get<string>("S3_ENDPOINT")?.trim();
     const region = this.configService.get<string>("S3_REGION") || "us-east-1";
-    const accessKeyId =
-      this.configService.get<string>("S3_ACCESS_KEY_ID") || "minioadmin";
-    const secretAccessKey =
-      this.configService.get<string>("S3_SECRET_ACCESS_KEY") || "minioadmin";
+    const accessKeyId = this.configService.get<string>("S3_ACCESS_KEY_ID")?.trim();
+    const secretAccessKey = this.configService
+      .get<string>("S3_SECRET_ACCESS_KEY")
+      ?.trim();
+    if (!allowLocalDefaults && (!endpoint || !accessKeyId || !secretAccessKey)) {
+      throw new Error(
+        "s3_configuration_required_in_production (S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)",
+      );
+    }
     const forcePathStyle =
       this.configService.get<string>("S3_FORCE_PATH_STYLE") !== "false";
 
@@ -85,11 +92,11 @@ export class SyncService implements OnModuleInit {
     ).trim();
 
     this.s3Client = new S3Client({
-      endpoint,
+      endpoint: endpoint || "http://localhost:8987",
       region,
       credentials: {
-        accessKeyId,
-        secretAccessKey,
+        accessKeyId: accessKeyId || "minioadmin",
+        secretAccessKey: secretAccessKey || "minioadmin",
       },
       forcePathStyle,
     });

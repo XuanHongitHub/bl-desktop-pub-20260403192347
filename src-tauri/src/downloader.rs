@@ -18,6 +18,10 @@ lazy_static::lazy_static! {
     std::sync::Arc::new(Mutex::new(std::collections::HashMap::new()));
 }
 
+fn normalize_managed_browser_slug(browser: &str) -> &str {
+  crate::browser::canonical_managed_browser_slug(browser)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DownloadProgress {
   pub browser: String,
@@ -39,6 +43,26 @@ pub struct Downloader {
   geoip_downloader: &'static crate::geoip_downloader::GeoIPDownloader,
 }
 
+#[cfg(target_os = "windows")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IconPatchOutcome {
+  Patched,
+  Skipped,
+}
+
+#[cfg(target_os = "windows")]
+fn should_patch_base_browser_icons_windows() -> bool {
+  // Default is OFF: we now rely on per-profile launcher icons instead of
+  // overwriting base browser executables with a shared BugLogin icon.
+  std::env::var("BUGLOGIN_PATCH_BASE_BROWSER_ICONS")
+    .ok()
+    .map(|value| {
+      let lowered = value.trim().to_ascii_lowercase();
+      matches!(lowered.as_str(), "1" | "true" | "yes" | "on")
+    })
+    .unwrap_or(false)
+}
+
 impl Downloader {
   #[cfg(target_os = "windows")]
   async fn ensure_windows_icon_patcher(&self) -> Result<std::path::PathBuf, String> {
@@ -58,8 +82,7 @@ impl Downloader {
       return Ok(rcedit_path);
     }
 
-    let download_url =
-      "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe";
+    let download_url = "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe";
     let response = self
       .client
       .get(download_url)
@@ -82,13 +105,65 @@ impl Downloader {
   }
 
   #[cfg(target_os = "windows")]
+  pub async fn patch_executable_icon_windows_with_icon(
+    &self,
+    executable_path: &Path,
+    icon_file_path: &Path,
+  ) -> Result<(), String> {
+    if !executable_path.exists() {
+      return Err(format!(
+        "Executable path does not exist for icon patching: {}",
+        executable_path.display()
+      ));
+    }
+
+    if !icon_file_path.exists() {
+      return Err(format!(
+        "Icon path does not exist for icon patching: {}",
+        icon_file_path.display()
+      ));
+    }
+
+    let rcedit_path = self.ensure_windows_icon_patcher().await?;
+    let output = std::process::Command::new(&rcedit_path)
+      .arg(executable_path)
+      .arg("--set-icon")
+      .arg(icon_file_path)
+      .output()
+      .map_err(|e| format!("Failed to execute rcedit: {e}"))?;
+
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      let stdout = String::from_utf8_lossy(&output.stdout);
+      return Err(format!(
+        "rcedit failed for {} | stdout: {} | stderr: {}",
+        executable_path.display(),
+        stdout.trim(),
+        stderr.trim()
+      ));
+    }
+
+    Ok(())
+  }
+
+  #[cfg(target_os = "windows")]
   async fn patch_downloaded_browser_icon_windows(
     &self,
     browser: &dyn crate::browser::Browser,
     browser_dir: &Path,
     browser_str: &str,
     version: &str,
-  ) -> Result<(), String> {
+  ) -> Result<IconPatchOutcome, String> {
+    if !should_patch_base_browser_icons_windows() {
+      log::debug!(
+        "Skipping base executable icon patch for {} {} (BUGLOGIN_PATCH_BASE_BROWSER_ICONS is disabled)",
+        browser_str,
+        version
+      );
+      return Ok(IconPatchOutcome::Skipped);
+    }
+
+    const ICON_PATCH_MARKER: &str = ".buglogin-icon-patched.v1";
     let executable_path = browser
       .get_executable_path(browser_dir)
       .map_err(|e| format!("Could not resolve browser executable for icon patching: {e}"))?;
@@ -99,6 +174,11 @@ impl Downloader {
       ));
     }
 
+    let marker_path = browser_dir.join(ICON_PATCH_MARKER);
+    if marker_path.exists() {
+      return Ok(IconPatchOutcome::Skipped);
+    }
+
     let icon_file_path = browser_dir.join("_buglogin-browser-icon.ico");
     if !icon_file_path.exists() {
       let icon_bytes = include_bytes!("../icons/icon.ico");
@@ -106,26 +186,24 @@ impl Downloader {
         .map_err(|e| format!("Failed to write icon file for patching: {e}"))?;
     }
 
-    let rcedit_path = self.ensure_windows_icon_patcher().await?;
-    let output = std::process::Command::new(&rcedit_path)
-      .arg(&executable_path)
-      .arg("--set-icon")
-      .arg(&icon_file_path)
-      .output()
-      .map_err(|e| format!("Failed to execute rcedit: {e}"))?;
+    self
+      .patch_executable_icon_windows_with_icon(&executable_path, &icon_file_path)
+      .await
+      .map_err(|error| {
+        format!(
+          "{} {} icon patch failed for {}: {}",
+          browser_str,
+          version,
+          executable_path.display(),
+          error
+        )
+      })?;
 
-    if !output.status.success() {
-      let stderr = String::from_utf8_lossy(&output.stderr);
-      let stdout = String::from_utf8_lossy(&output.stdout);
-      return Err(format!(
-        "rcedit failed for {} {} at {} | stdout: {} | stderr: {}",
-        browser_str,
-        version,
-        executable_path.display(),
-        stdout.trim(),
-        stderr.trim()
-      ));
-    }
+    std::fs::write(
+      &marker_path,
+      format!("patched_at={}\n", chrono::Utc::now().to_rfc3339()),
+    )
+    .map_err(|e| format!("Failed to write icon patch marker: {e}"))?;
 
     log::info!(
       "Patched browser executable icon for {} {}: {}",
@@ -133,7 +211,7 @@ impl Downloader {
       version,
       executable_path.display()
     );
-    Ok(())
+    Ok(IconPatchOutcome::Patched)
   }
 
   fn new() -> Self {
@@ -251,17 +329,27 @@ impl Downloader {
           .fetch_camoufox_releases_with_caching(true)
           .await?;
 
-        let release = releases
-          .iter()
-          .find(|r| r.tag_name == version)
-          .or_else(|| {
-            log::info!("Camoufox: requested version {version} not found, using latest available");
-            releases.first()
-          })
-          .ok_or("No Camoufox releases found".to_string())?;
-
         // Get platform and architecture info
         let (os, arch) = Self::get_platform_info();
+
+        let release = releases
+          .iter()
+          .find(|r| {
+            r.tag_name == version
+              && Self::has_camoufox_asset_for_platform(&r.assets, &os, &arch)
+          })
+          .or_else(|| {
+            let compatible = releases
+              .iter()
+              .find(|r| Self::has_camoufox_asset_for_platform(&r.assets, &os, &arch));
+            if compatible.is_some() {
+              log::info!(
+                "Camoufox: requested version {version} is not compatible for {os}/{arch}, using latest compatible release"
+              );
+            }
+            compatible
+          })
+          .ok_or("No Camoufox releases found".to_string())?;
 
         // Find the appropriate asset
         let asset_url = self
@@ -486,6 +574,27 @@ impl Downloader {
     }
   }
 
+  fn has_camoufox_asset_for_platform(
+    assets: &[crate::browser::GithubAsset],
+    os: &str,
+    arch: &str,
+  ) -> bool {
+    let (os_name, arch_name) = match (os, arch) {
+      ("windows", "x64") => ("win", "x86_64"),
+      ("windows", "arm64") => ("win", "arm64"),
+      ("linux", "x64") => ("lin", "x86_64"),
+      ("linux", "arm64") => ("lin", "arm64"),
+      ("macos", "x64") => ("mac", "x86_64"),
+      ("macos", "arm64") => ("mac", "arm64"),
+      _ => return false,
+    };
+    let pattern = format!("-{os_name}.{arch_name}.zip");
+    assets.iter().any(|asset| {
+      let name = asset.name.to_lowercase();
+      name.starts_with("camoufox-") && name.ends_with(&pattern)
+    })
+  }
+
   /// Ensure version.json exists in the Camoufox installation directory.
   /// Creates the file if it doesn't exist, using the version from the tag name.
   async fn ensure_camoufox_version_json(
@@ -497,6 +606,7 @@ impl Downloader {
     // Find the executable directory within it
     let version_json_locations = vec![
       browser_dir.join("version.json"),
+      browser_dir.join("bugox").join("version.json"),
       browser_dir.join("camoufox").join("version.json"),
     ];
 
@@ -782,6 +892,8 @@ impl Downloader {
     browser_str: String,
     version: String,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let browser_str = normalize_managed_browser_slug(&browser_str).to_string();
+
     // Only check Wayfern terms if Wayfern is already downloaded
     let terms_manager = crate::wayfern_terms::WayfernTermsManager::instance();
     if terms_manager.is_wayfern_downloaded() && !terms_manager.is_terms_accepted() {
@@ -805,17 +917,31 @@ impl Downloader {
         _ => version,
       }
     } else if browser_str == "camoufox" {
+      let (os, arch) = Self::get_platform_info();
       match self
         .api_client
         .fetch_camoufox_releases_with_caching(true)
         .await
       {
-        Ok(releases) if !releases.is_empty() && releases[0].tag_name != version => {
-          log::info!(
-            "Camoufox: requested {version}, using available {}",
-            releases[0].tag_name
-          );
-          releases[0].tag_name.clone()
+        Ok(releases)
+          if !releases.is_empty()
+            && !releases.iter().any(|release| {
+              release.tag_name == version
+                && Self::has_camoufox_asset_for_platform(&release.assets, &os, &arch)
+            }) =>
+        {
+          if let Some(compatible_release) = releases
+            .iter()
+            .find(|release| Self::has_camoufox_asset_for_platform(&release.assets, &os, &arch))
+          {
+            log::info!(
+              "Camoufox: requested {version}, using latest compatible {} for {os}/{arch}",
+              compatible_release.tag_name
+            );
+            compatible_release.tag_name.clone()
+          } else {
+            version
+          }
         }
         _ => version,
       }
@@ -825,12 +951,31 @@ impl Downloader {
 
     // Check if this browser-version pair is already being downloaded
     let download_key = format!("{browser_str}-{version}");
+    let already_downloading = {
+      let downloading = DOWNLOADING_BROWSERS.lock().unwrap();
+      downloading.contains(&download_key)
+    };
+    if already_downloading {
+      // Another flow is already downloading the same browser/version.
+      // Wait briefly for it to complete instead of returning a hard error.
+      let wait_deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+      while std::time::Instant::now() < wait_deadline {
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+        let still_downloading = {
+          let downloading = DOWNLOADING_BROWSERS.lock().unwrap();
+          downloading.contains(&download_key)
+        };
+        if !still_downloading {
+          break;
+        }
+      }
+
+      // Treat as success path; caller will re-check binary existence/version state.
+      return Ok(version);
+    }
+
     let cancel_token = {
       let mut downloading = DOWNLOADING_BROWSERS.lock().unwrap();
-      if downloading.contains(&download_key) {
-        return Err(format!("Browser '{browser_str}' version '{version}' is already being downloaded. Please wait for the current download to complete.").into());
-      }
-      // Mark this browser-version pair as being downloaded
       downloading.insert(download_key.clone());
 
       let token = CancellationToken::new();
@@ -1039,7 +1184,11 @@ impl Downloader {
 
       // For Camoufox on Linux, provide specific expected files
       if browser_str == "camoufox" && cfg!(target_os = "linux") {
-        let camoufox_subdir = browser_dir.join("camoufox");
+        let camoufox_subdir = if browser_dir.join("camoufox").exists() {
+          browser_dir.join("camoufox")
+        } else {
+          browser_dir.join("bugox")
+        };
         error_details.push_str("\nExpected Camoufox executable locations:");
         error_details.push_str(&format!("\n  {}/camoufox-bin", camoufox_subdir.display()));
         error_details.push_str(&format!("\n  {}/camoufox", camoufox_subdir.display()));
@@ -1241,6 +1390,7 @@ pub async fn download_browser(
 
 #[tauri::command]
 pub async fn cancel_download(browser_str: String, version: String) -> Result<(), String> {
+  let browser_str = normalize_managed_browser_slug(&browser_str).to_string();
   let download_key = format!("{browser_str}-{version}");
   let token = {
     let tokens = DOWNLOAD_CANCELLATION_TOKENS.lock().unwrap();
@@ -1262,7 +1412,7 @@ pub async fn patch_installed_browser_icon_windows(
   browser_str: &str,
   version: &str,
   browser_dir: &Path,
-) -> Result<(), String> {
+) -> Result<IconPatchOutcome, String> {
   let browser_type = BrowserType::from_str(browser_str)
     .map_err(|e| format!("Invalid browser type for icon patching: {e}"))?;
   let browser = create_browser(browser_type);
@@ -1272,7 +1422,8 @@ pub async fn patch_installed_browser_icon_windows(
 }
 
 #[cfg(target_os = "windows")]
-pub async fn patch_all_installed_browser_icons_windows_once() -> Result<(usize, usize), String> {
+pub async fn patch_all_installed_browser_icons_windows_once(
+) -> Result<(usize, usize, usize), String> {
   let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
   let binaries_dir = crate::app_dirs::binaries_dir();
 
@@ -1282,10 +1433,15 @@ pub async fn patch_all_installed_browser_icons_windows_once() -> Result<(usize, 
 
   let targets = registry.list_registered_browser_versions();
   if targets.is_empty() {
-    return Ok((0, 0));
+    return Ok((0, 0, 0));
+  }
+
+  if !should_patch_base_browser_icons_windows() {
+    return Ok((0, targets.len(), 0));
   }
 
   let mut patched = 0usize;
+  let mut skipped = 0usize;
   let mut failed = 0usize;
 
   for (browser, version) in targets {
@@ -1295,7 +1451,8 @@ pub async fn patch_all_installed_browser_icons_windows_once() -> Result<(usize, 
 
     let browser_dir = binaries_dir.join(&browser).join(&version);
     match patch_installed_browser_icon_windows(&browser, &version, &browser_dir).await {
-      Ok(_) => patched += 1,
+      Ok(IconPatchOutcome::Patched) => patched += 1,
+      Ok(IconPatchOutcome::Skipped) => skipped += 1,
       Err(e) => {
         failed += 1;
         log::warn!(
@@ -1308,7 +1465,7 @@ pub async fn patch_all_installed_browser_icons_windows_once() -> Result<(usize, 
     }
   }
 
-  Ok((patched, failed))
+  Ok((patched, skipped, failed))
 }
 
 /// Find all candidate `distribution/` directories inside the Camoufox browser dir.
@@ -1339,6 +1496,7 @@ fn find_camoufox_distribution_dirs(browser_dir: &Path) -> Vec<std::path::PathBuf
 
   #[cfg(target_os = "linux")]
   {
+    dirs.push(browser_dir.join("bugox").join("distribution"));
     dirs.push(browser_dir.join("camoufox").join("distribution"));
   }
 
@@ -1514,6 +1672,7 @@ mod tests {
       base_url.clone(), // firefox_dev_api_base
       base_url.clone(), // github_api_base
       base_url.clone(), // chromium_api_base
+      base_url.clone(), // buglogin_browser_api_base
     )
   }
 

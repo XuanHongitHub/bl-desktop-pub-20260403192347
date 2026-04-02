@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -90,6 +91,26 @@ export class ControlController {
     return this.controlService.getWorkspaceBillingState(
       workspaceId,
       this.actorFromHeaders(headers),
+    );
+  }
+
+  @Patch("workspaces/:workspaceId/billing/subscription/admin-override")
+  overrideWorkspaceSubscriptionAsAdmin(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Body()
+    body: {
+      planId: "starter" | "growth" | "scale" | "custom";
+      billingCycle: "monthly" | "yearly";
+      profileLimit?: number;
+      expiresAt?: string | null;
+      planLabel?: string | null;
+    },
+  ) {
+    return this.controlService.overrideWorkspaceSubscriptionAsAdmin(
+      this.actorFromHeaders(headers),
+      workspaceId,
+      body,
     );
   }
 
@@ -376,10 +397,12 @@ export class ControlController {
   getWorkspaceTiktokAutomationAccounts(
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
+    @Query("flowType") flowType?: "signup" | "signup_seller" | "update_cookie",
   ) {
     return this.controlService.getWorkspaceTiktokAutomationAccounts(
       workspaceId,
       this.actorFromHeaders(headers),
+      flowType,
     );
   }
 
@@ -400,6 +423,7 @@ export class ControlController {
         source?: "excel_import" | "manual" | "bugidea_pull";
       }>;
       force?: boolean;
+      flowType?: "signup" | "signup_seller" | "update_cookie";
     },
   ) {
     return this.controlService.importWorkspaceTiktokAutomationAccounts(
@@ -408,7 +432,26 @@ export class ControlController {
       {
         rows: Array.isArray(body.rows) ? body.rows : [],
         force: Boolean(body.force),
+        flowType:
+          body.flowType === "signup_seller"
+            ? "signup_seller"
+            : body.flowType === "update_cookie"
+              ? "update_cookie"
+              : "signup",
       },
+    );
+  }
+
+  @Delete("workspaces/:workspaceId/admin/tiktok-automation/accounts/:accountId")
+  deleteWorkspaceTiktokAutomationAccount(
+    @Headers() headers: ActorHeaders,
+    @Param("workspaceId") workspaceId: string,
+    @Param("accountId") accountId: string,
+  ) {
+    return this.controlService.deleteWorkspaceTiktokAutomationAccount(
+      workspaceId,
+      accountId,
+      this.actorFromHeaders(headers),
     );
   }
 
@@ -416,10 +459,12 @@ export class ControlController {
   getWorkspaceTiktokAutomationRuns(
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
+    @Query("flowType") flowType?: "signup" | "signup_seller" | "update_cookie",
   ) {
     return this.controlService.getWorkspaceTiktokAutomationRuns(
       workspaceId,
       this.actorFromHeaders(headers),
+      flowType,
     );
   }
 
@@ -442,7 +487,7 @@ export class ControlController {
     @Param("workspaceId") workspaceId: string,
     @Body()
     body: {
-      flowType?: "signup" | "update_cookie";
+      flowType?: "signup" | "signup_seller" | "update_cookie";
       mode?: "auto" | "semi";
       accountIds?: string[];
     },
@@ -451,7 +496,12 @@ export class ControlController {
       workspaceId,
       this.actorFromHeaders(headers),
       {
-        flowType: body.flowType === "update_cookie" ? "update_cookie" : "signup",
+        flowType:
+          body.flowType === "signup_seller"
+            ? "signup_seller"
+            : body.flowType === "update_cookie"
+              ? "update_cookie"
+              : "signup",
         mode: body.mode === "auto" ? "auto" : "semi",
         accountIds: Array.isArray(body.accountIds) ? body.accountIds : [],
       },
@@ -570,6 +620,26 @@ export class ControlController {
   getAdminOverview(@Headers() headers: ActorHeaders) {
     return this.controlService.getPlatformAdminOverview(
       this.actorFromHeaders(headers),
+    );
+  }
+
+  @Post("admin/users")
+  createAdminUser(
+    @Headers() headers: ActorHeaders,
+    @Body()
+    body: {
+      email?: string;
+      password?: string;
+      platformRole?: "platform_admin" | null;
+    },
+  ) {
+    return this.controlService.createAuthUserAsAdmin(
+      this.actorFromHeaders(headers),
+      {
+        email: body.email ?? "",
+        password: body.password ?? "",
+        platformRole: body.platformRole ?? null,
+      },
     );
   }
 

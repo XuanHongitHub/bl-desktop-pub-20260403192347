@@ -55,8 +55,8 @@ export const ACCOUNT_SETTINGS_NAV: PortalSettingsNavItem[] = [
 
 export const ADMIN_SETTINGS_NAV: PortalSettingsNavItem[] = [
   {
-    href: "/admin/command-center",
-    labelKey: "portalSite.admin.nav.commandCenter",
+    href: "/admin/dashboard",
+    labelKey: "portalSite.admin.nav.dashboard",
     icon: Gauge,
   },
   {
@@ -83,8 +83,8 @@ export const ADMIN_SETTINGS_NAV: PortalSettingsNavItem[] = [
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/account") return pathname === "/account";
-  if (href === "/admin/command-center")
-    return pathname === "/admin" || pathname === "/admin/command-center";
+  if (href === "/admin/dashboard")
+    return pathname === "/admin" || pathname === "/admin/dashboard" || pathname === "/admin/command-center";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

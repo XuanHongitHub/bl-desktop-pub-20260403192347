@@ -283,8 +283,42 @@
       "title": "Nâng cao",
       "clearCache": "Xóa cache version",
       "clearCacheDescription": "Xóa toàn bộ dữ liệu cache version của trình duyệt và tải lại thông tin version mới từ nguồn.",
+      "disableRtcForAllBrowsersTitle": "Tắt RTC Cho Tất Cả Trình Duyệt",
+      "disableRtcForAllBrowsersDescription": "Khi bật, WebRTC sẽ bị vô hiệu hóa toàn cục cho toàn bộ profile trình duyệt. Mặc định đang bật để đảm bảo an toàn riêng tư.",
+      "disableRtcForAllBrowsersAdminOnly": "Chỉ platform admin mới có thể thay đổi thiết lập này.",
+      "automationOutputTitle": "Automation Output Connector",
+      "automationOutputDescription": "Sink dùng chung cho kết quả automation (chỉ admin). Đặt thư mục output ở đường dẫn Drive sync và giữ sẵn đường dẫn key OAuth cho tài khoản dùng chung.",
+      "automationOutputAdminOnly": "Chỉ platform admin mới có thể thay đổi thiết lập output automation.",
+      "automationOutputDirLabel": "Thư mục output",
+      "automationOutputDirPlaceholder": "ví dụ: F:\\DriveSync\\BugLogin\\outputs",
+      "automationDriveFolderIdLabel": "Drive folder ID",
+      "automationDriveFolderIdPlaceholder": "ID thư mục Google Drive",
+      "automationDriveOauthClientLabel": "Đường dẫn OAuth client JSON",
+      "automationDriveOauthClientPlaceholder": "Đường dẫn tuyệt đối tới oauth-web-client.json",
+      "automationDriveOauthRefreshLabel": "Đường dẫn OAuth refresh JSON",
+      "automationDriveOauthRefreshPlaceholder": "Đường dẫn tuyệt đối tới oauth-user.json",
       "clearCacheFailed": "Không thể xóa cache",
-      "unknownError": "Đã xảy ra lỗi không xác định"
+      "unknownError": "Đã xảy ra lỗi không xác định",
+      "browserRuntimeTitle": "Kiểm tra Runtime Browser",
+      "browserRuntimeDescription": "Kiểm tra profile đang dùng executable/path nào và command line process có khớp profile data directory hay không.",
+      "browserRuntimeCheckAction": "Check Browser Runtime",
+      "browserRuntimeChecked": "Đã kiểm tra runtime browser",
+      "browserRuntimeCheckedCount": "Đã kiểm tra {{count}} profile",
+      "browserRuntimeCheckFailed": "Không thể kiểm tra runtime browser",
+      "browserRuntimeLastChecked": "Lần kiểm tra gần nhất: {{time}}",
+      "browserRuntimeEmpty": "Chưa có dữ liệu kiểm tra. Bấm \"Check Browser Runtime\".",
+      "browserRuntimeRunning": "Đang chạy",
+      "browserRuntimeStopped": "Đã dừng",
+      "browserRuntimeResolvedExists": "Executable đã resolve tồn tại",
+      "browserRuntimeResolvedMissing": "Executable đã resolve không tồn tại",
+      "browserRuntimeColumns": {
+        "profile": "Profile",
+        "browser": "Browser",
+        "state": "Trạng thái",
+        "process": "Process",
+        "executable": "Executable",
+        "paths": "Đường dẫn Profile"
+      }
     }
   },
   "vpnForm": {
@@ -417,7 +451,7 @@
     "mcp": {
       "enableTitle": "Bật MCP Server (Model Context Protocol)",
       "enableDescription": "Cho phép trợ lý AI như Claude Desktop điều khiển trình duyệt.",
-      "acceptTermsHint": "(Hãy chấp nhận điều khoản Wayfern trong Settings trước)",
+      "acceptTermsHint": "(Hãy chấp nhận điều khoản Bugium trong Settings trước)",
       "claudeConfigTitle": "Cấu hình Claude Desktop",
       "claudeConfigDescription": "Sao chép cấu hình này vào file config Claude Desktop tại",
       "availableTools": "Công cụ khả dụng",
@@ -595,20 +629,32 @@
       "groupName": "Tên nhóm"
     },
     "create": {
-      "title": "Tạo nhóm mới"
+      "title": "Tạo nhóm mới",
+      "description": "Tạo nhóm mới để tổ chức các profile trình duyệt của bạn."
     },
     "edit": {
-      "title": "Chỉnh sửa nhóm"
+      "title": "Chỉnh sửa nhóm",
+      "description": "Cập nhật tên của nhóm \"{{name}}\"."
     },
     "delete": {
       "title": "Xóa nhóm",
-      "profilesPrompt": "Bạn muốn xử lý các profile này như thế nào?"
+      "profilesPrompt": "Bạn muốn xử lý các profile này như thế nào?",
+      "description": "Hành động này không thể hoàn tác. Nhóm \"{{name}}\" sẽ bị xóa vĩnh viễn.",
+      "associatedProfiles": "Profile liên kết ({{count}})",
+      "moveToDefault": "Chuyển profile về trạng thái không nhóm",
+      "deleteWithProfiles": "Xóa luôn profile cùng nhóm",
+      "noAssociatedProfiles": "Nhóm này không có profile liên kết.",
+      "andProfilesSuffix": "& Profile"
     },
     "toasts": {
       "created": "Đã tạo nhóm thành công",
       "updated": "Đã cập nhật nhóm thành công",
       "deleted": "Đã xóa nhóm thành công"
-    }
+    },
+    "placeholders": {
+      "groupName": "Nhập tên nhóm..."
+    },
+    "loadingProfiles": "Đang tải profile liên kết..."
   },
   "releaseTypeSelector": {
     "empty": "Không có bản phát hành khả dụng."
@@ -644,7 +690,7 @@
     }
   },
   "wayfernTerms": {
-    "title": "Điều khoản và điều kiện Wayfern",
+    "title": "Điều khoản và điều kiện Bugium",
     "toasts": {
       "accepted": "Đã chấp nhận điều khoản thành công",
       "acceptFailed": "Không thể chấp nhận điều khoản"
@@ -655,7 +701,16 @@
     "labels": {
       "selectedProfiles": "Profile đã chọn:",
       "assignToGroup": "Gán vào nhóm:",
-      "defaultNoGroup": "Mặc định (không nhóm)"
+      "defaultNoGroup": "Không nhóm",
+      "selectGroup": "Chọn nhóm"
+    },
+    "description": "Gán {{count}} profile đã chọn vào một nhóm.",
+    "loadingGroups": "Đang tải danh sách nhóm...",
+    "actions": {
+      "createGroup": "Tạo nhóm"
+    },
+    "toasts": {
+      "assigned": "Đã gán {{count}} profile vào nhóm {{group}}"
     }
   },
   "proxyAssignmentDialog": {
@@ -669,9 +724,139 @@
   },
   "groupManagementDialog": {
     "title": "Quản lý nhóm profile",
+    "description": "Tạo, chỉnh sửa và xóa nhóm profile. Profile chưa gán nhóm sẽ nằm trong nhóm \"Mặc định\".",
     "groupsLabel": "Nhóm",
+    "totalGroups": "{{count}} nhóm",
+    "searchPlaceholder": "Tìm nhóm...",
+    "syncFilterLabel": "Lọc sync",
+    "syncFilterAll": "Tất cả trạng thái sync",
+    "syncFilterEnabled": "Đã bật sync",
+    "syncFilterDisabled": "Đã tắt sync",
+    "loading": "Đang tải danh sách nhóm...",
+    "noGroups": "Chưa có nhóm nào. Hãy tạo nhóm đầu tiên bằng nút phía trên.",
+    "noResults": "Không có nhóm nào khớp với bộ lọc hiện tại.",
+    "paginationSummary": "Hiển thị {{from}}-{{to}} trên tổng {{total}} nhóm",
     "columns": {
-      "profiles": "Profiles"
+      "profiles": "Profile",
+      "syncHealth": "Tình trạng sync"
+    },
+    "metrics": {
+      "drift": "Độ lệch sync",
+      "ruleMatch": "Khớp rule",
+      "blocked": "Bị chặn"
+    },
+    "sidebar": {
+      "rename": "Đổi tên",
+      "share": "Chia sẻ",
+      "color": "Nhãn màu",
+      "memberAccess": "Quyền thành viên",
+      "delete": "Xóa"
+    },
+    "tooltips": {
+      "defaultSyncBlocked": "Nhóm mặc định không thể chỉnh sửa hoặc bật đồng bộ",
+      "syncDisableBlockedGroup": "Không thể tắt đồng bộ khi nhóm này đang được profile đã sync sử dụng",
+      "disableSync": "Tắt sync",
+      "enableSync": "Bật sync",
+      "defaultRenameBlocked": "Nhóm mặc định không thể đổi tên",
+      "editGroup": "Sửa nhóm",
+      "defaultDeleteBlocked": "Nhóm mặc định không thể xóa",
+      "deleteGroup": "Xóa nhóm"
+    },
+    "toast": {
+      "syncDisabled": "Đã tắt sync",
+      "syncEnabled": "Đã bật sync",
+      "syncUpdateFailed": "Không thể cập nhật sync",
+      "noRowsSelected": "Chưa chọn nhóm nào",
+      "noEligibleRows": "Không có nhóm hợp lệ cho thao tác này",
+      "bulkSyncEnabled": "Đã bật sync cho {{count}} nhóm",
+      "bulkSyncDisabled": "Đã tắt sync cho {{count}} nhóm",
+      "bulkSyncPartial": "{{count}} nhóm cập nhật thất bại",
+      "noMembersSelected": "Chưa chọn profile nào trong nhóm",
+      "noCandidatesSelected": "Chưa chọn profile để thêm",
+      "selectTargetGroup": "Vui lòng chọn nhóm đích",
+      "membersMovedToDefault": "Đã chuyển {{count}} profile về trạng thái không nhóm",
+      "membersMovedToGroup": "Đã chuyển {{count}} profile sang {{group}}",
+      "candidatesAdded": "Đã thêm {{count}} profile vào {{group}}",
+      "memberActionFailed": "Thao tác thành viên thất bại"
+    },
+    "workspaceDescription": "Điều phối group theo mô hình workspace: lọc, bulk action, và vận hành thành viên.",
+    "sortLabel": "Sắp xếp",
+    "sort": {
+      "nameAsc": "Tên (A-Z)",
+      "nameDesc": "Tên (Z-A)",
+      "profilesDesc": "Nhiều profile trước",
+      "profilesAsc": "Ít profile trước"
+    },
+    "bulkBar": {
+      "selected": "Đã chọn {{count}} nhóm",
+      "enableSync": "Bật sync",
+      "disableSync": "Tắt sync",
+      "clearSelection": "Bỏ chọn",
+      "selectPage": "Chọn toàn bộ trang"
+    },
+    "detail": {
+      "title": "Chi tiết nhóm"
+    },
+    "tabs": {
+      "members": "Thành viên",
+      "policies": "Chính sách",
+      "sync": "Sync",
+      "activity": "Hoạt động"
+    },
+    "members": {
+      "searchPlaceholder": "Tìm profile trong nhóm...",
+      "searchOutsidePlaceholder": "Tìm profile ngoài nhóm...",
+      "noGroupSelected": "Chọn một nhóm để xem chi tiết.",
+      "currentMembers": "Profile thuộc nhóm này",
+      "availableProfiles": "Profile ngoài nhóm này",
+      "emptyInGroup": "Nhóm chưa có profile.",
+      "emptyCandidates": "Không có profile khả dụng để thêm.",
+      "moveToDefault": "Bỏ khỏi nhóm",
+      "moveToGroup": "Chuyển nhóm",
+      "addToGroup": "Thêm profile đã chọn",
+      "targetGroupPlaceholder": "Chọn nhóm đích",
+      "statusAll": "Tất cả trạng thái"
+    },
+    "settings": {
+      "title": "Cấu hình nhóm",
+      "color": "Nhãn màu",
+      "share": "Chia sẻ",
+      "memberAccess": "Ai được xem thành viên",
+      "sharePrivate": "Riêng tư",
+      "shareTeam": "Trong team",
+      "sharePublic": "Công khai",
+      "accessOwnerAdmin": "Owner + Admin",
+      "accessAllMembers": "Tất cả thành viên"
+    },
+    "policies": {
+      "syncPolicy": "Chính sách đồng bộ",
+      "syncEnabled": "Đang bật đồng bộ",
+      "syncDisabled": "Đang tắt đồng bộ",
+      "protectedState": "Trạng thái bảo vệ",
+      "defaultProtected": "Nhóm mặc định (được bảo vệ)",
+      "customManaged": "Nhóm tùy chỉnh",
+      "memberCount": "Số profile",
+      "description": "Chính sách nhóm kế thừa từ trạng thái sync và quy tắc bảo vệ nhóm mặc định."
+    },
+    "syncHealth": {
+      "currentStatus": "Trạng thái hiện tại",
+      "lastSync": "Lần sync gần nhất",
+      "never": "Chưa từng sync",
+      "inUseBySynced": "Đang dùng bởi profile đã sync",
+      "inUse": "Đang sử dụng",
+      "notInUse": "Không sử dụng"
+    },
+    "activity": {
+      "empty": "Chưa có hoạt động nào cho nhóm này.",
+      "lastSuccessfulSync": "Sync thành công gần nhất",
+      "groupCreated": "Đã tạo nhóm {{name}}",
+      "groupUpdated": "Đã cập nhật nhóm {{name}}",
+      "groupDeleted": "Đã xóa nhóm {{name}}",
+      "syncEnabled": "Đã bật sync cho {{name}}",
+      "syncDisabled": "Đã tắt sync cho {{name}}",
+      "membersMovedToDefault": "Đã chuyển {{count}} profile từ {{name}} về trạng thái không nhóm",
+      "membersMovedToGroup": "Đã chuyển {{count}} profile từ {{source}} sang {{target}}",
+      "membersAdded": "Đã thêm {{count}} profile vào {{name}}"
     }
   },
   "header": {
@@ -812,11 +997,24 @@
   "createProfile": {
     "title": "Tạo profile mới",
     "configureTitle": "Cấu hình profile",
+    "workspace": {
+      "title": "Tạo Profile",
+      "description": "Thiết lập profile trên workspace đầy đủ thay vì modal.",
+      "previewTitle": "Tổng quan",
+      "previewBrowser": "Browser",
+      "previewName": "Tên",
+      "previewProxy": "Proxy",
+      "previewProxyNone": "Không dùng proxy",
+      "previewProxyExisting": "Proxy đã lưu",
+      "previewLaunch": "Launch sau khi tạo",
+      "previewLaunchYes": "Bật",
+      "previewLaunchNo": "Tắt"
+    },
     "antiDetect": {
       "title": "Browser anti-detect",
       "description": "Chọn trình duyệt có khả năng chống nhận diện",
-      "chromium": "Wayfern",
-      "firefox": "Camoufox",
+      "chromium": "Bugium",
+      "firefox": "Bugox",
       "badge": "Anti-detect"
     },
     "regular": {
@@ -829,6 +1027,7 @@
     "launchAfterCreate": "Launch browser after create",
     "sections": {
       "basic": "Cơ bản",
+      "proxy": "Proxy",
       "advanced": "Nâng cao",
       "basicHint": "Đặt tên profile và các thiết lập cơ bản cần thiết.",
       "proxyHint": "Chọn proxy có sẵn hoặc quick add proxy mới.",
@@ -1136,7 +1335,7 @@
   },
   "config": {
     "camoufox": {
-      "title": "Cấu hình Camoufox",
+      "title": "Cấu hình Bugox",
       "fingerprint": {
         "title": "Fingerprint",
         "randomize": "Random khi mở",
@@ -1170,7 +1369,7 @@
       }
     },
     "wayfern": {
-      "title": "Cấu hình Wayfern",
+      "title": "Cấu hình Bugium",
       "fingerprint": {
         "title": "Fingerprint",
         "randomize": "Random khi mở",
@@ -1261,7 +1460,7 @@
       "profileCreateFailed": "Không thể tạo profile",
       "profileLimitReached": "Đã chạm giới hạn profile: workspace này đã có {{used}}/{{limit}} profile.",
       "profileCreateSyncServerMissing": "Chưa cấu hình Sync server URL. Vào Cài đặt Sync để cập nhật.",
-      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting yêu cầu gói trả phí và wayfernToken. Hãy dùng OS hiện tại hoặc cấu hình wayfernToken.",
+      "profileCreateWayfernTokenRequired": "Cross-OS fingerprinting yêu cầu gói trả phí và bugiumToken. Hãy dùng OS hiện tại hoặc cấu hình bugiumToken.",
       "profileDeleteFailed": "Không thể xóa profile",
       "profileUpdateFailed": "Không thể cập nhật profile",
       "profileLaunchFailed": "Không thể mở profile",
@@ -1286,6 +1485,8 @@
       "downloading": "Đang tải xuống {{browser}} {{version}}",
       "extracting": "Đang giải nén {{browser}} {{version}}",
       "verifying": "Đang xác minh {{browser}} {{version}}",
+      "launchingProfile": "Đang khởi chạy profile '{{name}}'...",
+      "stoppingProfile": "Đang dừng profile '{{name}}'...",
       "syncing": "Đang đồng bộ...",
       "syncingProfile": "Đang đồng bộ profile '{{name}}'...",
       "syncingProfileWithProgress": "{{count}} tệp ({{size}})",
@@ -1309,8 +1510,8 @@
     "chromium": "Chromium",
     "brave": "Brave",
     "zen": "Zen Browser",
-    "camoufox": "Camoufox",
-    "wayfern": "Wayfern"
+    "camoufox": "Bugox",
+    "wayfern": "Bugium"
   },
   "fingerprint": {
     "crossOsWarning": "Giả lập fingerprint cho hệ điều hành khác luôn kém tin cậy hơn vì không thể mô phỏng hoàn toàn tầng hệ thống. Chỉ dùng khi bạn hiểu rõ rủi ro.",
@@ -1421,8 +1622,8 @@
   "warnings": {
     "windowResizeTitle": "Thay đổi kích thước cửa sổ",
     "windowResizeDescription": "Việc đổi kích thước cửa sổ trình duyệt có thể làm tăng rủi ro bị phát hiện fingerprint giả lập.",
-    "windowResizeCamoufoxTitle": "Viewport bị Camoufox khóa",
-    "windowResizeCamoufoxDescription": "Camoufox khóa viewport theo kích thước màn hình giả lập để giảm rủi ro fingerprint. Việc đổi kích thước cửa sổ có thể gây cắt khung nhìn hoặc xuất hiện vùng xám. Đây là hành vi bình thường.",
+    "windowResizeCamoufoxTitle": "Viewport bị Bugox khóa",
+    "windowResizeCamoufoxDescription": "Bugox khóa viewport theo kích thước màn hình giả lập để giảm rủi ro fingerprint. Việc đổi kích thước cửa sổ có thể gây cắt khung nhìn hoặc xuất hiện vùng xám. Đây là hành vi bình thường.",
     "dontShowAgain": "Không hiện lại",
     "continue": "Tiếp tục",
     "cancel": "Hủy"
@@ -1832,7 +2033,7 @@
     "featureProfiles": "{{count}} profile quản lý",
     "featureMembers": "{{count}} thành viên",
     "featureStorage": "{{count}} GB dung lượng sync",
-        "featureSupport": "Hỗ trợ {{level}}",
+    "featureSupport": "Hỗ trợ {{level}}",
     "support": {
       "email": "Email",
       "priority": "Ưu tiên",
@@ -2007,6 +2208,30 @@
           "billing": {
             "title": "Revenue Control",
             "description": "Vận hành coupon, entitlement và kiểm soát billing."
+          },
+          "commercePlans": {
+            "title": "Commerce · Plans",
+            "description": "Danh mục gói theo version và quy trình publish."
+          },
+          "commerceCampaigns": {
+            "title": "Commerce · Campaigns",
+            "description": "Lên lịch và ưu tiên chiến dịch giảm giá."
+          },
+          "commerceCoupons": {
+            "title": "Commerce · Coupons",
+            "description": "Quản lý quota, giới hạn và trạng thái coupon."
+          },
+          "commerceLicenses": {
+            "title": "Commerce · Licenses",
+            "description": "Vòng đời license: reserve, bind, revoke, rotate."
+          },
+          "commercePreview": {
+            "title": "Commerce · Price Preview",
+            "description": "Mô phỏng giá cuối theo workspace + campaign + coupon."
+          },
+          "commerceAudit": {
+            "title": "Commerce · Audit",
+            "description": "Theo dõi mọi thao tác commerce theo actor và thời gian."
           },
           "audit": {
             "title": "Audit & Compliance",
@@ -2262,7 +2487,7 @@
       "customPlanProfiles": "Profile quản lý",
       "customPlanMembers": "Thành viên",
       "customPlanStorage": "Dung lượng sync (GB)",
-            "customPlanRecommended": "Gắn nhãn khuyến nghị",
+      "customPlanRecommended": "Gắn nhãn khuyến nghị",
       "customPlanRecommendedYes": "Có",
       "customPlanRecommendedNo": "Không",
       "customPlanSaveAction": "Lưu gói Enterprise",
@@ -2329,6 +2554,15 @@
         "phoneListPlaceholder": "Mỗi dòng 1 phone hoặc ngăn cách bằng dấu phẩy",
         "phoneFileTitle": "Import file phone",
         "phoneFileHint": "Đã nạp {{count}} phone từ file CSV/TXT (xuất từ Excel).",
+        "importPreviewTitle": "Xem trước dữ liệu import",
+        "importPreviewDescription": "Đã parse {{count}} dòng từ file. Xác nhận để thêm file này thành một batch.",
+        "importPreviewConfirm": "Thêm vào batch",
+        "probeModeLabel": "Mode thăm dò (Seller)",
+        "probeModeHint": "Khi bật, mỗi profile Seller được mở sẽ tự tạo phiên thăm dò ghi request, input/form DOM, screenshot và HTML snapshot liên tục.",
+        "probeNoSession": "Đã bật mode thăm dò. Đang chờ mở profile seller đầu tiên.",
+        "probeLastOutput": "Đường dẫn output thăm dò mới nhất: {{path}}",
+        "probeSessionStarted": "Đã bật probe seller cho {{profile}}. Output: {{path}}",
+        "probeSessionFailed": "Không thể bật probe seller cho {{profile}}: {{reason}}",
         "phoneFileImported": "Đã import {{count}} phone từ file.",
         "phoneFileFailed": "Không thể đọc file phone.",
         "phoneFileExcelUnsupported": "Chưa hỗ trợ đọc trực tiếp file .xlsx/.xls. Vui lòng xuất sang CSV/TSV/TXT rồi import.",
@@ -2372,10 +2606,46 @@
         "bulkRemove": "Xóa đã chọn",
         "bulkNoRunnable": "Không có profile khả dụng để chạy (đang Disable).",
         "searchPlaceholder": "Tìm profile, phone, API phone, proxy hoặc cookie...",
-        "empty": "Chưa có profile nào trong luồng semi-auto.",
+        "empty": "Chưa có profile nào.",
         "filters": {
           "allStatuses": "Tất cả trạng thái",
           "empty": "Không có profile nào khớp bộ lọc hiện tại."
+        },
+        "tabs": {
+          "results": "Result",
+          "queue": "Queued",
+          "logs": "Logs"
+        },
+        "queue": {
+          "summary": "{{count}} run trong queue",
+          "actionFailed": "Không thể thực thi action của queue.",
+          "columns": {
+            "runId": "Run ID",
+            "status": "Trạng thái",
+            "progress": "Tiến độ",
+            "updated": "Cập nhật"
+          },
+          "actions": {
+            "view": "Xem",
+            "start": "Start",
+            "pause": "Pause",
+            "resume": "Resume",
+            "stop": "Stop"
+          }
+        },
+        "logs": {
+          "summary": "{{count}} dòng log",
+          "columns": {
+            "status": "Trạng thái",
+            "step": "Bước",
+            "profile": "Profile",
+            "detail": "Chi tiết",
+            "updated": "Cập nhật"
+          },
+          "actions": {
+            "copy": "Đã copy dòng log.",
+            "copyLabel": "Copy"
+          }
         },
         "phoneLabel": "Phone",
         "apiPhoneLabel": "API Phone",
@@ -2487,12 +2757,56 @@
         },
         "proxyLoadFailed": "Không thể tải danh sách proxy đã lưu.",
         "proxyNotAvailable": "Không có proxy khớp từ khóa. Hãy thêm proxy hoặc đổi từ khóa.",
-        "browserVersionRequired": "Không có phiên bản trình duyệt đã tải cho lựa chọn hiện tại.",
+        "downloadBrowser": "Tải browser",
+        "downloadBrowserSuccess": "Đã tải {{browser}} {{version}} thành công.",
+        "downloadBrowserFailed": "Không thể tải browser cho workspace này.",
+        "downloadPreparing": "Đang chuẩn bị runtime browser...",
+        "downloadFetching": "Đang lấy danh sách phiên bản cho {{browser}}...",
+        "downloadAttempt": "Đang thử {{browser}} {{version}}...",
+        "downloadFallbackBrowser": "Đang thử browser fallback {{browser}}...",
+        "downloadReady": "{{browser}} {{version}} đã sẵn sàng.",
+        "browserVersionRequired": "Chưa chuẩn bị được runtime browser nào. Hãy bấm Tải browser rồi thử lại.",
+        "browserFallbackSelected": "Đang dùng {{selected}} vì {{preferred}} chưa sẵn sàng trên máy này.",
+        "sellerCamoufoxOnly": "Seller automation chỉ dùng Camoufox. Hãy tải Camoufox hoạt động rồi thử lại.",
+        "sellerUaVersionMismatch": "UA trong fingerprint Camoufox không khớp phiên bản runtime đang cài. Hãy regenerate fingerprint cho profile rồi launch lại.",
+        "sellerBrowserRuntimeRequired": "Seller automation yêu cầu runtime Camoufox. Browser hiện tại của profile là {{browser}}.",
         "browserUpdated": "Đã cập nhật browser ưu tiên sang {{browser}} cho profile {{profile}}.",
+        "sellerConfigBrowser": "Browser runtime",
+        "sellerConfigProxy": "Proxy runtime",
+        "sellerConfigProxyKeep": "Giữ proxy hiện tại",
+        "sellerConfigProxyNone": "Không dùng proxy",
+        "sellerConfigApply": "Áp dụng cho profile đã chọn",
+        "sellerConfigApplied": "Đã áp dụng cấu hình runtime cho {{count}} profile.",
+        "sellerConfigApplyFailed": "Không thể áp dụng cấu hình runtime Seller.",
+        "sellerConfigHint": "Đã chọn {{count}} profile.",
+        "sellerSeedChooseFile": "Chọn file seed",
+        "sellerSeedNoFile": "Chưa chọn file.",
+        "sellerConfigQuickProxy": "Proxy nhanh",
+        "sellerConfigQuickProxyPlaceholder": "host:port:user:pass",
+        "sellerConfigQuickProxyAdd": "Thêm",
+        "sellerConfigQuickProxyRequired": "Hãy nhập proxy nhanh trước khi thêm.",
+        "sellerConfigQuickProxyInvalid": "Định dạng proxy nhanh không hợp lệ.",
+        "sellerConfigQuickProxyAdded": "Đã thêm proxy {{name}} và tự chọn proxy này.",
+        "sellerConfigQuickProxyFailed": "Không thể thêm proxy nhanh.",
+        "sellerConfigRotationType": "Loại xoay",
+        "sellerConfigRotationTimed": "Xoay tự động",
+        "sellerConfigRotationContinuous": "Xoay liên tục",
+        "sellerConfigRotationSeconds": "Chu kỳ xoay",
+        "sellerConfigRotationLink": "Link xoay",
+        "sellerConfigRotationLinkPlaceholder": "https://...",
+        "sellerConfigRotationLinkRequired": "Cần nhập link xoay khi chọn xoay liên tục.",
+        "sellerConfigRotationSecondsInvalid": "Thời gian xoay không hợp lệ.",
+        "sellerConfigRotationTimedSummary": "Xoay tự động mỗi {{seconds}}s.",
+        "sellerConfigRotationContinuousSummary": "Xoay liên tục sẽ dùng link xoay.",
+        "sellerRuntimeMigrated": "Đã migrate {{profile}} sang profile Camoufox {{next}} để launch Seller.",
         "apiPhoneMissing": "Profile này chưa có URL API Phone.",
         "captchaServiceMissing": "Profile này chưa cấu hình dịch vụ captcha.",
         "createBatchSuccess": "Đã tạo {{count}} profile với proxy {{proxy}}.",
+        "batchReadyRun": "Đã tạo batch {{count}} account. Bấm Run khi sẵn sàng.",
         "createBatchFailed": "Không thể tạo batch profile.",
+        "profileNotFound": "Không tìm thấy profile trong danh sách runtime của workspace.",
+        "profileDeleted": "Đã xóa profile khỏi queue automation.",
+        "profileDeleteFailed": "Không thể xóa profile khỏi queue automation.",
         "startProfileSuccess": "Đã mở browser profile {{profile}}.",
         "startProfileFailed": "Không thể start browser profile.",
         "signupCredentialReady": "Thông tin đăng nhập của {{profile}}: {{username}} / {{password}}",
@@ -2737,8 +3051,10 @@
     },
     "sections": {
       "profiles": "Profiles",
+      "groups": "Nhóm",
       "automation": "Automation",
       "automationSignupTiktok": "Sign Up Tiktok",
+      "automationSignupTiktokSeller": "Sign Up Tiktok Seller",
       "automationUpdateCookies": "Update Cookies",
       "bugideaAutomation": "BugIdea Automation",
       "proxies": "Proxy & VPN",
@@ -2936,7 +3252,7 @@
     "compareProfiles": "Profile quản lý",
     "compareMembers": "Thành viên",
     "compareStorage": "Dung lượng sync",
-        "compareAutomation": "Năng lực automation",
+    "compareAutomation": "Năng lực automation",
     "compareAutomationStarter": "Cơ bản",
     "compareAutomationGrowth": "Tiêu chuẩn",
     "compareAutomationScale": "Nâng cao",
@@ -3403,6 +3719,37 @@
       "description": "BugLogin kết hợp desktop antidetect browser với control layer trên web để bán gói, xác thực tài khoản, quản lý subscription và vận hành platform admin mà không làm rối trải nghiệm trong app.",
       "primaryCta": "Tải desktop app",
       "secondaryCta": "Xem demo workspace",
+      "farmerSection": {
+        "title": "Quản lý đa tài khoản an toàn",
+        "description": "Tách hồ sơ, ổn định fingerprint và giảm rủi ro liên đới khi scale team vận hành.",
+        "learnMore": "Xem tài liệu",
+        "core": {
+          "title": "Nền tảng cốt lõi cho đội vận hành antidetect",
+          "description": "Mỗi session chạy qua các lớp browser tách biệt, giúp operator launch, sync và bàn giao công việc mà không rò liên đới tài khoản.",
+          "point1": "Tách profile cho từng tài khoản",
+          "point2": "Luồng khởi tạo ổn định, dễ lặp lại",
+          "point3": "Scale workflow team mà vẫn giữ an toàn",
+          "imageAlt": "Hình minh họa core components của BugLogin"
+        },
+        "analytics": {
+          "title": "Core components",
+          "description": "Các module cốt lõi giúp runtime profile ổn định khi scale."
+        },
+        "abTesting": {
+          "title": "Session consistency",
+          "description": "Giữ hành vi trình duyệt, tín hiệu nhận diện và luồng khởi tạo nhất quán."
+        },
+        "seo": {
+          "title": "Team-ready operations",
+          "description": "Thiết kế cho operator launch, sync và bàn giao profile an toàn."
+        },
+        "overview": {
+          "title": "Component health",
+          "liveVisitors": "Runtime modules",
+          "uniqueVisitors": "Isolation score",
+          "totalPageviews": "Sync reliability"
+        }
+      },
       "demoWorkspace": {
         "eyebrow": "Demo workspace",
         "title": "Một màn hình cho profile runtime, proxy và VPN",
@@ -3439,7 +3786,7 @@
         "log2": "18:51 · OTP fetched · form advanced",
         "log3": "18:52 · Cookie extracted · outbox synced",
         "profilesLog1": "18:50 · Launch profile + attach local proxy",
-        "profilesLog2": "18:51 · Camoufox PID mapped + state running",
+        "profilesLog2": "18:51 · Bugox PID mapped + state running",
         "profilesLog3": "18:52 · Close profile + outbox replay ok",
         "proxyLog1": "18:50 · Proxy worker boot + port reserved",
         "proxyLog2": "18:51 · Upstream healthcheck fallback passed",
@@ -3460,6 +3807,237 @@
         "ops": {
           "value": "24/7",
           "label": "giám sát billing và admin trên web"
+        }
+      },
+      "clone": {
+        "trustLabel": "Được đội vận hành tin dùng trên các nền tảng lớn",
+        "trustDescription": "Thiết kế cho team chạy đa tài khoản trên các kênh nhạy cảm, nơi độ ổn định nhận diện và an toàn tài khoản quyết định hiệu suất.",
+        "intro": {
+          "title": "Luồng trình duyệt chống phát hiện an toàn cho vận hành đa tài khoản",
+          "description": "Bạn cần vận hành nhiều tài khoản để tăng trưởng mà không bị khóa liên tục? BugLogin tách biệt nhận diện profile, kiểm soát fingerprint trình duyệt, và giúp team chạy các kênh như TikTok, Instagram, Telegram cùng marketplace với lớp kiểm soát rủi ro rõ ràng hơn.",
+          "pills": {
+            "multi": "Nhiều tài khoản",
+            "fast": "Mở rộng nhanh hơn",
+            "safe": "Giữ an toàn tuyệt đối"
+          }
+        },
+        "cta": {
+          "tryFree": "Thử miễn phí",
+          "download": "Tải BugLogin"
+        },
+        "platforms": {
+          "facebook": "Facebook",
+          "amazon": "Amazon",
+          "google": "Google",
+          "tiktok": "TikTok",
+          "linkedin": "LinkedIn",
+          "discord": "Discord"
+        },
+        "blocked": {
+          "eyebrow": "Tài khoản bị khóa bởi các nền tảng lớn?",
+          "title": "Luôn không bị truy vết với fingerprint riêng cho từng profile.",
+          "description": "Fingerprint trình duyệt được tạo từ tín hiệu như IP, Geo, cookie, WebGL, WebGPU, canvas... BugLogin giúp tách và ổn định các tín hiệu này cho từng profile để giảm liên đới giữa các tài khoản.",
+          "panelTitle": "Các trạng thái giới hạn thường gặp",
+          "states": {
+            "disabled": "Tài khoản bị vô hiệu hóa",
+            "temp": "Tài khoản bị khóa tạm thời",
+            "limited": "Tài khoản bị giới hạn chức năng",
+            "permanent": "Nguy cơ cấm vĩnh viễn"
+          }
+        },
+        "pain": {
+          "eyebrow": "Nút thắt thường gặp khi scale",
+          "title": "Khóa tài khoản, rò nhận diện và lệch vận hành làm chậm tăng trưởng.",
+          "description": "Khi số lượng profile tăng, lỗi setup nhỏ có thể thành sự cố lớn. BugLogin giúp team có mô hình vận hành có kiểm soát trước khi rủi ro dồn lại."
+        },
+        "problems": {
+          "risk": {
+            "title": "Khóa lặp lại do tách biệt yếu",
+            "description": "Khi môi trường profile lẫn tín hiệu, nền tảng có thể liên kết tài khoản và gây chuỗi giới hạn liên tiếp."
+          },
+          "identity": {
+            "title": "Fingerprint và mạng thiếu ổn định",
+            "description": "Lệch giữa nhận diện trình duyệt và điều kiện mạng tạo biến động, ảnh hưởng trực tiếp sức khỏe tài khoản."
+          },
+          "scale": {
+            "title": "Tăng sản lượng nhưng vẫn giữ kiểm soát",
+            "description": "Khi số operator và workspace tăng, ranh giới phân quyền và kỷ luật quy trình trở thành bắt buộc."
+          }
+        },
+        "solution": {
+          "eyebrow": "BugLogin cung cấp gì",
+          "title": "Lớp thực thi đa tài khoản an toàn hơn từ setup đến vận hành hằng ngày.",
+          "description": "Dùng một bề mặt điều phối thống nhất để launch profile, áp chính sách team và giữ governance luôn quan sát được khi scale.",
+          "items": {
+            "fingerprint": {
+              "title": "Tách fingerprint theo từng profile",
+              "description": "Mỗi profile chạy trong container nhận diện riêng để giảm nguy cơ liên đới chéo."
+            },
+            "proxy": {
+              "title": "Nhất quán mạng và proxy",
+              "description": "Gắn endpoint và policy ổn định để tín hiệu nhận diện giữ được tính liên tục theo thời gian."
+            },
+            "team": {
+              "title": "Ranh giới vai trò theo workspace",
+              "description": "Tách rõ quyền sở hữu và quyền thực thi trước khi team tăng quy mô gây rối quyền truy cập."
+            },
+            "automation": {
+              "title": "Sẵn sàng workflow cho operator",
+              "description": "Chuẩn hóa routine lặp lại cho launch, kiểm tra và bàn giao giữa các ca vận hành."
+            },
+            "sync": {
+              "title": "Đồng bộ trạng thái đáng tin cậy",
+              "description": "Giữ runtime state và control state cùng nhịp để tránh điểm mù trong lúc vận hành."
+            },
+            "audit": {
+              "title": "Truy vết thao tác và rà soát",
+              "description": "Ghi nhận quyết định quan trọng và thao tác ảnh hưởng tài khoản để xử lý sự cố nhanh hơn."
+            }
+          }
+        },
+        "security": {
+          "eyebrow": "Ưu tiên an toàn và ổn định",
+          "title": "Chạy nhanh hơn nhưng vẫn thấy rõ lớp kiểm soát rủi ro.",
+          "description": "BugLogin dành cho team cần throughput bền vững, ownership rõ ràng và ít bất ngờ hơn khi chạy production.",
+          "points": {
+            "runtime": "Desktop runtime tập trung cho thực thi profile, không bị trộn bởi luồng billing.",
+            "policy": "Ranh giới vai trò và workspace xác định rõ ai được launch, sửa hoặc duyệt thao tác quan trọng.",
+            "billing": "Billing và entitlement luôn hiển thị ở web control để quyết định vận hành luôn có dữ liệu."
+          },
+          "stats": {
+            "profiles": {
+              "value": "1,000+",
+              "label": "profile được quản lý trong workflow đang chạy"
+            },
+            "uptime": {
+              "value": "24/7",
+              "label": "khả năng quan sát billing và governance cho operator"
+            },
+            "teams": {
+              "value": "25",
+              "label": "seat hỗ trợ cho mô hình workspace cấp enterprise"
+            }
+          }
+        },
+        "industries": {
+          "eyebrow": "Thiết kế cho use case thực tế",
+          "title": "Dùng cùng một mô hình an toàn trên nhiều kênh tăng trưởng.",
+          "description": "Từ acquisition đến vận hành, team giữ được framework nhận diện và kiểm soát nhất quán.",
+          "seeMore": "Xem thêm",
+          "items": {
+            "affiliate": {
+              "title": "Affiliate Marketing",
+              "description": "Vận hành cụm tài khoản chiến dịch đa dạng với lớp tách biệt sạch và vòng lặp tối ưu an toàn hơn.",
+              "highlights": "Affiliate on Facebook|Google Ads Accounts Management|TikTok Affiliate Marketing"
+            },
+            "ecommerce": {
+              "title": "Vận hành E-commerce",
+              "description": "Quản lý tài khoản storefront và hỗ trợ với nguy cơ liên đới chéo tài khoản thấp hơn.",
+              "highlights": "E-commerce Ebay|E-commerce Shopify|E-commerce Shopee|E-commerce Temu"
+            },
+            "social": {
+              "title": "Scale Social Media",
+              "description": "Triển khai và duy trì dàn tài khoản social trong khi vẫn giữ chuẩn vận hành ổn định.",
+              "highlights": "Social Marketing|Instagram Operations|Telegram Campaign Workflows"
+            },
+            "agency": {
+              "title": "Agency và Media Buying",
+              "description": "Điều phối nhiều workspace khách hàng với phân quyền và khả năng audit rõ ràng hơn.",
+              "highlights": "Digital Agency Operations|Campaign Research Workspaces|Multi-client Access Controls"
+            },
+            "data": {
+              "title": "Data và Automation Workflow",
+              "description": "Chuẩn bị môi trường profile ổn định cho tác vụ dữ liệu lặp lại và bàn giao automation.",
+              "highlights": "Web Scraping Workflows|Data Collection Profiles|Automation-ready Sessions"
+            },
+            "crypto": {
+              "title": "Crypto và Vertical rủi ro cao",
+              "description": "Áp dụng kỷ luật runtime chặt ở các ngữ cảnh mà độ tin cậy tài khoản và truy cập liên tục là sống còn.",
+              "highlights": "Crypto Operations|Airdrop Workflows|Geo-Restricted Access Control"
+            }
+          }
+        },
+        "featureStack": {
+          "eyebrow": "An toàn và ổn định tài khoản",
+          "title": "Các năng lực cốt lõi team dùng hằng ngày để chạy đa tài khoản",
+          "items": {
+            "multi": {
+              "title": "Quản lý đa tài khoản liền mạch",
+              "description": "Tạo profile trình duyệt chân thực và quản lý tài khoản vận hành tập trung với rủi ro khóa thấp hơn."
+            },
+            "browsers": {
+              "title": "Engine stealth dựa trên Chrome và Firefox",
+              "description": "Chọn engine phù hợp quy trình và extension stack nhưng vẫn giữ lớp kiểm soát chống phát hiện."
+            },
+            "automation": {
+              "title": "Tự động hóa thông minh không đi tắt rủi ro",
+              "description": "Kết hợp RPA, API và thao tác đồng bộ để chuẩn hóa tác vụ lặp lại trên nhiều cửa sổ profile."
+            },
+            "security": {
+              "title": "Cài đặt bảo mật nâng cao",
+              "description": "Dùng cảnh báo đăng nhập, kiểm soát truy cập bất thường và guardrail chặt hơn để bảo vệ vận hành team."
+            }
+          }
+        },
+        "visual": {
+          "eyebrow": "Góc nhìn sản phẩm",
+          "title": "Xem kỹ hơn cách BugLogin chạy trong vận hành thực tế",
+          "items": {
+            "ops": {
+              "title": "Thực thi workflow cho operator",
+              "description": "Launch, theo dõi và bàn giao luồng profile với khả năng quan sát hằng ngày rõ ràng hơn."
+            },
+            "security": {
+              "title": "Điều khiển profile theo hướng bảo mật",
+              "description": "Giữ môi trường tài khoản tách biệt nhưng vẫn đảm bảo tốc độ thao tác thực tế cho team production."
+            },
+            "network": {
+              "title": "Nhất quán giữa mạng và runtime",
+              "description": "Đồng bộ nhận diện trình duyệt và điều kiện mạng để giảm hành vi tài khoản thiếu ổn định."
+            }
+          }
+        },
+        "finalCta": {
+          "title": "Quản lý nhiều tài khoản trên một thiết bị với lớp an toàn tốt hơn",
+          "description": "Bắt đầu với baseline thực thi profile an toàn hơn, sau đó scale workflow team bằng governance rõ ràng và runtime ổn định."
+        },
+        "reviews": {
+          "eyebrow": "Đánh giá từ người vận hành",
+          "title": "Điểm mà các team nhắc nhiều nhất khi triển khai",
+          "items": {
+            "opsLead": {
+              "quote": "Tách profile kết hợp proxy ổn định giúp team vận hành của chúng tôi có baseline chạy bền hơn nhiều.",
+              "author": "Trưởng nhóm vận hành · Performance Marketing"
+            },
+            "agencyOwner": {
+              "quote": "Ranh giới vai trò và governance theo workspace giúp phối hợp tài khoản khách hàng an toàn hơn rõ rệt.",
+              "author": "Chủ agency · Media Buying"
+            },
+            "affiliate": {
+              "quote": "Các routine tự động hóa giúp giảm thao tác lặp lại nhưng vẫn giữ được kiểm soát hành vi tài khoản.",
+              "author": "Affiliate Operator"
+            },
+            "ecom": {
+              "quote": "So với cách làm chung chung, workflow này cho khả năng quan sát tốt hơn khi tài khoản cần can thiệp.",
+              "author": "Quản lý tăng trưởng E-commerce"
+            }
+          }
+        },
+        "press": {
+          "items": {
+            "finance": {
+              "source": "Nguồn tin tài chính ngành",
+              "excerpt": "Nhấn mạnh nhu cầu quản lý đa tài khoản an toàn và ổn định trong vận hành số hiện đại."
+            },
+            "security": {
+              "source": "Tạp chí bảo mật",
+              "excerpt": "Đề cao các lớp kiểm soát như phân quyền truy cập, mã hóa dữ liệu và cảnh báo bất thường."
+            },
+            "media": {
+              "source": "Kênh truyền thông marketing",
+              "excerpt": "Ghi nhận anti-detect workflow đang trở thành hạ tầng bắt buộc với team vận hành khối lượng lớn."
+            }
+          }
         }
       },
       "mockup": {
@@ -3522,63 +4100,79 @@
           "billing": "Billing"
         }
       },
-      "capabilitiesEyebrow": "Vì sao trang này khác biệt",
-      "capabilitiesTitle": "Một bề mặt sản phẩm thật, không phải landing toàn card.",
-      "capabilitiesDescription": "Dùng visual từ sản phẩm thật, copy tập trung, và CTA đi thẳng vào auth, pricing, và điều phối workspace.",
+      "capabilitiesEyebrow": "Thiết kế cho vận hành khối lượng lớn",
+      "capabilitiesTitle": "Scale đa tài khoản nhưng vẫn giữ tiêu chuẩn an toàn.",
+      "capabilitiesDescription": "BugLogin kết hợp runtime ổn định, quản trị workspace chặt chẽ và billing rõ ràng để team tăng sản lượng mà giảm rủi ro khóa tài khoản.",
       "features": {
         "stealth": {
-          "title": "Runtime trình duyệt vẫn là trọng tâm",
-          "description": "Landing và auth thể hiện trực tiếp bối cảnh vận hành profile thay vì ngôn ngữ SaaS chung chung."
+          "title": "Fingerprint tách biệt để chạy dài hạn",
+          "description": "Mỗi profile hoạt động trong môi trường riêng với tín hiệu được kiểm soát để giảm liên đới chéo và hạn chế nguy cơ bị khóa."
         },
         "workspace": {
-          "title": "Portal web đọc trạng thái workspace thật",
-          "description": "Plan, invoice và entitlement đều lấy từ cùng authority đang phục vụ desktop runtime."
+          "title": "Quản trị team theo workspace ngay từ đầu",
+          "description": "Phân quyền, ownership và phạm vi thao tác luôn rõ ràng ngay cả khi số tài khoản, thành viên và luồng công việc tăng mạnh."
         },
         "billing": {
-          "title": "Checkout tách rõ khỏi runtime",
-          "description": "Thanh toán và billing ở web; desktop tập trung cho thực thi profile runtime."
+          "title": "Nhìn thấy toàn cảnh vận hành trên một lớp điều phối",
+          "description": "Trạng thái gói, entitlement và account billing luôn đọc được và truy vết được mà không làm gián đoạn nhịp chạy profile."
         }
       },
       "steps": {
         "signin": {
-          "title": "Xác thực một lần qua auth hub thống nhất",
-          "description": "Email/password, OTP, Google OAuth và invite cùng hội tụ về một điểm vào."
+          "title": "Thiết lập nền tảng bảo mật cho operator",
+          "description": "Đăng nhập, gán vai trò workspace và chốt quyền truy cập trước khi chạy các tác vụ rủi ro cao."
         },
         "checkout": {
-          "title": "Gắn workspace trước khi checkout",
-          "description": "Mỗi Stripe session đều gắn vào workspace thật trước, tránh lệch trạng thái entitlement."
+          "title": "Chuẩn bị điều kiện runtime sạch",
+          "description": "Gắn profile với proxy và chính sách mạng trước để mỗi phiên chạy bắt đầu với tín hiệu nhận diện ổn định."
         },
         "operate": {
-          "title": "Điều phối trên web, thực thi trên desktop",
-          "description": "Billing và admin ở web; runtime profile nặng vẫn nằm trong desktop app."
+          "title": "Vận hành ở quy mô lớn với guardrail rõ ràng",
+          "description": "Desktop đảm nhiệm tải runtime hằng ngày, web giữ billing, governance và giám sát rủi ro luôn đồng bộ."
         }
       },
-      "splitEyebrow": "Từ quan tâm đến vận hành",
-      "splitTitle": "Một luồng liền mạch từ lần truy cập đầu tới workspace production.",
-      "splitDescription": "Đăng nhập, gắn workspace, rồi vận hành với ranh giới rõ ràng giữa web control và desktop runtime.",
+      "splitEyebrow": "Từ thiết lập đến scale ổn định",
+      "splitTitle": "Lộ trình thực tế để tăng trưởng đa tài khoản an toàn hơn.",
+      "splitDescription": "Chuẩn hóa bước setup, siết ranh giới phân quyền và chạy production với khả năng kiểm soát vận hành tốt hơn.",
       "splitCards": {
         "account": {
-          "title": "Account billing cho user thật",
-          "description": "User xem plan hiện tại, usage, invoice history và chạy lại luồng checkout khi cần."
+          "title": "Quản lý tài khoản sẵn sàng cho operator",
+          "description": "Theo dõi usage gói, sức chứa profile và mốc gia hạn sớm để tránh gián đoạn trong lúc vận hành."
         },
         "admin": {
-          "title": "Super admin cho vận hành nội bộ",
-          "description": "Platform admin theo dõi workspace health, revenue signals, audit trail và trạng thái hệ thống trong cùng website."
+          "title": "Tầm nhìn quản trị cho team đang scale",
+          "description": "Theo dõi sức khỏe workspace, trạng thái billing và tín hiệu audit tại một nơi trước khi sự cố lan rộng."
         }
       },
       "faqTitle": "Câu hỏi thường gặp",
       "faq": {
+        "fingerprint": {
+          "q": "Fingerprint trình duyệt trong ngữ cảnh này là gì?",
+          "a": "Đó là tập hợp tín hiệu kỹ thuật từ trình duyệt và thiết bị mà website dùng để nhận diện phiên. BugLogin giúp tách và ổn định các tín hiệu này theo từng profile."
+        },
+        "proxy": {
+          "q": "Có thể giữ mapping proxy và profile nhất quán không?",
+          "a": "Có. Luồng vận hành được thiết kế để đồng bộ nhận diện và cấu hình mạng, giúp giảm hành vi tài khoản nhiễu."
+        },
+        "automation": {
+          "q": "Có hỗ trợ tự động hóa cho tác vụ lặp lại không?",
+          "a": "Có. Team có thể kết hợp API và automation routines để chạy tác vụ lặp lại nhưng vẫn giữ kiểm soát theo workspace."
+        },
         "security": {
-          "q": "Web portal có tách khỏi dữ liệu desktop không?",
-          "a": "Không. Portal chỉ thay mặt hiển thị và thao tác lên cùng authority đang phục vụ desktop, nên trạng thái plan và billing không bị lệch nguồn."
+          "q": "BugLogin có giúp giảm rủi ro khóa tài khoản khi chạy đa tài khoản không?",
+          "a": "Có. BugLogin tập trung vào tách biệt profile, runtime ổn định và quy trình workspace có kiểm soát để team chạy sản lượng lớn an toàn hơn."
         },
         "billing": {
-          "q": "Thanh toán xử lý ở đâu?",
-          "a": "Luồng public dùng Stripe checkout. Sau khi thanh toán xong, portal đưa user về account billing để đọc lại trạng thái mới."
+          "q": "Billing được tích hợp vào vận hành hằng ngày như thế nào?",
+          "a": "Billing và entitlement hiển thị ở lớp web control, còn thực thi nằm ở desktop. Team có thể nâng gói, gia hạn và kiểm tra trạng thái mà không gián đoạn runtime."
         },
         "desktop": {
-          "q": "Sau login user làm việc ở web hay desktop?",
-          "a": "Desktop vẫn là app chính. Website chỉ đảm nhận marketing, auth, checkout, billing và super admin."
+          "q": "Sản phẩm này phù hợp nhất với ai?",
+          "a": "BugLogin phù hợp cho team làm multi-account marketing, e-commerce, social operation hoặc data workflow cần scale an toàn và kiểm soát chặt hơn."
+        },
+        "team": {
+          "q": "Cộng tác team được giữ an toàn thế nào khi scale?",
+          "a": "Phân quyền theo workspace, ranh giới ownership và khả năng truy vết thao tác giúp team phối hợp mà vẫn giữ kiểm soát."
         }
       }
     },
@@ -3866,12 +4460,90 @@
       },
       "nav": {
         "overview": "Tổng quan",
+        "dashboard": "Dashboard",
         "commandCenter": "Trung tâm điều hành",
+        "incidentBoard": "Incident Board",
         "workspaces": "Workspace",
+        "memberships": "Memberships",
+        "abuseTrust": "Abuse & Trust",
+        "impersonationCenter": "Impersonation Center",
         "revenue": "Doanh thu",
+        "subscriptions": "Subscriptions",
+        "invoices": "Invoices",
+        "coupons": "Coupons",
+        "policyCenter": "Policy Center",
+        "dataGovernance": "Data Governance",
+        "jobsQueues": "Jobs & Queues",
+        "featureFlags": "Feature Flags",
+        "supportConsole": "Support Console",
         "audit": "Kiểm tra",
         "auditLog": "Nhật ký kiểm tra",
-        "system": "Hệ thống"
+        "system": "Hệ thống",
+        "browserUpdate": "Cập nhật Browser"
+      },
+      "menu": {
+        "commandCenter": "Command Center",
+        "identityWorkspace": "Identity & Workspace",
+        "revenueCommerce": "Revenue & Commerce",
+        "governanceSecurity": "Governance & Security",
+        "operations": "Operations"
+      },
+      "placeholder": {
+        "requiredNow": "Bắt buộc triển khai",
+        "description": "Khu vực này đã được chuẩn hóa IA và sẵn sàng để triển khai bảng dữ liệu + thao tác quản trị chi tiết.",
+        "scope": "{{section}} đang dùng khung chức năng bắt buộc cho Super Admin.",
+        "tableTitle": "Backlog triển khai gần nhất",
+        "tableDescription": "Bản scaffold này giữ cấu trúc UI ổn định để nối API và policy flow ở bước tiếp theo.",
+        "todoAction": "Khai báo data table + quyền thao tác",
+        "todoReason": "Cần map API thật, quyền RBAC và audit trail trước khi mở production."
+      },
+      "incidentBoard": {
+        "title": "Incident Board",
+        "description": "Hàng đợi workspace cần xử lý ưu tiên theo risk, subscription và tín hiệu entitlement.",
+        "loadFailed": "Không thể tải dữ liệu incident board.",
+        "metrics": {
+          "total": "Tổng incident",
+          "highRisk": "Rủi ro cao",
+          "pastDue": "Past due"
+        },
+        "tableTitle": "Danh sách ưu tiên xử lý",
+        "tableDescription": "Bảng này giúp operator tập trung vào workspace có khả năng phát sinh ticket hoặc gián đoạn.",
+        "empty": "Hiện chưa có incident cần ưu tiên."
+      },
+      "memberships": {
+        "title": "Memberships",
+        "description": "Theo dõi thành viên đa-workspace theo một bảng tổng hợp để rà quyền nhanh.",
+        "loadFailed": "Không thể tải dữ liệu memberships.",
+        "search": "Tìm email, user ID, workspace, role...",
+        "memberCount": "{{count}} thành viên",
+        "workspaceCount": "{{count}} workspace",
+        "tableTitle": "Danh sách memberships",
+        "tableDescription": "Dữ liệu lấy trực tiếp từ danh sách member của từng workspace.",
+        "empty": "Không tìm thấy membership phù hợp."
+      },
+      "subscriptions": {
+        "title": "Subscriptions",
+        "description": "Theo dõi trạng thái subscription theo workspace để vận hành billing ổn định.",
+        "search": "Tìm workspace, plan, source, status...",
+        "metrics": {
+          "total": "Tổng workspace",
+          "active": "Đang hoạt động",
+          "pastDue": "Past due"
+        },
+        "columns": {
+          "source": "Nguồn",
+          "expiresAt": "Hết hạn"
+        },
+        "status": {
+          "active": "Đang hoạt động",
+          "past_due": "Quá hạn",
+          "canceled": "Đã hủy"
+        },
+        "cycle": {
+          "monthly": "Theo tháng",
+          "yearly": "Theo năm"
+        },
+        "empty": "Không có subscription phù hợp."
       },
       "metrics": {
         "workspaces": "Workspace",
@@ -3910,6 +4582,80 @@
         "systemTitle": "Trạng thái nền tảng",
         "systemDescription": "Tổng hợp ngắn gọn readiness của auth, Stripe và sync runtime."
       },
+      "dashboard": {
+        "title": "Dashboard super admin",
+        "description": "Màn theo dõi realtime toàn cục cho health workspace, áp lực doanh thu và rủi ro vận hành.",
+        "attentionQueue": "Hàng đợi cần xử lý",
+        "allRiskLevels": "Tất cả mức rủi ro",
+        "timeRangeLabel": "Khoảng thời gian",
+        "timeRanges": {
+          "today": "Hôm nay",
+          "yesterday": "Hôm qua",
+          "last7Days": "Trong 7 ngày",
+          "thisMonth": "Tháng này",
+          "lastMonth": "Tháng trước",
+          "statistics": "Thống kê",
+          "all": "All"
+        },
+        "windowAll": "Toàn thời gian",
+        "windowValue": "{{start}} - {{end}}",
+        "usage": "Storage",
+        "profilesLimit": "Profiles",
+        "totalMembers": "Tổng thành viên",
+        "totalProfiles": "Tổng profiles",
+        "averageStorageUsage": "TB mức dùng storage",
+        "revenueWindow": "Cửa sổ doanh thu",
+        "revenueTrend": "Xu hướng doanh thu (invoice gần đây)",
+        "insightsTitle": "Insight vận hành",
+        "revenueInWindow": "Doanh thu trong kỳ",
+        "invoicesInWindow": "Số invoice trong kỳ",
+        "pastDueWorkspaces": "Workspace quá hạn",
+        "highRiskRatio": "Tỷ lệ rủi ro cao",
+        "insightHints": {
+          "revenue": "Tổng giá trị invoice đã thanh toán trong kỳ đang chọn.",
+          "invoices": "Số lượng invoice ghi nhận trong kỳ đang chọn.",
+          "pastDue": "Số workspace đang ở trạng thái quá hạn.",
+          "risk": "Tỷ trọng workspace rủi ro cao trong kỳ đang chọn."
+        },
+        "deltaCompared": "{{value}} so với kỳ trước",
+        "deltaUnavailable": "Chưa có dữ liệu kỳ trước để so sánh.",
+        "filters": {
+          "status": {
+            "all": "Tất cả trạng thái",
+            "active": "Hoạt động",
+            "past_due": "Quá hạn",
+            "canceled": "Đã hủy"
+          },
+          "risk": {
+            "all": "Tất cả rủi ro",
+            "low": "Thấp",
+            "medium": "Trung bình",
+            "high": "Cao"
+          }
+        },
+        "subscriptionStatus": {
+          "active": "Hoạt động",
+          "past_due": "Quá hạn",
+          "canceled": "Đã hủy"
+        },
+        "averageInvoiceValue": "Giá trị invoice trung bình",
+        "activeValue": "{{count}} subscription active",
+        "highRiskValue": "{{count}} workspace rủi ro cao",
+        "topRiskTitle": "Workspace rủi ro cao",
+        "lastInvoiceAt": "Invoice gần nhất",
+        "capacityLeaders": "Nhóm chạm ngưỡng",
+        "storageLeaders": "Storage",
+        "profileLeaders": "Profiles",
+        "workspaceLeaderboard": "Bảng xếp hạng workspace",
+        "proxyLeaders": "Proxy",
+        "identityHint": "Rà thay đổi role và tăng đột biến membership trước các mốc gia hạn billing.",
+        "errors": {
+          "loadFailed": "Không thể tải dữ liệu dashboard.",
+          "loadRevenueFailed": "Không thể tải dữ liệu doanh thu cho dashboard."
+        },
+        "planMix": "Phân bổ workspace theo gói",
+        "searchPlaceholder": "Tìm workspace, gói, trạng thái..."
+      },
       "workspaces": {
         "title": "Workspaces trên toàn hệ thống.",
         "description": "Danh sách này giúp platform admin nhìn nhanh health, limit và mức dùng của từng workspace.",
@@ -3917,7 +4663,30 @@
         "tableDescription": "Dữ liệu được kéo trực tiếp từ admin workspace health endpoint.",
         "canceled": "Workspace đã hủy",
         "searchPlaceholder": "Tìm workspace...",
-        "allStatuses": "Tất cả trạng thái"
+        "allStatuses": "Tất cả trạng thái",
+        "actions": {
+          "manage": "Cấu hình",
+          "saveSubscription": "Lưu subscription"
+        },
+        "manage": {
+          "title": "Cấu hình subscription workspace",
+          "description": "Cập nhật cấu hình gói cho {{workspace}}.",
+          "plan": "Gói",
+          "billingCycle": "Chu kỳ billing",
+          "profileLimit": "Giới hạn profile",
+          "expiresAt": "Hết hạn",
+          "planLabel": "Nhãn gói",
+          "planLabelPlaceholder": "Nhãn hiển thị (tuỳ chọn)"
+        },
+        "errors": {
+          "connectionMissing": "Thiếu kết nối control.",
+          "invalidProfileLimit": "Giới hạn profile phải lớn hơn 0.",
+          "invalidExpiry": "Thời điểm hết hạn phải nằm trong tương lai.",
+          "updateFailed": "Không thể cập nhật subscription workspace."
+        },
+        "toasts": {
+          "subscriptionUpdated": "Đã cập nhật subscription workspace."
+        }
       },
       "revenue": {
         "title": "Revenue signals và tình trạng entitlement.",
@@ -3957,6 +4726,198 @@
         "hintStripeDescription": "Portal chỉ nên public checkout khi cả secret lẫn webhook đều ở trạng thái ready.",
         "hintSyncTitle": "Kiểm tra S3 và state file",
         "hintSyncDescription": "Khi usage hoặc entitlement lệch, cần xác nhận sync storage và control state vẫn đang đồng bộ."
+      },
+      "browserUpdate": {
+        "title": "Phát hành browser và chính sách update",
+        "description": "Quản lý đích Release API, token đồng bộ và policy cập nhật mặc định cho luồng tự động phát hành Bugium và Bugox.",
+        "required": "Bắt buộc",
+        "secretTitle": "Secrets Release API",
+        "policyTitle": "Chính sách cập nhật mặc định",
+        "envTitle": "Mẫu biến môi trường",
+        "actions": {
+          "generateToken": "Tạo token",
+          "saveLocal": "Lưu nháp local",
+          "copyToken": "Sao chép token",
+          "copyEnv": "Sao chép env"
+        },
+        "fields": {
+          "releaseApiUrl": "Release API URL",
+          "releaseApiToken": "Release API token",
+          "updateMode": "Chế độ cập nhật (optional|required)",
+          "minSupportedVersion": "Phiên bản tối thiểu được hỗ trợ",
+          "updateMessage": "Thông điệp cập nhật",
+          "updateMessagePlaceholder": "Bắt buộc vá bảo mật trước lần launch tiếp theo."
+        },
+        "toastTokenGenerated": "Đã tạo token release mới.",
+        "toastSaved": "Đã lưu nháp cấu hình browser update tại local.",
+        "toastSaveFailed": "Không thể lưu nháp browser update.",
+        "toastCopyFailed": "Không thể sao chép nội dung.",
+        "toastTokenCopied": "Đã sao chép token release.",
+        "toastEnvCopied": "Đã sao chép mẫu biến môi trường."
+      }
+    },
+    "commerce": {
+      "eyebrow": "Điều phối Commerce",
+      "search": "Tìm theo mã, tên, trạng thái...",
+      "loading": "Đang tải dữ liệu commerce...",
+      "empty": "Chưa có bản ghi.",
+      "errors": {
+        "connectionMissing": "Thiếu kết nối control.",
+        "requiredFields": "Vui lòng điền đủ trường bắt buộc.",
+        "loadFailed": "Không thể tải dữ liệu.",
+        "createFailed": "Không thể tạo bản ghi.",
+        "actionFailed": "Không thể hoàn tất thao tác."
+      },
+      "toasts": {
+        "planCreated": "Đã tạo plan.",
+        "planPublished": "Đã publish version plan.",
+        "campaignCreated": "Đã tạo campaign.",
+        "couponCreated": "Đã tạo coupon.",
+        "licenseCreated": "Đã tạo license.",
+        "couponRedeemed": "Đã áp dụng coupon.",
+        "licenseRedeemed": "Đã kích hoạt license.",
+        "previewReady": "Đã tạo preview giá.",
+        "actionDone": "Thao tác đã hoàn tất."
+      },
+      "actions": {
+        "refresh": "Làm mới",
+        "publish": "Publish",
+        "pause": "Tạm dừng",
+        "activate": "Kích hoạt",
+        "disable": "Vô hiệu",
+        "revoke": "Thu hồi",
+        "rotate": "Xoay khóa",
+        "runPreview": "Chạy preview",
+        "createPlan": "Tạo plan",
+        "createCampaign": "Tạo campaign",
+        "createCoupon": "Tạo coupon",
+        "createLicense": "Tạo license",
+        "redeemCoupon": "Áp dụng coupon",
+        "redeemLicense": "Kích hoạt license"
+      },
+      "support": {
+        "email": "Hỗ trợ email",
+        "priority": "Hỗ trợ ưu tiên",
+        "dedicated": "Hỗ trợ chuyên trách"
+      },
+      "columns": {
+        "plan": "Plan",
+        "campaign": "Campaign",
+        "coupon": "Coupon",
+        "license": "License",
+        "line": "Dòng tính giá",
+        "entity": "Thực thể",
+        "price": "Giá",
+        "limits": "Giới hạn",
+        "status": "Trạng thái",
+        "window": "Khung thời gian",
+        "usage": "Mức dùng",
+        "action": "Thao tác",
+        "actor": "Người thao tác",
+        "time": "Thời gian",
+        "amount": "Số tiền",
+        "binding": "Liên kết",
+        "profiles": "profiles",
+        "members": "thành viên"
+      },
+      "fields": {
+        "planCode": "Mã plan",
+        "planName": "Tên plan",
+        "monthlyPrice": "Theo tháng (USD)",
+        "yearlyPrice": "Theo năm (USD)",
+        "campaignName": "Tên campaign",
+        "discountPercent": "Giảm giá (%)",
+        "priority": "Độ ưu tiên",
+        "maxRedemptions": "Lượt dùng tối đa",
+        "maxPerUser": "Tối đa / user",
+        "maxPerWorkspace": "Tối đa / workspace",
+        "couponCode": "Mã coupon",
+        "licenseKey": "Mã license",
+        "workspaceId": "Workspace ID",
+        "interval": "Chu kỳ",
+        "campaignId": "Campaign ID",
+        "seats": "Số seat",
+        "profileQuota": "Quota profile"
+      },
+      "plans": {
+        "title": "Danh mục plan và version",
+        "description": "Tạo plan, chỉnh giới hạn và publish version mới mà không đụng version đang chạy."
+      },
+      "campaigns": {
+        "title": "Lịch chạy campaign",
+        "description": "Quản lý khung thời gian, độ ưu tiên và trạng thái kích hoạt campaign."
+      },
+      "coupons": {
+        "title": "Coupon và giới hạn đổi mã",
+        "description": "Phát hành, theo dõi và vô hiệu coupon theo quota."
+      },
+      "licenses": {
+        "title": "Quản lý pool license",
+        "description": "Quản lý vòng đời license, liên kết workspace và thao tác rotate/revoke."
+      },
+      "preview": {
+        "title": "Preview quy tắc checkout",
+        "description": "Mô phỏng plan + campaign + coupon để kiểm tra giá cuối trước checkout.",
+        "empty": "Chạy preview để xem breakdown giá."
+      },
+      "audit": {
+        "title": "Nhật ký commerce",
+        "description": "Theo dõi lịch sử plan, campaign, coupon và license theo từng actor."
+      },
+      "accountPlan": {
+        "description": "Chọn gói, áp dụng coupon hoặc kích hoạt license ngay trong ngữ cảnh workspace account.",
+        "couponTitle": "Áp dụng coupon",
+        "licenseTitle": "Kích hoạt license key"
+      }
+    },
+    "adminUsers": {
+      "navTitle": "Quản lý User",
+      "eyebrow": "Super admin",
+      "title": "Danh bạ user và phân quyền",
+      "description": "Quản lý user đa-workspace và cập nhật role trực tiếp từ một bảng.",
+      "scopeBadge": "Phạm vi nền tảng",
+      "search": "Tìm email, user ID, workspace...",
+      "loading": "Đang tải danh sách user...",
+      "empty": "Không có user phù hợp.",
+      "actions": {
+        "refresh": "Làm mới"
+      },
+      "create": {
+        "title": "Tạo tài khoản",
+        "description": "Tạo tài khoản đăng nhập mới trực tiếp từ trang admin.",
+        "emailPlaceholder": "user@company.com",
+        "passwordPlaceholder": "Mật khẩu (ít nhất 8 ký tự)",
+        "roleUser": "User thường",
+        "rolePlatformAdmin": "Platform admin",
+        "action": "Tạo user"
+      },
+      "filters": {
+        "allWorkspaces": "Tất cả workspace",
+        "allRoles": "Tất cả vai trò"
+      },
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member",
+        "viewer": "Viewer"
+      },
+      "columns": {
+        "user": "User",
+        "workspace": "Workspace",
+        "role": "Vai trò",
+        "joinedAt": "Tham gia"
+      },
+      "toasts": {
+        "roleUpdated": "Đã cập nhật vai trò user.",
+        "userCreated": "Đã tạo tài khoản user."
+      },
+      "errors": {
+        "connectionMissing": "Thiếu kết nối control.",
+        "loadFailed": "Không thể tải danh sách user.",
+        "updateFailed": "Không thể cập nhật vai trò user.",
+        "createFailed": "Không thể tạo tài khoản user.",
+        "createInvalidEmail": "Vui lòng nhập email hợp lệ.",
+        "createInvalidPassword": "Mật khẩu phải có ít nhất 8 ký tự."
       }
     },
     "help": {

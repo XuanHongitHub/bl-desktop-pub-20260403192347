@@ -31,6 +31,10 @@ fn api_url() -> &'static str {
   crate::app_config::cloud_api_url()
 }
 
+fn is_not_logged_in_error(error: &str) -> bool {
+  error.to_ascii_lowercase().contains("not logged in")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudWorkspaceSeed {
   pub id: String,
@@ -906,7 +910,11 @@ impl CloudAuthManager {
       Ok(config) => Ok(Some(config)),
       Err(e) if e.contains("__403__") => Ok(None),
       Err(e) => {
-        log::warn!("Failed to fetch cloud proxy config: {e}");
+        if is_not_logged_in_error(&e) {
+          log::debug!("Skipping cloud proxy config fetch while logged out: {e}");
+        } else {
+          log::warn!("Failed to fetch cloud proxy config: {e}");
+        }
         Ok(None)
       }
     }
@@ -914,6 +922,12 @@ impl CloudAuthManager {
 
   /// Sync the cloud-managed proxy: fetch config and upsert or remove
   pub async fn sync_cloud_proxy(&self) {
+    if !self.is_logged_in().await {
+      log::debug!("Skipping cloud proxy sync: user is not logged in");
+      PROXY_MANAGER.remove_cloud_proxy();
+      return;
+    }
+
     log::info!("Syncing cloud proxy configuration...");
     match self.fetch_proxy_config().await {
       Ok(Some(config)) => {
@@ -1110,7 +1124,11 @@ impl CloudAuthManager {
         }
         Ok(None) => {}
         Err(e) => {
-          log::warn!("Failed to refresh cloud sync token: {e}");
+          if is_not_logged_in_error(&e) {
+            log::debug!("Skipping cloud sync token refresh while logged out: {e}");
+          } else {
+            log::warn!("Failed to refresh cloud sync token: {e}");
+          }
         }
       }
 

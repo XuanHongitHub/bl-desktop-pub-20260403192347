@@ -14,6 +14,10 @@ import {
 } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
+import {
+  computeStorageUsagePercent,
+  formatStorageUsagePercentLabel,
+} from "@/lib/storage-usage";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 
 export default function AccountBillingPage() {
@@ -38,14 +42,18 @@ export default function AccountBillingPage() {
     billingState?.subscription.planLabel ??
     selectedWorkspace?.planLabel ??
     t("portalSite.account.noPlan");
-  const storagePercent = usage?.storageLimitMb
-    ? Math.min(
-        100,
-        Math.round(
-          (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
-        ),
-      )
-    : 0;
+  const storagePercent = computeStorageUsagePercent(usage);
+  const storagePercentLabel = formatStorageUsagePercentLabel(
+    storagePercent,
+    usage?.storageUsedBytes ?? 0,
+  );
+
+  const statusBadgeVariant = (status: string | null | undefined) => {
+    if (status === "active") return "success" as const;
+    if (status === "past_due") return "destructive" as const;
+    if (status === "canceled") return "warning" as const;
+    return "outline" as const;
+  };
 
   const handleSubscriptionAction = async (
     mode: "period_end" | "immediate" | "reactivate",
@@ -115,15 +123,20 @@ export default function AccountBillingPage() {
                 <dt className="text-xs text-muted-foreground">{t("portalSite.account.plan")}</dt>
                 <dd className="mt-1 flex items-center gap-2 text-sm font-semibold text-foreground">
                   {planLabel}
-                  <Badge variant="outline" className="h-5 px-2 text-[10px]">
+                  <Badge variant="info" className="h-5 px-2 text-[10px]">
                     {billingState?.subscription.billingCycle ?? "--"}
                   </Badge>
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3">
                 <dt className="text-xs text-muted-foreground">{t("portalSite.account.status")}</dt>
-                <dd className="mt-1 text-sm font-semibold text-foreground">
-                  {billingState?.subscription.status ?? t("portalSite.account.notAvailable")}
+                <dd className="mt-1">
+                  <Badge
+                    variant={statusBadgeVariant(billingState?.subscription.status)}
+                    className="h-5 px-2 text-[10px] capitalize"
+                  >
+                    {billingState?.subscription.status ?? t("portalSite.account.notAvailable")}
+                  </Badge>
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3 sm:col-span-2">
@@ -151,14 +164,16 @@ export default function AccountBillingPage() {
 
           <div className="space-y-4 p-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <CreditCard className="h-4 w-4 text-chart-1" />
               {t("portalSite.account.usageSnapshot")}
             </h2>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{t("portalSite.account.storageUsage")}</span>
-                  <span className="font-medium text-foreground">{storagePercent}%</span>
+                  <span className="font-medium text-foreground">
+                    {storagePercentLabel}
+                  </span>
                 </div>
                 <Progress value={storagePercent} className="h-2" />
               </div>
@@ -212,7 +227,7 @@ export default function AccountBillingPage() {
       <section className="rounded-xl border border-border bg-background/70 p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            <ShieldCheck className="h-4 w-4 text-chart-2" />
             {t("portalSite.account.paymentSecurityNote")}
           </h2>
           <Button asChild size="sm" variant="outline">
