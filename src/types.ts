@@ -247,6 +247,17 @@ export interface ControlAdminUserDetail extends ControlAdminUserListItem {
   recentAuditLogs: ControlAuditLog[];
 }
 
+export interface ControlAdminMembershipItem {
+  workspaceId: string;
+  workspaceName: string;
+  userId: string;
+  email: string;
+  role: TeamRole;
+  createdAt: string;
+  platformRole: PlatformRole | null;
+  authProvider: "password" | "google" | "password_google";
+}
+
 export interface ControlInvite {
   id: string;
   workspaceId: string;
@@ -435,6 +446,21 @@ export interface AdminTiktokWorkflowRow {
   apiPhone?: string;
   email?: string;
   apiMail?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  companyName?: string;
+  ein?: string;
+  ssn?: string;
+  dob?: string;
+  gender?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  file?: string;
+  docType?: string;
+  probeOutputDir?: string;
   status:
     | "created"
     | "started"
@@ -645,6 +671,38 @@ export interface ControlAdminWorkspaceDetail
   cancelAtPeriodEnd: boolean;
   cancelAt: string | null;
   recentAuditLogs: ControlAuditLog[];
+}
+
+export interface ControlAdminInvoiceListItem extends ControlBillingInvoice {
+  workspaceName: string;
+  actorEmail: string | null;
+}
+
+export interface ControlAdminRevenueSummary {
+  activeSubscriptions: number;
+  pastDueSubscriptions: number;
+  canceledSubscriptions: number;
+  grossRevenueUsd: number;
+  invoiceCount: number;
+  payingWorkspaces: number;
+}
+
+export interface ControlAdminAutomationRunListItem {
+  runId: string;
+  workspaceId: string;
+  workspaceName: string;
+  flowType: TiktokAutomationFlowType;
+  mode: "auto" | "semi";
+  status: "queued" | "running" | "paused" | "stopped" | "completed" | "failed";
+  totalCount: number;
+  doneCount: number;
+  failedCount: number;
+  blockedCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
 
 export interface ControlWorkspaceSubscription {

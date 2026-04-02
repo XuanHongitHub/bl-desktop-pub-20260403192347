@@ -46,6 +46,7 @@ export function buildControlApiPath(
     | "authMe"
     | "workspaces"
     | "publicAuth"
+    | "adminOverview"
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
@@ -61,9 +62,13 @@ export function buildControlApiPath(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
     | "adminWorkspaceOwnerTransfer"
+    | "adminInvoicesList"
+    | "adminRevenue"
+    | "adminAutomationRuns"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"
@@ -89,6 +94,8 @@ export function buildControlApiPath(
         : `${prefix}/workspaces`;
     case "publicAuth":
       return `${prefix}/public/auth/${input.route ?? "login"}`;
+    case "adminOverview":
+      return `${prefix}/admin/overview`;
     case "adminWorkspaceHealth":
       return `${prefix}/admin/workspace-health`;
     case "workspaceBillingState":
@@ -126,6 +133,13 @@ export function buildControlApiPath(
     }
     case "adminUserDetail":
       return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}`;
+    case "adminMembershipsList": {
+      const params = new URLSearchParams();
+      if (input.q?.trim()) params.set("q", input.q.trim());
+      params.set("page", String(Math.max(1, input.page ?? 1)));
+      params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
+      return `${prefix}/admin/memberships?${params.toString()}`;
+    }
     case "adminWorkspacesList": {
       const params = new URLSearchParams();
       if (input.q?.trim()) {
@@ -139,6 +153,22 @@ export function buildControlApiPath(
       return `${prefix}/admin/workspaces/${encodeURIComponent(input.workspaceId ?? "")}`;
     case "adminWorkspaceOwnerTransfer":
       return `${prefix}/admin/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/owner`;
+    case "adminInvoicesList": {
+      const params = new URLSearchParams();
+      if (input.q?.trim()) params.set("q", input.q.trim());
+      params.set("page", String(Math.max(1, input.page ?? 1)));
+      params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
+      return `${prefix}/admin/invoices?${params.toString()}`;
+    }
+    case "adminRevenue":
+      return `${prefix}/admin/revenue`;
+    case "adminAutomationRuns": {
+      const params = new URLSearchParams();
+      if (input.q?.trim()) params.set("q", input.q.trim());
+      params.set("page", String(Math.max(1, input.page ?? 1)));
+      params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
+      return `${prefix}/admin/automation-runs?${params.toString()}`;
+    }
     case "adminCommercePlans":
       return `${prefix}/admin/commerce/plans`;
     case "adminCommercePlanPublishVersion":
@@ -174,6 +204,7 @@ export function buildControlApiUrl(
     | "authMe"
     | "workspaces"
     | "publicAuth"
+    | "adminOverview"
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
@@ -189,9 +220,13 @@ export function buildControlApiUrl(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
     | "adminWorkspaceOwnerTransfer"
+    | "adminInvoicesList"
+    | "adminRevenue"
+    | "adminAutomationRuns"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"

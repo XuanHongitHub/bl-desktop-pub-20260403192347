@@ -4605,7 +4605,8 @@
         "runbookSync": "Verify sync freshness if entitlement or usage looks delayed.",
         "queueDescription": "Workspaces that need attention are grouped by risk, billing, and subscription status signals.",
         "systemTitle": "Platform readiness",
-        "systemDescription": "A concise read on auth, Stripe, and sync availability."
+        "systemDescription": "A concise read on auth, Stripe, and sync availability.",
+        "loadFailed": "Unable to load command center data."
       },
       "dashboard": {
         "title": "Super admin dashboard",
@@ -4734,13 +4735,22 @@
         "pastDue": "Past-due workspaces",
         "latestTitle": "Latest billing activity",
         "latestDescription": "A quick list of workspaces with the freshest invoice timestamps to track renewal cadence and revenue motion.",
-        "planMixTitle": "Workspace mix by plan"
+        "planMixTitle": "Workspace mix by plan",
+        "loadFailed": "Unable to load revenue data."
       },
       "audit": {
         "title": "Audit trail for platform actions.",
         "description": "Critical admin actions can be reviewed directly on the website instead of forcing operators through disconnected internal tooling.",
         "tableTitle": "Audit log",
-        "tableDescription": "Recent records from the control plane are rendered directly in-table."
+        "tableDescription": "Recent records from the control plane are rendered directly in-table.",
+        "loadFailed": "Unable to load audit logs.",
+        "search": "Search action, actor, workspace, reason...",
+        "empty": "No matching audit events found.",
+        "metrics": {
+          "total": "Events",
+          "last24h": "Last 24h",
+          "billing": "Billing events"
+        }
       },
       "system": {
         "title": "System readiness and runtime configuration.",
@@ -4791,6 +4801,128 @@
         "toastCopyFailed": "Unable to copy value to clipboard.",
         "toastTokenCopied": "Release token copied.",
         "toastEnvCopied": "Environment template copied."
+      },
+      "invoices": {
+        "title": "Invoices",
+        "description": "Review paid invoices across every workspace without relying on per-workspace billing views.",
+        "loadFailed": "Unable to load invoices.",
+        "search": "Search workspace, actor, plan, coupon...",
+        "empty": "No matching invoices found.",
+        "metrics": {
+          "count": "Invoices",
+          "revenue": "Gross revenue",
+          "average": "Average invoice"
+        }
+      },
+      "jobsQueues": {
+        "title": "Jobs & queues",
+        "description": "Watch automation runs across all workspaces to catch blocked or failed queues before support tickets spike.",
+        "loadFailed": "Unable to load automation jobs.",
+        "search": "Search workspace, run, flow, status...",
+        "empty": "No matching automation runs found.",
+        "failed": "Failed",
+        "blocked": "Blocked",
+        "metrics": {
+          "total": "Runs",
+          "running": "Running or queued",
+          "blocked": "Blocked items"
+        }
+      },
+      "supportConsole": {
+        "title": "Support console",
+        "description": "One fast triage surface for matching users, workspaces, and recent admin activity during support handling.",
+        "loadFailed": "Unable to load support console data.",
+        "search": "Search user email, workspace, plan, role...",
+        "usersTitle": "Matched users",
+        "workspacesTitle": "Matched workspaces",
+        "activityTitle": "Recent admin activity",
+        "emptyUsers": "No matching users found.",
+        "emptyWorkspaces": "No matching workspaces found.",
+        "openUser": "Open users",
+        "openWorkspace": "Open workspaces",
+        "metrics": {
+          "users": "Users",
+          "flagged": "Flagged workspaces"
+        }
+      },
+      "abuseTrust": {
+        "title": "Abuse & trust",
+        "description": "Surface risky workspaces, access exposure, and sensitive admin mutations in one triage queue.",
+        "loadFailed": "Unable to load abuse and trust data.",
+        "queueTitle": "Flagged workspaces",
+        "auditTitle": "Sensitive activity",
+        "empty": "No flagged workspace requires attention right now.",
+        "metrics": {
+          "flagged": "Flagged workspaces",
+          "readOnly": "Read-only entitlements",
+          "shared": "Workspaces with shares"
+        }
+      },
+      "impersonationCenter": {
+        "title": "Impersonation center",
+        "description": "Review identity state and memberships safely before any future signed impersonation flow is enabled.",
+        "loadFailed": "Unable to load impersonation review data.",
+        "disabledBadge": "Review-only mode",
+        "disabledDescription": "Production impersonation is intentionally disabled until a signed, time-boxed, fully audited backend flow exists.",
+        "openSupportConsole": "Open support console",
+        "search": "Search user email, auth provider, role...",
+        "empty": "No matching user found.",
+        "emptySelection": "Select a user to review identity and workspace access.",
+        "memberships": "Memberships",
+        "lastActive": "Last active",
+        "accountState": "Account state",
+        "reviewChecklist": "Operator checklist",
+        "membershipTitle": "Workspace access",
+        "checklist": {
+          "identity": "Confirm linked providers and account state before attempting any recovery action.",
+          "memberships": "Review each workspace role and owner path before making changes.",
+          "audit": "Check recent audit entries so support actions do not overwrite active operator work."
+        }
+      },
+      "featureFlags": {
+        "title": "Feature flags & rollout gates",
+        "description": "Track the runtime gates that determine whether auth, billing, and sync-dependent features are safe to expose.",
+        "loadFailed": "Unable to load rollout gate status.",
+        "metrics": {
+          "ready": "Ready gates",
+          "audit": "Audits 24h",
+          "entitlement": "Active entitlements"
+        },
+        "gates": {
+          "auth": "Auth gating",
+          "control": "Control plane gating",
+          "stripe": "Stripe gating",
+          "sync": "Sync storage gating"
+        },
+        "descriptions": {
+          "auth": "Requires sync bearer auth and JWT verification to be ready before opening sensitive account features.",
+          "control": "Control token and database must both be healthy before super admin mutations are trusted.",
+          "stripe": "Checkout and subscription transitions should stay hidden if Stripe secret or webhook is incomplete.",
+          "sync": "S3 endpoint and bucket must be configured before sync-backed features are treated as production ready."
+        }
+      },
+      "policyCenter": {
+        "title": "Policy center",
+        "description": "Read current platform policy posture from audit volume, share exposure, and read-only entitlement pressure.",
+        "loadFailed": "Unable to load policy center data.",
+        "policyTitle": "Policy posture",
+        "auditTitle": "Latest policy-relevant activity",
+        "rows": {
+          "audit": "Audited mutations in the last 24h",
+          "shares": "Open share grants",
+          "readOnly": "Read-only entitlements"
+        }
+      },
+      "dataGovernance": {
+        "title": "Data governance",
+        "description": "Identify workspaces with the highest access exposure and storage pressure before data handling issues escalate.",
+        "loadFailed": "Unable to load data governance data.",
+        "hotspotsTitle": "Exposure hotspots",
+        "metrics": {
+          "invites": "Open invites",
+          "shares": "Active shares",
+          "readOnly": "Read-only entitlements"
+        }
       }
     },
     "commerce": {

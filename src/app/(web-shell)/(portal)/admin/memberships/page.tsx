@@ -1,23 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listWorkspaceMembers } from "@/components/web-billing/control-api";
+import { listAdminMemberships } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlMembership } from "@/types";
-
-type MembershipRow = ControlMembership & { workspaceName: string };
+import type { ControlAdminMembershipItem } from "@/types";
 
 export default function AdminMembershipsPage() {
   const { t } = useTranslation();
-  const { connection, workspaces } = usePortalBillingData();
-  const [rows, setRows] = useState<MembershipRow[]>([]);
+  const { connection } = usePortalBillingData();
+  const [rows, setRows] = useState<ControlAdminMembershipItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -28,16 +27,12 @@ export default function AdminMembershipsPage() {
     }
     setLoading(true);
     try {
-      const data = await Promise.all(
-        workspaces.map(async (workspace) => {
-          const members = await listWorkspaceMembers(connection, workspace.id);
-          return members.map((member) => ({
-            ...member,
-            workspaceName: workspace.name,
-          }));
-        }),
-      );
-      setRows(data.flat());
+      const payload = await listAdminMemberships(connection, {
+        q: query.trim() || undefined,
+        page: 1,
+        pageSize: 200,
+      });
+      setRows(payload.items ?? []);
     } catch (error) {
       showErrorToast(t("portalSite.admin.memberships.loadFailed"), {
         description:
@@ -46,29 +41,14 @@ export default function AdminMembershipsPage() {
     } finally {
       setLoading(false);
     }
-  }, [connection, t, workspaces]);
+  }, [connection, query, t]);
 
   useEffect(() => {
-    void refresh();
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, 180);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
-
-  const filteredRows = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) {
-      return rows;
-    }
-    return rows.filter((item) =>
-      [item.email, item.userId, item.workspaceName, item.role]
-        .join(" ")
-        .toLowerCase()
-        .includes(keyword),
-    );
-  }, [query, rows]);
-
-  const workspaceCount = useMemo(
-    () => new Set(filteredRows.map((row) => row.workspaceId)).size,
-    [filteredRows],
-  );
 
   return (
     <PortalSettingsPage
@@ -81,81 +61,68 @@ export default function AdminMembershipsPage() {
         </Button>
       }
     >
-      <section className="rounded-xl border border-border bg-card/70 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("portalSite.admin.memberships.search")}
-            className="h-9 w-full sm:max-w-sm"
-          />
-          <Badge variant="outline">
-            {t("portalSite.admin.memberships.memberCount", { count: filteredRows.length })}
-          </Badge>
-          <Badge variant="secondary">
-            {t("portalSite.admin.memberships.workspaceCount", { count: workspaceCount })}
-          </Badge>
+      <section className="mx-auto w-full max-w-[1180px] space-y-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("portalSite.admin.memberships.search")}
+              className="h-9 w-full sm:max-w-sm"
+            />
+            <Badge variant="outline">
+              {t("portalSite.admin.memberships.memberCount", { count: rows.length })}
+            </Badge>
+          </div>
         </div>
-      </section>
 
-      <section className="rounded-xl border border-border bg-card/70 p-4">
-        <h2 className="text-sm font-semibold text-foreground">
-          {t("portalSite.admin.memberships.tableTitle")}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("portalSite.admin.memberships.tableDescription")}
-        </p>
-
-        <div className="mt-4 overflow-hidden rounded-lg border border-border/70">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.adminUsers.columns.user")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.adminUsers.columns.workspace")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.adminUsers.columns.role")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.adminUsers.columns.joinedAt")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-xl border border-border bg-card">
+          <ScrollArea className="h-[680px]">
+            <div className="divide-y divide-border">
               {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                    {t("portalSite.admin.loading")}
-                  </td>
-                </tr>
-              ) : filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                    {t("portalSite.admin.memberships.empty")}
-                  </td>
-                </tr>
+                <div className="p-4 text-sm text-muted-foreground">
+                  {t("portalSite.admin.loading")}
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  {t("portalSite.admin.memberships.empty")}
+                </div>
               ) : (
-                filteredRows.map((row) => (
-                  <tr key={`${row.workspaceId}:${row.userId}`} className="border-t border-border/70">
-                    <td className="px-3 py-2">
-                      <p className="font-medium text-foreground">{row.email}</p>
-                      <p className="text-xs text-muted-foreground">{row.userId}</p>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{row.workspaceName}</td>
-                    <td className="px-3 py-2">
-                      <Badge variant="outline">{t(`portalSite.adminUsers.roles.${row.role}`)}</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {row.createdAt ? formatLocaleDateTime(row.createdAt) : "--"}
-                    </td>
-                  </tr>
+                rows.map((row) => (
+                  <div
+                    key={`${row.workspaceId}:${row.userId}`}
+                    className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_112px_160px]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {row.email}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.userId}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {row.workspaceName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.workspaceId}
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      <Badge variant="outline" className="capitalize">
+                        {t(`portalSite.adminUsers.roles.${row.role}`)}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>{formatLocaleDateTime(row.createdAt)}</p>
+                      <p>{row.authProvider}</p>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
+            </div>
+          </ScrollArea>
         </div>
       </section>
     </PortalSettingsPage>

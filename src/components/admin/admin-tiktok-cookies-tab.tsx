@@ -294,6 +294,33 @@ interface WorkflowPhoneSeedRow {
   docType?: string;
 }
 
+interface BrowserRuntimeDiagnostic {
+  profile_id: string;
+  browser: string;
+  effective_profile_path: string;
+  configured_executable_path?: string | null;
+  resolved_executable_path?: string | null;
+}
+
+interface StartTiktokProbeSessionResult {
+  started: boolean;
+  outputDir: string;
+  pid?: number | null;
+  command: string;
+}
+
+interface TiktokProbeProgressSnapshot {
+  found: boolean;
+  outputDir: string;
+  isRunning: boolean;
+  ended: boolean;
+  successDetected: boolean;
+  currentStep?: string | null;
+  lastAction?: string | null;
+  lastEventAt?: string | null;
+  error?: string | null;
+}
+
 interface ManagedExtension {
   id: string;
   name: string;
@@ -656,25 +683,81 @@ function compactWorkflowRowsForPersistence(
 
 function buildWorkflowRowsStableSnapshot(
   rows: Array<{
+    flowType?: TiktokAutomationFlowType;
+    batchId?: string;
     profileId: string;
+    profileName?: string;
+    browser?: string;
+    proxyId?: string;
+    proxyName?: string;
+    phoneCountry?: "US";
     phoneNumber?: string;
     apiPhone?: string;
     email?: string;
     apiMail?: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    companyName?: string;
+    ein?: string;
+    ssn?: string;
+    dob?: string;
+    gender?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    file?: string;
+    docType?: string;
+    probeOutputDir?: string;
+    status?: AdminTiktokWorkflowRow["status"];
+    sellerStep?: string;
+    sellerStatusText?: string;
     cookieRecordId?: string | null;
     cookiePreview?: string | null;
+    lastError?: string | null;
     isDisabled?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
   }>,
 ) {
   return rows.map((row) => ({
+    flowType: row.flowType,
+    batchId: row.batchId ?? "existing",
     profileId: row.profileId,
+    profileName: row.profileName ?? row.profileId,
+    browser: row.browser ?? "camoufox",
+    proxyId: row.proxyId ?? "",
+    proxyName: row.proxyName ?? "",
+    phoneCountry: row.phoneCountry,
     phoneNumber: row.phoneNumber ?? "",
     apiPhone: row.apiPhone ?? "",
     email: row.email ?? "",
     apiMail: row.apiMail ?? "",
+    firstName: row.firstName ?? "",
+    lastName: row.lastName ?? "",
+    fullName: row.fullName ?? "",
+    companyName: row.companyName ?? "",
+    ein: row.ein ?? "",
+    ssn: row.ssn ?? "",
+    dob: row.dob ?? "",
+    gender: row.gender ?? "",
+    address: row.address ?? "",
+    city: row.city ?? "",
+    state: row.state ?? "",
+    zip: row.zip ?? "",
+    file: row.file ?? "",
+    docType: row.docType ?? "",
+    probeOutputDir: row.probeOutputDir ?? "",
+    status: row.status ?? "created",
+    sellerStep: row.sellerStep ?? "",
+    sellerStatusText: row.sellerStatusText ?? "",
     cookieRecordId: row.cookieRecordId ?? null,
     cookiePreview: toWorkflowCookiePreview(row.cookiePreview),
+    lastError: row.lastError ?? null,
     isDisabled: Boolean(row.isDisabled),
+    createdAt: row.createdAt ?? new Date(0).toISOString(),
+    updatedAt: row.updatedAt ?? new Date(0).toISOString(),
   }));
 }
 
@@ -835,6 +918,21 @@ function parseWorkflowProfileNote(note?: string | null): {
   apiPhone?: string;
   email?: string;
   apiMail?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  companyName?: string;
+  ein?: string;
+  ssn?: string;
+  dob?: string;
+  gender?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  file?: string;
+  docType?: string;
+  probeOutputDir?: string;
   sellerStep?: string;
   sellerStatusText?: string;
 } {
@@ -867,6 +965,21 @@ function parseWorkflowProfileNote(note?: string | null): {
     apiPhone: valueByKey.get("api_phone"),
     email: valueByKey.get("email"),
     apiMail: valueByKey.get("api_mail"),
+    firstName: valueByKey.get("first_name"),
+    lastName: valueByKey.get("last_name"),
+    fullName: valueByKey.get("full_name"),
+    companyName: valueByKey.get("company_name"),
+    ein: valueByKey.get("ein"),
+    ssn: valueByKey.get("ssn"),
+    dob: valueByKey.get("dob"),
+    gender: valueByKey.get("gender"),
+    address: valueByKey.get("address"),
+    city: valueByKey.get("city"),
+    state: valueByKey.get("state"),
+    zip: valueByKey.get("zip"),
+    file: valueByKey.get("doc_file"),
+    docType: valueByKey.get("doc_type"),
+    probeOutputDir: valueByKey.get("probe_output_dir"),
     sellerStep: valueByKey.get("seller_step"),
     sellerStatusText: valueByKey.get("seller_status_text"),
   };
@@ -911,8 +1024,21 @@ function upsertWorkflowProfileNote(
     "api_phone",
     "email",
     "api_mail",
+    "first_name",
+    "last_name",
+    "full_name",
+    "company_name",
     "ein",
+    "ssn",
+    "dob",
+    "gender",
+    "address",
+    "city",
+    "state",
+    "zip",
     "doc_file",
+    "doc_type",
+    "probe_output_dir",
   ];
   const usedKeys = new Set<string>();
   const mergedLines: string[] = [];
@@ -1657,6 +1783,119 @@ function normalizeSellerWorkflowStep(
   return matched ?? "queued_for_launch";
 }
 
+function mapProbeStepToSellerWorkflowStep(
+  value: string | null | undefined,
+): SellerWorkflowStep {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return "queued_for_launch";
+  }
+  if (
+    normalized.includes("otp") ||
+    normalized.includes("verify")
+  ) {
+    return "verify_otp";
+  }
+  if (
+    normalized.includes("intent") ||
+    normalized.includes("seller_type")
+  ) {
+    return "seller_type";
+  }
+  if (normalized.includes("business_type") || normalized.includes("legal")) {
+    return "legal_form";
+  }
+  if (normalized.includes("upload")) {
+    return "upload_pdf";
+  }
+  if (
+    normalized.includes("ein") ||
+    normalized.includes("business_details") ||
+    normalized.includes("business_fill") ||
+    normalized.includes("verify_business")
+  ) {
+    return "verify_business";
+  }
+  if (
+    normalized.includes("setup") ||
+    normalized.includes("completed") ||
+    normalized.includes("completion")
+  ) {
+    return "setup";
+  }
+  if (
+    normalized.includes("register") ||
+    normalized.includes("signup")
+  ) {
+    return "register_opened";
+  }
+  return "queued_for_launch";
+}
+
+function buildStoredProxyUrl(proxy: StoredProxy | null | undefined): string {
+  if (!proxy) {
+    return "";
+  }
+  const proxySettings = proxy.proxy_settings;
+  const type = proxySettings?.proxy_type?.trim().toLowerCase() || "http";
+  const host = proxySettings?.host?.trim() || "";
+  const port = `${proxySettings?.port ?? ""}`.trim();
+  if (!host || !port) {
+    return "";
+  }
+  const username = proxySettings?.username?.trim() || "";
+  const password = proxySettings?.password?.trim() || "";
+  if (username || password) {
+    return `${type}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
+  }
+  return `${type}://${host}:${port}`;
+}
+
+function buildSellerSeedPayload(row: SemiAutoTaskRow) {
+  return {
+    profile: row.profileName,
+    phone: row.phoneNumber ?? "",
+    apiPhone: row.apiPhone ?? "",
+    email: row.email ?? "",
+    apiMail: row.apiMail ?? "",
+    firstName: row.firstName ?? "",
+    lastName: row.lastName ?? "",
+    fullName: row.fullName ?? "",
+    companyName: row.companyName ?? "",
+    ein: row.ein ?? "",
+    ssn: row.ssn ?? "",
+    dob: row.dob ?? "",
+    gender: row.gender ?? "",
+    address: row.address ?? "",
+    city: row.city ?? "",
+    state: row.state ?? "",
+    zip: row.zip ?? "",
+    file: row.file ?? "",
+    docType: row.docType ?? "",
+    raw: {
+      profile: row.profileName,
+      phone: row.phoneNumber ?? "",
+      api_phone: row.apiPhone ?? "",
+      email: row.email ?? "",
+      api_mail: row.apiMail ?? "",
+      first_name: row.firstName ?? "",
+      last_name: row.lastName ?? "",
+      full_name: row.fullName ?? "",
+      company_name: row.companyName ?? "",
+      ein: row.ein ?? "",
+      ssn: row.ssn ?? "",
+      dob: row.dob ?? "",
+      gender: row.gender ?? "",
+      address: row.address ?? "",
+      city: row.city ?? "",
+      state: row.state ?? "",
+      zip: row.zip ?? "",
+      file: row.file ?? "",
+      doc_type: row.docType ?? "",
+    },
+  };
+}
+
 function isLikelyValidOmoKey(key: string): boolean {
   const trimmed = key.trim();
   return /^OMO_[A-Z0-9_]{16,}$/i.test(trimmed);
@@ -1831,6 +2070,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const workspaceProfilesRef = useRef<BrowserProfile[]>([]);
   const lazyWorkspaceDataHydrationRef = useRef<string | null>(null);
   const automationFlowHydratedRef = useRef(false);
+  const sellerProbeOutputDirByProfileIdRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1876,6 +2116,17 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       // Ignore storage write errors.
     }
   }, [automationFlowType]);
+
+  useEffect(() => {
+    const nextMap = new Map<string, string>();
+    for (const row of workflowRows) {
+      const outputDir = row.probeOutputDir?.trim() || "";
+      if (outputDir) {
+        nextMap.set(row.profileId, outputDir);
+      }
+    }
+    sellerProbeOutputDirByProfileIdRef.current = nextMap;
+  }, [workflowRows]);
   useEffect(() => {
     if (typeof window === "undefined" || !props.workspaceId) {
       return;
@@ -2018,6 +2269,21 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         apiPhone: trackedRow.apiPhone ?? noteValues.apiPhone,
         email: trackedRow.email ?? noteValues.email,
         apiMail: trackedRow.apiMail ?? noteValues.apiMail,
+        firstName: trackedRow.firstName ?? noteValues.firstName,
+        lastName: trackedRow.lastName ?? noteValues.lastName,
+        fullName: trackedRow.fullName ?? noteValues.fullName,
+        companyName: trackedRow.companyName ?? noteValues.companyName,
+        ein: trackedRow.ein ?? noteValues.ein,
+        ssn: trackedRow.ssn ?? noteValues.ssn,
+        dob: trackedRow.dob ?? noteValues.dob,
+        gender: trackedRow.gender ?? noteValues.gender,
+        address: trackedRow.address ?? noteValues.address,
+        city: trackedRow.city ?? noteValues.city,
+        state: trackedRow.state ?? noteValues.state,
+        zip: trackedRow.zip ?? noteValues.zip,
+        file: trackedRow.file ?? noteValues.file,
+        docType: trackedRow.docType ?? noteValues.docType,
+        probeOutputDir: trackedRow.probeOutputDir ?? noteValues.probeOutputDir,
         sellerStep:
           trackedRow.sellerStep ??
           noteValues.sellerStep ??
@@ -2060,6 +2326,21 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           apiPhone: noteValues.apiPhone,
           email: noteValues.email,
           apiMail: noteValues.apiMail,
+          firstName: noteValues.firstName,
+          lastName: noteValues.lastName,
+          fullName: noteValues.fullName,
+          companyName: noteValues.companyName,
+          ein: noteValues.ein,
+          ssn: noteValues.ssn,
+          dob: noteValues.dob,
+          gender: noteValues.gender,
+          address: noteValues.address,
+          city: noteValues.city,
+          state: noteValues.state,
+          zip: noteValues.zip,
+          file: noteValues.file,
+          docType: noteValues.docType,
+          probeOutputDir: noteValues.probeOutputDir,
           status: "created",
           sellerStep: "queued_for_launch",
           sellerStatusText: noteValues.sellerStatusText,
@@ -2692,6 +2973,14 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         workflowSyncStatus,
         row.browser,
         row.proxyName,
+        row.fullName,
+        row.companyName,
+        row.ein,
+        row.ssn,
+        row.address,
+        row.city,
+        row.state,
+        row.zip,
         automationAccount?.username,
         automationAccount?.phone,
         automationAccount?.apiPhone,
@@ -4893,10 +5182,22 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             candidate.apiPhone?.trim() ??
             embeddedApiPhone ??
             "",
+          firstName: candidate.firstName?.trim() ?? "",
+          lastName: candidate.lastName?.trim() ?? "",
+          fullName: candidate.fullName?.trim() ?? "",
+          companyName: candidate.companyName?.trim() ?? "",
           proxy: candidate.proxy?.trim() ?? "",
           profile: candidate.profile?.trim() ?? "",
           ein: candidate.ein?.trim() ?? "",
+          ssn: candidate.ssn?.trim() ?? "",
+          dob: candidate.dob?.trim() ?? "",
+          gender: candidate.gender?.trim() ?? "",
+          address: candidate.address?.trim() ?? "",
+          city: candidate.city?.trim() ?? "",
+          state: candidate.state?.trim() ?? "",
+          zip: candidate.zip?.trim() ?? "",
           file: candidate.file?.trim() ?? "",
+          docType: candidate.docType?.trim() ?? "",
         };
       })
       .filter((candidate) =>
@@ -5008,10 +5309,22 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
             email: "",
             apiMail: "",
             apiPhone: "",
+            firstName: "",
+            lastName: "",
+            fullName: "",
+            companyName: "",
             proxy: "",
             profile: "",
             ein: "",
+            ssn: "",
+            dob: "",
+            gender: "",
+            address: "",
+            city: "",
+            state: "",
+            zip: "",
             file: "",
+            docType: "",
           };
         const profileName =
           automationFlowType === "signup_seller"
@@ -5116,8 +5429,20 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
               api_phone: targetApiPhone || "",
               email: targetCandidate.email || "",
               api_mail: targetCandidate.apiMail || "",
+              first_name: targetCandidate.firstName || "",
+              last_name: targetCandidate.lastName || "",
+              full_name: targetCandidate.fullName || "",
+              company_name: targetCandidate.companyName || "",
               ein: targetCandidate.ein || "",
+              ssn: targetCandidate.ssn || "",
+              dob: targetCandidate.dob || "",
+              gender: targetCandidate.gender || "",
+              address: targetCandidate.address || "",
+              city: targetCandidate.city || "",
+              state: targetCandidate.state || "",
+              zip: targetCandidate.zip || "",
               doc_file: targetCandidate.file || "",
+              doc_type: targetCandidate.docType || "",
             });
             createdProfile = await invoke<BrowserProfile>("update_profile_note", {
               profileId: createdProfile.id,
@@ -5141,6 +5466,20 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           email: targetCandidate.email || undefined,
           apiMail: targetCandidate.apiMail || undefined,
           apiPhone: targetApiPhone || undefined,
+          firstName: targetCandidate.firstName || undefined,
+          lastName: targetCandidate.lastName || undefined,
+          fullName: targetCandidate.fullName || undefined,
+          companyName: targetCandidate.companyName || undefined,
+          ein: targetCandidate.ein || undefined,
+          ssn: targetCandidate.ssn || undefined,
+          dob: targetCandidate.dob || undefined,
+          gender: targetCandidate.gender || undefined,
+          address: targetCandidate.address || undefined,
+          city: targetCandidate.city || undefined,
+          state: targetCandidate.state || undefined,
+          zip: targetCandidate.zip || undefined,
+          file: targetCandidate.file || undefined,
+          docType: targetCandidate.docType || undefined,
           status: "created",
           sellerStep: "queued_for_launch",
           sellerStatusText: "",
@@ -5282,7 +5621,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       try {
         const updatedNote = upsertWorkflowProfileNote(profile.note, {
           seller_step: nextStep,
+          seller_status: nextStatus ?? row.status,
           seller_status_text: statusText ?? row.sellerStatusText ?? "",
+          probe_output_dir:
+            patch.probeOutputDir ??
+            sellerProbeOutputDirByProfileIdRef.current.get(row.profileId) ??
+            row.probeOutputDir ??
+            "",
         });
         await invoke<BrowserProfile>("update_profile_note", {
           profileId: row.profileId,
@@ -5293,6 +5638,84 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       }
     },
     [updateWorkflowRow],
+  );
+
+  const startSellerProbeSession = useCallback(
+    async (row: SemiAutoTaskRow) => {
+      const diagnostics = await invoke<BrowserRuntimeDiagnostic[]>(
+        "get_browser_runtime_diagnostics",
+        {
+          profileIds: [row.profileId],
+          runningOnly: false,
+          limit: 1,
+        },
+      );
+      const diagnostic =
+        diagnostics.find((item) => item.profile_id === row.profileId) ?? null;
+      const runtimeProfile = workspaceProfilesRef.current.find(
+        (item) => item.id === row.profileId,
+      );
+      const runtimeProxy =
+        storedProxies.find(
+          (proxy) => proxy.id === (runtimeProfile?.proxy_id ?? row.proxyId),
+        ) ?? null;
+
+      const result = await invoke<StartTiktokProbeSessionResult>(
+        "start_tiktok_probe_session",
+        {
+          profileId: row.profileId,
+          profileName: row.profileName,
+          flowType: "signup_seller",
+          startUrl: "https://seller-us.tiktok.com/account/register",
+          browserType: "firefox",
+          executablePath:
+            diagnostic?.resolved_executable_path ||
+            diagnostic?.configured_executable_path ||
+            undefined,
+          proxyUrl: buildStoredProxyUrl(runtimeProxy) || undefined,
+          headless: false,
+          maxDurationSeconds: 1800,
+          seedPayload: buildSellerSeedPayload(row),
+          userDataDir: diagnostic?.effective_profile_path || undefined,
+          keepOpen: true,
+          autoBestEffort: true,
+          contactMode: "auto",
+          entryMode: "register",
+          einSubmit: false,
+        },
+      );
+
+      sellerProbeOutputDirByProfileIdRef.current.set(row.profileId, result.outputDir);
+      updateWorkflowRow(row.profileId, {
+        probeOutputDir: result.outputDir,
+        status: "started",
+        lastError: null,
+      });
+
+      const profile = workspaceProfilesRef.current.find(
+        (item) => item.id === row.profileId,
+      );
+      if (profile) {
+        try {
+          const updatedNote = upsertWorkflowProfileNote(profile.note, {
+            seller_flow: "signup_seller",
+            flow_type: "signup_seller",
+            seller_step: "register_opened",
+            seller_status: "started",
+            probe_output_dir: result.outputDir,
+          });
+          await invoke<BrowserProfile>("update_profile_note", {
+            profileId: row.profileId,
+            note: updatedNote,
+          });
+        } catch {
+          // Keep seller launch resilient even if note persistence fails.
+        }
+      }
+
+      return result;
+    },
+    [storedProxies, updateWorkflowRow],
   );
 
   const syncSellerRuntimeStepFromBackend = useCallback(
@@ -5345,18 +5768,72 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     [automationFlowType, updateSellerWorkflowStep],
   );
 
+  const syncSellerProbeProgress = useCallback(
+    async (row: SemiAutoTaskRow) => {
+      if (automationFlowType !== "signup_seller") {
+        return;
+      }
+      const outputDir =
+        sellerProbeOutputDirByProfileIdRef.current.get(row.profileId) ||
+        row.probeOutputDir?.trim() ||
+        "";
+      if (!outputDir) {
+        return;
+      }
+      try {
+        const snapshot = await invoke<TiktokProbeProgressSnapshot>(
+          "read_tiktok_probe_progress",
+          {
+            outputDir,
+          },
+        );
+        if (!snapshot?.found) {
+          return;
+        }
+
+        const nextStep = mapProbeStepToSellerWorkflowStep(snapshot.currentStep);
+        const nextStatus =
+          snapshot.error?.trim()
+            ? "push_failed"
+            : row.status === "created"
+              ? "started"
+              : row.status;
+        const statusText = [
+          snapshot.currentStep,
+          snapshot.lastAction,
+          snapshot.error,
+        ]
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter((value) => value.length > 0)
+          .join(" | ");
+
+        await updateSellerWorkflowStep(row, nextStep, nextStatus, statusText);
+        await syncSellerRuntimeStepFromBackend({
+          ...row,
+          sellerStep: nextStep,
+          status: nextStatus,
+          sellerStatusText: statusText,
+        });
+      } catch {
+        // Keep seller polling resilient.
+      }
+    },
+    [automationFlowType, syncSellerRuntimeStepFromBackend, updateSellerWorkflowStep],
+  );
+
   const handleSellerWorkflowClosed = useCallback(
     async (row: SemiAutoTaskRow) => {
       if (automationFlowType !== "signup_seller") {
         return false;
       }
+      await syncSellerProbeProgress(row);
       await syncSellerRuntimeStepFromBackend(row);
       const refreshedRow = sortedWorkflowRowsRef.current.find(
         (item) => item.profileId === row.profileId,
       );
       return isSellerTerminalStatus(refreshedRow?.status ?? row.status);
     },
-    [automationFlowType, syncSellerRuntimeStepFromBackend],
+    [automationFlowType, syncSellerProbeProgress, syncSellerRuntimeStepFromBackend],
   );
 
   const runSellerLaunchPreflight = useCallback(
@@ -5442,9 +5919,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     markWorkflowHeartbeat();
     setActiveWorkflowProfileId(row.profileId);
     try {
-      const launchIntent = resolveWorkflowLaunchIntent(row);
-      autoWorkflowLaunchIntentRef.current.set(row.profileId, launchIntent);
-      await openWorkflowProfileTabs(row, { launchIntent });
+      if (automationFlowType === "signup_seller") {
+        await startSellerProbeSession(row);
+      } else {
+        const launchIntent = resolveWorkflowLaunchIntent(row);
+        autoWorkflowLaunchIntentRef.current.set(row.profileId, launchIntent);
+        await openWorkflowProfileTabs(row, { launchIntent });
+      }
       markWorkflowHeartbeat();
       updateWorkflowRow(row.profileId, {
         status: "started",
@@ -6130,9 +6611,13 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           }
         }
         markWorkflowHeartbeat();
-        const launchIntent = resolveWorkflowLaunchIntent(nextRow);
-        autoWorkflowLaunchIntentRef.current.set(nextRow.profileId, launchIntent);
-        await openWorkflowProfileTabs(nextRow, { launchIntent });
+        if (automationFlowType === "signup_seller") {
+          await startSellerProbeSession(nextRow);
+        } else {
+          const launchIntent = resolveWorkflowLaunchIntent(nextRow);
+          autoWorkflowLaunchIntentRef.current.set(nextRow.profileId, launchIntent);
+          await openWorkflowProfileTabs(nextRow, { launchIntent });
+        }
         if (autoWorkflowStopRequestedRef.current) {
           return;
         }
@@ -6195,6 +6680,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     openWorkflowProfileTabs,
     markSignupRunItemStarted,
     runSellerLaunchPreflight,
+    startSellerProbeSession,
     resolveWorkflowLaunchIntent,
     updateSellerWorkflowStep,
     validateWorkflowSignupPreflight,
@@ -6232,58 +6718,93 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
         try {
           autoWorkflowStatusCheckInFlightRef.current = true;
-          const isRunning = await invoke<boolean>("check_browser_status", {
-            profile,
-          });
-          if (autoWorkflowStopRequestedRef.current) {
-            return;
-          }
-
-          if (isRunning) {
+          if (automationFlowType === "signup_seller") {
             markWorkflowHeartbeat();
             const runningRow = sortedWorkflowRowsRef.current.find(
               (item) => item.profileId === profile.id,
             );
-            if (runningRow) {
-              void maybeAssistWorkflowOtp(runningRow);
-              void syncSellerRuntimeStepFromBackend(runningRow);
+            const outputDir =
+              sellerProbeOutputDirByProfileIdRef.current.get(profile.id) ||
+              runningRow?.probeOutputDir?.trim() ||
+              "";
+            const snapshot = outputDir
+              ? await invoke<TiktokProbeProgressSnapshot>("read_tiktok_probe_progress", {
+                  outputDir,
+                })
+              : null;
+            if (autoWorkflowStopRequestedRef.current) {
+              return;
             }
-            const launchIntent =
-              autoWorkflowLaunchIntentRef.current.get(profile.id) ?? "relogin";
-            const launchedAt = workflowLaunchTimestampRef.current.get(profile.id) ?? 0;
-            const shouldCloseAfterShopRefresh =
-              launchIntent === "shop_refresh" &&
-              launchedAt > 0 &&
-              Date.now() - launchedAt >= WORKFLOW_SHOP_REFRESH_RUNTIME_MS;
-            if (shouldCloseAfterShopRefresh) {
-              try {
-                await invoke("kill_browser_profile", { profile });
-              } catch (closeError) {
-                const issueLog = formatWorkflowIssueLog(closeError);
-                updateWorkflowRow(profile.id, {
-                  status: "push_failed",
-                  lastError: issueLog,
-                });
-                workflowLaunchTimestampRef.current.delete(profile.id);
-                autoWorkflowLaunchIntentRef.current.delete(profile.id);
-                setAutoWorkflowRun(null);
-                showErrorToast(t("adminWorkspace.tiktokCookies.workflow.syncFailed"), {
-                  description: summarizeWorkflowError(issueLog),
-                });
+            if (snapshot?.found && snapshot.is_running) {
+              if (runningRow) {
+                void syncSellerProbeProgress(runningRow);
+              }
+              if (!autoWorkflowRun.observedRunning) {
+                setAutoWorkflowRun((current) =>
+                  current && current.activeProfileId === profile.id
+                    ? {
+                        ...current,
+                        observedRunning: true,
+                      }
+                    : current,
+                );
               }
               return;
             }
-            if (!autoWorkflowRun.observedRunning) {
-              setAutoWorkflowRun((current) =>
-                current && current.activeProfileId === profile.id
-                  ? {
-                      ...current,
-                      observedRunning: true,
-                    }
-                  : current,
-              );
+          } else {
+            const isRunning = await invoke<boolean>("check_browser_status", {
+              profile,
+            });
+            if (autoWorkflowStopRequestedRef.current) {
+              return;
             }
-            return;
+
+            if (isRunning) {
+              markWorkflowHeartbeat();
+              const runningRow = sortedWorkflowRowsRef.current.find(
+                (item) => item.profileId === profile.id,
+              );
+              if (runningRow) {
+                void maybeAssistWorkflowOtp(runningRow);
+              }
+              const launchIntent =
+                autoWorkflowLaunchIntentRef.current.get(profile.id) ?? "relogin";
+              const launchedAt =
+                workflowLaunchTimestampRef.current.get(profile.id) ?? 0;
+              const shouldCloseAfterShopRefresh =
+                launchIntent === "shop_refresh" &&
+                launchedAt > 0 &&
+                Date.now() - launchedAt >= WORKFLOW_SHOP_REFRESH_RUNTIME_MS;
+              if (shouldCloseAfterShopRefresh) {
+                try {
+                  await invoke("kill_browser_profile", { profile });
+                } catch (closeError) {
+                  const issueLog = formatWorkflowIssueLog(closeError);
+                  updateWorkflowRow(profile.id, {
+                    status: "push_failed",
+                    lastError: issueLog,
+                  });
+                  workflowLaunchTimestampRef.current.delete(profile.id);
+                  autoWorkflowLaunchIntentRef.current.delete(profile.id);
+                  setAutoWorkflowRun(null);
+                  showErrorToast(t("adminWorkspace.tiktokCookies.workflow.syncFailed"), {
+                    description: summarizeWorkflowError(issueLog),
+                  });
+                }
+                return;
+              }
+              if (!autoWorkflowRun.observedRunning) {
+                setAutoWorkflowRun((current) =>
+                  current && current.activeProfileId === profile.id
+                    ? {
+                        ...current,
+                        observedRunning: true,
+                      }
+                    : current,
+                );
+              }
+              return;
+            }
           }
 
           if (autoWorkflowRun.processingClose) {
@@ -6414,7 +6935,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     handleSellerWorkflowClosed,
     markWorkflowHeartbeat,
     maybeAssistWorkflowOtp,
-    syncSellerRuntimeStepFromBackend,
+    syncSellerProbeProgress,
     t,
   ]);
 
@@ -6445,30 +6966,61 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
         try {
           manualWorkflowStatusCheckInFlightRef.current = true;
-          const isRunning = await invoke<boolean>("check_browser_status", {
-            profile,
-          });
-
-          if (isRunning) {
+          if (automationFlowType === "signup_seller") {
             markWorkflowHeartbeat();
             const runningRow = sortedWorkflowRowsRef.current.find(
               (item) => item.profileId === profile.id,
             );
-            if (runningRow) {
-              void maybeAssistWorkflowOtp(runningRow);
-              void syncSellerRuntimeStepFromBackend(runningRow);
+            const outputDir =
+              sellerProbeOutputDirByProfileIdRef.current.get(profile.id) ||
+              runningRow?.probeOutputDir?.trim() ||
+              "";
+            const snapshot = outputDir
+              ? await invoke<TiktokProbeProgressSnapshot>("read_tiktok_probe_progress", {
+                  outputDir,
+                })
+              : null;
+            if (snapshot?.found && snapshot.is_running) {
+              if (runningRow) {
+                void syncSellerProbeProgress(runningRow);
+              }
+              if (!manualWorkflowWatch.observedRunning) {
+                setManualWorkflowWatch((current) =>
+                  current && current.profileId === profile.id
+                    ? {
+                        ...current,
+                        observedRunning: true,
+                      }
+                    : current,
+                );
+              }
+              return;
             }
-            if (!manualWorkflowWatch.observedRunning) {
-              setManualWorkflowWatch((current) =>
-                current && current.profileId === profile.id
-                  ? {
-                      ...current,
-                      observedRunning: true,
-                    }
-                  : current,
+          } else {
+            const isRunning = await invoke<boolean>("check_browser_status", {
+              profile,
+            });
+
+            if (isRunning) {
+              markWorkflowHeartbeat();
+              const runningRow = sortedWorkflowRowsRef.current.find(
+                (item) => item.profileId === profile.id,
               );
+              if (runningRow) {
+                void maybeAssistWorkflowOtp(runningRow);
+              }
+              if (!manualWorkflowWatch.observedRunning) {
+                setManualWorkflowWatch((current) =>
+                  current && current.profileId === profile.id
+                    ? {
+                        ...current,
+                        observedRunning: true,
+                      }
+                    : current,
+                );
+              }
+              return;
             }
-            return;
           }
 
           if (manualWorkflowWatch.processingClose) {
@@ -6565,7 +7117,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
     manualWorkflowWatch,
     markWorkflowHeartbeat,
     maybeAssistWorkflowOtp,
-    syncSellerRuntimeStepFromBackend,
+    syncSellerProbeProgress,
     t,
   ]);
 
@@ -8179,7 +8731,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
                                 ) : null}
                               </div>
                               <p className="line-clamp-1 min-w-0 font-mono text-[11px] text-muted-foreground">
-                                {summarizeCookieValue(row.profileId)}
+                                {row.profileId}
                               </p>
                             </div>
                           </TableCell>

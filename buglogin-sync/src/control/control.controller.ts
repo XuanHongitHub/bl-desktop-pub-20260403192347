@@ -669,6 +669,20 @@ export class ControlController {
     );
   }
 
+  @Get("admin/memberships")
+  listAdminMemberships(
+    @Headers() headers: ActorHeaders,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.controlService.listAdminMemberships(this.actorFromHeaders(headers), {
+      q,
+      page: Number(page ?? 1),
+      pageSize: Number(pageSize ?? 25),
+    });
+  }
+
   @Get("admin/workspaces")
   listAdminWorkspaces(
     @Headers() headers: ActorHeaders,
@@ -706,6 +720,41 @@ export class ControlController {
       body.userId,
       body.reason,
     );
+  }
+
+  @Get("admin/invoices")
+  listAdminInvoices(
+    @Headers() headers: ActorHeaders,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.controlService.listAdminInvoices(this.actorFromHeaders(headers), {
+      q,
+      page: Number(page ?? 1),
+      pageSize: Number(pageSize ?? 25),
+    });
+  }
+
+  @Get("admin/revenue")
+  getAdminRevenue(@Headers() headers: ActorHeaders) {
+    return this.controlService.getPlatformRevenueSummary(
+      this.actorFromHeaders(headers),
+    );
+  }
+
+  @Get("admin/automation-runs")
+  listAdminAutomationRuns(
+    @Headers() headers: ActorHeaders,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.controlService.listAdminAutomationRuns(this.actorFromHeaders(headers), {
+      q,
+      page: Number(page ?? 1),
+      pageSize: Number(pageSize ?? 25),
+    });
   }
 
   @Get("admin/workspace-health")

@@ -39,6 +39,10 @@ import type {
   PlatformAdminWorkspaceHealthRow,
   PlatformAdminEmailRecord,
   PlatformAdminListResult,
+  PlatformAdminMembershipItem,
+  PlatformAdminInvoiceListItem,
+  PlatformAdminRevenueSummary,
+  PlatformAdminAutomationRunListItem,
   PlatformAdminUserDetail,
   PlatformAdminUserListItem,
   PlatformAdminUserWorkspaceMembership,
@@ -2342,6 +2346,156 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       ? Math.max(1, Math.min(1000, Math.trunc(limit)))
       : 200;
     return this.auditLogs.slice(-normalizedLimit).reverse();
+  }
+
+  listAdminMemberships(
+    actor: RequestActor,
+    query: PlatformAdminListQuery = {},
+  ): PlatformAdminListResult<PlatformAdminMembershipItem> {
+    this.assertPlatformAdmin(actor);
+    const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+
+    const items = Array.from(this.memberships.entries())
+      .flatMap(([workspaceId, members]) =>
+        members.map((member) => {
+          const authUser = this.findAuthUserById(member.userId);
+          return {
+            workspaceId,
+            workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
+            userId: member.userId,
+            email: authUser?.email ?? this.normalizeEmail(member.email) ?? member.email,
+            role: member.role,
+            createdAt: member.createdAt,
+            platformRole: authUser?.platformRole ?? null,
+            authProvider: authUser?.authProvider ?? "password",
+          } satisfies PlatformAdminMembershipItem;
+        }),
+      )
+      .filter((item) => {
+        if (!q) {
+          return true;
+        }
+        return [
+          item.workspaceName,
+          item.workspaceId,
+          item.email,
+          item.userId,
+          item.role,
+          item.platformRole ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+    return this.paginatePlatformAdminItems(items, page, pageSize);
+  }
+
+  listAdminInvoices(
+    actor: RequestActor,
+    query: PlatformAdminListQuery = {},
+  ): PlatformAdminListResult<PlatformAdminInvoiceListItem> {
+    this.assertPlatformAdmin(actor);
+    const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+
+    const items = Array.from(this.invoices.values())
+      .map((invoice) => ({
+        ...invoice,
+        workspaceName:
+          this.workspaces.get(invoice.workspaceId)?.name ?? invoice.workspaceId,
+        actorEmail: this.findAuthUserById(invoice.actorUserId)?.email ?? null,
+      }))
+      .filter((item) => {
+        if (!q) {
+          return true;
+        }
+        return [
+          item.workspaceName,
+          item.workspaceId,
+          item.actorUserId,
+          item.actorEmail ?? "",
+          item.planLabel,
+          item.planId,
+          item.couponCode ?? "",
+          item.source,
+          item.method,
+          item.status,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+    return this.paginatePlatformAdminItems(items, page, pageSize);
+  }
+
+  getPlatformRevenueSummary(actor: RequestActor): PlatformAdminRevenueSummary {
+    this.assertPlatformAdmin(actor);
+    const subscriptions = Array.from(this.subscriptions.values());
+    const invoices = Array.from(this.invoices.values());
+    const payingWorkspaces = new Set(invoices.map((invoice) => invoice.workspaceId));
+
+    return {
+      activeSubscriptions: subscriptions.filter((item) => item.status === "active").length,
+      pastDueSubscriptions: subscriptions.filter((item) => item.status === "past_due")
+        .length,
+      canceledSubscriptions: subscriptions.filter((item) => item.status === "canceled")
+        .length,
+      grossRevenueUsd: invoices.reduce((sum, invoice) => sum + invoice.amountUsd, 0),
+      invoiceCount: invoices.length,
+      payingWorkspaces: payingWorkspaces.size,
+    };
+  }
+
+  listAdminAutomationRuns(
+    actor: RequestActor,
+    query: PlatformAdminListQuery = {},
+  ): PlatformAdminListResult<PlatformAdminAutomationRunListItem> {
+    this.assertPlatformAdmin(actor);
+    const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+
+    const items = Array.from(this.workspaceTiktokAutomationRuns.entries())
+      .flatMap(([workspaceId, runs]) =>
+        runs.map((run) => ({
+          runId: run.id,
+          workspaceId,
+          workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
+          flowType: run.flowType,
+          mode: run.mode,
+          status: run.status,
+          totalCount: run.totalCount,
+          doneCount: run.doneCount,
+          failedCount: run.failedCount,
+          blockedCount: run.blockedCount,
+          createdBy: this.findAuthUserById(run.createdBy)?.email ?? run.createdBy,
+          createdAt: run.createdAt,
+          updatedAt: run.updatedAt,
+          startedAt: run.startedAt,
+          finishedAt: run.finishedAt,
+        }) satisfies PlatformAdminAutomationRunListItem),
+      )
+      .filter((item) => {
+        if (!q) {
+          return true;
+        }
+        return [
+          item.workspaceName,
+          item.workspaceId,
+          item.runId,
+          item.flowType,
+          item.mode,
+          item.status,
+          item.createdBy,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+    return this.paginatePlatformAdminItems(items, page, pageSize);
   }
 
   listAdminUsers(

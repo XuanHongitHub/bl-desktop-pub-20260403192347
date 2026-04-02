@@ -4605,7 +4605,8 @@
         "runbookSync": "Kiểm tra độ mới của sync nếu entitlement hoặc usage bị trễ.",
         "queueDescription": "Các workspace cần chú ý được gom lại theo tín hiệu risk, billing và trạng thái subscription.",
         "systemTitle": "Trạng thái nền tảng",
-        "systemDescription": "Tổng hợp ngắn gọn readiness của auth, Stripe và sync runtime."
+        "systemDescription": "Tổng hợp ngắn gọn readiness của auth, Stripe và sync runtime.",
+        "loadFailed": "Không thể tải dữ liệu command center."
       },
       "dashboard": {
         "title": "Dashboard super admin",
@@ -4734,13 +4735,22 @@
         "pastDue": "Workspace past due",
         "latestTitle": "Hoạt động billing gần nhất",
         "latestDescription": "Danh sách workspace có invoice gần nhất để theo dõi nhịp doanh thu và gia hạn.",
-        "planMixTitle": "Phân bổ workspace theo gói"
+        "planMixTitle": "Phân bổ workspace theo gói",
+        "loadFailed": "Không thể tải dữ liệu doanh thu."
       },
       "audit": {
         "title": "Audit trail cho các thao tác quản trị.",
         "description": "Mọi thay đổi quản trị quan trọng có thể được rà soát ngay trong website mà không cần quay lại tooling nội bộ khác.",
         "tableTitle": "Nhật ký kiểm tra",
-        "tableDescription": "Các bản ghi mới nhất từ control plane được render trực tiếp trong bảng."
+        "tableDescription": "Các bản ghi mới nhất từ control plane được render trực tiếp trong bảng.",
+        "loadFailed": "Không thể tải audit logs.",
+        "search": "Tìm action, actor, workspace, lý do...",
+        "empty": "Không có audit event phù hợp.",
+        "metrics": {
+          "total": "Số event",
+          "last24h": "24h gần nhất",
+          "billing": "Event billing"
+        }
       },
       "system": {
         "title": "System readiness và cấu hình runtime.",
@@ -4791,6 +4801,128 @@
         "toastCopyFailed": "Không thể sao chép nội dung.",
         "toastTokenCopied": "Đã sao chép token release.",
         "toastEnvCopied": "Đã sao chép mẫu biến môi trường."
+      },
+      "invoices": {
+        "title": "Invoices",
+        "description": "Theo dõi invoice đã thanh toán trên toàn hệ thống mà không phải phụ thuộc vào từng workspace riêng lẻ.",
+        "loadFailed": "Không thể tải danh sách invoices.",
+        "search": "Tìm workspace, người tạo, plan, coupon...",
+        "empty": "Không có invoice phù hợp.",
+        "metrics": {
+          "count": "Số invoices",
+          "revenue": "Tổng doanh thu",
+          "average": "Invoice trung bình"
+        }
+      },
+      "jobsQueues": {
+        "title": "Jobs & Queues",
+        "description": "Theo dõi automation runs trên toàn bộ workspace để bắt queue bị block hoặc failed trước khi tạo ticket hỗ trợ.",
+        "loadFailed": "Không thể tải automation jobs.",
+        "search": "Tìm workspace, run, flow, status...",
+        "empty": "Không có automation run phù hợp.",
+        "failed": "Failed",
+        "blocked": "Blocked",
+        "metrics": {
+          "total": "Số runs",
+          "running": "Đang chạy hoặc xếp hàng",
+          "blocked": "Số item bị block"
+        }
+      },
+      "supportConsole": {
+        "title": "Support Console",
+        "description": "Bề mặt xử lý nhanh để ghép user, workspace và hoạt động admin gần đây trong lúc support.",
+        "loadFailed": "Không thể tải dữ liệu support console.",
+        "search": "Tìm email user, workspace, plan, role...",
+        "usersTitle": "User khớp",
+        "workspacesTitle": "Workspace khớp",
+        "activityTitle": "Hoạt động admin gần đây",
+        "emptyUsers": "Không có user phù hợp.",
+        "emptyWorkspaces": "Không có workspace phù hợp.",
+        "openUser": "Mở Users",
+        "openWorkspace": "Mở Workspaces",
+        "metrics": {
+          "users": "Users",
+          "flagged": "Workspace bị gắn cờ"
+        }
+      },
+      "abuseTrust": {
+        "title": "Abuse & Trust",
+        "description": "Gom các workspace rủi ro, dấu hiệu lộ quyền truy cập và mutation nhạy cảm vào một hàng đợi xử lý.",
+        "loadFailed": "Không thể tải dữ liệu abuse và trust.",
+        "queueTitle": "Workspace bị gắn cờ",
+        "auditTitle": "Hoạt động nhạy cảm",
+        "empty": "Hiện chưa có workspace nào cần chú ý.",
+        "metrics": {
+          "flagged": "Workspace bị gắn cờ",
+          "readOnly": "Entitlement read-only",
+          "shared": "Workspace có share"
+        }
+      },
+      "impersonationCenter": {
+        "title": "Impersonation Center",
+        "description": "Rà soát danh tính và quyền truy cập trước khi bật bất kỳ luồng impersonation có ký và audit đầy đủ nào trong tương lai.",
+        "loadFailed": "Không thể tải dữ liệu review impersonation.",
+        "disabledBadge": "Chế độ chỉ review",
+        "disabledDescription": "Impersonation trên production đang cố ý bị tắt cho đến khi có backend flow được ký, giới hạn thời gian và audit đầy đủ.",
+        "openSupportConsole": "Mở support console",
+        "search": "Tìm email user, auth provider, role...",
+        "empty": "Không có user phù hợp.",
+        "emptySelection": "Chọn một user để rà identity và quyền truy cập workspace.",
+        "memberships": "Memberships",
+        "lastActive": "Hoạt động gần nhất",
+        "accountState": "Trạng thái tài khoản",
+        "reviewChecklist": "Checklist operator",
+        "membershipTitle": "Quyền truy cập workspace",
+        "checklist": {
+          "identity": "Xác nhận provider liên kết và trạng thái tài khoản trước khi làm recovery.",
+          "memberships": "Rà toàn bộ role và owner path trước khi đổi quyền.",
+          "audit": "Kiểm tra audit gần đây để tránh chồng lấn lên thao tác của operator khác."
+        }
+      },
+      "featureFlags": {
+        "title": "Feature Flags & Rollout Gates",
+        "description": "Theo dõi các gate runtime quyết định auth, billing và sync-dependent features có đủ an toàn để public hay chưa.",
+        "loadFailed": "Không thể tải trạng thái rollout gates.",
+        "metrics": {
+          "ready": "Gate sẵn sàng",
+          "audit": "Audit 24h",
+          "entitlement": "Entitlement active"
+        },
+        "gates": {
+          "auth": "Gate auth",
+          "control": "Gate control plane",
+          "stripe": "Gate Stripe",
+          "sync": "Gate sync storage"
+        },
+        "descriptions": {
+          "auth": "Cần bearer auth và JWT verification ở sync runtime sẵn sàng trước khi mở các tính năng tài khoản nhạy cảm.",
+          "control": "Control token và database phải cùng khỏe trước khi tin cậy các mutation của super admin.",
+          "stripe": "Checkout và subscription transition cần bị ẩn nếu Stripe secret hoặc webhook chưa hoàn chỉnh.",
+          "sync": "S3 endpoint và bucket phải cấu hình xong trước khi xem các tính năng sync là production ready."
+        }
+      },
+      "policyCenter": {
+        "title": "Policy Center",
+        "description": "Đọc trạng thái policy hiện tại của nền tảng từ lưu lượng audit, mức lộ share và áp lực entitlement read-only.",
+        "loadFailed": "Không thể tải dữ liệu policy center.",
+        "policyTitle": "Trạng thái policy",
+        "auditTitle": "Hoạt động liên quan policy gần đây",
+        "rows": {
+          "audit": "Mutation đã được audit trong 24h gần nhất",
+          "shares": "Share grant đang mở",
+          "readOnly": "Entitlement read-only"
+        }
+      },
+      "dataGovernance": {
+        "title": "Data Governance",
+        "description": "Xác định các workspace có mức lộ truy cập và áp lực lưu trữ cao nhất trước khi phát sinh sự cố dữ liệu.",
+        "loadFailed": "Không thể tải dữ liệu data governance.",
+        "hotspotsTitle": "Điểm nóng cần rà",
+        "metrics": {
+          "invites": "Invite đang mở",
+          "shares": "Share đang active",
+          "readOnly": "Entitlement read-only"
+        }
       }
     },
     "commerce": {

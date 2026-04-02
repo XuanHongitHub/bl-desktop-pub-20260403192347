@@ -1,5 +1,10 @@
 import type {
+  ControlAdminOverview,
   ControlAdminListResult,
+  ControlAdminMembershipItem,
+  ControlAdminInvoiceListItem,
+  ControlAdminRevenueSummary,
+  ControlAdminAutomationRunListItem,
   ControlAdminUserDetail,
   ControlAdminUserListItem,
   ControlAdminWorkspaceDetail,
@@ -16,6 +21,7 @@ import type {
   ControlStripeCheckoutCreateResponse,
   ControlStripeCheckoutConfirmResponse,
   ControlWorkspaceBillingState,
+  SyncServerConfigStatus,
 } from "@/types";
 import type { BillingCycle } from "@/lib/billing-plans";
 import { buildControlApiUrl } from "@/lib/control-api-routes";
@@ -199,6 +205,7 @@ async function requestControl<T>(
   connection: WebBillingConnection,
   routeKey:
     | "workspaces"
+    | "adminOverview"
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
@@ -214,9 +221,13 @@ async function requestControl<T>(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
     | "adminWorkspaceOwnerTransfer"
+    | "adminInvoicesList"
+    | "adminRevenue"
+    | "adminAutomationRuns"
     | "adminCommercePlans"
     | "adminCommercePlanPublishVersion"
     | "adminCommerceCampaigns"
@@ -279,6 +290,19 @@ export async function listAdminWorkspaceHealth(
   return requestControl<ControlAdminWorkspaceHealthRow[]>(
     connection,
     "adminWorkspaceHealth",
+    {},
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function getAdminOverview(
+  connection: WebBillingConnection,
+): Promise<ControlAdminOverview> {
+  return requestControl<ControlAdminOverview>(
+    connection,
+    "adminOverview",
     {},
     {
       method: "GET",
@@ -476,6 +500,77 @@ export async function listAdminWorkspaces(
       method: "GET",
     },
   );
+}
+
+export async function listAdminMemberships(
+  connection: WebBillingConnection,
+  query: PlatformAdminListQuery = {},
+): Promise<ControlAdminListResult<ControlAdminMembershipItem>> {
+  return requestControl<ControlAdminListResult<ControlAdminMembershipItem>>(
+    connection,
+    "adminMembershipsList",
+    query,
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function listAdminInvoices(
+  connection: WebBillingConnection,
+  query: PlatformAdminListQuery = {},
+): Promise<ControlAdminListResult<ControlAdminInvoiceListItem>> {
+  return requestControl<ControlAdminListResult<ControlAdminInvoiceListItem>>(
+    connection,
+    "adminInvoicesList",
+    query,
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function getAdminRevenue(
+  connection: WebBillingConnection,
+): Promise<ControlAdminRevenueSummary> {
+  return requestControl<ControlAdminRevenueSummary>(
+    connection,
+    "adminRevenue",
+    {},
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function listAdminAutomationRuns(
+  connection: WebBillingConnection,
+  query: PlatformAdminListQuery = {},
+): Promise<ControlAdminListResult<ControlAdminAutomationRunListItem>> {
+  return requestControl<ControlAdminListResult<ControlAdminAutomationRunListItem>>(
+    connection,
+    "adminAutomationRuns",
+    query,
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function getControlConfigStatus(
+  connection: WebBillingConnection,
+): Promise<SyncServerConfigStatus> {
+  const response = await fetch(`${connection.controlBaseUrl.replace(/\/$/, "")}/config-status`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${connection.controlToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+  return (await response.json()) as SyncServerConfigStatus;
 }
 
 export async function getAdminWorkspaceDetail(
@@ -786,4 +881,19 @@ export async function listCommerceAudit(
     },
   );
   return Array.isArray(payload) ? payload.map(mapControlAuditToCommerceAudit) : [];
+}
+
+export async function listAdminAuditLogs(
+  connection: WebBillingConnection,
+  limit = 200,
+): Promise<ControlAuditLog[]> {
+  const payload = await requestControl<ControlAuditLog[]>(
+    connection,
+    "adminCommerceAudit",
+    { auditLimit: limit },
+    {
+      method: "GET",
+    },
+  );
+  return Array.isArray(payload) ? payload : [];
 }

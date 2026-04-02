@@ -1,139 +1,146 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getAdminRevenue, listAdminInvoices } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
+import { showErrorToast } from "@/lib/toast-utils";
+import type { ControlAdminInvoiceListItem, ControlAdminRevenueSummary } from "@/types";
 
 export default function AdminRevenuePage() {
   const { t } = useTranslation();
-  const { workspaces, billingState } = usePortalBillingData();
-  const recentInvoices = billingState?.recentInvoices ?? [];
+  const { connection } = usePortalBillingData();
+  const [summary, setSummary] = useState<ControlAdminRevenueSummary | null>(null);
+  const [invoices, setInvoices] = useState<ControlAdminInvoiceListItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const metrics = useMemo(() => {
-    const active = workspaces.filter((w) => w.subscriptionStatus === "active").length;
-    const pastDue = workspaces.filter((w) => w.subscriptionStatus === "past_due").length;
-    const revenue = recentInvoices.reduce((sum, invoice) => sum + invoice.amountUsd, 0);
-    return { active, pastDue, revenue };
-  }, [recentInvoices, workspaces]);
-
-  const planMix = useMemo(() => {
-    const buckets = new Map<string, number>();
-    for (const workspace of workspaces) {
-      const key = workspace.planLabel || "Unknown";
-      buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  const refresh = useCallback(async () => {
+    if (!connection) {
+      setSummary(null);
+      setInvoices([]);
+      return;
     }
-    return [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  }, [workspaces]);
+    setLoading(true);
+    try {
+      const [summaryPayload, invoicePayload] = await Promise.all([
+        getAdminRevenue(connection),
+        listAdminInvoices(connection, { page: 1, pageSize: 20 }),
+      ]);
+      setSummary(summaryPayload);
+      setInvoices(invoicePayload.items ?? []);
+    } catch (error) {
+      showErrorToast(t("portalSite.admin.revenue.loadFailed"), {
+        description: error instanceof Error ? error.message : "admin_revenue_load_failed",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [connection, t]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   return (
     <PortalSettingsPage
       eyebrow={t("portalSite.admin.eyebrow")}
       title={t("portalSite.admin.revenue.title")}
       description={t("portalSite.admin.revenue.description")}
+      actions={
+        <Button variant="outline" size="sm" onClick={() => void refresh()}>
+          {t("portalSite.admin.refresh")}
+        </Button>
+      }
     >
-      <section className="rounded-xl border border-border bg-card/70">
-        <div className="grid gap-0 md:grid-cols-3">
-          <div className="border-b border-border/70 p-4 md:border-b-0 md:border-r">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.revenue.activeSubscriptions")}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{metrics.active}</p>
+      <section className="mx-auto w-full max-w-[1180px] space-y-4">
+        <div className="grid gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.revenue.activeSubscriptions")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
+              {summary?.activeSubscriptions ?? 0}
+            </p>
           </div>
-          <div className="border-b border-border/70 p-4 md:border-b-0 md:border-r">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.revenue.pastDue")}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{metrics.pastDue}</p>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.revenue.pastDue")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
+              {summary?.pastDueSubscriptions ?? 0}
+            </p>
           </div>
-          <div className="p-4">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.columns.latestInvoice")}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
-              $
-              {formatLocaleNumber(metrics.revenue, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.revenue.grossRevenue")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
+              ${formatLocaleNumber(summary?.grossRevenueUsd ?? 0)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.revenue.payingWorkspaces")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
+              {summary?.payingWorkspaces ?? 0}
             </p>
           </div>
         </div>
-      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <section className="rounded-xl border border-border bg-card/70 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <p className="text-sm font-medium text-foreground">
               {t("portalSite.admin.revenue.latestTitle")}
-            </h2>
-            <Badge variant="outline">{recentInvoices.length}</Badge>
+            </p>
+            <Badge variant="outline">{summary?.invoiceCount ?? invoices.length}</Badge>
           </div>
-          {recentInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("portalSite.account.invoiceEmpty")}</p>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-border/70">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceDate")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoicePlan")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceAmount")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceStatus")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentInvoices.slice(0, 12).map((invoice) => (
-                    <tr key={invoice.id} className="border-t border-border/70">
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">{invoice.planLabel}</td>
-                      <td className="px-3 py-2 text-foreground">
-                        $
-                        {formatLocaleNumber(invoice.amountUsd, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant="outline">{invoice.status}</Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <ScrollArea className="h-[560px]">
+            <div className="divide-y divide-border">
+              {loading ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  {t("portalSite.admin.loading")}
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  {t("portalSite.account.invoiceEmpty")}
+                </div>
+              ) : (
+                invoices.map((invoice) => (
+                  <div
+                    key={invoice.id}
+                    className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_120px_120px_180px]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {invoice.workspaceName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {invoice.actorEmail ?? invoice.actorUserId}
+                      </p>
+                    </div>
+                    <div className="text-sm font-medium text-foreground">
+                      ${formatLocaleNumber(invoice.amountUsd)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {invoice.planLabel}
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>{formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}</p>
+                      <p>{invoice.method}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-border bg-card/70 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">
-              {t("portalSite.admin.revenue.planMixTitle")}
-            </h2>
-            <Badge variant="outline">{planMix.length}</Badge>
-          </div>
-          {planMix.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("portalSite.account.workspaceEmpty")}</p>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-border/70">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.admin.columns.plan")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.admin.columns.workspaces")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {planMix.map(([plan, count]) => (
-                    <tr key={plan} className="border-t border-border/70">
-                      <td className="px-3 py-2 text-foreground">{plan}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
+          </ScrollArea>
+        </div>
+      </section>
     </PortalSettingsPage>
   );
 }

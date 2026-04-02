@@ -694,4 +694,96 @@ describe("ControlService", () => {
       listedCoupons.find((item) => item.id === coupon.id)?.maxPerWorkspace,
     ).toBe(1);
   });
+
+  it("lists canonical memberships, invoices, revenue summary, and automation runs for admins", async () => {
+    const admin = service.registerAuthUser("admin@buglogin.local", "Password123!");
+    (
+      service as unknown as { platformAdminEmails: Set<string> }
+    ).platformAdminEmails.add("admin@buglogin.local");
+    const owner = service.registerAuthUser("owner@buglogin.local", "Password123!");
+    const member = service.registerAuthUser("member@buglogin.local", "Password123!");
+
+    const workspace = service.createWorkspace(
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+      "Operations Workspace",
+      "team",
+    );
+    const invite = service.createInvite(
+      workspace.id,
+      member.user.email,
+      "member",
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+    );
+    service.acceptInvite(invite.token, {
+      userId: member.user.id,
+      email: member.user.email,
+      platformRole: null,
+    });
+
+    const adminActor = {
+      userId: admin.user.id,
+      email: admin.user.email,
+      platformRole: "platform_admin" as const,
+    };
+
+    service.activateWorkspacePlanInternal(
+      { userId: owner.user.id, email: owner.user.email, platformRole: null },
+      workspace.id,
+      {
+        planId: "growth",
+        billingCycle: "monthly",
+        method: "self_host_checkout",
+      },
+    );
+
+    const privateService = service as unknown as {
+      workspaceTiktokAutomationRuns: Map<string, unknown[]>;
+    };
+    await service.importWorkspaceTiktokAutomationAccounts(
+      workspace.id,
+      adminActor,
+      {
+        flowType: "signup",
+        rows: [
+          { phone: "0901", apiPhone: "0901", cookie: "cookie-a", source: "manual" },
+        ],
+      },
+    );
+    await service.createWorkspaceTiktokAutomationRun(workspace.id, adminActor, {
+      flowType: "signup",
+      mode: "semi",
+      accountIds: [],
+    });
+    expect(privateService.workspaceTiktokAutomationRuns.get(workspace.id)?.length).toBe(1);
+
+    const memberships = service.listAdminMemberships(adminActor, {
+      q: "operations",
+      page: 1,
+      pageSize: 20,
+    });
+    expect(memberships.total).toBeGreaterThanOrEqual(2);
+    expect(memberships.items.some((item) => item.email === "member@buglogin.local")).toBe(
+      true,
+    );
+
+    const invoices = service.listAdminInvoices(adminActor, {
+      q: "operations",
+      page: 1,
+      pageSize: 20,
+    });
+    expect(invoices.total).toBe(1);
+    expect(invoices.items[0]?.workspaceName).toBe("Operations Workspace");
+
+    const revenue = service.getPlatformRevenueSummary(adminActor);
+    expect(revenue.invoiceCount).toBe(1);
+    expect(revenue.grossRevenueUsd).toBeGreaterThan(0);
+    expect(revenue.activeSubscriptions).toBeGreaterThanOrEqual(1);
+
+    const runs = service.listAdminAutomationRuns(adminActor, {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(runs.total).toBe(1);
+    expect(runs.items[0]?.workspaceName).toBe("Operations Workspace");
+  });
 });

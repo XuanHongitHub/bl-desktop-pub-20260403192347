@@ -80,6 +80,17 @@ export interface PlatformAdminUserDetail extends PlatformAdminUserListItem {
   recentAuditLogs: AuditLogRecord[];
 }
 
+export interface PlatformAdminMembershipItem {
+  workspaceId: string;
+  workspaceName: string;
+  userId: string;
+  email: string;
+  role: WorkspaceRole;
+  createdAt: string;
+  platformRole: ControlPlatformRole | null;
+  authProvider: AuthProvider;
+}
+
 export interface AuthUserRecord {
   userId: string;
   email: string;
@@ -434,4 +445,36 @@ export interface PlatformAdminWorkspaceDetail extends PlatformAdminWorkspaceHeal
   cancelAtPeriodEnd: boolean;
   cancelAt: string | null;
   recentAuditLogs: AuditLogRecord[];
+}
+
+export interface PlatformAdminInvoiceListItem extends BillingInvoiceRecord {
+  workspaceName: string;
+  actorEmail: string | null;
+}
+
+export interface PlatformAdminRevenueSummary {
+  activeSubscriptions: number;
+  pastDueSubscriptions: number;
+  canceledSubscriptions: number;
+  grossRevenueUsd: number;
+  invoiceCount: number;
+  payingWorkspaces: number;
+}
+
+export interface PlatformAdminAutomationRunListItem {
+  runId: string;
+  workspaceId: string;
+  workspaceName: string;
+  flowType: TiktokAutomationFlowType;
+  mode: TiktokAutomationRunMode;
+  status: TiktokAutomationRunStatus;
+  totalCount: number;
+  doneCount: number;
+  failedCount: number;
+  blockedCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
