@@ -6,6 +6,5 @@ export default async function AdminUsersManageByIdPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  const encodedUserId = encodeURIComponent(userId);
-  redirect(`/admin/users?userId=${encodedUserId}&mode=detail`);
+  redirect(`/admin/users/${encodeURIComponent(userId)}`);
 }

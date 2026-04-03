@@ -237,6 +237,8 @@ async function requestControl<T>(
     | "adminUsersList"
     | "adminUserDetail"
     | "adminUserPlatformRoleUpdate"
+    | "adminUserPasswordReset"
+    | "adminUserDelete"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
@@ -576,6 +578,52 @@ export async function updateAdminUserPlatformRole(
       body: JSON.stringify({
         platformRole,
         reason: "updated_from_super_admin_permissions",
+      }),
+    },
+  );
+}
+
+export async function resetAdminUserPassword(
+  connection: WebBillingConnection,
+  userId: string,
+  password: string,
+): Promise<{
+  user: {
+    id: string;
+    email: string;
+  };
+}> {
+  return requestControl<{
+    user: {
+      id: string;
+      email: string;
+    };
+  }>(
+    connection,
+    "adminUserPasswordReset",
+    { userId },
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        password,
+        reason: "updated_from_super_admin_user_edit",
+      }),
+    },
+  );
+}
+
+export async function deleteAdminUser(
+  connection: WebBillingConnection,
+  userId: string,
+): Promise<{ deleted: true; userId: string }> {
+  return requestControl<{ deleted: true; userId: string }>(
+    connection,
+    "adminUserDelete",
+    { userId },
+    {
+      method: "DELETE",
+      body: JSON.stringify({
+        reason: "deleted_from_super_admin_user_edit",
       }),
     },
   );

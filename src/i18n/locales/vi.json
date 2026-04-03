@@ -5122,8 +5122,16 @@
       "actions": {
         "refresh": "Làm mới",
         "manage": "Quản lý",
+        "viewDetail": "Xem chi tiết",
+        "editUser": "Sửa user",
+        "permissions": "Permissions",
+        "backToDetail": "Về chi tiết",
+        "cancel": "Hủy",
         "memberships": "Memberships",
         "review": "Rà soát"
+      },
+      "labels": {
+        "google": "Google"
       },
       "create": {
         "title": "Tạo tài khoản",
@@ -5183,6 +5191,30 @@
         "memberships": "Memberships theo workspace",
         "activity": "Hoạt động gần đây",
         "emptyActivity": "Chưa có audit log gần đây."
+      },
+      "detail": {
+        "title": "Chi tiết user",
+        "platformRole": "Vai trò nền tảng",
+        "workspaceMemberships": "Membership theo workspace",
+        "workspaceAction": "Workspace"
+      },
+      "edit": {
+        "title": "Sửa user",
+        "resetPassword": "Đặt lại mật khẩu",
+        "save": "Lưu",
+        "passwordUpdated": "Đã cập nhật mật khẩu.",
+        "passwordUpdateFailed": "Không thể cập nhật mật khẩu.",
+        "cannotDeleteSelf": "Không thể xóa tài khoản admin đang đăng nhập.",
+        "deleteConfirm": "Xóa user {{email}}?",
+        "deleteSuccess": "Đã xóa user.",
+        "deleteFailed": "Không thể xóa user.",
+        "dangerTitle": "Vùng nguy hiểm",
+        "dangerDescription": "Xóa vĩnh viễn user (bị chặn nếu user đang là owner của workspace bất kỳ).",
+        "deleteUser": "Xóa user"
+      },
+      "permissions": {
+        "workspaceAssignments": "Phân quyền role theo workspace",
+        "noMemberships": "Không có membership."
       }
     },
     "help": {

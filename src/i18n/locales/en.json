@@ -5122,8 +5122,16 @@
       "actions": {
         "refresh": "Refresh",
         "manage": "Manage",
+        "viewDetail": "View detail",
+        "editUser": "Edit user",
+        "permissions": "Permissions",
+        "backToDetail": "Back to detail",
+        "cancel": "Cancel",
         "memberships": "Memberships",
         "review": "Review"
+      },
+      "labels": {
+        "google": "Google"
       },
       "create": {
         "title": "Create account",
@@ -5183,6 +5191,30 @@
         "memberships": "Workspace memberships",
         "activity": "Recent activity",
         "emptyActivity": "No recent audit activity."
+      },
+      "detail": {
+        "title": "User detail",
+        "platformRole": "Platform role",
+        "workspaceMemberships": "Workspace memberships",
+        "workspaceAction": "Workspace"
+      },
+      "edit": {
+        "title": "Edit user",
+        "resetPassword": "Reset password",
+        "save": "Save",
+        "passwordUpdated": "Password updated.",
+        "passwordUpdateFailed": "Unable to update password.",
+        "cannotDeleteSelf": "Cannot delete current signed-in admin.",
+        "deleteConfirm": "Delete user {{email}}?",
+        "deleteSuccess": "User deleted.",
+        "deleteFailed": "Unable to delete user.",
+        "dangerTitle": "Danger zone",
+        "dangerDescription": "Delete user permanently (blocked if this user is owner of any workspace).",
+        "deleteUser": "Delete user"
+      },
+      "permissions": {
+        "workspaceAssignments": "Workspace role assignments",
+        "noMemberships": "No memberships."
       }
     },
     "help": {

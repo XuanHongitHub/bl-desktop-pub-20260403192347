@@ -2864,6 +2864,104 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return this.buildPlatformAdminUserListItem(record);
   }
 
+  updateAdminUserPassword(
+    actor: RequestActor,
+    userId: string,
+    input: {
+      password: string;
+      reason: string;
+    },
+  ): { user: { id: string; email: string } } {
+    this.assertPlatformAdmin(actor);
+    const normalizedReason = this.requireReason(input.reason);
+    const nextPassword = this.validatePassword(input.password);
+    const record = this.findAuthUserById(userId.trim());
+    if (!record) {
+      throw new NotFoundException("admin_user_not_found");
+    }
+
+    const { salt, hash } = this.hashPassword(nextPassword);
+    record.passwordSalt = salt;
+    record.passwordHash = hash;
+    record.authProvider = record.googleSub ? "password_google" : "password";
+    record.updatedAt = new Date().toISOString();
+    this.authUsers.set(record.email, record);
+
+    this.audit(
+      "admin.user_password_updated",
+      actor.email,
+      undefined,
+      record.userId,
+      normalizedReason,
+    );
+    this.persistState();
+    return {
+      user: {
+        id: record.userId,
+        email: record.email,
+      },
+    };
+  }
+
+  deleteAdminUser(
+    actor: RequestActor,
+    userId: string,
+    input: {
+      reason: string;
+    },
+  ): { deleted: true; userId: string } {
+    this.assertPlatformAdmin(actor);
+    const normalizedReason = this.requireReason(input.reason);
+    const record = this.findAuthUserById(userId.trim());
+    if (!record) {
+      throw new NotFoundException("admin_user_not_found");
+    }
+    if (record.userId === actor.userId) {
+      throw new BadRequestException("cannot_delete_self");
+    }
+
+    const ownedWorkspaceIds = Array.from(this.memberships.entries())
+      .filter(([, members]) =>
+        members.some(
+          (member) =>
+            member.userId === record.userId && member.role === "owner",
+        ),
+      )
+      .map(([workspaceId]) => workspaceId);
+
+    if (ownedWorkspaceIds.length > 0) {
+      throw new BadRequestException("cannot_delete_owner_membership");
+    }
+
+    for (const [workspaceId, members] of this.memberships.entries()) {
+      const nextMembers = members.filter(
+        (member) => member.userId !== record.userId,
+      );
+      this.memberships.set(workspaceId, nextMembers);
+    }
+
+    for (const [inviteId, invite] of this.invites.entries()) {
+      if (this.normalizeEmail(invite.email) === record.email) {
+        this.invites.delete(inviteId);
+      }
+    }
+
+    this.platformAdminEmails.delete(record.email);
+    this.authUsers.delete(record.email);
+    this.audit(
+      "admin.user_deleted",
+      actor.email,
+      undefined,
+      record.userId,
+      normalizedReason,
+    );
+    this.persistState();
+    return {
+      deleted: true,
+      userId: record.userId,
+    };
+  }
+
   listAdminWorkspaces(
     actor: RequestActor,
     query: PlatformAdminListQuery = {},

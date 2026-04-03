@@ -711,6 +711,37 @@ export class ControlController {
     );
   }
 
+  @Patch("admin/users/:userId/password")
+  updateAdminUserPassword(
+    @Headers() headers: ActorHeaders,
+    @Param("userId") userId: string,
+    @Body() body: { password?: string; reason?: string },
+  ) {
+    return this.controlService.updateAdminUserPassword(
+      this.actorFromHeaders(headers),
+      userId,
+      {
+        password: body.password ?? "",
+        reason: body.reason ?? "updated_from_super_admin_permissions",
+      },
+    );
+  }
+
+  @Delete("admin/users/:userId")
+  deleteAdminUser(
+    @Headers() headers: ActorHeaders,
+    @Param("userId") userId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.controlService.deleteAdminUser(
+      this.actorFromHeaders(headers),
+      userId,
+      {
+        reason: body.reason ?? "deleted_from_super_admin_permissions",
+      },
+    );
+  }
+
   @Get("admin/memberships")
   listAdminMemberships(
     @Headers() headers: ActorHeaders,

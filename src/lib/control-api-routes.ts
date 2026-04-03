@@ -65,6 +65,8 @@ export function buildControlApiPath(
     | "adminUsersList"
     | "adminUserDetail"
     | "adminUserPlatformRoleUpdate"
+    | "adminUserPasswordReset"
+    | "adminUserDelete"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
@@ -140,6 +142,10 @@ export function buildControlApiPath(
       return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}`;
     case "adminUserPlatformRoleUpdate":
       return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}/platform-role`;
+    case "adminUserPasswordReset":
+      return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}/password`;
+    case "adminUserDelete":
+      return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}`;
     case "adminMembershipsList": {
       const params = new URLSearchParams();
       if (input.q?.trim()) params.set("q", input.q.trim());
@@ -235,6 +241,8 @@ export function buildControlApiUrl(
     | "adminUsersList"
     | "adminUserDetail"
     | "adminUserPlatformRoleUpdate"
+    | "adminUserPasswordReset"
+    | "adminUserDelete"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"

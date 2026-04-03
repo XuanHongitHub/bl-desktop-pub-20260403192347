@@ -232,7 +232,7 @@ export default function AdminImpersonationCenterOverviewPage() {
                                   className="h-7 w-7"
                                 >
                                   <Link
-                                    href={`/admin/users?userId=${encodeURIComponent(row.userId)}&mode=detail`}
+                                    href={`/admin/users/${encodeURIComponent(row.userId)}`}
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </Link>
