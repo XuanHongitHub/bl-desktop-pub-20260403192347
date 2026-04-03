@@ -392,10 +392,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     membership: MembershipRecord,
     actor: RequestActor,
   ): boolean {
-    if (membership.userId !== actor.userId) {
+    const normalizedMembershipEmail = this.normalizeEmail(membership.email);
+    const matchesByEmail =
+      !!normalizedMembershipEmail && normalizedMembershipEmail === actor.email;
+    if (membership.userId !== actor.userId && !matchesByEmail) {
       return false;
     }
-    const normalizedMembershipEmail = this.normalizeEmail(membership.email);
     if (
       !normalizedMembershipEmail ||
       normalizedMembershipEmail.endsWith("@local")
@@ -406,9 +408,38 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getActorMembershipEntries(actor: RequestActor): MembershipRecord[] {
-    return Array.from(this.memberships.values())
-      .flat()
-      .filter((membership) => this.isMembershipForActor(membership, actor));
+    const entries: MembershipRecord[] = [];
+    let shouldPersist = false;
+
+    for (const [workspaceId, members] of this.memberships.entries()) {
+      let changed = false;
+      const nextMembers = members.map((member) => {
+        if (!this.isMembershipForActor(member, actor)) {
+          return member;
+        }
+        entries.push(member);
+        if (member.userId === actor.userId) {
+          return member;
+        }
+        changed = true;
+        return {
+          ...member,
+          userId: actor.userId,
+          email: actor.email,
+        };
+      });
+
+      if (changed) {
+        shouldPersist = true;
+        this.memberships.set(workspaceId, nextMembers);
+      }
+    }
+
+    if (shouldPersist) {
+      this.persistState();
+    }
+
+    return entries;
   }
 
   private assertPlanChangeAllowed(
@@ -1394,8 +1425,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         .map((workspace) => toListItem(workspace, "admin"));
     }
 
+    let actorMemberships = this.getActorMembershipEntries(actor);
+    if (actorMemberships.length === 0) {
+      this.createWorkspace(
+        actor,
+        this.getDefaultPersonalWorkspaceName(actor.email),
+        "personal",
+      );
+      actorMemberships = this.getActorMembershipEntries(actor);
+    }
+
     const actorMembershipByWorkspaceId = new Map<string, MembershipRecord>();
-    for (const membership of this.getActorMembershipEntries(actor)) {
+    for (const membership of actorMemberships) {
       const current = actorMembershipByWorkspaceId.get(membership.workspaceId);
       if (!current) {
         actorMembershipByWorkspaceId.set(membership.workspaceId, membership);
@@ -1440,6 +1481,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         }
         return toListItem(workspace, membership.role);
       });
+  }
+
+  private getDefaultPersonalWorkspaceName(email: string): string {
+    const normalized = this.normalizeEmail(email);
+    const localPart = normalized?.split("@")[0]?.trim() || "Personal";
+    return `${localPart} Workspace`;
   }
 
   getWorkspaceMembership(
@@ -3745,6 +3792,25 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         ),
       );
     }
+
+    // Keep workspace ownership aligned with the migrated account id.
+    for (const workspace of this.workspaces.values()) {
+      if (workspace.createdBy !== previous) {
+        continue;
+      }
+      const ownerMembership = (this.memberships.get(workspace.id) || []).find(
+        (member) =>
+          member.role === "owner" &&
+          this.normalizeEmail(member.email) === normalizedEmail,
+      );
+      if (!ownerMembership) {
+        continue;
+      }
+      this.workspaces.set(workspace.id, {
+        ...workspace,
+        createdBy: next,
+      });
+    }
   }
 
   private findMembershipByEmail(email: string): MembershipRecord | null {
@@ -3803,7 +3869,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const ownedWorkspaceIds = new Set<string>();
     for (const memberships of this.memberships.values()) {
       for (const membership of memberships) {
-        if (membership.userId === actor.userId && membership.role === "owner") {
+        if (
+          this.isMembershipForActor(membership, actor) &&
+          membership.role === "owner"
+        ) {
           ownedWorkspaceIds.add(membership.workspaceId);
         }
       }
