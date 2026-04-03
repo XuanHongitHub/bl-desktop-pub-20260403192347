@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { TFunction } from "i18next";
+import { MoreHorizontal } from "lucide-react";
 import {
   useCallback,
   useDeferredValue,
@@ -13,7 +14,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
-import { MoreHorizontal } from "lucide-react";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
 import { DeleteGroupDialog } from "@/components/delete-group-dialog";
@@ -29,8 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +37,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -56,12 +56,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -70,7 +65,6 @@ import {
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
-import { formatLocaleDateTime } from "@/lib/locale-format";
 import {
   DEFAULT_GROUP_COLOR,
   GROUP_APPEARANCE_STORAGE_KEY,
@@ -78,6 +72,7 @@ import {
   sanitizeGroupColor,
   writeGroupAppearanceMap,
 } from "@/lib/group-appearance-store";
+import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import {
   applyScopedGroupCounts,
@@ -95,7 +90,11 @@ import type {
 import { RippleButton } from "./ui/ripple";
 
 type SyncStatus = "disabled" | "syncing" | "synced" | "error" | "waiting";
-type GroupSortValue = "name-asc" | "name-desc" | "profiles-desc" | "profiles-asc";
+type GroupSortValue =
+  | "name-asc"
+  | "name-desc"
+  | "profiles-desc"
+  | "profiles-asc";
 type GroupDetailTab = "members" | "policies" | "sync" | "activity";
 
 type GroupActivityEntry = {
@@ -165,7 +164,15 @@ interface GroupManagementDialogProps {
   onGroupManagementComplete: () => void;
   initialAction?: "manage" | "edit" | "delete";
   initialGroupId?: string | null;
-  mode?: "dialog" | "page";
+  mode?: "dialog" | "page" | "embedded";
+  selectedGroupId?: string | null;
+  onSelectedGroupChange?: (groupId: string) => void;
+  workspaceRole?: TeamRole | null;
+  fallbackTeamRole?: TeamRole | null;
+  onShareGroupInvite?: (input: {
+    groupId: string;
+    recipientEmail: string;
+  }) => Promise<void>;
 }
 
 export function GroupManagementDialog({
@@ -175,10 +182,18 @@ export function GroupManagementDialog({
   initialAction = "manage",
   initialGroupId = null,
   mode = "dialog",
+  selectedGroupId: _selectedGroupId,
+  onSelectedGroupChange: _onSelectedGroupChange,
+  workspaceRole: _workspaceRole = null,
+  fallbackTeamRole: _fallbackTeamRole = null,
+  onShareGroupInvite: _onShareGroupInvite,
 }: GroupManagementDialogProps) {
   const { t } = useTranslation();
-  const { isReadOnly } = useRuntimeAccess({ enabled: mode === "page" || isOpen });
-  const isVisible = mode === "page" ? true : isOpen;
+  const isEmbeddedMode = mode === "embedded";
+  const { isReadOnly } = useRuntimeAccess({
+    enabled: mode === "page" || isEmbeddedMode || isOpen,
+  });
+  const isVisible = mode === "page" || isEmbeddedMode ? true : isOpen;
   const isPageMode = mode === "page";
 
   const [groups, setGroups] = useState<GroupWithCount[]>([]);
@@ -189,14 +204,22 @@ export function GroupManagementDialog({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<GroupWithCount | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<GroupWithCount | null>(
+    null,
+  );
 
-  const [groupSyncStatus, setGroupSyncStatus] = useState<Record<string, SyncStatus>>({});
+  const [groupSyncStatus, setGroupSyncStatus] = useState<
+    Record<string, SyncStatus>
+  >({});
   const [groupInUse, setGroupInUse] = useState<Record<string, boolean>>({});
-  const [isTogglingSync, setIsTogglingSync] = useState<Record<string, boolean>>({});
+  const [isTogglingSync, setIsTogglingSync] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [syncFilter, setSyncFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [syncFilter, setSyncFilter] = useState<"all" | "enabled" | "disabled">(
+    "all",
+  );
   const [sortValue, setSortValue] = useState<GroupSortValue>("name-asc");
 
   const [pageIndex, setPageIndex] = useState(0);
@@ -204,22 +227,35 @@ export function GroupManagementDialog({
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [profilesPageIndex, setProfilesPageIndex] = useState(0);
   const [profilesPageSize, setProfilesPageSize] = useState(10);
-  const [profilesStatusFilter, setProfilesStatusFilter] = useState<"all" | "running" | "stopped">("all");
+  const [profilesStatusFilter, setProfilesStatusFilter] = useState<
+    "all" | "running" | "stopped"
+  >("all");
 
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<GroupDetailTab>("members");
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [candidateSearchQuery, setCandidateSearchQuery] = useState("");
-  const [selectedMemberProfileIds, setSelectedMemberProfileIds] = useState<string[]>([]);
-  const [selectedCandidateProfileIds, setSelectedCandidateProfileIds] = useState<string[]>([]);
+  const [selectedMemberProfileIds, setSelectedMemberProfileIds] = useState<
+    string[]
+  >([]);
+  const [selectedCandidateProfileIds, setSelectedCandidateProfileIds] =
+    useState<string[]>([]);
   const [moveTargetGroupId, setMoveTargetGroupId] = useState<string>("none");
   const [isMemberActionLoading, setIsMemberActionLoading] = useState(false);
 
-  const [activityEntries, setActivityEntries] = useState<GroupActivityEntry[]>([]);
+  const [activityEntries, setActivityEntries] = useState<GroupActivityEntry[]>(
+    [],
+  );
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
-  const [groupColorById, setGroupColorById] = useState<Record<string, GroupColorLabel>>({});
-  const [groupShareById, setGroupShareById] = useState<Record<string, GroupShareMode>>({});
-  const [groupAccessById, setGroupAccessById] = useState<Record<string, GroupMemberAccess>>({});
+  const [groupColorById, setGroupColorById] = useState<
+    Record<string, GroupColorLabel>
+  >({});
+  const [groupShareById, setGroupShareById] = useState<
+    Record<string, GroupShareMode>
+  >({});
+  const [groupAccessById, setGroupAccessById] = useState<
+    Record<string, GroupMemberAccess>
+  >({});
   const [appearanceLoaded, setAppearanceLoaded] = useState(false);
   const { storedProxies } = useProxyEvents({
     enabled: isPageMode,
@@ -260,10 +296,17 @@ export function GroupManagementDialog({
         if (config?.color) {
           colorById[groupId] = sanitizeGroupColor(config.color);
         }
-        if (config?.share === "private" || config?.share === "team" || config?.share === "public") {
+        if (
+          config?.share === "private" ||
+          config?.share === "team" ||
+          config?.share === "public"
+        ) {
           shareById[groupId] = config.share;
         }
-        if (config?.access === "owner_admin" || config?.access === "all_members") {
+        if (
+          config?.access === "owner_admin" ||
+          config?.access === "all_members"
+        ) {
           accessById[groupId] = config.access;
         }
       }
@@ -291,7 +334,10 @@ export function GroupManagementDialog({
     if (!isVisible || !appearanceLoaded) {
       return;
     }
-    const merged: Record<string, { color?: string; share?: GroupShareMode; access?: GroupMemberAccess }> = {};
+    const merged: Record<
+      string,
+      { color?: string; share?: GroupShareMode; access?: GroupMemberAccess }
+    > = {};
     const ids = new Set([
       ...Object.keys(groupColorById),
       ...Object.keys(groupShareById),
@@ -299,13 +345,21 @@ export function GroupManagementDialog({
     ]);
     for (const id of ids) {
       merged[id] = {
-        color: groupColorById[id] ? sanitizeGroupColor(groupColorById[id]) : undefined,
+        color: groupColorById[id]
+          ? sanitizeGroupColor(groupColorById[id])
+          : undefined,
         share: groupShareById[id],
         access: groupAccessById[id],
       };
     }
     writeGroupAppearanceMap(merged);
-  }, [appearanceLoaded, groupAccessById, groupColorById, groupShareById, isVisible]);
+  }, [
+    appearanceLoaded,
+    groupAccessById,
+    groupColorById,
+    groupShareById,
+    isVisible,
+  ]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -350,7 +404,11 @@ export function GroupManagementDialog({
         (group) => group.id,
         scope,
       );
-      const mergedGroups = applyScopedGroupCounts(scopedGroups, scopedProfiles, "Default");
+      const mergedGroups = applyScopedGroupCounts(
+        scopedGroups,
+        scopedProfiles,
+        "Default",
+      );
       const userGroups = mergedGroups.filter((group) => group.id !== "default");
       setGroups(userGroups);
       setProfiles(scopedProfiles);
@@ -371,7 +429,9 @@ export function GroupManagementDialog({
         }
       }
       setGroupInUse(inUse);
-      setSelectedGroupIds((prev) => prev.filter((id) => userGroups.some((group) => group.id === id)));
+      setSelectedGroupIds((prev) =>
+        prev.filter((id) => userGroups.some((group) => group.id === id)),
+      );
       setActiveGroupId((prev) => {
         if (prev && userGroups.some((group) => group.id === prev)) {
           return prev;
@@ -387,7 +447,12 @@ export function GroupManagementDialog({
 
   const handleGroupCreated = useCallback(
     (newGroup: ProfileGroup) => {
-      appendActivity(newGroup.id, t("groupManagementDialog.activity.groupCreated", { name: newGroup.name }));
+      appendActivity(
+        newGroup.id,
+        t("groupManagementDialog.activity.groupCreated", {
+          name: newGroup.name,
+        }),
+      );
       void loadGroups();
       onGroupManagementComplete();
     },
@@ -396,7 +461,12 @@ export function GroupManagementDialog({
 
   const handleGroupUpdated = useCallback(
     (updatedGroup: ProfileGroup) => {
-      appendActivity(updatedGroup.id, t("groupManagementDialog.activity.groupUpdated", { name: updatedGroup.name }));
+      appendActivity(
+        updatedGroup.id,
+        t("groupManagementDialog.activity.groupUpdated", {
+          name: updatedGroup.name,
+        }),
+      );
       void loadGroups();
       onGroupManagementComplete();
     },
@@ -405,7 +475,12 @@ export function GroupManagementDialog({
 
   const handleGroupDeleted = useCallback(() => {
     if (selectedGroup) {
-      appendActivity(selectedGroup.id, t("groupManagementDialog.activity.groupDeleted", { name: selectedGroup.name }));
+      appendActivity(
+        selectedGroup.id,
+        t("groupManagementDialog.activity.groupDeleted", {
+          name: selectedGroup.name,
+        }),
+      );
     }
     void loadGroups();
     onGroupManagementComplete();
@@ -444,8 +519,12 @@ export function GroupManagementDialog({
         appendActivity(
           group.id,
           nextEnabled
-            ? t("groupManagementDialog.activity.syncEnabled", { name: group.name })
-            : t("groupManagementDialog.activity.syncDisabled", { name: group.name }),
+            ? t("groupManagementDialog.activity.syncEnabled", {
+                name: group.name,
+              })
+            : t("groupManagementDialog.activity.syncDisabled", {
+                name: group.name,
+              }),
         );
         await loadGroups();
       } catch (toggleError) {
@@ -469,7 +548,9 @@ export function GroupManagementDialog({
         });
         return;
       }
-      const targetGroups = groups.filter((group) => selectedGroupIds.includes(group.id));
+      const targetGroups = groups.filter((group) =>
+        selectedGroupIds.includes(group.id),
+      );
       if (targetGroups.length === 0) {
         showErrorToast(t("groupManagementDialog.toast.noRowsSelected"));
         return;
@@ -495,30 +576,52 @@ export function GroupManagementDialog({
         ),
       );
 
-      const successCount = results.filter((result) => result.status === "fulfilled").length;
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled",
+      ).length;
       const failedCount = results.length - successCount;
       if (successCount > 0) {
         showSuccessToast(
           enabled
-            ? t("groupManagementDialog.toast.bulkSyncEnabled", { count: successCount })
-            : t("groupManagementDialog.toast.bulkSyncDisabled", { count: successCount }),
+            ? t("groupManagementDialog.toast.bulkSyncEnabled", {
+                count: successCount,
+              })
+            : t("groupManagementDialog.toast.bulkSyncDisabled", {
+                count: successCount,
+              }),
         );
         for (const group of eligibleGroups) {
           appendActivity(
             group.id,
             enabled
-              ? t("groupManagementDialog.activity.syncEnabled", { name: group.name })
-              : t("groupManagementDialog.activity.syncDisabled", { name: group.name }),
+              ? t("groupManagementDialog.activity.syncEnabled", {
+                  name: group.name,
+                })
+              : t("groupManagementDialog.activity.syncDisabled", {
+                  name: group.name,
+                }),
           );
         }
       }
       if (failedCount > 0) {
-        showErrorToast(t("groupManagementDialog.toast.bulkSyncPartial", { count: failedCount }));
+        showErrorToast(
+          t("groupManagementDialog.toast.bulkSyncPartial", {
+            count: failedCount,
+          }),
+        );
       }
 
       await loadGroups();
     },
-    [appendActivity, groupInUse, groups, isReadOnly, loadGroups, selectedGroupIds, t],
+    [
+      appendActivity,
+      groupInUse,
+      groups,
+      isReadOnly,
+      loadGroups,
+      selectedGroupIds,
+      t,
+    ],
   );
 
   useEffect(() => {
@@ -603,15 +706,22 @@ export function GroupManagementDialog({
     return filteredGroups.slice(start, start + pageSize);
   }, [filteredGroups, pageSize, safePageIndex]);
 
-  const summaryFrom = filteredGroups.length === 0 ? 0 : safePageIndex * pageSize + 1;
+  const summaryFrom =
+    filteredGroups.length === 0 ? 0 : safePageIndex * pageSize + 1;
   const summaryTo =
     filteredGroups.length === 0
       ? 0
       : Math.min(filteredGroups.length, (safePageIndex + 1) * pageSize);
 
-  const selectedGroupSet = useMemo(() => new Set(selectedGroupIds), [selectedGroupIds]);
+  const selectedGroupSet = useMemo(
+    () => new Set(selectedGroupIds),
+    [selectedGroupIds],
+  );
 
-  const currentGroupsPageIds = useMemo(() => pagedGroups.map((group) => group.id), [pagedGroups]);
+  const currentGroupsPageIds = useMemo(
+    () => pagedGroups.map((group) => group.id),
+    [pagedGroups],
+  );
 
   const allCurrentPageSelected =
     currentGroupsPageIds.length > 0 &&
@@ -667,9 +777,10 @@ export function GroupManagementDialog({
         createdAt: activeGroup.last_sync * 1000,
       });
     }
-    return [...activityEntries.filter((entry) => entry.groupId === activeGroup.id), ...generated].sort(
-      (left, right) => right.createdAt - left.createdAt,
-    );
+    return [
+      ...activityEntries.filter((entry) => entry.groupId === activeGroup.id),
+      ...generated,
+    ].sort((left, right) => right.createdAt - left.createdAt);
   }, [activeGroup, activityEntries, t]);
 
   const activeProfiles = useMemo(() => {
@@ -681,20 +792,29 @@ export function GroupManagementDialog({
 
   const workspaceStats = useMemo(() => {
     const total = activeProfiles.length;
-    const running = activeProfiles.filter((profile) => profile.runtime_state === "Running").length;
-    const blocked = activeProfiles.filter(
-      (profile) => profile.runtime_state === "Error" || profile.runtime_state === "Crashed",
+    const running = activeProfiles.filter(
+      (profile) => profile.runtime_state === "Running",
     ).length;
-    const synced = activeProfiles.filter((profile) => Boolean(profile.last_sync)).length;
+    const blocked = activeProfiles.filter(
+      (profile) =>
+        profile.runtime_state === "Error" ||
+        profile.runtime_state === "Crashed",
+    ).length;
+    const synced = activeProfiles.filter((profile) =>
+      Boolean(profile.last_sync),
+    ).length;
     const drift = Math.max(0, total - synced);
     const ruleMatch = total === 0 ? 0 : Math.round((synced / total) * 100);
 
     return { total, running, drift, blocked, ruleMatch };
   }, [activeProfiles]);
 
-  const activeGroupColor = (activeGroupId && groupColorById[activeGroupId]) || DEFAULT_GROUP_COLOR;
-  const activeGroupShare = (activeGroupId && groupShareById[activeGroupId]) || "private";
-  const activeGroupAccess = (activeGroupId && groupAccessById[activeGroupId]) || "owner_admin";
+  const activeGroupColor =
+    (activeGroupId && groupColorById[activeGroupId]) || DEFAULT_GROUP_COLOR;
+  const activeGroupShare =
+    (activeGroupId && groupShareById[activeGroupId]) || "private";
+  const activeGroupAccess =
+    (activeGroupId && groupAccessById[activeGroupId]) || "owner_admin";
 
   const profilesForPage = useMemo(() => {
     const query = deferredMemberSearchQuery.trim().toLowerCase();
@@ -702,17 +822,23 @@ export function GroupManagementDialog({
       ? profiles.filter((profile) => profile.group_id === activeGroupId)
       : profiles;
     return baseProfiles
-      .filter((profile) => (!query ? true : profile.name.toLowerCase().includes(query)))
+      .filter((profile) =>
+        !query ? true : profile.name.toLowerCase().includes(query),
+      )
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [activeGroupId, deferredMemberSearchQuery, profiles]);
 
   const proxyNameById = useMemo(() => {
-    const entries = storedProxies.map((proxy: StoredProxy) => [proxy.id, proxy.name] as const);
+    const entries = storedProxies.map(
+      (proxy: StoredProxy) => [proxy.id, proxy.name] as const,
+    );
     return new Map<string, string>(entries);
   }, [storedProxies]);
 
   const vpnNameById = useMemo(() => {
-    const entries = vpnConfigs.map((vpn: VpnConfig) => [vpn.id, vpn.name] as const);
+    const entries = vpnConfigs.map(
+      (vpn: VpnConfig) => [vpn.id, vpn.name] as const,
+    );
     return new Map<string, string>(entries);
   }, [vpnConfigs]);
 
@@ -728,18 +854,30 @@ export function GroupManagementDialog({
     });
   }, [profilesForPage, profilesStatusFilter]);
 
-  const profilesPageCount = Math.max(1, Math.ceil(filteredProfilesForPage.length / profilesPageSize));
-  const safeProfilesPageIndex = Math.min(profilesPageIndex, profilesPageCount - 1);
+  const profilesPageCount = Math.max(
+    1,
+    Math.ceil(filteredProfilesForPage.length / profilesPageSize),
+  );
+  const safeProfilesPageIndex = Math.min(
+    profilesPageIndex,
+    profilesPageCount - 1,
+  );
   const pagedProfilesForPage = useMemo(() => {
     const start = safeProfilesPageIndex * profilesPageSize;
     return filteredProfilesForPage.slice(start, start + profilesPageSize);
   }, [filteredProfilesForPage, profilesPageSize, safeProfilesPageIndex]);
 
-  const profilesSummaryFrom = filteredProfilesForPage.length === 0 ? 0 : safeProfilesPageIndex * profilesPageSize + 1;
+  const profilesSummaryFrom =
+    filteredProfilesForPage.length === 0
+      ? 0
+      : safeProfilesPageIndex * profilesPageSize + 1;
   const profilesSummaryTo =
     filteredProfilesForPage.length === 0
       ? 0
-      : Math.min(filteredProfilesForPage.length, (safeProfilesPageIndex + 1) * profilesPageSize);
+      : Math.min(
+          filteredProfilesForPage.length,
+          (safeProfilesPageIndex + 1) * profilesPageSize,
+        );
 
   const toggleGroupSelection = useCallback((groupId: string) => {
     setSelectedGroupIds((prev) => {
@@ -750,26 +888,35 @@ export function GroupManagementDialog({
     });
   }, []);
 
-  const toggleSelectCurrentPage = useCallback((checked: boolean) => {
-    if (checked) {
-      setSelectedGroupIds((prev) => {
-        const merged = new Set([...prev, ...currentGroupsPageIds]);
-        return [...merged];
-      });
-      return;
-    }
-    setSelectedGroupIds((prev) => prev.filter((id) => !currentGroupsPageIds.includes(id)));
-  }, [currentGroupsPageIds]);
+  const toggleSelectCurrentPage = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        setSelectedGroupIds((prev) => {
+          const merged = new Set([...prev, ...currentGroupsPageIds]);
+          return [...merged];
+        });
+        return;
+      }
+      setSelectedGroupIds((prev) =>
+        prev.filter((id) => !currentGroupsPageIds.includes(id)),
+      );
+    },
+    [currentGroupsPageIds],
+  );
 
   const toggleMemberSelection = useCallback((profileId: string) => {
     setSelectedMemberProfileIds((prev) =>
-      prev.includes(profileId) ? prev.filter((id) => id !== profileId) : [...prev, profileId],
+      prev.includes(profileId)
+        ? prev.filter((id) => id !== profileId)
+        : [...prev, profileId],
     );
   }, []);
 
   const toggleCandidateSelection = useCallback((profileId: string) => {
     setSelectedCandidateProfileIds((prev) =>
-      prev.includes(profileId) ? prev.filter((id) => id !== profileId) : [...prev, profileId],
+      prev.includes(profileId)
+        ? prev.filter((id) => id !== profileId)
+        : [...prev, profileId],
     );
   }, []);
 
@@ -803,12 +950,21 @@ export function GroupManagementDialog({
       onGroupManagementComplete();
     } catch (moveError) {
       showErrorToast(
-        moveError instanceof Error ? moveError.message : t("groupManagementDialog.toast.memberActionFailed"),
+        moveError instanceof Error
+          ? moveError.message
+          : t("groupManagementDialog.toast.memberActionFailed"),
       );
     } finally {
       setIsMemberActionLoading(false);
     }
-  }, [activeGroup, appendActivity, loadGroups, onGroupManagementComplete, selectedMemberProfileIds, t]);
+  }, [
+    activeGroup,
+    appendActivity,
+    loadGroups,
+    onGroupManagementComplete,
+    selectedMemberProfileIds,
+    t,
+  ]);
 
   const handleMoveMembersToGroup = useCallback(async () => {
     if (selectedMemberProfileIds.length === 0 || moveTargetGroupId === "none") {
@@ -821,7 +977,8 @@ export function GroupManagementDialog({
         profileIds: selectedMemberProfileIds,
         groupId: moveTargetGroupId,
       });
-      const targetGroupName = groups.find((group) => group.id === moveTargetGroupId)?.name ?? "";
+      const targetGroupName =
+        groups.find((group) => group.id === moveTargetGroupId)?.name ?? "";
       showSuccessToast(
         t("groupManagementDialog.toast.membersMovedToGroup", {
           count: selectedMemberProfileIds.length,
@@ -844,7 +1001,9 @@ export function GroupManagementDialog({
       onGroupManagementComplete();
     } catch (moveError) {
       showErrorToast(
-        moveError instanceof Error ? moveError.message : t("groupManagementDialog.toast.memberActionFailed"),
+        moveError instanceof Error
+          ? moveError.message
+          : t("groupManagementDialog.toast.memberActionFailed"),
       );
     } finally {
       setIsMemberActionLoading(false);
@@ -892,7 +1051,9 @@ export function GroupManagementDialog({
       onGroupManagementComplete();
     } catch (addError) {
       showErrorToast(
-        addError instanceof Error ? addError.message : t("groupManagementDialog.toast.memberActionFailed"),
+        addError instanceof Error
+          ? addError.message
+          : t("groupManagementDialog.toast.memberActionFailed"),
       );
     } finally {
       setIsMemberActionLoading(false);
@@ -919,13 +1080,19 @@ export function GroupManagementDialog({
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">{t("groupManagementDialog.members.currentMembers")}</p>
+            <p className="text-sm font-medium">
+              {t("groupManagementDialog.members.currentMembers")}
+            </p>
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{membersInActiveGroup.length}</Badge>
               <Button
                 size="sm"
                 variant="outline"
-                disabled={isMemberActionLoading || selectedMemberProfileIds.length === 0 || isReadOnly}
+                disabled={
+                  isMemberActionLoading ||
+                  selectedMemberProfileIds.length === 0 ||
+                  isReadOnly
+                }
                 onClick={() => void handleMoveMembersToDefault()}
               >
                 {t("groupManagementDialog.members.moveToDefault")}
@@ -936,10 +1103,16 @@ export function GroupManagementDialog({
                 disabled={isMemberActionLoading || isReadOnly}
               >
                 <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder={t("groupManagementDialog.members.targetGroupPlaceholder")} />
+                  <SelectValue
+                    placeholder={t(
+                      "groupManagementDialog.members.targetGroupPlaceholder",
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{t("groupManagementDialog.members.targetGroupPlaceholder")}</SelectItem>
+                  <SelectItem value="none">
+                    {t("groupManagementDialog.members.targetGroupPlaceholder")}
+                  </SelectItem>
                   {groups
                     .filter((group) => group.id !== activeGroup.id)
                     .map((group) => (
@@ -970,14 +1143,21 @@ export function GroupManagementDialog({
                   <TableRow>
                     <TableHead className="w-10" />
                     <TableHead>{t("common.labels.name")}</TableHead>
-                    <TableHead className="w-28">{t("common.labels.status")}</TableHead>
-                    <TableHead className="w-36">{t("profiles.table.lastLaunch")}</TableHead>
+                    <TableHead className="w-28">
+                      {t("common.labels.status")}
+                    </TableHead>
+                    <TableHead className="w-36">
+                      {t("profiles.table.lastLaunch")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {membersInActiveGroup.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-sm text-muted-foreground">
+                      <TableCell
+                        colSpan={4}
+                        className="text-sm text-muted-foreground"
+                      >
                         {t("groupManagementDialog.members.emptyInGroup")}
                       </TableCell>
                     </TableRow>
@@ -986,11 +1166,17 @@ export function GroupManagementDialog({
                       <TableRow key={profile.id}>
                         <TableCell>
                           <Checkbox
-                            checked={selectedMemberProfileIds.includes(profile.id)}
-                            onCheckedChange={() => toggleMemberSelection(profile.id)}
+                            checked={selectedMemberProfileIds.includes(
+                              profile.id,
+                            )}
+                            onCheckedChange={() =>
+                              toggleMemberSelection(profile.id)
+                            }
                           />
                         </TableCell>
-                        <TableCell className="text-sm">{profile.name}</TableCell>
+                        <TableCell className="text-sm">
+                          {profile.name}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {profile.runtime_state ?? t("common.status.stopped")}
                         </TableCell>
@@ -1012,18 +1198,30 @@ export function GroupManagementDialog({
 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">{t("groupManagementDialog.members.availableProfiles")}</p>
+            <p className="text-sm font-medium">
+              {t("groupManagementDialog.members.availableProfiles")}
+            </p>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{candidatesForActiveGroup.length}</Badge>
+              <Badge variant="secondary">
+                {candidatesForActiveGroup.length}
+              </Badge>
               <Input
                 value={candidateSearchQuery}
-                onChange={(event) => setCandidateSearchQuery(event.target.value)}
-                placeholder={t("groupManagementDialog.members.searchOutsidePlaceholder")}
+                onChange={(event) =>
+                  setCandidateSearchQuery(event.target.value)
+                }
+                placeholder={t(
+                  "groupManagementDialog.members.searchOutsidePlaceholder",
+                )}
                 className="h-8 w-[260px]"
               />
               <Button
                 size="sm"
-                disabled={isMemberActionLoading || selectedCandidateProfileIds.length === 0 || isReadOnly}
+                disabled={
+                  isMemberActionLoading ||
+                  selectedCandidateProfileIds.length === 0 ||
+                  isReadOnly
+                }
                 onClick={() => void handleAddCandidatesToGroup()}
               >
                 {t("groupManagementDialog.members.addToGroup")}
@@ -1037,13 +1235,18 @@ export function GroupManagementDialog({
                   <TableRow>
                     <TableHead className="w-10" />
                     <TableHead>{t("common.labels.name")}</TableHead>
-                    <TableHead className="w-28">{t("common.labels.status")}</TableHead>
+                    <TableHead className="w-28">
+                      {t("common.labels.status")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {candidatesForActiveGroup.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                      <TableCell
+                        colSpan={3}
+                        className="text-sm text-muted-foreground"
+                      >
                         {t("groupManagementDialog.members.emptyCandidates")}
                       </TableCell>
                     </TableRow>
@@ -1052,11 +1255,17 @@ export function GroupManagementDialog({
                       <TableRow key={profile.id}>
                         <TableCell>
                           <Checkbox
-                            checked={selectedCandidateProfileIds.includes(profile.id)}
-                            onCheckedChange={() => toggleCandidateSelection(profile.id)}
+                            checked={selectedCandidateProfileIds.includes(
+                              profile.id,
+                            )}
+                            onCheckedChange={() =>
+                              toggleCandidateSelection(profile.id)
+                            }
                           />
                         </TableCell>
-                        <TableCell className="text-sm">{profile.name}</TableCell>
+                        <TableCell className="text-sm">
+                          {profile.name}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {profile.runtime_state ?? t("common.status.stopped")}
                         </TableCell>
@@ -1085,7 +1294,9 @@ export function GroupManagementDialog({
       <div className="space-y-3 text-sm">
         <div className="divide-y rounded-md border">
           <div className="flex items-center justify-between p-3">
-            <p className="text-muted-foreground">{t("groupManagementDialog.policies.syncPolicy")}</p>
+            <p className="text-muted-foreground">
+              {t("groupManagementDialog.policies.syncPolicy")}
+            </p>
             <p className="font-medium">
               {activeGroup.sync_enabled
                 ? t("groupManagementDialog.policies.syncEnabled")
@@ -1093,15 +1304,23 @@ export function GroupManagementDialog({
             </p>
           </div>
           <div className="flex items-center justify-between p-3">
-            <p className="text-muted-foreground">{t("groupManagementDialog.policies.protectedState")}</p>
-            <p className="font-medium">{t("groupManagementDialog.policies.customManaged")}</p>
+            <p className="text-muted-foreground">
+              {t("groupManagementDialog.policies.protectedState")}
+            </p>
+            <p className="font-medium">
+              {t("groupManagementDialog.policies.customManaged")}
+            </p>
           </div>
           <div className="flex items-center justify-between p-3">
-            <p className="text-muted-foreground">{t("groupManagementDialog.policies.memberCount")}</p>
+            <p className="text-muted-foreground">
+              {t("groupManagementDialog.policies.memberCount")}
+            </p>
             <p className="font-medium">{activeGroup.count}</p>
           </div>
         </div>
-        <p className="text-muted-foreground">{t("groupManagementDialog.policies.description")}</p>
+        <p className="text-muted-foreground">
+          {t("groupManagementDialog.policies.description")}
+        </p>
       </div>
     );
   };
@@ -1114,13 +1333,19 @@ export function GroupManagementDialog({
         </div>
       );
     }
-    const syncDot = getSyncStatusDot(t, activeGroup, groupSyncStatus[activeGroup.id]);
+    const syncDot = getSyncStatusDot(
+      t,
+      activeGroup,
+      groupSyncStatus[activeGroup.id],
+    );
 
     return (
       <div className="space-y-3 text-sm">
         <div className="space-y-2 rounded-md border p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-medium">{t("groupManagementDialog.syncHealth.currentStatus")}</p>
+            <p className="font-medium">
+              {t("groupManagementDialog.syncHealth.currentStatus")}
+            </p>
             <div className="flex items-center gap-2">
               <span
                 className={`h-2 w-2 rounded-full ${syncDot.color} ${syncDot.animate ? "animate-pulse" : ""}`}
@@ -1131,7 +1356,9 @@ export function GroupManagementDialog({
           <p className="text-muted-foreground">{syncDot.tooltip}</p>
           <Separator />
           <div className="flex items-center justify-between">
-            <p className="text-muted-foreground">{t("groupManagementDialog.syncHealth.lastSync")}</p>
+            <p className="text-muted-foreground">
+              {t("groupManagementDialog.syncHealth.lastSync")}
+            </p>
             <p className="font-medium">
               {activeGroup.last_sync
                 ? formatLocaleDateTime(activeGroup.last_sync * 1000)
@@ -1139,7 +1366,9 @@ export function GroupManagementDialog({
             </p>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-muted-foreground">{t("groupManagementDialog.syncHealth.inUseBySynced")}</p>
+            <p className="text-muted-foreground">
+              {t("groupManagementDialog.syncHealth.inUseBySynced")}
+            </p>
             <p className="font-medium">
               {groupInUse[activeGroup.id]
                 ? t("groupManagementDialog.syncHealth.inUse")
@@ -1218,23 +1447,42 @@ export function GroupManagementDialog({
             }}
           >
             <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder={t("groupManagementDialog.syncFilterLabel")} />
+              <SelectValue
+                placeholder={t("groupManagementDialog.syncFilterLabel")}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("groupManagementDialog.syncFilterAll")}</SelectItem>
-              <SelectItem value="enabled">{t("groupManagementDialog.syncFilterEnabled")}</SelectItem>
-              <SelectItem value="disabled">{t("groupManagementDialog.syncFilterDisabled")}</SelectItem>
+              <SelectItem value="all">
+                {t("groupManagementDialog.syncFilterAll")}
+              </SelectItem>
+              <SelectItem value="enabled">
+                {t("groupManagementDialog.syncFilterEnabled")}
+              </SelectItem>
+              <SelectItem value="disabled">
+                {t("groupManagementDialog.syncFilterDisabled")}
+              </SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortValue} onValueChange={(value) => setSortValue(value as GroupSortValue)}>
+          <Select
+            value={sortValue}
+            onValueChange={(value) => setSortValue(value as GroupSortValue)}
+          >
             <SelectTrigger className="w-[170px]">
               <SelectValue placeholder={t("groupManagementDialog.sortLabel")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="name-asc">{t("groupManagementDialog.sort.nameAsc")}</SelectItem>
-              <SelectItem value="name-desc">{t("groupManagementDialog.sort.nameDesc")}</SelectItem>
-              <SelectItem value="profiles-desc">{t("groupManagementDialog.sort.profilesDesc")}</SelectItem>
-              <SelectItem value="profiles-asc">{t("groupManagementDialog.sort.profilesAsc")}</SelectItem>
+              <SelectItem value="name-asc">
+                {t("groupManagementDialog.sort.nameAsc")}
+              </SelectItem>
+              <SelectItem value="name-desc">
+                {t("groupManagementDialog.sort.nameDesc")}
+              </SelectItem>
+              <SelectItem value="profiles-desc">
+                {t("groupManagementDialog.sort.profilesDesc")}
+              </SelectItem>
+              <SelectItem value="profiles-asc">
+                {t("groupManagementDialog.sort.profilesAsc")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1249,7 +1497,9 @@ export function GroupManagementDialog({
       {!isPageMode && selectedGroupIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
           <Badge variant="secondary">
-            {t("groupManagementDialog.bulkBar.selected", { count: selectedGroupIds.length })}
+            {t("groupManagementDialog.bulkBar.selected", {
+              count: selectedGroupIds.length,
+            })}
           </Badge>
           <Button
             size="sm"
@@ -1267,23 +1517,35 @@ export function GroupManagementDialog({
           >
             {t("groupManagementDialog.bulkBar.disableSync")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelectedGroupIds([])}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedGroupIds([])}
+          >
             {t("groupManagementDialog.bulkBar.clearSelection")}
           </Button>
         </div>
       ) : null}
 
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">{t("groupManagementDialog.loading")}</div>
+        <div className="text-sm text-muted-foreground">
+          {t("groupManagementDialog.loading")}
+        </div>
       ) : groups.length === 0 ? (
-        <div className="text-sm text-muted-foreground">{t("groupManagementDialog.noGroups")}</div>
+        <div className="text-sm text-muted-foreground">
+          {t("groupManagementDialog.noGroups")}
+        </div>
       ) : !isPageMode && filteredGroups.length === 0 ? (
-        <div className="text-sm text-muted-foreground">{t("groupManagementDialog.noResults")}</div>
+        <div className="text-sm text-muted-foreground">
+          {t("groupManagementDialog.noResults")}
+        </div>
       ) : isPageMode ? (
         <div className="flex min-w-0 items-start gap-4">
           <aside className="w-[300px] shrink-0 rounded-md border">
             <div className="border-b p-3">
-              <p className="text-sm font-semibold">{t("shell.sections.groups")}</p>
+              <p className="text-sm font-semibold">
+                {t("shell.sections.groups")}
+              </p>
               <Input
                 className="mt-2 h-8 text-sm"
                 value={searchQuery}
@@ -1298,7 +1560,9 @@ export function GroupManagementDialog({
               <Table>
                 <TableBody>
                   <TableRow
-                    className={activeGroupId === null ? "bg-muted/50" : undefined}
+                    className={
+                      activeGroupId === null ? "bg-muted/50" : undefined
+                    }
                     onClick={() => setActiveGroupId(null)}
                   >
                     <TableCell className="text-sm font-medium">All</TableCell>
@@ -1309,14 +1573,18 @@ export function GroupManagementDialog({
                   </TableRow>
                   {filteredGroups.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                      <TableCell
+                        colSpan={3}
+                        className="text-sm text-muted-foreground"
+                      >
                         {t("groupManagementDialog.noResults")}
                       </TableCell>
                     </TableRow>
                   ) : null}
                   {filteredGroups.map((group) => {
                     const isActive = group.id === activeGroupId;
-                    const colorHex = groupColorById[group.id] ?? DEFAULT_GROUP_COLOR;
+                    const colorHex =
+                      groupColorById[group.id] ?? DEFAULT_GROUP_COLOR;
                     return (
                       <TableRow
                         key={group.id}
@@ -1328,8 +1596,13 @@ export function GroupManagementDialog({
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: colorHex }} />
-                            <span className="text-sm font-medium">{group.name}</span>
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: colorHex }}
+                            />
+                            <span className="text-sm font-medium">
+                              {group.name}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="w-16 text-right">
@@ -1349,8 +1622,13 @@ export function GroupManagementDialog({
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-[190px]">
-                                <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
+                              <DropdownMenuContent
+                                align="end"
+                                className="w-[190px]"
+                              >
+                                <DropdownMenuLabel>
+                                  {group.name}
+                                </DropdownMenuLabel>
                                 <DropdownMenuItem
                                   onClick={() => handleEditGroup(group)}
                                 >
@@ -1369,7 +1647,9 @@ export function GroupManagementDialog({
                                     setGroupSettingsOpen(true);
                                   }}
                                 >
-                                  {t("groupManagementDialog.sidebar.memberAccess")}
+                                  {t(
+                                    "groupManagementDialog.sidebar.memberAccess",
+                                  )}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -1396,96 +1676,125 @@ export function GroupManagementDialog({
                 <p className="type-section uppercase text-muted-foreground">
                   {t("groupManagementDialog.columns.profiles")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-none">{workspaceStats.total}</p>
+                <p className="mt-1 text-sm font-semibold leading-none">
+                  {workspaceStats.total}
+                </p>
               </div>
               <div className="min-w-0 flex-1 border-r p-2.5">
                 <p className="type-section uppercase text-muted-foreground">
                   {t("common.status.running")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-none">{workspaceStats.running}</p>
+                <p className="mt-1 text-sm font-semibold leading-none">
+                  {workspaceStats.running}
+                </p>
               </div>
               <div className="min-w-0 flex-1 border-r p-2.5">
                 <p className="type-section uppercase text-muted-foreground">
                   {t("groupManagementDialog.metrics.drift")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-none">{workspaceStats.drift}</p>
+                <p className="mt-1 text-sm font-semibold leading-none">
+                  {workspaceStats.drift}
+                </p>
               </div>
               <div className="min-w-0 flex-1 border-r p-2.5">
                 <p className="type-section uppercase text-muted-foreground">
                   {t("groupManagementDialog.metrics.ruleMatch")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-none">{workspaceStats.ruleMatch}%</p>
+                <p className="mt-1 text-sm font-semibold leading-none">
+                  {workspaceStats.ruleMatch}%
+                </p>
               </div>
               <div className="min-w-0 flex-1 p-2.5">
                 <p className="type-section uppercase text-muted-foreground">
                   {t("groupManagementDialog.metrics.blocked")}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-none">{workspaceStats.blocked}</p>
+                <p className="mt-1 text-sm font-semibold leading-none">
+                  {workspaceStats.blocked}
+                </p>
               </div>
             </div>
 
             <div className="min-w-0 rounded-md border">
-                <div className="border-b px-3 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">
+              <div className="border-b px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">
                     {activeGroup?.name ?? "All"}
-                    </p>
-                    {activeGroupId ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        onClick={() => setGroupSettingsOpen(true)}
-                      >
-                        {t("groupManagementDialog.settings.title")}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="p-3">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Input
-                      value={memberSearchQuery}
-                      onChange={(event) => {
-                        setMemberSearchQuery(event.target.value);
-                        setProfilesPageIndex(0);
-                      }}
-                      placeholder={t("groupManagementDialog.members.searchPlaceholder")}
-                      className="h-9 w-[340px] shrink-0"
-                    />
-                    <Select
-                      value={profilesStatusFilter}
-                      onValueChange={(value) => {
-                        setProfilesStatusFilter(value as "all" | "running" | "stopped");
-                        setProfilesPageIndex(0);
-                      }}
+                  </p>
+                  {activeGroupId ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      onClick={() => setGroupSettingsOpen(true)}
                     >
-                      <SelectTrigger className="h-9 w-[160px] shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("groupManagementDialog.members.statusAll")}</SelectItem>
-                        <SelectItem value="running">{t("common.status.running")}</SelectItem>
-                        <SelectItem value="stopped">{t("common.status.stopped")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <ScrollArea className="h-[500px] rounded-md border">
-                    <Table>
+                      {t("groupManagementDialog.settings.title")}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="p-3">
+                <div className="mb-3 flex items-center gap-2">
+                  <Input
+                    value={memberSearchQuery}
+                    onChange={(event) => {
+                      setMemberSearchQuery(event.target.value);
+                      setProfilesPageIndex(0);
+                    }}
+                    placeholder={t(
+                      "groupManagementDialog.members.searchPlaceholder",
+                    )}
+                    className="h-9 w-[340px] shrink-0"
+                  />
+                  <Select
+                    value={profilesStatusFilter}
+                    onValueChange={(value) => {
+                      setProfilesStatusFilter(
+                        value as "all" | "running" | "stopped",
+                      );
+                      setProfilesPageIndex(0);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-[160px] shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {t("groupManagementDialog.members.statusAll")}
+                      </SelectItem>
+                      <SelectItem value="running">
+                        {t("common.status.running")}
+                      </SelectItem>
+                      <SelectItem value="stopped">
+                        {t("common.status.stopped")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ScrollArea className="h-[500px] rounded-md border">
+                  <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10" />
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>{t("common.labels.name")}</TableHead>
-                        <TableHead className="w-36">{t("profiles.table.proxy")}</TableHead>
-                        <TableHead className="w-40">{t("profiles.table.lastLaunch")}</TableHead>
-                        <TableHead className="w-28">{t("common.labels.status")}</TableHead>
+                        <TableHead className="w-36">
+                          {t("profiles.table.proxy")}
+                        </TableHead>
+                        <TableHead className="w-40">
+                          {t("profiles.table.lastLaunch")}
+                        </TableHead>
+                        <TableHead className="w-28">
+                          {t("common.labels.status")}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {pagedProfilesForPage.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                          <TableCell
+                            colSpan={6}
+                            className="text-sm text-muted-foreground"
+                          >
                             {t("groupManagementDialog.noResults")}
                           </TableCell>
                         </TableRow>
@@ -1494,46 +1803,65 @@ export function GroupManagementDialog({
                           <TableRow key={profile.id}>
                             <TableCell>
                               <Checkbox
-                                checked={selectedMemberProfileIds.includes(profile.id)}
-                                onCheckedChange={() => toggleMemberSelection(profile.id)}
+                                checked={selectedMemberProfileIds.includes(
+                                  profile.id,
+                                )}
+                                onCheckedChange={() =>
+                                  toggleMemberSelection(profile.id)
+                                }
                               />
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {safeProfilesPageIndex * profilesPageSize + index + 1}
+                              {safeProfilesPageIndex * profilesPageSize +
+                                index +
+                                1}
                             </TableCell>
-                            <TableCell className="text-sm font-normal">{profile.name}</TableCell>
+                            <TableCell className="text-sm font-normal">
+                              {profile.name}
+                            </TableCell>
                             <TableCell className="text-sm font-normal text-muted-foreground">
                               {profile.vpn_id
-                                ? (vpnNameById.get(profile.vpn_id) ?? profile.vpn_id)
+                                ? (vpnNameById.get(profile.vpn_id) ??
+                                  profile.vpn_id)
                                 : profile.proxy_id
-                                  ? (proxyNameById.get(profile.proxy_id) ?? profile.proxy_id)
+                                  ? (proxyNameById.get(profile.proxy_id) ??
+                                    profile.proxy_id)
                                   : "-"}
                             </TableCell>
                             <TableCell className="text-sm font-normal text-muted-foreground">
                               {profile.last_launch
-                                ? formatLocaleDateTime(profile.last_launch * 1000)
+                                ? formatLocaleDateTime(
+                                    profile.last_launch * 1000,
+                                  )
                                 : t("groupManagementDialog.syncHealth.never")}
                             </TableCell>
                             <TableCell className="text-sm font-normal text-muted-foreground">
-                              {profile.runtime_state ?? t("common.status.stopped")}
+                              {profile.runtime_state ??
+                                t("common.status.stopped")}
                             </TableCell>
                           </TableRow>
                         ))
                       )}
                     </TableBody>
-                    </Table>
-                  </ScrollArea>
-                  <div className="mt-2">
-                    <TablePaginationControls
+                  </Table>
+                </ScrollArea>
+                <div className="mt-2">
+                  <TablePaginationControls
                     totalRows={filteredProfilesForPage.length}
                     pageIndex={safeProfilesPageIndex}
                     pageCount={profilesPageCount}
                     pageSize={profilesPageSize}
                     canPreviousPage={safeProfilesPageIndex > 0}
                     canNextPage={safeProfilesPageIndex < profilesPageCount - 1}
-                    onPreviousPage={() => setProfilesPageIndex((current) => Math.max(0, current - 1))}
+                    onPreviousPage={() =>
+                      setProfilesPageIndex((current) =>
+                        Math.max(0, current - 1),
+                      )
+                    }
                     onNextPage={() =>
-                      setProfilesPageIndex((current) => Math.min(profilesPageCount - 1, current + 1))
+                      setProfilesPageIndex((current) =>
+                        Math.min(profilesPageCount - 1, current + 1),
+                      )
                     }
                     onPageSizeChange={(nextPageSize) => {
                       setProfilesPageSize(nextPageSize);
@@ -1548,90 +1876,127 @@ export function GroupManagementDialog({
                     rowsPerPageLabel={t("common.pagination.rowsPerPage")}
                     previousLabel={t("common.pagination.previous")}
                     nextLabel={t("common.pagination.next")}
-                    />
-                  </div>
-                  {activeGroupId ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isMemberActionLoading || selectedMemberProfileIds.length === 0 || isReadOnly}
-                        onClick={() => void handleMoveMembersToDefault()}
-                      >
-                        {t("groupManagementDialog.members.moveToDefault")}
-                      </Button>
-                      <Select
-                        value={moveTargetGroupId}
-                        onValueChange={setMoveTargetGroupId}
-                        disabled={isMemberActionLoading || isReadOnly}
-                      >
-                        <SelectTrigger className="w-[220px]">
-                          <SelectValue placeholder={t("groupManagementDialog.members.targetGroupPlaceholder")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            {t("groupManagementDialog.members.targetGroupPlaceholder")}
-                          </SelectItem>
-                          {groups
-                            .filter((group) => group.id !== activeGroupId)
-                            .map((group) => (
-                              <SelectItem key={group.id} value={group.id}>
-                                {group.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        disabled={
-                          isMemberActionLoading ||
-                          selectedMemberProfileIds.length === 0 ||
-                          moveTargetGroupId === "none" ||
-                          isReadOnly
-                        }
-                        onClick={() => void handleMoveMembersToGroup()}
-                      >
-                        {t("groupManagementDialog.members.moveToGroup")}
-                      </Button>
-                    </div>
-                  ) : null}
+                  />
                 </div>
+                {activeGroupId ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        isMemberActionLoading ||
+                        selectedMemberProfileIds.length === 0 ||
+                        isReadOnly
+                      }
+                      onClick={() => void handleMoveMembersToDefault()}
+                    >
+                      {t("groupManagementDialog.members.moveToDefault")}
+                    </Button>
+                    <Select
+                      value={moveTargetGroupId}
+                      onValueChange={setMoveTargetGroupId}
+                      disabled={isMemberActionLoading || isReadOnly}
+                    >
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue
+                          placeholder={t(
+                            "groupManagementDialog.members.targetGroupPlaceholder",
+                          )}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {t(
+                            "groupManagementDialog.members.targetGroupPlaceholder",
+                          )}
+                        </SelectItem>
+                        {groups
+                          .filter((group) => group.id !== activeGroupId)
+                          .map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      disabled={
+                        isMemberActionLoading ||
+                        selectedMemberProfileIds.length === 0 ||
+                        moveTargetGroupId === "none" ||
+                        isReadOnly
+                      }
+                      onClick={() => void handleMoveMembersToGroup()}
+                    >
+                      {t("groupManagementDialog.members.moveToGroup")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
+            </div>
           </section>
         </div>
       ) : (
-        <div className={isPageMode ? "grid gap-4 lg:grid-cols-12 lg:items-start" : "space-y-4"}>
+        <div
+          className={
+            isPageMode
+              ? "grid gap-4 lg:grid-cols-12 lg:items-start"
+              : "space-y-4"
+          }
+        >
           <div className={isPageMode ? "min-w-0 lg:col-span-7" : "min-w-0"}>
             <div className="rounded-md border">
-            <ScrollArea className="h-[260px]">
-              <Table>
+              <ScrollArea className="h-[260px]">
+                <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox
                           checked={allCurrentPageSelected}
-                          onCheckedChange={(checked) => toggleSelectCurrentPage(Boolean(checked))}
-                          aria-label={t("groupManagementDialog.bulkBar.selectPage")}
+                          onCheckedChange={(checked) =>
+                            toggleSelectCurrentPage(Boolean(checked))
+                          }
+                          aria-label={t(
+                            "groupManagementDialog.bulkBar.selectPage",
+                          )}
                         />
                       </TableHead>
                       <TableHead>{t("common.labels.name")}</TableHead>
-                      <TableHead className="w-20">{t("groupManagementDialog.columns.profiles")}</TableHead>
-                      <TableHead className="w-36">{t("groupManagementDialog.columns.syncHealth")}</TableHead>
-                      <TableHead className="w-24">{t("common.labels.sync")}</TableHead>
-                      <TableHead className="w-24">{t("common.labels.actions")}</TableHead>
+                      <TableHead className="w-20">
+                        {t("groupManagementDialog.columns.profiles")}
+                      </TableHead>
+                      <TableHead className="w-36">
+                        {t("groupManagementDialog.columns.syncHealth")}
+                      </TableHead>
+                      <TableHead className="w-24">
+                        {t("common.labels.sync")}
+                      </TableHead>
+                      <TableHead className="w-24">
+                        {t("common.labels.actions")}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pagedGroups.map((group) => {
                       const isSelected = selectedGroupSet.has(group.id);
-                      const syncDot = getSyncStatusDot(t, group, groupSyncStatus[group.id]);
+                      const syncDot = getSyncStatusDot(
+                        t,
+                        group,
+                        groupSyncStatus[group.id],
+                      );
                       const rowActive = activeGroupId === group.id;
                       return (
-                        <TableRow key={group.id} className={rowActive ? "bg-muted/40" : undefined}>
+                        <TableRow
+                          key={group.id}
+                          className={rowActive ? "bg-muted/40" : undefined}
+                        >
                           <TableCell>
                             <Checkbox
                               checked={isSelected}
-                              onCheckedChange={() => toggleGroupSelection(group.id)}
+                              onCheckedChange={() =>
+                                toggleGroupSelection(group.id)
+                              }
                             />
                           </TableCell>
                           <TableCell className="text-sm font-normal">
@@ -1657,7 +2022,9 @@ export function GroupManagementDialog({
                                   <span
                                     className={`h-2 w-2 rounded-full ${syncDot.color} ${syncDot.animate ? "animate-pulse" : ""}`}
                                   />
-                                  <span className="text-xs text-muted-foreground">{syncDot.label}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {syncDot.label}
+                                  </span>
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -1671,7 +2038,9 @@ export function GroupManagementDialog({
                                 <div className="flex items-center">
                                   <Checkbox
                                     checked={group.sync_enabled}
-                                    onCheckedChange={() => void handleToggleSync(group)}
+                                    onCheckedChange={() =>
+                                      void handleToggleSync(group)
+                                    }
                                     disabled={
                                       isTogglingSync[group.id] ||
                                       groupInUse[group.id] ||
@@ -1682,12 +2051,20 @@ export function GroupManagementDialog({
                               </TooltipTrigger>
                               <TooltipContent>
                                 {groupInUse[group.id] ? (
-                                  <p>{t("groupManagementDialog.tooltips.syncDisableBlockedGroup")}</p>
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.syncDisableBlockedGroup",
+                                    )}
+                                  </p>
                                 ) : (
                                   <p>
                                     {group.sync_enabled
-                                      ? t("groupManagementDialog.tooltips.disableSync")
-                                      : t("groupManagementDialog.tooltips.enableSync")}
+                                      ? t(
+                                          "groupManagementDialog.tooltips.disableSync",
+                                        )
+                                      : t(
+                                          "groupManagementDialog.tooltips.enableSync",
+                                        )}
                                   </p>
                                 )}
                               </TooltipContent>
@@ -1707,7 +2084,11 @@ export function GroupManagementDialog({
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{t("groupManagementDialog.tooltips.editGroup")}</p>
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.editGroup",
+                                    )}
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
                               <Tooltip>
@@ -1722,7 +2103,11 @@ export function GroupManagementDialog({
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{t("groupManagementDialog.tooltips.deleteGroup")}</p>
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.deleteGroup",
+                                    )}
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
                             </div>
@@ -1731,36 +2116,40 @@ export function GroupManagementDialog({
                       );
                     })}
                   </TableBody>
-              </Table>
-            </ScrollArea>
-            <div className="p-2">
-              <TablePaginationControls
-                totalRows={filteredGroups.length}
-                pageIndex={safePageIndex}
-                pageCount={pageCount}
-                pageSize={pageSize}
-                canPreviousPage={safePageIndex > 0}
-                canNextPage={safePageIndex < pageCount - 1}
-                onPreviousPage={() => setPageIndex((current) => Math.max(0, current - 1))}
-                onNextPage={() =>
-                  setPageIndex((current) => Math.min(pageCount - 1, current + 1))
-                }
-                onPageSizeChange={(nextPageSize) => {
-                  setPageSize(nextPageSize);
-                  setPageIndex(0);
-                }}
-                summaryLabel={t("groupManagementDialog.paginationSummary", {
-                  from: summaryFrom,
-                  to: summaryTo,
-                  total: filteredGroups.length,
-                })}
-                pageLabel={t("common.pagination.page")}
-                rowsPerPageLabel={t("common.pagination.rowsPerPage")}
-                previousLabel={t("common.pagination.previous")}
-                nextLabel={t("common.pagination.next")}
-              />
+                </Table>
+              </ScrollArea>
+              <div className="p-2">
+                <TablePaginationControls
+                  totalRows={filteredGroups.length}
+                  pageIndex={safePageIndex}
+                  pageCount={pageCount}
+                  pageSize={pageSize}
+                  canPreviousPage={safePageIndex > 0}
+                  canNextPage={safePageIndex < pageCount - 1}
+                  onPreviousPage={() =>
+                    setPageIndex((current) => Math.max(0, current - 1))
+                  }
+                  onNextPage={() =>
+                    setPageIndex((current) =>
+                      Math.min(pageCount - 1, current + 1),
+                    )
+                  }
+                  onPageSizeChange={(nextPageSize) => {
+                    setPageSize(nextPageSize);
+                    setPageIndex(0);
+                  }}
+                  summaryLabel={t("groupManagementDialog.paginationSummary", {
+                    from: summaryFrom,
+                    to: summaryTo,
+                    total: filteredGroups.length,
+                  })}
+                  pageLabel={t("common.pagination.page")}
+                  rowsPerPageLabel={t("common.pagination.rowsPerPage")}
+                  previousLabel={t("common.pagination.previous")}
+                  nextLabel={t("common.pagination.next")}
+                />
+              </div>
             </div>
-          </div>
           </div>
 
           {isPageMode ? (
@@ -1769,13 +2158,17 @@ export function GroupManagementDialog({
                 <p className="text-xs text-muted-foreground">
                   {t("groupManagementDialog.detail.title")}
                 </p>
-                <p className="text-base font-semibold leading-tight">{activeGroup?.name ?? "-"}</p>
+                <p className="text-base font-semibold leading-tight">
+                  {activeGroup?.name ?? "-"}
+                </p>
               </div>
               <Separator className="my-3" />
               <Input
                 value={memberSearchQuery}
                 onChange={(event) => setMemberSearchQuery(event.target.value)}
-                placeholder={t("groupManagementDialog.members.searchPlaceholder")}
+                placeholder={t(
+                  "groupManagementDialog.members.searchPlaceholder",
+                )}
                 className="mx-3 mb-3 w-[calc(100%-1.5rem)]"
               />
               <Tabs
@@ -1810,10 +2203,18 @@ export function GroupManagementDialog({
                   </TabsTrigger>
                 </TabsList>
                 <div className="p-3">
-                  <TabsContent value="members" className="mt-0">{renderMembersTab()}</TabsContent>
-                  <TabsContent value="policies" className="mt-0">{renderPoliciesTab()}</TabsContent>
-                  <TabsContent value="sync" className="mt-0">{renderSyncTab()}</TabsContent>
-                  <TabsContent value="activity" className="mt-0">{renderActivityTab()}</TabsContent>
+                  <TabsContent value="members" className="mt-0">
+                    {renderMembersTab()}
+                  </TabsContent>
+                  <TabsContent value="policies" className="mt-0">
+                    {renderPoliciesTab()}
+                  </TabsContent>
+                  <TabsContent value="sync" className="mt-0">
+                    {renderSyncTab()}
+                  </TabsContent>
+                  <TabsContent value="activity" className="mt-0">
+                    {renderActivityTab()}
+                  </TabsContent>
                 </div>
               </Tabs>
             </div>
@@ -1830,7 +2231,9 @@ export function GroupManagementDialog({
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{t("groupManagementDialog.title")}</DialogTitle>
-              <DialogDescription>{t("groupManagementDialog.description")}</DialogDescription>
+              <DialogDescription>
+                {t("groupManagementDialog.description")}
+              </DialogDescription>
             </DialogHeader>
 
             {content}
@@ -1869,12 +2272,16 @@ export function GroupManagementDialog({
       <Dialog open={groupSettingsOpen} onOpenChange={setGroupSettingsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{t("groupManagementDialog.settings.title")}</DialogTitle>
+            <DialogTitle>
+              {t("groupManagementDialog.settings.title")}
+            </DialogTitle>
             <DialogDescription>{activeGroup?.name ?? "All"}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t("groupManagementDialog.settings.color")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("groupManagementDialog.settings.color")}
+              </p>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -1904,7 +2311,9 @@ export function GroupManagementDialog({
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t("groupManagementDialog.settings.share")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("groupManagementDialog.settings.share")}
+              </p>
               <Select
                 value={activeGroupShare}
                 onValueChange={(value) => {
@@ -1920,14 +2329,22 @@ export function GroupManagementDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="private">{t("groupManagementDialog.settings.sharePrivate")}</SelectItem>
-                  <SelectItem value="team">{t("groupManagementDialog.settings.shareTeam")}</SelectItem>
-                  <SelectItem value="public">{t("groupManagementDialog.settings.sharePublic")}</SelectItem>
+                  <SelectItem value="private">
+                    {t("groupManagementDialog.settings.sharePrivate")}
+                  </SelectItem>
+                  <SelectItem value="team">
+                    {t("groupManagementDialog.settings.shareTeam")}
+                  </SelectItem>
+                  <SelectItem value="public">
+                    {t("groupManagementDialog.settings.sharePublic")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t("groupManagementDialog.settings.memberAccess")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("groupManagementDialog.settings.memberAccess")}
+              </p>
               <Select
                 value={activeGroupAccess}
                 onValueChange={(value) => {
@@ -1943,8 +2360,12 @@ export function GroupManagementDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="owner_admin">{t("groupManagementDialog.settings.accessOwnerAdmin")}</SelectItem>
-                  <SelectItem value="all_members">{t("groupManagementDialog.settings.accessAllMembers")}</SelectItem>
+                  <SelectItem value="owner_admin">
+                    {t("groupManagementDialog.settings.accessOwnerAdmin")}
+                  </SelectItem>
+                  <SelectItem value="all_members">
+                    {t("groupManagementDialog.settings.accessAllMembers")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
