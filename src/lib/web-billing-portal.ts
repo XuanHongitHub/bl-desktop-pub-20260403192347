@@ -9,6 +9,20 @@ export type WebBillingPortalRoute =
   | "accountBilling"
   | "accountPlan"
   | "adminCommandCenter"
+  | "adminIncidentBoard"
+  | "adminPermissions"
+  | "adminMemberships"
+  | "adminAbuseTrust"
+  | "adminUsers"
+  | "adminSubscriptions"
+  | "adminInvoices"
+  | "adminPolicyCenter"
+  | "adminDataGovernance"
+  | "adminJobsQueues"
+  | "adminFeatureFlags"
+  | "adminSupportConsole"
+  | "adminImpersonationCenter"
+  | "adminBrowserUpdate"
   | "adminWorkspaces"
   | "adminRevenue"
   | "adminAudit"
@@ -175,6 +189,34 @@ function resolvePortalPath(route: WebBillingPortalRoute): string {
       return "/account/plan";
     case "adminCommandCenter":
       return "/admin/dashboard";
+    case "adminIncidentBoard":
+      return "/admin/incident-board";
+    case "adminPermissions":
+      return "/admin/permissions";
+    case "adminMemberships":
+      return "/admin/memberships";
+    case "adminAbuseTrust":
+      return "/admin/abuse-trust";
+    case "adminUsers":
+      return "/admin/users";
+    case "adminSubscriptions":
+      return "/admin/subscriptions";
+    case "adminInvoices":
+      return "/admin/invoices";
+    case "adminPolicyCenter":
+      return "/admin/policy-center";
+    case "adminDataGovernance":
+      return "/admin/data-governance";
+    case "adminJobsQueues":
+      return "/admin/jobs-queues";
+    case "adminFeatureFlags":
+      return "/admin/feature-flags";
+    case "adminSupportConsole":
+      return "/admin/support-console";
+    case "adminImpersonationCenter":
+      return "/admin/impersonation-center";
+    case "adminBrowserUpdate":
+      return "/admin/system/browser";
     case "adminWorkspaces":
       return "/admin/workspaces";
     case "adminRevenue":

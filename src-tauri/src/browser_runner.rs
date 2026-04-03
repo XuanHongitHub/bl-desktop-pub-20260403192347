@@ -3841,7 +3841,7 @@ fn managed_browser_metadata_url(browser: &str) -> Option<String> {
     .ok()
     .map(|value| value.trim().trim_end_matches('/').to_string())
     .filter(|value| !value.is_empty())
-    .unwrap_or_else(|| "https://api.bugdev.site".to_string());
+    .unwrap_or_else(|| "https://api.gnohh.com".to_string());
   Some(format!("{base}/v1/browser/{slug}.json"))
 }
 

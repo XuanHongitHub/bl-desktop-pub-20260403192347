@@ -298,6 +298,12 @@ interface SyncSettings {
   web_portal_url?: string;
 }
 
+interface ControlAuthMeResponse {
+  id: string;
+  email: string;
+  platformRole?: "platform_admin" | null;
+}
+
 interface WorkspaceSwitcherOption {
   id: string;
   label: string;
@@ -395,11 +401,31 @@ const APP_SECTION_VALUES: AppSection[] = [
   "workspace-owner-directory",
   "workspace-owner-permissions",
   "super-admin-overview",
+  "super-admin-incident-board",
   "super-admin-workspace",
+  "super-admin-permissions",
+  "super-admin-memberships",
+  "super-admin-abuse-trust",
+  "super-admin-users",
   "super-admin-billing",
+  "super-admin-subscriptions",
+  "super-admin-invoices",
   "super-admin-cookies",
+  "super-admin-policy-center",
+  "super-admin-data-governance",
+  "super-admin-jobs-queues",
+  "super-admin-feature-flags",
+  "super-admin-support-console",
+  "super-admin-impersonation-center",
+  "super-admin-browser-update",
   "super-admin-audit",
   "super-admin-system",
+  "super-admin-commerce-plans",
+  "super-admin-commerce-campaigns",
+  "super-admin-commerce-coupons",
+  "super-admin-commerce-licenses",
+  "super-admin-commerce-preview",
+  "super-admin-commerce-audit",
   "super-admin-analytics",
   "workspace-admin-overview",
   "workspace-admin-directory",
@@ -520,14 +546,74 @@ function resolveEmbeddedPortalRouteForSection(
   ) {
     return "adminCommandCenter";
   }
+  if (section === "super-admin-incident-board") {
+    return "adminIncidentBoard";
+  }
+  if (section === "super-admin-permissions") {
+    return "adminPermissions";
+  }
+  if (section === "super-admin-memberships") {
+    return "adminMemberships";
+  }
+  if (section === "super-admin-abuse-trust") {
+    return "adminAbuseTrust";
+  }
+  if (section === "super-admin-users") {
+    return "adminUsers";
+  }
   if (section === "super-admin-workspace" || section === "admin-workspace") {
     return "adminWorkspaces";
+  }
+  if (section === "super-admin-subscriptions") {
+    return "adminSubscriptions";
+  }
+  if (section === "super-admin-invoices") {
+    return "adminInvoices";
   }
   if (section === "super-admin-billing" || section === "admin-billing") {
     return "adminRevenue";
   }
+  if (section === "super-admin-policy-center") {
+    return "adminPolicyCenter";
+  }
+  if (section === "super-admin-data-governance") {
+    return "adminDataGovernance";
+  }
+  if (section === "super-admin-jobs-queues") {
+    return "adminJobsQueues";
+  }
+  if (section === "super-admin-feature-flags") {
+    return "adminFeatureFlags";
+  }
+  if (section === "super-admin-support-console") {
+    return "adminSupportConsole";
+  }
+  if (section === "super-admin-impersonation-center") {
+    return "adminImpersonationCenter";
+  }
+  if (section === "super-admin-browser-update") {
+    return "adminBrowserUpdate";
+  }
   if (section === "super-admin-audit" || section === "admin-audit") {
     return "adminAudit";
+  }
+  if (section === "super-admin-commerce-plans") {
+    return "adminCommercePlans";
+  }
+  if (section === "super-admin-commerce-campaigns") {
+    return "adminCommerceCampaigns";
+  }
+  if (section === "super-admin-commerce-coupons") {
+    return "adminCommerceCoupons";
+  }
+  if (section === "super-admin-commerce-licenses") {
+    return "adminCommerceLicenses";
+  }
+  if (section === "super-admin-commerce-preview") {
+    return "adminCommercePreview";
+  }
+  if (section === "super-admin-commerce-audit") {
+    return "adminCommerceAudit";
   }
   if (
     section === "super-admin-system" ||
@@ -1006,6 +1092,7 @@ export default function Home() {
   } | null>(null);
   const workspaceScopeRecoveryKeyRef = useRef<string>("");
   const didRestoreWorkspaceSelectionRef = useRef(false);
+  const didAttemptWorkspaceAuthRefreshRef = useRef(false);
   const [isWorkspaceSelectionReady, setIsWorkspaceSelectionReady] =
     useState(false);
   const handleWorkspaceChange = useCallback(
@@ -1082,53 +1169,29 @@ export default function Home() {
           headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
         }
 
-        const workspaceResponse = await fetch(
-          `${baseUrl}/v1/control/workspaces?scope=member`,
-          {
-            method: "GET",
-            headers,
-            signal: abortController.signal,
-          },
-        );
-        if (!workspaceResponse.ok) {
-          if (!isCancelled) {
-            setWorkspaceSwitcherSummaries([]);
-            setWorkspaceSwitcherError(
-              `${workspaceResponse.status}:${workspaceResponse.statusText}`,
-            );
-          }
-          return;
+        const actorResponse = await fetch(`${baseUrl}/v1/control/auth/me`, {
+          method: "GET",
+          headers,
+          signal: abortController.signal,
+        }).catch(() => null);
+        const actor =
+          actorResponse?.ok && actorResponse.status < 300
+            ? ((await actorResponse.json()) as ControlAuthMeResponse)
+            : null;
+
+        const effectiveHeaders: Record<string, string> = {
+          ...headers,
+          "x-user-id": actor?.id?.trim() || cloudUser.id,
+          "x-user-email": actor?.email?.trim() || cloudUser.email,
+        };
+        if (actor?.platformRole === "platform_admin") {
+          effectiveHeaders["x-platform-role"] = "platform_admin";
         }
 
-        const workspaces =
-          (await workspaceResponse.json()) as ControlWorkspace[];
-        if (!Array.isArray(workspaces) || workspaces.length === 0) {
-          if (!isCancelled) {
-            setWorkspaceSwitcherSummaries([]);
-            setWorkspaceSwitcherError(null);
-          }
-          return;
-        }
-
-        let profilesUsedByWorkspace: Record<string, number> = {};
-        try {
-          const profileRows = await listProfilesSnapshot();
-          profilesUsedByWorkspace = getScopedEntityCountsForWorkspaces(
-            "profiles",
-            profileRows.map((row) => row.id),
-            cloudUser?.id as string,
-            workspaces.map((workspace) => workspace.id),
-          );
-        } catch {
-          profilesUsedByWorkspace = {};
-        }
-
-        if (isCancelled) {
-          return;
-        }
-
-        const summaryRows: WorkspaceSwitcherSummary[] = workspaces.map(
-          (workspace) => {
+        const parseWorkspaceRows = (
+          rows: ControlWorkspace[],
+        ): WorkspaceSwitcherSummary[] => {
+          return rows.map((workspace) => {
             const planLabel = workspace.planLabel ?? null;
             const workspaceName = resolveWorkspaceDisplayName({
               name: workspace.name,
@@ -1166,8 +1229,110 @@ export default function Home() {
               planLabel,
               expiresAt: workspace.expiresAt ?? null,
             };
-          },
-        );
+          });
+        };
+
+        const loadWorkspaceRows = async (): Promise<
+          ControlWorkspace[] | null
+        > => {
+          const workspaceResponse = await fetch(
+            `${baseUrl}/v1/control/workspaces?scope=member`,
+            {
+              method: "GET",
+              headers: effectiveHeaders,
+              signal: abortController.signal,
+            },
+          );
+          if (!workspaceResponse.ok) {
+            if (!isCancelled) {
+              setWorkspaceSwitcherSummaries([]);
+              setWorkspaceSwitcherError(
+                `${workspaceResponse.status}:${workspaceResponse.statusText}`,
+              );
+            }
+            return null;
+          }
+          const workspaces =
+            (await workspaceResponse.json()) as ControlWorkspace[];
+          if (!Array.isArray(workspaces)) {
+            return [];
+          }
+          return workspaces;
+        };
+
+        let workspaces = await loadWorkspaceRows();
+        if (!workspaces) {
+          return;
+        }
+
+        if (workspaces.length === 0) {
+          await fetch(`${baseUrl}/v1/control/workspaces`, {
+            method: "POST",
+            headers: effectiveHeaders,
+            body: JSON.stringify({
+              name: cloudUser.email,
+              mode: "personal",
+            }),
+            signal: abortController.signal,
+          }).catch(() => null);
+          workspaces = await loadWorkspaceRows();
+          if (!workspaces) {
+            return;
+          }
+        }
+
+        if (workspaces.length === 0) {
+          const seeds = cloudUser.workspaceSeeds ?? [];
+          if (seeds.length > 0) {
+            const seedRows: WorkspaceSwitcherSummary[] = seeds.map((seed) => ({
+              id: seed.id,
+              name: seed.name,
+              mode: seed.mode,
+              role:
+                seed.role ?? (seed.mode === "personal" ? "owner" : "member"),
+              members: seed.members,
+              activeInvites: seed.activeInvites,
+              activeShareGrants: seed.activeShareGrants,
+              entitlementState: seed.entitlementState,
+              profileLimit: seed.profileLimit,
+              profilesUsed: seed.profilesUsed,
+              planLabel: seed.planLabel,
+              expiresAt: seed.expiresAt,
+            }));
+            if (!isCancelled) {
+              setWorkspaceSwitcherSummaries(seedRows);
+              setWorkspaceSwitcherError(null);
+            }
+            return;
+          }
+          if (!didAttemptWorkspaceAuthRefreshRef.current) {
+            didAttemptWorkspaceAuthRefreshRef.current = true;
+            await refreshProfile().catch(() => null);
+          }
+          if (!isCancelled) {
+            setWorkspaceSwitcherSummaries([]);
+            setWorkspaceSwitcherError("workspace_membership_empty");
+          }
+          return;
+        }
+
+        let profilesUsedByWorkspace: Record<string, number> = {};
+        try {
+          const profileRows = await listProfilesSnapshot();
+          profilesUsedByWorkspace = getScopedEntityCountsForWorkspaces(
+            "profiles",
+            profileRows.map((row) => row.id),
+            cloudUser?.id as string,
+            workspaces.map((workspace) => workspace.id),
+          );
+        } catch {
+          profilesUsedByWorkspace = {};
+        }
+
+        if (isCancelled) {
+          return;
+        }
+        const summaryRows = parseWorkspaceRows(workspaces);
         setWorkspaceSwitcherSummaries(summaryRows);
         setWorkspaceSwitcherError(null);
       } catch (error) {
@@ -1188,10 +1353,12 @@ export default function Home() {
     shouldLoadWorkspaceSwitcherData,
     cloudUser?.email,
     cloudUser?.id,
+    cloudUser?.workspaceSeeds,
     cloudUser?.platformRole,
     cloudUser?.teamId,
     cloudUser?.teamName,
     profiles.length,
+    refreshProfile,
     sidebarWorkspaceId,
     teamRole,
     workspaceProfilesUsed,
@@ -1234,7 +1401,52 @@ export default function Home() {
         profileLimit: workspace.profileLimit,
       }));
     }
-    return [];
+
+    const seeds = cloudUser.workspaceSeeds ?? [];
+    if (seeds.length > 0) {
+      return seeds.map((seed) => ({
+        id: seed.id,
+        label: seed.name,
+        details:
+          seed.profilesUsed > 0
+            ? t("shell.workspaceSwitcher.usageProfiles", {
+                used: seed.profilesUsed,
+                limit: seed.profileLimit || "∞",
+              })
+            : t("shell.workspaceSwitcher.membersInvites", {
+                members: seed.members,
+                invites: seed.activeInvites,
+              }),
+        status: seed.expiresAt
+          ? t("shell.workspaceSwitcher.expiresOn", {
+              date: formatLocaleDate(seed.expiresAt),
+            })
+          : t(`shell.workspaceSwitcher.entitlement.${seed.entitlementState}`),
+        planLabel: seed.planLabel,
+        profileLimit: seed.profileLimit,
+      }));
+    }
+
+    const fallbackWorkspaceId =
+      cloudUser.teamId?.trim() || `workspace:${cloudUser.id}`;
+    const fallbackWorkspaceLabel =
+      cloudUser.teamName?.trim() ||
+      resolveWorkspaceDisplayName({
+        name: cloudUser.email,
+        mode: "personal",
+        userEmail: cloudUser.email,
+      });
+
+    return [
+      {
+        id: fallbackWorkspaceId,
+        label: fallbackWorkspaceLabel,
+        details: t("shell.workspaceSwitcher.current"),
+        status: t("shell.workspaceSwitcher.entitlement.active"),
+        planLabel: cloudUser.plan,
+        profileLimit: cloudUser.profileLimit,
+      },
+    ];
   }, [cloudUser, t, workspaceSwitcherSummaries]);
 
   const selectedWorkspaceContext =
@@ -1516,12 +1728,13 @@ export default function Home() {
     if (!cloudUser) {
       return;
     }
+    const route = embeddedPortalRoute ?? "adminCommandCenter";
     const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
     const workspaceName = selectedWorkspaceContext?.name ?? null;
     setIsOpeningWebPortal(true);
     try {
       await openWebBillingPortal({
-        route: "adminCommandCenter",
+        route,
         user: cloudUser,
         workspaceId,
         workspaceName,
@@ -1533,6 +1746,7 @@ export default function Home() {
     }
   }, [
     cloudUser,
+    embeddedPortalRoute,
     selectedWorkspaceContext?.id,
     selectedWorkspaceContext?.name,
     showWebBillingPortalError,
@@ -3782,6 +3996,10 @@ export default function Home() {
       onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
     />
   );
+  const profileTableModeProps = {
+    tableMode: normalizedActiveSection === "groups" ? "group" : "default",
+  } as Record<string, unknown>;
+
   const profilesWorkspaceContent = (
     <>
       {filteredProfiles.length === 0 &&
@@ -3854,9 +4072,7 @@ export default function Home() {
             storedProxies={storedProxies}
             vpnConfigs={vpnConfigs}
             isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
-            tableMode={
-              normalizedActiveSection === "groups" ? "group" : "default"
-            }
+            {...profileTableModeProps}
           />
         </div>
       </div>
@@ -4076,11 +4292,31 @@ export default function Home() {
           </WorkspacePageShell>
         );
       case "super-admin-overview":
+      case "super-admin-incident-board":
       case "super-admin-workspace":
+      case "super-admin-permissions":
+      case "super-admin-memberships":
+      case "super-admin-abuse-trust":
+      case "super-admin-users":
       case "super-admin-billing":
+      case "super-admin-subscriptions":
+      case "super-admin-invoices":
       case "super-admin-cookies":
+      case "super-admin-policy-center":
+      case "super-admin-data-governance":
+      case "super-admin-jobs-queues":
+      case "super-admin-feature-flags":
+      case "super-admin-support-console":
+      case "super-admin-impersonation-center":
+      case "super-admin-browser-update":
       case "super-admin-audit":
       case "super-admin-system":
+      case "super-admin-commerce-plans":
+      case "super-admin-commerce-campaigns":
+      case "super-admin-commerce-coupons":
+      case "super-admin-commerce-licenses":
+      case "super-admin-commerce-preview":
+      case "super-admin-commerce-audit":
       case "super-admin-analytics":
       case "admin-overview":
       case "admin-workspace":

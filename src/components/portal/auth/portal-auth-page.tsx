@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { FaGoogle } from "react-icons/fa";
 import { Logo } from "@/components/icons/logo";
 import { TopNavHead } from "@/components/portal/top-nav-head";
+import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/frontend-shadcn/ui/button";
 import { Card, CardContent, CardHeader } from "@/frontend-shadcn/ui/card";
 import { Checkbox } from "@/frontend-shadcn/ui/checkbox";
@@ -532,7 +533,7 @@ export function PortalAuthPage({
     (isPostAuthTransition || (isOAuthReturn && !oauthBootstrapComplete));
 
   if (showPostAuthLoading) {
-    return null;
+    return <PageLoader mode="fullscreen" />;
   }
 
   return (

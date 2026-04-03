@@ -1,0 +1,89 @@
+name: Desktop Release (Public Repo)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (for example v0.17.1-desktop.1)"
+        required: true
+      publish_release:
+        description: "Create GitHub Release"
+        required: true
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*-desktop*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      BUGLOGIN_BROWSER_API_BASE: https://api.gnohh.com
+      NEXT_PUBLIC_SYNC_SERVER_URL: https://api.gnohh.com
+      NEXT_PUBLIC_WEB_PORTAL_URL: https://gnohh.com
+      NEXT_PUBLIC_BILLING_PORTAL_URL: https://gnohh.com
+      NEXT_PUBLIC_STRIPE_BILLING_URL: https://gnohh.com
+      BUGLOGIN_AUTH_API_URL: https://api.gnohh.com
+      RUSTFLAGS: -C debuginfo=0
+      CARGO_INCREMENTAL: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: "buglogin-desktop-public-release"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows installer (NSIS)
+        run: pnpm tauri build --bundles nsis
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          Get-ChildItem -Recurse src-tauri/target/release/bundle/nsis | ForEach-Object {
+            Copy-Item $_.FullName -Destination dist-release -Force
+          }
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: buglogin-desktop-windows-nsis
+          path: dist-release/*
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        if: ${{ github.event_name == 'push' || inputs.publish_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          generate_release_notes: true
+          files: dist-release/*

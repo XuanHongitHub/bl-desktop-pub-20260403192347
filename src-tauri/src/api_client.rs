@@ -450,7 +450,7 @@ impl ApiClient {
       .ok()
       .map(|v| v.trim().trim_end_matches('/').to_string())
       .filter(|v| !v.is_empty())
-      .unwrap_or_else(|| "https://api.bugdev.site".to_string())
+      .unwrap_or_else(|| "https://api.gnohh.com".to_string())
   }
 
   pub fn new() -> Self {
