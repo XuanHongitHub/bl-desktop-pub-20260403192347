@@ -350,6 +350,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return "Enterprise";
   }
 
+  private getCanonicalPlanLabel(
+    subscription: WorkspaceSubscriptionRecord,
+  ): string {
+    if (subscription.planId) {
+      return this.getPlanLabel(subscription.planId);
+    }
+    return "Free";
+  }
+
   private getPlanRank(planId: BillingPlanId | null): number {
     if (planId === "starter") {
       return 1;
@@ -1345,7 +1354,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return {
         ...workspace,
         actorRole,
-        planLabel: subscription.planLabel,
+        planLabel: this.getCanonicalPlanLabel(subscription),
         profileLimit: subscription.profileLimit,
         memberLimit: subscription.memberLimit,
         billingCycle: subscription.billingCycle,
@@ -1930,7 +1939,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     return {
       workspaceId,
-      subscription,
+      subscription: {
+        ...subscription,
+        planLabel: this.getCanonicalPlanLabel(subscription),
+      },
       recentInvoices,
       usage,
     };
@@ -3108,7 +3120,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       workspaceName: workspace.name,
       mode: workspace.mode,
       planId: subscription.planId,
-      planLabel: subscription.planLabel,
+      planLabel: this.getCanonicalPlanLabel(subscription),
       subscriptionStatus: subscription.status,
       entitlementState: entitlement?.state ?? "active",
       profileLimit: subscription.profileLimit,
