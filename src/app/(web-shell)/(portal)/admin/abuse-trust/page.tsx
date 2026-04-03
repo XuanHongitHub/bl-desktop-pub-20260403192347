@@ -105,7 +105,7 @@ export default function AdminAbuseTrustOverviewPage() {
         </div>
       }
     >
-      <section className="mx-auto grid w-full max-w-[1320px] gap-4">
+      <section className="mx-auto grid w-full max-w-[1320px] gap-4 text-sm">
         <div className="rounded-xl border border-border bg-card">
           <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_180px_auto]">
             <Input
@@ -140,7 +140,7 @@ export default function AdminAbuseTrustOverviewPage() {
             </div>
           </div>
 
-          <Table>
+          <Table className="text-sm">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
@@ -212,7 +212,7 @@ export default function AdminAbuseTrustOverviewPage() {
                           className="h-7 px-2 text-xs"
                         >
                           <Link
-                            href={`/admin/abuse-trust/manage?workspaceId=${row.workspaceId}#queue`}
+                            href={`/admin/abuse-trust/manage/${row.workspaceId}?section=queue`}
                           >
                             Review
                           </Link>
@@ -224,7 +224,7 @@ export default function AdminAbuseTrustOverviewPage() {
                           className="h-7 px-2 text-xs"
                         >
                           <Link
-                            href={`/admin/workspaces/manage/${row.workspaceId}?section=subscription`}
+                            href={`/admin/workspaces/${row.workspaceId}/billing`}
                           >
                             Billing
                           </Link>

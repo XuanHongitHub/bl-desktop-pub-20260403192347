@@ -85,7 +85,7 @@ export default function AdminMembershipsPage() {
         </Button>
       }
     >
-      <section className="mx-auto w-full max-w-[1280px] space-y-4">
+      <section className="mx-auto w-full max-w-[1280px] space-y-4 text-sm">
         <div className="rounded-xl border border-border bg-card">
           <div className="grid gap-2 border-b border-border p-4 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
             <Input
@@ -118,7 +118,7 @@ export default function AdminMembershipsPage() {
             </Badge>
           </div>
 
-          <Table>
+          <Table className="text-sm">
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -185,7 +185,7 @@ export default function AdminMembershipsPage() {
                           className="h-7 px-2 text-xs"
                         >
                           <Link
-                            href={`/admin/workspaces/manage/${row.workspaceId}?section=members`}
+                            href={`/admin/workspaces/${row.workspaceId}/members`}
                           >
                             Workspace
                           </Link>
@@ -196,9 +196,7 @@ export default function AdminMembershipsPage() {
                           variant="outline"
                           className="h-7 px-2 text-xs"
                         >
-                          <Link
-                            href={`/admin/users/manage?userId=${row.userId}`}
-                          >
+                          <Link href={`/admin/users/manage/${row.userId}`}>
                             User
                           </Link>
                         </Button>

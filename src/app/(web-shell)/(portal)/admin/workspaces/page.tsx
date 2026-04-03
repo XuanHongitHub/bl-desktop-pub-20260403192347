@@ -121,7 +121,7 @@ export default function AdminWorkspacesOverviewPage() {
             {t("portalSite.admin.refresh")}
           </Button>
           <Button asChild size="sm" variant="outline">
-            <Link href="/admin/workspaces/manage?create=1">
+            <Link href="/admin/workspaces/create">
               {t("portalSite.admin.workspaces.create.action")}
             </Link>
           </Button>
@@ -133,7 +133,7 @@ export default function AdminWorkspacesOverviewPage() {
         </div>
       }
     >
-      <section className="mx-auto grid w-full max-w-[1320px] gap-4">
+      <section className="mx-auto grid w-full max-w-[1320px] gap-4 text-sm">
         <div className="rounded-xl border border-border bg-card">
           <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_150px_170px_130px]">
             <Input
@@ -246,7 +246,7 @@ export default function AdminWorkspacesOverviewPage() {
             </Badge>
           </div>
 
-          <Table>
+          <Table className="text-sm">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
@@ -321,7 +321,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage/${workspace.workspaceId}`}
+                              href={`/admin/workspaces/${workspace.workspaceId}`}
                             >
                               {t("portalSite.admin.workspaces.actions.details")}
                             </Link>
@@ -333,7 +333,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage/${workspace.workspaceId}?section=members`}
+                              href={`/admin/workspaces/${workspace.workspaceId}/members`}
                             >
                               {t("portalSite.admin.workspaces.actions.members")}
                             </Link>
@@ -345,7 +345,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage/${workspace.workspaceId}?section=subscription`}
+                              href={`/admin/workspaces/${workspace.workspaceId}/billing`}
                             >
                               {t("portalSite.admin.workspaces.actions.billing")}
                             </Link>

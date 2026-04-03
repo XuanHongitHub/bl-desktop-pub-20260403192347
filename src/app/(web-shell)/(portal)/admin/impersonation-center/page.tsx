@@ -1,18 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getAdminUserDetail, listAdminUsers } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { listAdminUsers } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlAdminUserDetail, ControlAdminUserListItem } from "@/types";
+import type { ControlAdminUserListItem } from "@/types";
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -21,21 +28,17 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function AdminImpersonationCenterPage() {
+export default function AdminImpersonationCenterOverviewPage() {
   const { t } = useTranslation();
   const { connection } = usePortalBillingData();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ControlAdminUserListItem[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedDetail, setSelectedDetail] = useState<ControlAdminUserDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(
     async (keyword = query) => {
       if (!connection) {
         setRows([]);
-        setSelectedUserId("");
-        setSelectedDetail(null);
         return;
       }
       setLoading(true);
@@ -43,41 +46,21 @@ export default function AdminImpersonationCenterPage() {
         const payload = await listAdminUsers(connection, {
           q: keyword.trim() || undefined,
           page: 1,
-          pageSize: 100,
+          pageSize: 200,
         });
-        const items = payload.items ?? [];
-        setRows(items);
-        setSelectedUserId((current) =>
-          current && items.some((item) => item.userId === current) ? current : (items[0]?.userId ?? ""),
-        );
+        setRows(payload.items ?? []);
       } catch (error) {
         showErrorToast(t("portalSite.admin.impersonationCenter.loadFailed"), {
-          description: extractErrorMessage(error, "load_impersonation_targets_failed"),
+          description: extractErrorMessage(
+            error,
+            "load_impersonation_targets_failed",
+          ),
         });
       } finally {
         setLoading(false);
       }
     },
     [connection, query, t],
-  );
-
-  const refreshDetail = useCallback(
-    async (userId: string) => {
-      if (!connection || !userId) {
-        setSelectedDetail(null);
-        return;
-      }
-      try {
-        const detail = await getAdminUserDetail(connection, userId);
-        setSelectedDetail(detail);
-      } catch (error) {
-        setSelectedDetail(null);
-        showErrorToast(t("portalSite.admin.impersonationCenter.loadFailed"), {
-          description: extractErrorMessage(error, "load_impersonation_detail_failed"),
-        });
-      }
-    },
-    [connection, t],
   );
 
   useEffect(() => {
@@ -87,9 +70,15 @@ export default function AdminImpersonationCenterPage() {
     return () => window.clearTimeout(timer);
   }, [query, refresh]);
 
-  useEffect(() => {
-    void refreshDetail(selectedUserId);
-  }, [refreshDetail, selectedUserId]);
+  const stats = useMemo(
+    () => ({
+      total: rows.length,
+      admins: rows.filter((item) => item.platformRole === "platform_admin")
+        .length,
+      active: rows.filter((item) => item.accountState === "active").length,
+    }),
+    [rows],
+  );
 
   return (
     <PortalSettingsPage
@@ -97,149 +86,140 @@ export default function AdminImpersonationCenterPage() {
       title={t("portalSite.admin.impersonationCenter.title")}
       description={t("portalSite.admin.impersonationCenter.description")}
       actions={
-        <Button size="sm" variant="outline" onClick={() => void refresh(query)}>
-          {t("portalSite.admin.refresh")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void refresh(query)}
+          >
+            {t("portalSite.admin.refresh")}
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/admin/impersonation-center/manage">
+              {t("portalSite.admin.workspaces.actions.manage")}
+            </Link>
+          </Button>
+        </div>
       }
     >
-      <section className="mx-auto w-full max-w-[1180px] space-y-4">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <Badge variant="warning">{t("portalSite.admin.impersonationCenter.disabledBadge")}</Badge>
-              <p className="text-sm text-muted-foreground">
-                {t("portalSite.admin.impersonationCenter.disabledDescription")}
-              </p>
-            </div>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/admin/support-console">
-                {t("portalSite.admin.impersonationCenter.openSupportConsole")}
-              </Link>
-            </Button>
-          </div>
+      <section className="mx-auto grid w-full max-w-[1320px] gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3">
+          <Badge variant="warning">
+            {t("portalSite.admin.impersonationCenter.disabledBadge")}
+          </Badge>
+          <Badge variant="outline">{stats.total}</Badge>
+          <Badge variant="outline">{stats.admins}</Badge>
+          <Badge variant="outline">{stats.active}</Badge>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="ml-auto h-8 px-2 text-xs"
+          >
+            <Link href="/admin/support-console">
+              {t("portalSite.admin.impersonationCenter.openSupportConsole")}
+            </Link>
+          </Button>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <div className="rounded-xl border border-border bg-card">
-            <div className="border-b border-border px-4 py-3">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("portalSite.admin.impersonationCenter.search")}
-                className="h-9"
-              />
-            </div>
-            <ScrollArea className="h-[520px]">
-              <div className="divide-y divide-border">
-                {loading ? (
-                  <div className="p-4 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border p-4">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("portalSite.admin.impersonationCenter.search")}
+              className="h-9 w-full sm:max-w-sm"
+            />
+          </div>
+
+          <Table className="text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t("portalSite.adminUsers.columns.email")}
+                </TableHead>
+                <TableHead>
+                  {t("portalSite.adminUsers.columns.provider")}
+                </TableHead>
+                <TableHead>{t("portalSite.adminUsers.columns.role")}</TableHead>
+                <TableHead>
+                  {t("portalSite.admin.impersonationCenter.accountState")}
+                </TableHead>
+                <TableHead>
+                  {t("portalSite.admin.impersonationCenter.lastActive")}
+                </TableHead>
+                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-sm text-muted-foreground"
+                  >
                     {t("portalSite.admin.loading")}
-                  </div>
-                ) : rows.length === 0 ? (
-                  <div className="p-4 text-sm text-muted-foreground">
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-sm text-muted-foreground"
+                  >
                     {t("portalSite.admin.impersonationCenter.empty")}
-                  </div>
-                ) : (
-                  rows.map((row) => (
-                    <button
-                      key={row.userId}
-                      type="button"
-                      onClick={() => setSelectedUserId(row.userId)}
-                      className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-                    >
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((row) => (
+                  <TableRow key={row.userId}>
+                    <TableCell>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{row.email}</p>
+                        <p className="truncate font-medium">{row.email}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {row.workspaceCount} ws · {row.authProvider}
+                          {row.userId}
                         </p>
                       </div>
-                      {row.platformRole ? <Badge variant="info">{row.platformRole}</Badge> : null}
-                    </button>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            {!selectedDetail ? (
-              <p className="text-sm text-muted-foreground">
-                {t("portalSite.admin.impersonationCenter.emptySelection")}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{selectedDetail.email}</p>
-                  <Badge variant="outline">{selectedDetail.authProvider}</Badge>
-                  {selectedDetail.platformRole ? (
-                    <Badge variant="info">{selectedDetail.platformRole}</Badge>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      {t("portalSite.admin.impersonationCenter.memberships")}
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-foreground">
-                      {selectedDetail.memberships.length}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      {t("portalSite.admin.impersonationCenter.lastActive")}
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                      {selectedDetail.lastActiveAt
-                        ? formatLocaleDateTime(selectedDetail.lastActiveAt)
+                    </TableCell>
+                    <TableCell>{row.authProvider}</TableCell>
+                    <TableCell>{row.platformRole ?? "--"}</TableCell>
+                    <TableCell>{row.accountState}</TableCell>
+                    <TableCell>
+                      {row.lastActiveAt
+                        ? formatLocaleDateTime(row.lastActiveAt)
                         : "--"}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      {t("portalSite.admin.impersonationCenter.accountState")}
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">{selectedDetail.accountState}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border">
-                  <div className="border-b border-border px-3 py-2 text-sm font-medium text-foreground">
-                    {t("portalSite.admin.impersonationCenter.reviewChecklist")}
-                  </div>
-                  <div className="space-y-2 px-3 py-3 text-sm text-muted-foreground">
-                    <p>{t("portalSite.admin.impersonationCenter.checklist.identity")}</p>
-                    <p>{t("portalSite.admin.impersonationCenter.checklist.memberships")}</p>
-                    <p>{t("portalSite.admin.impersonationCenter.checklist.audit")}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border">
-                  <div className="border-b border-border px-3 py-2 text-sm font-medium text-foreground">
-                    {t("portalSite.admin.impersonationCenter.membershipTitle")}
-                  </div>
-                  <div className="divide-y divide-border">
-                    {selectedDetail.memberships.map((membership) => (
-                      <div
-                        key={`${membership.workspaceId}:${membership.userId}`}
-                        className="flex items-center justify-between gap-3 px-3 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm text-foreground">
-                            {membership.workspaceName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatLocaleDateTime(membership.createdAt)}
-                          </p>
-                        </div>
-                        <Badge variant="outline">{membership.role}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Link
+                            href={`/admin/impersonation-center/manage/${row.userId}?section=checklist`}
+                          >
+                            Review
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Link href={`/admin/users/manage/${row.userId}`}>
+                            User
+                          </Link>
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </section>
     </PortalSettingsPage>

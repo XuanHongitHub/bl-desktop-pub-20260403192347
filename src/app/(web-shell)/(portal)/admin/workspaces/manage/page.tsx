@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
@@ -81,10 +81,14 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 export default function AdminWorkspacesPage() {
   const { t } = useTranslation();
   const { connection } = usePortalBillingData();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialWorkspaceId = searchParams.get("workspaceId")?.trim() ?? "";
   const initialSection = searchParams.get("section")?.trim() ?? "";
   const detailOnlyMode = searchParams.get("mode")?.trim() === "detail";
+  const createOnlyMode =
+    searchParams.get("mode")?.trim() === "create" ||
+    searchParams.get("create")?.trim() === "1";
   const [rows, setRows] = useState<ControlAdminWorkspaceDetail[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
   const [selectedDetail, setSelectedDetail] =
@@ -129,6 +133,7 @@ export default function AdminWorkspacesPage() {
   >("monthly");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createOwnerQuery, setCreateOwnerQuery] = useState("");
+  const [createOwnerEmail, setCreateOwnerEmail] = useState("");
   const [createOwnerUserId, setCreateOwnerUserId] = useState("");
   const [createOwnerOptions, setCreateOwnerOptions] = useState<
     Array<{ userId: string; email: string }>
@@ -250,6 +255,12 @@ export default function AdminWorkspacesPage() {
     }
     node.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [detailLoading, initialSection, selectedDetail]);
+
+  useEffect(() => {
+    if (createOnlyMode) {
+      setCreateDialogOpen(true);
+    }
+  }, [createOnlyMode]);
 
   const handleSaveWorkspace = async () => {
     if (!connection || !selectedDetail) {
@@ -390,6 +401,14 @@ export default function AdminWorkspacesPage() {
     }
     setCreatingWorkspace(true);
     try {
+      let resolvedOwnerUserId = createOwnerUserId.trim();
+      if (!resolvedOwnerUserId && createOwnerEmail.trim()) {
+        const normalizedOwnerEmail = createOwnerEmail.trim().toLowerCase();
+        const matchedOwner = createOwnerOptions.find(
+          (item) => item.email.toLowerCase() === normalizedOwnerEmail,
+        );
+        resolvedOwnerUserId = matchedOwner?.userId ?? "";
+      }
       const created = await createWorkspace(connection, {
         name,
         mode: createWorkspaceMode,
@@ -400,14 +419,11 @@ export default function AdminWorkspacesPage() {
           billingCycle: createBillingCycle,
         });
       }
-      if (
-        createOwnerUserId.trim() &&
-        createOwnerUserId.trim() !== created.createdBy
-      ) {
+      if (resolvedOwnerUserId && resolvedOwnerUserId !== created.createdBy) {
         await transferAdminWorkspaceOwner(
           connection,
           created.id,
-          createOwnerUserId.trim(),
+          resolvedOwnerUserId,
           "created_from_super_admin_workspace_panel",
         );
       }
@@ -415,8 +431,12 @@ export default function AdminWorkspacesPage() {
       setCreatePlanId("free");
       setCreateBillingCycle("monthly");
       setCreateOwnerQuery("");
+      setCreateOwnerEmail("");
       setCreateOwnerUserId("");
       setCreateDialogOpen(false);
+      if (createOnlyMode) {
+        router.push(`/admin/workspaces/${created.id}`);
+      }
       setPage(1);
       await refresh(name, 1);
       setSelectedWorkspaceId(created.id);
@@ -513,7 +533,15 @@ export default function AdminWorkspacesPage() {
         </div>
       }
     >
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(nextOpen) => {
+          setCreateDialogOpen(nextOpen);
+          if (!nextOpen && createOnlyMode) {
+            router.push("/admin/workspaces");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
@@ -615,10 +643,10 @@ export default function AdminWorkspacesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monthly">
-                    {t("portalSite.admin.workspaces.cycle.monthly")}
+                    {t("portalSite.admin.subscriptions.cycle.monthly")}
                   </SelectItem>
                   <SelectItem value="yearly">
-                    {t("portalSite.admin.workspaces.cycle.yearly")}
+                    {t("portalSite.admin.subscriptions.cycle.yearly")}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -628,9 +656,19 @@ export default function AdminWorkspacesPage() {
                 {t("portalSite.admin.workspaces.create.ownerSearch")}
               </p>
               <Input
-                value={createOwnerQuery}
-                onChange={(event) => setCreateOwnerQuery(event.target.value)}
+                value={createOwnerEmail}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setCreateOwnerEmail(next);
+                  setCreateOwnerQuery(next);
+                  const matched = createOwnerOptions.find(
+                    (item) =>
+                      item.email.toLowerCase() === next.trim().toLowerCase(),
+                  );
+                  setCreateOwnerUserId(matched?.userId ?? "");
+                }}
                 className="h-9"
+                list="create-workspace-owner-suggestions"
                 placeholder={t(
                   "portalSite.admin.workspaces.create.ownerSearch",
                 )}
@@ -640,33 +678,32 @@ export default function AdminWorkspacesPage() {
               <p className="text-xs text-muted-foreground">
                 {t("portalSite.admin.workspaces.create.owner")}
               </p>
-              <Select
-                value={createOwnerUserId}
-                onValueChange={setCreateOwnerUserId}
-                disabled={creatingWorkspace}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue
-                    placeholder={t("portalSite.admin.workspaces.create.owner")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {createOwnerOptions.map((item) => (
-                    <SelectItem key={item.userId} value={item.userId}>
-                      {item.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs text-muted-foreground">
+                {createOwnerUserId
+                  ? (createOwnerOptions.find(
+                      (item) => item.userId === createOwnerUserId,
+                    )?.email ?? createOwnerEmail)
+                  : t("portalSite.admin.workspaces.create.ownerSearch")}
+              </p>
+              <datalist id="create-workspace-owner-suggestions">
+                {createOwnerOptions.map((item) => (
+                  <option key={item.userId} value={item.email} />
+                ))}
+              </datalist>
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCreateDialogOpen(false)}
+              onClick={() => {
+                setCreateDialogOpen(false);
+                if (createOnlyMode) {
+                  router.push("/admin/workspaces");
+                }
+              }}
               disabled={creatingWorkspace}
             >
-              {t("common.cancel")}
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               onClick={() => void handleCreateWorkspace()}
@@ -680,13 +717,14 @@ export default function AdminWorkspacesPage() {
 
       <section
         className={cn(
-          "mx-auto grid w-full gap-4",
+          "mx-auto grid w-full gap-4 text-sm",
+          createOnlyMode ? "max-w-[1120px]" : "",
           detailOnlyMode
             ? "max-w-[1120px]"
             : "max-w-[1440px] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]",
         )}
       >
-        {!detailOnlyMode ? (
+        {!detailOnlyMode && !createOnlyMode ? (
           <div className="grid min-h-[760px] grid-rows-[auto_auto_minmax(0,1fr)_auto] rounded-xl border border-border bg-card">
             <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_140px_160px_120px]">
               <Input
@@ -928,392 +966,407 @@ export default function AdminWorkspacesPage() {
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-border bg-card">
-          {!selectedWorkspaceId ? (
-            <div className="flex min-h-[700px] items-center justify-center p-6 text-sm text-muted-foreground">
-              {t("portalSite.admin.workspaces.panel.emptySelection")}
-            </div>
-          ) : detailLoading || !selectedDetail ? (
-            <div className="flex min-h-[700px] items-center justify-center p-6 text-sm text-muted-foreground">
-              {t("portalSite.admin.loading")}
-            </div>
-          ) : (
-            <div className="grid min-h-[700px] grid-rows-[auto_minmax(0,1fr)]">
-              <div
-                id="overview"
-                className="grid gap-0 border-b border-border md:grid-cols-4"
-              >
-                <div className="p-4">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.admin.columns.workspace")}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {selectedDetail.workspaceName}
-                  </p>
-                </div>
-                <div className="p-4 md:border-l md:border-border">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.admin.columns.status")}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground capitalize">
-                    {selectedDetail.subscriptionStatus}
-                  </p>
-                </div>
-                <div className="p-4 md:border-l md:border-border">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.admin.workspaces.panel.owner")}
-                  </p>
-                  <p className="mt-1 truncate text-sm font-medium text-foreground">
-                    {selectedDetail.owner?.email ?? "--"}
-                  </p>
-                </div>
-                <div className="p-4 md:border-l md:border-border">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.admin.columns.time")}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {formatLocaleDateTime(selectedDetail.createdAt)}
-                  </p>
-                </div>
+        {!createOnlyMode ? (
+          <div className="rounded-xl border border-border bg-card">
+            {!selectedWorkspaceId ? (
+              <div className="flex min-h-[700px] items-center justify-center p-6 text-sm text-muted-foreground">
+                {t("portalSite.admin.workspaces.panel.emptySelection")}
               </div>
+            ) : detailLoading || !selectedDetail ? (
+              <div className="flex min-h-[700px] items-center justify-center p-6 text-sm text-muted-foreground">
+                {t("portalSite.admin.loading")}
+              </div>
+            ) : (
+              <div className="grid min-h-[700px] grid-rows-[auto_minmax(0,1fr)]">
+                <div
+                  id="overview"
+                  className="grid gap-0 border-b border-border md:grid-cols-4"
+                >
+                  <div className="p-4">
+                    <p className="text-xs text-muted-foreground">
+                      {t("portalSite.admin.columns.workspace")}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {selectedDetail.workspaceName}
+                    </p>
+                  </div>
+                  <div className="p-4 md:border-l md:border-border">
+                    <p className="text-xs text-muted-foreground">
+                      {t("portalSite.admin.columns.status")}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground capitalize">
+                      {selectedDetail.subscriptionStatus}
+                    </p>
+                  </div>
+                  <div className="p-4 md:border-l md:border-border">
+                    <p className="text-xs text-muted-foreground">
+                      {t("portalSite.admin.workspaces.panel.owner")}
+                    </p>
+                    <p className="mt-1 truncate text-sm font-medium text-foreground">
+                      {selectedDetail.owner?.email ?? "--"}
+                    </p>
+                  </div>
+                  <div className="p-4 md:border-l md:border-border">
+                    <p className="text-xs text-muted-foreground">
+                      {t("portalSite.admin.columns.time")}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {formatLocaleDateTime(selectedDetail.createdAt)}
+                    </p>
+                  </div>
+                </div>
 
-              <div className="grid min-h-0 gap-0 xl:grid-cols-[minmax(0,1.1fr)_400px]">
-                <div className="min-h-0">
-                  <div className="grid gap-0 border-b border-border md:grid-cols-4">
-                    <div className="p-4">
-                      <p className="text-xs text-muted-foreground">
-                        {t("portalSite.admin.workspaces.manage.profileLimit")}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {selectedDetail.profileLimit}
-                      </p>
+                <div className="grid min-h-0 gap-0 xl:grid-cols-[minmax(0,1.1fr)_400px]">
+                  <div className="min-h-0">
+                    <div className="grid gap-0 border-b border-border md:grid-cols-4">
+                      <div className="p-4">
+                        <p className="text-xs text-muted-foreground">
+                          {t("portalSite.admin.workspaces.manage.profileLimit")}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {selectedDetail.profileLimit}
+                        </p>
+                      </div>
+                      <div className="p-4 md:border-l md:border-border">
+                        <p className="text-xs text-muted-foreground">
+                          {t("portalSite.admin.workspaces.manage.memberLimit")}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {selectedDetail.memberLimit}
+                        </p>
+                      </div>
+                      <div className="p-4 md:border-l md:border-border">
+                        <p className="text-xs text-muted-foreground">
+                          {t("portalSite.admin.columns.members")}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {selectedDetail.members}
+                        </p>
+                      </div>
+                      <div className="p-4 md:border-l md:border-border">
+                        <p className="text-xs text-muted-foreground">
+                          {t("portalSite.admin.workspaces.panel.entitlement")}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {selectedDetail.entitlementState}
+                        </p>
+                      </div>
                     </div>
-                    <div className="p-4 md:border-l md:border-border">
-                      <p className="text-xs text-muted-foreground">
-                        {t("portalSite.admin.workspaces.manage.memberLimit")}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {selectedDetail.memberLimit}
-                      </p>
+
+                    <div
+                      id="members"
+                      className="border-b border-border px-4 py-3 text-sm font-medium text-foreground"
+                    >
+                      {t("portalSite.admin.workspaces.panel.memberships")}
                     </div>
-                    <div className="p-4 md:border-l md:border-border">
-                      <p className="text-xs text-muted-foreground">
-                        {t("portalSite.admin.columns.members")}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {selectedDetail.members}
-                      </p>
-                    </div>
-                    <div className="p-4 md:border-l md:border-border">
-                      <p className="text-xs text-muted-foreground">
-                        {t("portalSite.admin.workspaces.panel.entitlement")}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {selectedDetail.entitlementState}
-                      </p>
-                    </div>
+                    <ScrollArea className="h-[500px]">
+                      <div className="divide-y divide-border">
+                        {selectedDetail.memberships.map((membership) => (
+                          <div
+                            key={`${membership.workspaceId}:${membership.userId}`}
+                            className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_112px_156px]"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {membership.email}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {membership.userId}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="w-fit capitalize"
+                            >
+                              {membership.role}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {formatLocaleDateTime(membership.createdAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
 
                   <div
-                    id="members"
-                    className="border-b border-border px-4 py-3 text-sm font-medium text-foreground"
+                    id="subscription"
+                    className="border-t border-border xl:border-l xl:border-t-0"
                   >
-                    {t("portalSite.admin.workspaces.panel.memberships")}
-                  </div>
-                  <ScrollArea className="h-[500px]">
-                    <div className="divide-y divide-border">
-                      {selectedDetail.memberships.map((membership) => (
-                        <div
-                          key={`${membership.workspaceId}:${membership.userId}`}
-                          className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_112px_156px]"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {membership.email}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {membership.userId}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="w-fit capitalize">
-                            {membership.role}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground">
-                            {formatLocaleDateTime(membership.createdAt)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-
-                <div
-                  id="subscription"
-                  className="border-t border-border xl:border-l xl:border-t-0"
-                >
-                  <div className="space-y-4 p-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {t("portalSite.admin.workspaces.manage.title")}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {t("portalSite.admin.workspaces.manage.description", {
-                          workspace: selectedDetail.workspaceName,
-                        })}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.plan")}
-                          </p>
-                          <Select
-                            value={formPlanId}
-                            onValueChange={(value) =>
-                              setFormPlanId(
-                                value as
-                                  | "starter"
-                                  | "team"
-                                  | "scale"
-                                  | "enterprise",
-                              )
-                            }
-                            disabled={savingWorkspaceConfig}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="starter">
-                                {getUnifiedPlanLabel({ planId: "starter" })}
-                              </SelectItem>
-                              <SelectItem value="team">
-                                {getUnifiedPlanLabel({ planId: "team" })}
-                              </SelectItem>
-                              <SelectItem value="scale">
-                                {getUnifiedPlanLabel({ planId: "scale" })}
-                              </SelectItem>
-                              <SelectItem value="enterprise">
-                                {getUnifiedPlanLabel({ planId: "enterprise" })}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">
-                            {t(
-                              "portalSite.admin.workspaces.manage.billingCycle",
-                            )}
-                          </p>
-                          <Select
-                            value={formBillingCycle}
-                            onValueChange={(value) =>
-                              setFormBillingCycle(value as "monthly" | "yearly")
-                            }
-                            disabled={savingWorkspaceConfig}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="monthly">
-                                {t(
-                                  "portalSite.admin.subscriptions.cycle.monthly",
-                                )}
-                              </SelectItem>
-                              <SelectItem value="yearly">
-                                {t(
-                                  "portalSite.admin.subscriptions.cycle.yearly",
-                                )}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">
-                            {t(
-                              "portalSite.admin.workspaces.manage.profileLimit",
-                            )}
-                          </p>
-                          <Input
-                            value={formProfileLimit}
-                            onChange={(event) =>
-                              setFormProfileLimit(event.target.value)
-                            }
-                            type="number"
-                            min={1}
-                            className="h-9"
-                            disabled={savingWorkspaceConfig}
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">
-                            {t(
-                              "portalSite.admin.workspaces.manage.memberLimit",
-                            )}
-                          </p>
-                          <Input
-                            value={formMemberLimit}
-                            onChange={(event) =>
-                              setFormMemberLimit(event.target.value)
-                            }
-                            type="number"
-                            min={1}
-                            className="h-9"
-                            disabled={savingWorkspaceConfig}
-                          />
-                        </div>
-
-                        <div className="space-y-1 sm:col-span-2">
-                          <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.owner")}
-                          </p>
-                          <Select
-                            value={formOwnerUserId}
-                            onValueChange={setFormOwnerUserId}
-                            disabled={savingWorkspaceConfig}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {selectedDetail.memberships.map((membership) => (
-                                <SelectItem
-                                  key={membership.userId}
-                                  value={membership.userId}
-                                >
-                                  {membership.email}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1 sm:col-span-2">
-                          <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.expiresAt")}
-                          </p>
-                          <Input
-                            value={formExpiresAt}
-                            onChange={(event) =>
-                              setFormExpiresAt(event.target.value)
-                            }
-                            type="datetime-local"
-                            className="h-9"
-                            disabled={savingWorkspaceConfig}
-                          />
-                        </div>
-                      </div>
-
-                      <Button
-                        onClick={() => void handleSaveWorkspace()}
-                        disabled={savingWorkspaceConfig}
-                      >
-                        {t(
-                          "portalSite.admin.workspaces.actions.saveSubscription",
-                        )}
-                      </Button>
-
-                      <Separator />
-                      <div className="space-y-2">
+                    <div className="space-y-4 p-4">
+                      <div className="space-y-1">
                         <p className="text-sm font-medium text-foreground">
-                          {t(
-                            "portalSite.admin.workspaces.actions.quickAddMember",
-                          )}
+                          {t("portalSite.admin.workspaces.manage.title")}
                         </p>
-                        <Input
-                          value={inviteEmail}
-                          onChange={(event) =>
-                            setInviteEmail(event.target.value)
-                          }
-                          className="h-9"
-                          list="workspace-member-email-suggestions"
-                          placeholder={t(
-                            "portalSite.admin.workspaces.actions.memberEmail",
+                        <p className="text-sm text-muted-foreground">
+                          {t("portalSite.admin.workspaces.manage.description", {
+                            workspace: selectedDetail.workspaceName,
+                          })}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {t("portalSite.admin.workspaces.manage.plan")}
+                            </p>
+                            <Select
+                              value={formPlanId}
+                              onValueChange={(value) =>
+                                setFormPlanId(
+                                  value as
+                                    | "starter"
+                                    | "team"
+                                    | "scale"
+                                    | "enterprise",
+                                )
+                              }
+                              disabled={savingWorkspaceConfig}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="starter">
+                                  {getUnifiedPlanLabel({ planId: "starter" })}
+                                </SelectItem>
+                                <SelectItem value="team">
+                                  {getUnifiedPlanLabel({ planId: "team" })}
+                                </SelectItem>
+                                <SelectItem value="scale">
+                                  {getUnifiedPlanLabel({ planId: "scale" })}
+                                </SelectItem>
+                                <SelectItem value="enterprise">
+                                  {getUnifiedPlanLabel({
+                                    planId: "enterprise",
+                                  })}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {t(
+                                "portalSite.admin.workspaces.manage.billingCycle",
+                              )}
+                            </p>
+                            <Select
+                              value={formBillingCycle}
+                              onValueChange={(value) =>
+                                setFormBillingCycle(
+                                  value as "monthly" | "yearly",
+                                )
+                              }
+                              disabled={savingWorkspaceConfig}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="monthly">
+                                  {t(
+                                    "portalSite.admin.subscriptions.cycle.monthly",
+                                  )}
+                                </SelectItem>
+                                <SelectItem value="yearly">
+                                  {t(
+                                    "portalSite.admin.subscriptions.cycle.yearly",
+                                  )}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {t(
+                                "portalSite.admin.workspaces.manage.profileLimit",
+                              )}
+                            </p>
+                            <Input
+                              value={formProfileLimit}
+                              onChange={(event) =>
+                                setFormProfileLimit(event.target.value)
+                              }
+                              type="number"
+                              min={1}
+                              className="h-9"
+                              disabled={savingWorkspaceConfig}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {t(
+                                "portalSite.admin.workspaces.manage.memberLimit",
+                              )}
+                            </p>
+                            <Input
+                              value={formMemberLimit}
+                              onChange={(event) =>
+                                setFormMemberLimit(event.target.value)
+                              }
+                              type="number"
+                              min={1}
+                              className="h-9"
+                              disabled={savingWorkspaceConfig}
+                            />
+                          </div>
+
+                          <div className="space-y-1 sm:col-span-2">
+                            <p className="text-xs text-muted-foreground">
+                              {t("portalSite.admin.workspaces.manage.owner")}
+                            </p>
+                            <Select
+                              value={formOwnerUserId}
+                              onValueChange={setFormOwnerUserId}
+                              disabled={savingWorkspaceConfig}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectedDetail.memberships.map(
+                                  (membership) => (
+                                    <SelectItem
+                                      key={membership.userId}
+                                      value={membership.userId}
+                                    >
+                                      {membership.email}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1 sm:col-span-2">
+                            <p className="text-xs text-muted-foreground">
+                              {t(
+                                "portalSite.admin.workspaces.manage.expiresAt",
+                              )}
+                            </p>
+                            <Input
+                              value={formExpiresAt}
+                              onChange={(event) =>
+                                setFormExpiresAt(event.target.value)
+                              }
+                              type="datetime-local"
+                              className="h-9"
+                              disabled={savingWorkspaceConfig}
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => void handleSaveWorkspace()}
+                          disabled={savingWorkspaceConfig}
+                        >
+                          {t(
+                            "portalSite.admin.workspaces.actions.saveSubscription",
                           )}
-                          disabled={invitingMember}
-                        />
-                        <datalist id="workspace-member-email-suggestions">
-                          {inviteSuggestions.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                          <Select
-                            value={inviteRole}
-                            onValueChange={(value) =>
-                              setInviteRole(
-                                value as "admin" | "member" | "viewer",
-                              )
+                        </Button>
+
+                        <Separator />
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {t(
+                              "portalSite.admin.workspaces.actions.quickAddMember",
+                            )}
+                          </p>
+                          <Input
+                            value={inviteEmail}
+                            onChange={(event) =>
+                              setInviteEmail(event.target.value)
                             }
-                            disabled={invitingMember}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">
-                                {t("portalSite.adminUsers.roles.admin")}
-                              </SelectItem>
-                              <SelectItem value="member">
-                                {t("portalSite.adminUsers.roles.member")}
-                              </SelectItem>
-                              <SelectItem value="viewer">
-                                {t("portalSite.adminUsers.roles.viewer")}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            onClick={() => void handleInviteMember()}
-                            disabled={invitingMember}
                             className="h-9"
-                          >
-                            {t("portalSite.admin.workspaces.actions.invite")}
-                          </Button>
+                            list="workspace-member-email-suggestions"
+                            placeholder={t(
+                              "portalSite.admin.workspaces.actions.memberEmail",
+                            )}
+                            disabled={invitingMember}
+                          />
+                          <datalist id="workspace-member-email-suggestions">
+                            {inviteSuggestions.map((item) => (
+                              <option key={item} value={item} />
+                            ))}
+                          </datalist>
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                            <Select
+                              value={inviteRole}
+                              onValueChange={(value) =>
+                                setInviteRole(
+                                  value as "admin" | "member" | "viewer",
+                                )
+                              }
+                              disabled={invitingMember}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">
+                                  {t("portalSite.adminUsers.roles.admin")}
+                                </SelectItem>
+                                <SelectItem value="member">
+                                  {t("portalSite.adminUsers.roles.member")}
+                                </SelectItem>
+                                <SelectItem value="viewer">
+                                  {t("portalSite.adminUsers.roles.viewer")}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              onClick={() => void handleInviteMember()}
+                              disabled={invitingMember}
+                              className="h-9"
+                            >
+                              {t("portalSite.admin.workspaces.actions.invite")}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <Separator />
-                  <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
-                    {t("portalSite.admin.workspaces.panel.activity")}
-                  </div>
-                  <ScrollArea className="h-[232px]">
-                    <div className="divide-y divide-border">
-                      {selectedDetail.recentAuditLogs.length === 0 ? (
-                        <div className="p-4 text-sm text-muted-foreground">
-                          {t("portalSite.admin.workspaces.panel.emptyActivity")}
-                        </div>
-                      ) : (
-                        selectedDetail.recentAuditLogs.map((log) => (
-                          <div key={log.id} className="space-y-1 px-4 py-3">
-                            <p className="text-sm font-medium text-foreground">
-                              {log.action}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatLocaleDateTime(log.createdAt)}
-                            </p>
-                            {log.targetId ? (
-                              <p className="text-xs text-muted-foreground">
-                                {log.targetId}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))
-                      )}
+                    <Separator />
+                    <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
+                      {t("portalSite.admin.workspaces.panel.activity")}
                     </div>
-                  </ScrollArea>
+                    <ScrollArea className="h-[232px]">
+                      <div className="divide-y divide-border">
+                        {selectedDetail.recentAuditLogs.length === 0 ? (
+                          <div className="p-4 text-sm text-muted-foreground">
+                            {t(
+                              "portalSite.admin.workspaces.panel.emptyActivity",
+                            )}
+                          </div>
+                        ) : (
+                          selectedDetail.recentAuditLogs.map((log) => (
+                            <div key={log.id} className="space-y-1 px-4 py-3">
+                              <p className="text-sm font-medium text-foreground">
+                                {log.action}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatLocaleDateTime(log.createdAt)}
+                              </p>
+                              {log.targetId ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {log.targetId}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : null}
       </section>
     </PortalSettingsPage>
   );

@@ -1,13 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  createAdminUser,
-  getAdminUserDetail,
-  listAdminUsers,
-  updateWorkspaceMemberRole,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  createAdminUser,
+  getAdminUserDetail,
+  listAdminUsers,
+  updateWorkspaceMemberRole,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
@@ -37,7 +39,9 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatAuthProvider(value: ControlAdminUserListItem["authProvider"]): string {
+function formatAuthProvider(
+  value: ControlAdminUserListItem["authProvider"],
+): string {
   if (value === "password_google") {
     return "password + google";
   }
@@ -47,11 +51,13 @@ function formatAuthProvider(value: ControlAdminUserListItem["authProvider"]): st
 export function AdminUsersPage() {
   const { t } = useTranslation();
   const { connection } = usePortalBillingData();
+  const searchParams = useSearchParams();
+  const initialUserId = searchParams.get("userId")?.trim() ?? "";
+  const detailOnlyMode = searchParams.get("mode")?.trim() === "detail";
   const [rows, setRows] = useState<ControlAdminUserListItem[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedDetail, setSelectedDetail] = useState<ControlAdminUserDetail | null>(
-    null,
-  );
+  const [selectedDetail, setSelectedDetail] =
+    useState<ControlAdminUserDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -110,7 +116,10 @@ export function AdminUsersPage() {
       } catch (error) {
         setSelectedDetail(null);
         showErrorToast(t("portalSite.adminUsers.errors.loadFailed"), {
-          description: extractErrorMessage(error, "load_admin_user_detail_failed"),
+          description: extractErrorMessage(
+            error,
+            "load_admin_user_detail_failed",
+          ),
         });
       } finally {
         setDetailLoading(false);
@@ -118,6 +127,13 @@ export function AdminUsersPage() {
     },
     [connection, t],
   );
+
+  useEffect(() => {
+    if (!initialUserId) {
+      return;
+    }
+    setSelectedUserId(initialUserId);
+  }, [initialUserId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -150,7 +166,12 @@ export function AdminUsersPage() {
     const actionKey = `${workspaceId}:${userId}`;
     setSavingKey(actionKey);
     try {
-      await updateWorkspaceMemberRole(connection, workspaceId, userId, nextRole);
+      await updateWorkspaceMemberRole(
+        connection,
+        workspaceId,
+        userId,
+        nextRole,
+      );
       await Promise.all([refresh(query), refreshDetail(userId)]);
       showSuccessToast(t("portalSite.adminUsers.toasts.roleUpdated"));
     } catch (error) {
@@ -203,7 +224,9 @@ export function AdminUsersPage() {
   const listSummary = useMemo(
     () => ({
       total: rows.length,
-      platformAdmins: rows.filter((item) => item.platformRole === "platform_admin").length,
+      platformAdmins: rows.filter(
+        (item) => item.platformRole === "platform_admin",
+      ).length,
     }),
     [rows],
   );
@@ -214,139 +237,168 @@ export function AdminUsersPage() {
       title={t("portalSite.adminUsers.title")}
       description={t("portalSite.adminUsers.description")}
       actions={
-        <Button variant="outline" size="sm" onClick={() => void refresh(query)}>
-          {t("portalSite.adminUsers.actions.refresh")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refresh(query)}
+          >
+            {t("portalSite.adminUsers.actions.refresh")}
+          </Button>
+          {detailOnlyMode ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/users/manage">
+                {t("portalSite.adminUsers.actions.manage")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       }
     >
-      <section className="mx-auto grid w-full max-w-[1280px] gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="grid gap-2">
-              <Input
-                value={newUserEmail}
-                onChange={(event) => setNewUserEmail(event.target.value)}
-                placeholder={t("portalSite.adminUsers.create.emailPlaceholder")}
-                className="h-9"
-                disabled={creatingUser}
-              />
-              <Input
-                value={newUserPassword}
-                onChange={(event) => setNewUserPassword(event.target.value)}
-                type="password"
-                placeholder={t("portalSite.adminUsers.create.passwordPlaceholder")}
-                className="h-9"
-                disabled={creatingUser}
-              />
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
-                <Select
-                  value={newUserPlatformRole}
-                  onValueChange={(value) =>
-                    setNewUserPlatformRole(value as "none" | "platform_admin")
-                  }
-                  disabled={creatingUser}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      {t("portalSite.adminUsers.create.roleUser")}
-                    </SelectItem>
-                    <SelectItem value="platform_admin">
-                      {t("portalSite.adminUsers.create.rolePlatformAdmin")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={() => void handleCreateUser()}
+      <section
+        className={`mx-auto grid w-full max-w-[1280px] gap-4 text-sm ${
+          detailOnlyMode
+            ? "xl:grid-cols-1"
+            : "xl:grid-cols-[380px_minmax(0,1fr)]"
+        }`}
+      >
+        {!detailOnlyMode ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="grid gap-2">
+                <Input
+                  value={newUserEmail}
+                  onChange={(event) => setNewUserEmail(event.target.value)}
+                  placeholder={t(
+                    "portalSite.adminUsers.create.emailPlaceholder",
+                  )}
                   className="h-9"
                   disabled={creatingUser}
-                >
-                  {t("portalSite.adminUsers.create.action")}
-                </Button>
+                />
+                <Input
+                  value={newUserPassword}
+                  onChange={(event) => setNewUserPassword(event.target.value)}
+                  type="password"
+                  placeholder={t(
+                    "portalSite.adminUsers.create.passwordPlaceholder",
+                  )}
+                  className="h-9"
+                  disabled={creatingUser}
+                />
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
+                  <Select
+                    value={newUserPlatformRole}
+                    onValueChange={(value) =>
+                      setNewUserPlatformRole(value as "none" | "platform_admin")
+                    }
+                    disabled={creatingUser}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {t("portalSite.adminUsers.create.roleUser")}
+                      </SelectItem>
+                      <SelectItem value="platform_admin">
+                        {t("portalSite.adminUsers.create.rolePlatformAdmin")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={() => void handleCreateUser()}
+                    className="h-9"
+                    disabled={creatingUser}
+                  >
+                    {t("portalSite.adminUsers.create.action")}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="rounded-xl border border-border bg-card">
-            <div className="space-y-3 p-4">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("portalSite.adminUsers.search")}
-                className="h-9"
-              />
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{t("portalSite.adminUsers.scopeBadge")}</Badge>
-                <Badge variant="outline">{listSummary.total}</Badge>
-                <Badge variant="outline">{listSummary.platformAdmins}</Badge>
+            <div className="rounded-xl border border-border bg-card">
+              <div className="space-y-3 p-4">
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("portalSite.adminUsers.search")}
+                  className="h-9"
+                />
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    {t("portalSite.adminUsers.scopeBadge")}
+                  </Badge>
+                  <Badge variant="outline">{listSummary.total}</Badge>
+                  <Badge variant="outline">{listSummary.platformAdmins}</Badge>
+                </div>
               </div>
-            </div>
-            <Separator />
-            <ScrollArea className="h-[620px]">
-              <div className="p-2">
-                {loading ? (
-                  <div className="p-3 text-sm text-muted-foreground">
-                    {t("portalSite.adminUsers.loading")}
-                  </div>
-                ) : rows.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground">
-                    {t("portalSite.adminUsers.empty")}
-                  </div>
-                ) : (
-                  rows.map((row) => {
-                    const selected = row.userId === selectedUserId;
-                    return (
-                      <button
-                        key={row.userId}
-                        type="button"
-                        onClick={() => setSelectedUserId(row.userId)}
-                        className={[
-                          "w-full rounded-lg border px-3 py-3 text-left transition-colors",
-                          selected
-                            ? "border-border bg-muted"
-                            : "border-transparent bg-background hover:border-border hover:bg-muted/60",
-                        ].join(" ")}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {row.email}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {row.userId}
-                            </p>
+              <Separator />
+              <ScrollArea className="h-[620px]">
+                <div className="p-2">
+                  {loading ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      {t("portalSite.adminUsers.loading")}
+                    </div>
+                  ) : rows.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      {t("portalSite.adminUsers.empty")}
+                    </div>
+                  ) : (
+                    rows.map((row) => {
+                      const selected = row.userId === selectedUserId;
+                      return (
+                        <button
+                          key={row.userId}
+                          type="button"
+                          onClick={() => setSelectedUserId(row.userId)}
+                          className={[
+                            "w-full rounded-lg border px-3 py-3 text-left transition-colors",
+                            selected
+                              ? "border-border bg-muted"
+                              : "border-transparent bg-background hover:border-border hover:bg-muted/60",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {row.email}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {row.userId}
+                              </p>
+                            </div>
+                            {row.platformRole === "platform_admin" ? (
+                              <Badge variant="secondary" className="shrink-0">
+                                {t(
+                                  "portalSite.adminUsers.create.rolePlatformAdmin",
+                                )}
+                              </Badge>
+                            ) : null}
                           </div>
-                          {row.platformRole === "platform_admin" ? (
-                            <Badge variant="secondary" className="shrink-0">
-                              {t("portalSite.adminUsers.create.rolePlatformAdmin")}
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="font-normal">
+                              {formatAuthProvider(row.authProvider)}
                             </Badge>
-                          ) : null}
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline" className="font-normal">
-                            {formatAuthProvider(row.authProvider)}
-                          </Badge>
-                          <span>
-                            {t("portalSite.adminUsers.panel.workspaceCount", {
-                              count: row.workspaceCount,
-                            })}
-                          </span>
-                          <span>
-                            {row.lastActiveAt
-                              ? formatLocaleDateTime(row.lastActiveAt)
-                              : "--"}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
+                            <span>
+                              {t("portalSite.adminUsers.panel.workspaceCount", {
+                                count: row.workspaceCount,
+                              })}
+                            </span>
+                            <span>
+                              {row.lastActiveAt
+                                ? formatLocaleDateTime(row.lastActiveAt)
+                                : "--"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="rounded-xl border border-border bg-card">
           {!selectedUserId ? (
@@ -491,7 +543,9 @@ export function AdminUsersPage() {
                       ) : (
                         selectedDetail.recentAuditLogs.map((log) => (
                           <div key={log.id} className="space-y-1 px-4 py-3">
-                            <p className="text-sm font-medium text-foreground">{log.action}</p>
+                            <p className="text-sm font-medium text-foreground">
+                              {log.action}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {formatLocaleDateTime(log.createdAt)}
                             </p>
