@@ -1,32 +1,33 @@
 import {
-  BadRequestException,
-  InternalServerErrorException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleInit,
-  OnModuleDestroy,
-  Optional,
-  UnauthorizedException,
-} from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import {
   randomBytes,
   randomUUID,
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
+import { SyncService } from "../sync/sync.service.js";
 import type {
+  AuditLogRecord,
   AuthProvider,
   AuthUserRecord,
-  AuditLogRecord,
   BillingCancellationMode,
+  BillingCycle,
   BillingInvoiceRecord,
   BillingPaymentMethod,
-  BillingSource,
-  BillingCycle,
   BillingPlanId,
+  BillingSource,
   CouponRecord,
   CouponSelectionResult,
   EntitlementRecord,
@@ -35,42 +36,42 @@ import type {
   LicenseClaimResult,
   LicenseRedemptionRecord,
   MembershipRecord,
-  PlatformAdminOverview,
-  PlatformAdminWorkspaceHealthRow,
+  PlatformAdminAutomationRunListItem,
   PlatformAdminEmailRecord,
+  PlatformAdminInvoiceListItem,
   PlatformAdminListResult,
   PlatformAdminMembershipItem,
-  PlatformAdminInvoiceListItem,
+  PlatformAdminOverview,
   PlatformAdminRevenueSummary,
-  PlatformAdminAutomationRunListItem,
   PlatformAdminUserDetail,
   PlatformAdminUserListItem,
   PlatformAdminUserWorkspaceMembership,
+  PlatformAdminWorkspaceDetail,
+  PlatformAdminWorkspaceHealthRow,
+  ShareGrantRecord,
   StripeCheckoutConfirmResult,
   StripeCheckoutCreateResult,
   StripeCheckoutRecord,
-  ShareGrantRecord,
-  TiktokCookieRecord,
   TiktokAutomationAccountRecord,
   TiktokAutomationFlowType,
+  TiktokAutomationItemStatus,
   TiktokAutomationRunItemRecord,
   TiktokAutomationRunMode,
   TiktokAutomationRunRecord,
   TiktokAutomationRunStatus,
-  TiktokAutomationItemStatus,
-  WorkspaceTiktokCookieSourceRecord,
+  TiktokCookieRecord,
+  WorkspaceAdminTiktokStateRecord,
   WorkspaceBillingState,
   WorkspaceBillingUsage,
-  PlatformAdminWorkspaceDetail,
   WorkspaceListItem,
   WorkspaceMode,
   WorkspaceOverview,
   WorkspaceRecord,
   WorkspaceRole,
   WorkspaceSubscriptionRecord,
-  WorkspaceAdminTiktokStateRecord,
+  WorkspaceSubscriptionStatus,
+  WorkspaceTiktokCookieSourceRecord,
 } from "./control.types.js";
-import { SyncService } from "../sync/sync.service.js";
 
 type RequestActor = {
   userId: string;
@@ -114,6 +115,8 @@ type PlatformAdminListQuery = {
   q?: string;
   page?: number;
   pageSize?: number;
+  status?: WorkspaceSubscriptionStatus;
+  planId?: BillingPlanId | "free";
 };
 
 @Injectable()
@@ -147,8 +150,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private readonly invites = new Map<string, InviteRecord>();
   private readonly shareGrants = new Map<string, ShareGrantRecord>();
   private readonly coupons = new Map<string, CouponRecord>();
-  private readonly licenseRedemptions = new Map<string, LicenseRedemptionRecord>();
-  private readonly subscriptions = new Map<string, WorkspaceSubscriptionRecord>();
+  private readonly licenseRedemptions = new Map<
+    string,
+    LicenseRedemptionRecord
+  >();
+  private readonly subscriptions = new Map<
+    string,
+    WorkspaceSubscriptionRecord
+  >();
   private readonly invoices = new Map<string, BillingInvoiceRecord>();
   private readonly stripeCheckouts = new Map<string, StripeCheckoutRecord>();
   private readonly tiktokCookies = new Map<string, TiktokCookieRecord>();
@@ -158,7 +167,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private persistPostgresQueue: Promise<void> = Promise.resolve();
   private readonly workspaceUsageSnapshots = new Map<
     string,
-    { storageUsedBytes: number; proxyBandwidthUsedMb: number; updatedAt: string | null }
+    {
+      storageUsedBytes: number;
+      proxyBandwidthUsedMb: number;
+      updatedAt: string | null;
+    }
   >();
   private readonly usageRefreshInFlight = new Set<string>();
   private readonly usageSnapshotTtlMs = 30_000;
@@ -236,7 +249,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return 50;
   }
 
-  private getPlanPriceUsd(planId: BillingPlanId, billingCycle: BillingCycle): number {
+  private getPlanPriceUsd(
+    planId: BillingPlanId,
+    billingCycle: BillingCycle,
+  ): number {
     if (planId === "starter") {
       return billingCycle === "monthly" ? 9 : 90;
     }
@@ -254,7 +270,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "growth") return 30 * 1024;
     if (planId === "scale") return 120 * 1024;
     if (planId === "custom") return 500 * 1024;
-    return 0;
+    return 1 * 1024;
   }
 
   private getPlanProxyBandwidthLimitMb(planId: BillingPlanId | null): number {
@@ -274,7 +290,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       storageUsedBytes: snapshot?.storageUsedBytes ?? 0,
       storageLimitMb: this.getPlanStorageLimitMb(subscription.planId),
       proxyBandwidthUsedMb: snapshot?.proxyBandwidthUsedMb ?? 0,
-      proxyBandwidthLimitMb: this.getPlanProxyBandwidthLimitMb(subscription.planId),
+      proxyBandwidthLimitMb: this.getPlanProxyBandwidthLimitMb(
+        subscription.planId,
+      ),
       updatedAt: snapshot?.updatedAt ?? null,
     };
   }
@@ -353,8 +371,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return this.workspaces.size;
     }
     const workspaceIds = new Set(
-      this.getActorMembershipEntries(actor)
-        .map((membership) => membership.workspaceId),
+      this.getActorMembershipEntries(actor).map(
+        (membership) => membership.workspaceId,
+      ),
     );
     return workspaceIds.size;
   }
@@ -367,12 +386,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
     const normalizedMembershipEmail = this.normalizeEmail(membership.email);
-    if (!normalizedMembershipEmail || normalizedMembershipEmail.endsWith("@local")) {
+    if (
+      !normalizedMembershipEmail ||
+      normalizedMembershipEmail.endsWith("@local")
+    ) {
       return true;
     }
-    return (
-      normalizedMembershipEmail === actor.email
-    );
+    return normalizedMembershipEmail === actor.email;
   }
 
   private getActorMembershipEntries(actor: RequestActor): MembershipRecord[] {
@@ -396,7 +416,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const workspaceCount = this.getActorWorkspaceCount(actor);
     if (workspaceCount > 1) {
-      throw new BadRequestException("downgrade_not_allowed_for_multi_workspace");
+      throw new BadRequestException(
+        "downgrade_not_allowed_for_multi_workspace",
+      );
     }
   }
 
@@ -478,15 +500,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   private getDefaultSubscriptionForWorkspace(
     workspaceId: string,
-    mode: WorkspaceMode,
+    _mode: WorkspaceMode,
     nowIso: string,
   ): WorkspaceSubscriptionRecord {
     return {
       workspaceId,
       planId: null,
-      planLabel: mode === "personal" ? "Free" : "Starter",
-      profileLimit: mode === "personal" ? 3 : 100,
-      memberLimit: mode === "personal" ? 1 : 1,
+      planLabel: "Free",
+      profileLimit: 3,
+      memberLimit: 1,
       billingCycle: null,
       status: "active",
       source: "internal",
@@ -531,7 +553,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return fallback;
   }
 
-  private getSubscriptionForWorkspace(workspaceId: string): WorkspaceSubscriptionRecord {
+  private getSubscriptionForWorkspace(
+    workspaceId: string,
+  ): WorkspaceSubscriptionRecord {
     const existing = this.subscriptions.get(workspaceId);
     if (existing) {
       return this.resolveWorkspaceSubscriptionLifecycle(workspaceId, existing);
@@ -547,7 +571,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return fallback;
   }
 
-  private isWorkspaceBillingManager(actor: RequestActor, workspaceId: string): boolean {
+  private isWorkspaceBillingManager(
+    actor: RequestActor,
+    workspaceId: string,
+  ): boolean {
     if (actor.platformRole === "platform_admin") {
       return true;
     }
@@ -555,7 +582,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return membership.role === "owner" || membership.role === "admin";
   }
 
-  private isWorkspaceOperator(actor: RequestActor, workspaceId: string): boolean {
+  private isWorkspaceOperator(
+    actor: RequestActor,
+    workspaceId: string,
+  ): boolean {
     if (actor.platformRole === "platform_admin") {
       return true;
     }
@@ -569,7 +599,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private ensureWorkspaceBillingManager(actor: RequestActor, workspaceId: string) {
+  private ensureWorkspaceBillingManager(
+    actor: RequestActor,
+    workspaceId: string,
+  ) {
     if (!this.isWorkspaceBillingManager(actor, workspaceId)) {
       throw new UnauthorizedException("permission_denied");
     }
@@ -664,7 +697,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (coupon.workspaceDenylist.includes(workspaceId)) {
       throw new BadRequestException("coupon_not_allowed");
     }
-    if (coupon.maxRedemptions > 0 && coupon.redeemedCount >= coupon.maxRedemptions) {
+    if (
+      coupon.maxRedemptions > 0 &&
+      coupon.redeemedCount >= coupon.maxRedemptions
+    ) {
       throw new BadRequestException("coupon_limit_reached");
     }
     if (
@@ -676,7 +712,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     if (
       coupon.maxPerUser > 0 &&
-      this.countCouponRedemptionsForUser(actor.userId, coupon.code) >= coupon.maxPerUser
+      this.countCouponRedemptionsForUser(actor.userId, coupon.code) >=
+        coupon.maxPerUser
     ) {
       throw new BadRequestException("coupon_user_limit_reached");
     }
@@ -699,7 +736,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     stripeSessionId?: string | null;
   }): BillingInvoiceRecord {
     const now = new Date().toISOString();
-    const discountPercent = Math.max(0, Math.min(100, Math.round(input.discountPercent)));
+    const discountPercent = Math.max(
+      0,
+      Math.min(100, Math.round(input.discountPercent)),
+    );
     const baseAmountUsd = Math.max(0, Math.round(input.baseAmountUsd));
     const amountUsd = Math.max(
       0,
@@ -724,12 +764,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       stripeSessionId: input.stripeSessionId ?? null,
     };
     this.invoices.set(invoice.id, invoice);
-    this.audit("billing.invoice.created", input.actor.email, input.workspaceId, invoice.id);
+    this.audit(
+      "billing.invoice.created",
+      input.actor.email,
+      input.workspaceId,
+      invoice.id,
+    );
     return invoice;
   }
 
   private getStripeSecretKey(): string | null {
-    const fromConfig = this.configService?.get<string>("STRIPE_SECRET_KEY")?.trim();
+    const fromConfig = this.configService
+      ?.get<string>("STRIPE_SECRET_KEY")
+      ?.trim();
     if (fromConfig) {
       return fromConfig;
     }
@@ -843,7 +890,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         actor,
         planId: existing.planId,
         billingCycle: existing.billingCycle,
-        baseAmountUsd: this.getPlanPriceUsd(existing.planId, existing.billingCycle),
+        baseAmountUsd: this.getPlanPriceUsd(
+          existing.planId,
+          existing.billingCycle,
+        ),
         discountPercent: 100,
         method: "license",
         source: "license",
@@ -887,7 +937,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       actor,
       planId: redemption.planId,
       billingCycle: redemption.billingCycle,
-      baseAmountUsd: this.getPlanPriceUsd(redemption.planId, redemption.billingCycle),
+      baseAmountUsd: this.getPlanPriceUsd(
+        redemption.planId,
+        redemption.billingCycle,
+      ),
       discountPercent: 100,
       method: "license",
       source: "license",
@@ -933,7 +986,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           existingRecord.platformRole = "platform_admin";
         }
         this.authUsers.set(normalizedEmail, existingRecord);
-        this.audit("auth.password_linked", normalizedEmail, undefined, existingRecord.userId);
+        this.audit(
+          "auth.password_linked",
+          normalizedEmail,
+          undefined,
+          existingRecord.userId,
+        );
         this.persistState();
         return {
           user: {
@@ -957,7 +1015,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       );
     }
     const { salt, hash } = this.hashPassword(normalizedPassword);
-    const platformRole = this.resolvePlatformRoleForRegistration(normalizedEmail);
+    const platformRole =
+      this.resolvePlatformRoleForRegistration(normalizedEmail);
     const record: AuthUserRecord = {
       userId: resolvedUserId,
       email: normalizedEmail,
@@ -995,7 +1054,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (record.authProvider === "google") {
       throw new UnauthorizedException("password_login_not_linked");
     }
-    if (!this.verifyPassword(normalizedPassword, record.passwordSalt, record.passwordHash)) {
+    if (
+      !this.verifyPassword(
+        normalizedPassword,
+        record.passwordSalt,
+        record.passwordHash,
+      )
+    ) {
       throw new UnauthorizedException("invalid_credentials");
     }
 
@@ -1007,7 +1072,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       record.updatedAt = new Date().toISOString();
       needsPersist = true;
     }
-    if (this.platformAdminEmails.has(normalizedEmail) && record.platformRole !== "platform_admin") {
+    if (
+      this.platformAdminEmails.has(normalizedEmail) &&
+      record.platformRole !== "platform_admin"
+    ) {
       record.platformRole = "platform_admin";
       record.updatedAt = new Date().toISOString();
       needsPersist = true;
@@ -1063,7 +1131,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         platformRole:
           input.platformRole === "platform_admin"
             ? "platform_admin"
-            : result.user.platformRole ?? null,
+            : (result.user.platformRole ?? null),
       },
     };
   }
@@ -1106,7 +1174,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         updatedAt: now,
       };
       this.authUsers.set(normalizedEmail, record);
-      this.audit("auth.google_registered", normalizedEmail, undefined, resolvedUserId);
+      this.audit(
+        "auth.google_registered",
+        normalizedEmail,
+        undefined,
+        resolvedUserId,
+      );
       shouldPersist = true;
     } else {
       if (record.googleSub && record.googleSub !== normalizedGoogleSub) {
@@ -1118,7 +1191,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           record.authProvider === "password" ? "password_google" : "google";
         record.updatedAt = now;
         shouldPersist = true;
-        this.audit("auth.google_linked", normalizedEmail, undefined, record.userId);
+        this.audit(
+          "auth.google_linked",
+          normalizedEmail,
+          undefined,
+          record.userId,
+        );
       }
       if (this.shouldRotateLegacyUserId(record.userId)) {
         const rotatedUserId = randomUUID();
@@ -1127,7 +1205,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         record.updatedAt = now;
         shouldPersist = true;
       }
-      if (this.platformAdminEmails.has(normalizedEmail) && record.platformRole !== "platform_admin") {
+      if (
+        this.platformAdminEmails.has(normalizedEmail) &&
+        record.platformRole !== "platform_admin"
+      ) {
         record.platformRole = "platform_admin";
         record.updatedAt = now;
         shouldPersist = true;
@@ -1137,7 +1218,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    this.audit("auth.google_logged_in", normalizedEmail, undefined, record.userId);
+    this.audit(
+      "auth.google_logged_in",
+      normalizedEmail,
+      undefined,
+      record.userId,
+    );
     if (shouldPersist) {
       this.persistState();
     }
@@ -1161,7 +1247,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!record) {
       throw new UnauthorizedException("invalid_credentials");
     }
-    if (!this.verifyPassword(normalizedPassword, record.passwordSalt, record.passwordHash)) {
+    if (
+      !this.verifyPassword(
+        normalizedPassword,
+        record.passwordSalt,
+        record.passwordHash,
+      )
+    ) {
       throw new UnauthorizedException("invalid_credentials");
     }
     if (!record.googleSub) {
@@ -1178,7 +1270,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     record.authProvider = "password";
     record.updatedAt = new Date().toISOString();
     this.authUsers.set(normalizedEmail, record);
-    this.audit("auth.google_unlinked", normalizedEmail, undefined, record.userId);
+    this.audit(
+      "auth.google_unlinked",
+      normalizedEmail,
+      undefined,
+      record.userId,
+    );
     this.persistState();
     return {
       user: {
@@ -1191,7 +1288,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   createWorkspace(actor: RequestActor, name: string, mode: WorkspaceMode) {
     if (mode === "personal") {
-      const existingPersonalWorkspace = this.getPrimaryPersonalWorkspaceForActor(actor);
+      const existingPersonalWorkspace =
+        this.getPrimaryPersonalWorkspaceForActor(actor);
       if (existingPersonalWorkspace) {
         this.ensurePersonalWorkspaceOwnership(existingPersonalWorkspace, actor);
         return existingPersonalWorkspace;
@@ -1288,7 +1386,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         if (!membership) {
           return false;
         }
-        if (workspace.mode === "personal" && workspace.createdBy !== actor.userId) {
+        if (
+          workspace.mode === "personal" &&
+          workspace.createdBy !== actor.userId
+        ) {
           return false;
         }
         if (
@@ -1310,7 +1411,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       });
   }
 
-  getWorkspaceMembership(workspaceId: string, actor: RequestActor): MembershipRecord {
+  getWorkspaceMembership(
+    workspaceId: string,
+    actor: RequestActor,
+  ): MembershipRecord {
     if (actor.platformRole === "platform_admin") {
       this.assertWorkspaceExists(workspaceId);
       return {
@@ -1330,7 +1434,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("permission_denied");
     }
     const workspace = this.workspaces.get(workspaceId);
-    if (workspace?.mode === "personal" && workspace.createdBy !== actor.userId) {
+    if (
+      workspace?.mode === "personal" &&
+      workspace.createdBy !== actor.userId
+    ) {
       throw new UnauthorizedException("permission_denied");
     }
     return membership;
@@ -1390,7 +1497,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     actor: RequestActor,
   ): InviteRecord {
     const membership = this.getWorkspaceMembership(workspaceId, actor);
-    const canManageMembers = membership.role === "owner" || membership.role === "admin";
+    const canManageMembers =
+      membership.role === "owner" || membership.role === "admin";
     if (!canManageMembers) {
       throw new UnauthorizedException("permission_denied");
     }
@@ -1469,7 +1577,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     invite.consumedAt = new Date().toISOString();
     this.invites.set(invite.token, invite);
-    this.audit("invite.revoked", actor.email, workspaceId, invite.id, normalizedReason);
+    this.audit(
+      "invite.revoked",
+      actor.email,
+      workspaceId,
+      invite.id,
+      normalizedReason,
+    );
     this.persistState();
     return invite;
   }
@@ -1490,7 +1604,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const normalizedReason = this.requireReason(reason);
 
     const members = this.memberships.get(workspaceId) || [];
-    const targetMembership = members.find((member) => member.userId === targetUserId);
+    const targetMembership = members.find(
+      (member) => member.userId === targetUserId,
+    );
     if (!targetMembership) {
       throw new NotFoundException("membership_not_found");
     }
@@ -1522,13 +1638,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return targetMembership;
   }
 
-  listMemberships(workspaceId: string, actor: RequestActor): MembershipRecord[] {
+  listMemberships(
+    workspaceId: string,
+    actor: RequestActor,
+  ): MembershipRecord[] {
     this.assertWorkspaceAccess(workspaceId, actor);
     const members = [...(this.memberships.get(workspaceId) || [])];
     const authEmailByUserId = new Map<string, string>();
     for (const authUser of this.authUsers.values()) {
       if (authUser.userId?.trim() && authUser.email?.trim()) {
-        authEmailByUserId.set(authUser.userId.trim(), authUser.email.trim().toLowerCase());
+        authEmailByUserId.set(
+          authUser.userId.trim(),
+          authUser.email.trim().toLowerCase(),
+        );
       }
     }
     return members.map((member) => {
@@ -1572,7 +1694,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     const normalizedReason = this.requireReason(reason);
     const members = [...(this.memberships.get(workspaceId) || [])];
-    const targetIndex = members.findIndex((member) => member.userId === targetUserId);
+    const targetIndex = members.findIndex(
+      (member) => member.userId === targetUserId,
+    );
     if (targetIndex < 0) {
       throw new NotFoundException("membership_not_found");
     }
@@ -1581,7 +1705,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (targetMembership.role === "owner" && actorMembership.role !== "owner") {
       throw new UnauthorizedException("permission_denied");
     }
-    if (targetMembership.role === "owner" && this.countOwners(workspaceId) <= 1) {
+    if (
+      targetMembership.role === "owner" &&
+      this.countOwners(workspaceId) <= 1
+    ) {
       throw new UnauthorizedException("last_owner_cannot_be_removed");
     }
 
@@ -1635,7 +1762,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.memberships.set(invite.workspaceId, members);
     invite.consumedAt = now;
     this.invites.set(token, invite);
-    this.audit("invite.accepted", normalizedActorEmail, invite.workspaceId, invite.id);
+    this.audit(
+      "invite.accepted",
+      normalizedActorEmail,
+      invite.workspaceId,
+      invite.id,
+    );
     this.persistState();
 
     return (
@@ -1697,7 +1829,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
 
     this.shareGrants.set(grant.id, grant);
-    this.audit("share.created", actor.email, workspaceId, grant.id, normalizedReason);
+    this.audit(
+      "share.created",
+      actor.email,
+      workspaceId,
+      grant.id,
+      normalizedReason,
+    );
     this.persistState();
     return grant;
   }
@@ -1722,19 +1860,31 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       grant.revokedAt = new Date().toISOString();
     }
     this.shareGrants.set(grant.id, grant);
-    this.audit("share.revoked", actor.email, workspaceId, grant.id, normalizedReason);
+    this.audit(
+      "share.revoked",
+      actor.email,
+      workspaceId,
+      grant.id,
+      normalizedReason,
+    );
     this.persistState();
     return grant;
   }
 
-  listShareGrants(workspaceId: string, actor: RequestActor): ShareGrantRecord[] {
+  listShareGrants(
+    workspaceId: string,
+    actor: RequestActor,
+  ): ShareGrantRecord[] {
     this.assertWorkspaceAccess(workspaceId, actor);
     return Array.from(this.shareGrants.values())
       .filter((grant) => grant.workspaceId === workspaceId)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
-  getWorkspaceOverview(workspaceId: string, actor: RequestActor): WorkspaceOverview {
+  getWorkspaceOverview(
+    workspaceId: string,
+    actor: RequestActor,
+  ): WorkspaceOverview {
     this.assertWorkspaceAccess(workspaceId, actor);
     const entitlement = this.entitlements.get(workspaceId);
     if (!entitlement) {
@@ -1743,7 +1893,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const members = this.memberships.get(workspaceId) || [];
     const activeInvites = Array.from(this.invites.values()).filter(
-      (invite) => invite.workspaceId === workspaceId && invite.consumedAt === null,
+      (invite) =>
+        invite.workspaceId === workspaceId && invite.consumedAt === null,
     );
     const activeShareGrants = Array.from(this.shareGrants.values()).filter(
       (grant) => grant.workspaceId === workspaceId && grant.revokedAt === null,
@@ -1925,7 +2076,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       source: "internal",
       couponCode,
     });
-    this.audit("billing.internal_activated", actor.email, workspaceId, workspaceId);
+    this.audit(
+      "billing.internal_activated",
+      actor.email,
+      workspaceId,
+      workspaceId,
+    );
     this.persistState();
     return this.getWorkspaceBillingState(workspaceId, actor);
   }
@@ -1960,7 +2116,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       Number.isFinite(normalizedMemberLimit) && normalizedMemberLimit > 0
         ? Math.round(normalizedMemberLimit)
         : this.getDefaultPlanMemberLimit(planId);
-    const normalizedPlanLabel = input.planLabel?.trim() || this.getPlanLabel(planId);
+    const normalizedPlanLabel = this.getPlanLabel(planId);
 
     let expiresAt: string | null = null;
     const rawExpiresAt = input.expiresAt?.trim() ?? "";
@@ -2048,7 +2204,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     let discountPercent = 0;
     let couponCode: string | null = null;
     if (input.couponCode?.trim()) {
-      const selection = this.selectBestCoupon(actor, workspaceId, [input.couponCode]);
+      const selection = this.selectBestCoupon(actor, workspaceId, [
+        input.couponCode,
+      ]);
       if (selection.bestCoupon) {
         discountPercent = selection.bestCoupon.discountPercent;
         couponCode = selection.bestCoupon.code;
@@ -2093,7 +2251,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         couponCode: finalizedCouponCode,
         stripeSessionId: null,
       });
-      this.audit("billing.stripe_checkout_instant_activated", actor.email, workspaceId, workspaceId);
+      this.audit(
+        "billing.stripe_checkout_instant_activated",
+        actor.email,
+        workspaceId,
+        workspaceId,
+      );
       this.persistState();
       return {
         checkoutSessionId: `instant_${randomUUID()}`,
@@ -2130,23 +2293,31 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       "line_items[0][price_data][recurring][interval]",
       billingCycle === "yearly" ? "year" : "month",
     );
-    params.set("line_items[0][price_data][product_data][name]", `BugLogin ${planLabel}`);
+    params.set(
+      "line_items[0][price_data][product_data][name]",
+      `BugLogin ${planLabel}`,
+    );
     params.set(
       "line_items[0][price_data][product_data][description]",
       `Workspace ${workspaceId} · ${planLabel} · ${billingCycle}`,
     );
 
-    const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${stripeSecretKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+    const stripeResponse = await fetch(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params,
       },
-      body: params,
-    });
+    );
     const stripeRaw = await stripeResponse.text();
     if (!stripeResponse.ok) {
-      throw new BadRequestException(`stripe_checkout_failed:${stripeResponse.status}:${stripeRaw}`);
+      throw new BadRequestException(
+        `stripe_checkout_failed:${stripeResponse.status}:${stripeRaw}`,
+      );
     }
     const stripePayload = JSON.parse(stripeRaw) as {
       id?: string;
@@ -2174,7 +2345,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       actorUserId: actor.userId,
     };
     this.stripeCheckouts.set(stripePayload.id, checkout);
-    this.audit("billing.stripe_checkout_created", actor.email, workspaceId, stripePayload.id);
+    this.audit(
+      "billing.stripe_checkout_created",
+      actor.email,
+      workspaceId,
+      stripePayload.id,
+    );
     this.persistState();
 
     return {
@@ -2229,7 +2405,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     );
     const stripeRaw = await stripeResponse.text();
     if (!stripeResponse.ok) {
-      throw new BadRequestException(`stripe_checkout_lookup_failed:${stripeResponse.status}:${stripeRaw}`);
+      throw new BadRequestException(
+        `stripe_checkout_lookup_failed:${stripeResponse.status}:${stripeRaw}`,
+      );
     }
     const stripePayload = JSON.parse(stripeRaw) as {
       payment_status?: string;
@@ -2281,7 +2459,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     });
     checkout.completedAt = new Date().toISOString();
     this.stripeCheckouts.set(checkoutSessionId, checkout);
-    this.audit("billing.stripe_checkout_confirmed", actor.email, workspaceId, checkoutSessionId);
+    this.audit(
+      "billing.stripe_checkout_confirmed",
+      actor.email,
+      workspaceId,
+      checkoutSessionId,
+    );
     this.persistState();
 
     return {
@@ -2296,7 +2479,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const entitlementStates = Array.from(this.entitlements.values());
     const activeCoupons = Array.from(this.coupons.values()).filter(
-      (coupon) => !coupon.revokedAt && new Date(coupon.expiresAt).getTime() > Date.now(),
+      (coupon) =>
+        !coupon.revokedAt && new Date(coupon.expiresAt).getTime() > Date.now(),
     );
     const auditsLast24h = this.auditLogs.filter((log) => {
       const at = new Date(log.createdAt).getTime();
@@ -2316,17 +2500,22 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         (grant) => grant.revokedAt === null,
       ).length,
       activeCoupons: activeCoupons.length,
-      entitlementActive: entitlementStates.filter((item) => item.state === "active")
-        .length,
-      entitlementGrace: entitlementStates.filter((item) => item.state === "grace_active")
-        .length,
-      entitlementReadOnly: entitlementStates.filter((item) => item.state === "read_only")
-        .length,
+      entitlementActive: entitlementStates.filter(
+        (item) => item.state === "active",
+      ).length,
+      entitlementGrace: entitlementStates.filter(
+        (item) => item.state === "grace_active",
+      ).length,
+      entitlementReadOnly: entitlementStates.filter(
+        (item) => item.state === "read_only",
+      ).length,
       auditsLast24h: auditsLast24h.length,
     };
   }
 
-  getPlatformWorkspaceHealth(actor: RequestActor): PlatformAdminWorkspaceHealthRow[] {
+  getPlatformWorkspaceHealth(
+    actor: RequestActor,
+  ): PlatformAdminWorkspaceHealthRow[] {
     this.assertPlatformAdmin(actor);
 
     return Array.from(this.workspaces.values())
@@ -2361,9 +2550,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           const authUser = this.findAuthUserById(member.userId);
           return {
             workspaceId,
-            workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
+            workspaceName:
+              this.workspaces.get(workspaceId)?.name ?? workspaceId,
             userId: member.userId,
-            email: authUser?.email ?? this.normalizeEmail(member.email) ?? member.email,
+            email:
+              authUser?.email ??
+              this.normalizeEmail(member.email) ??
+              member.email,
             role: member.role,
             createdAt: member.createdAt,
             platformRole: authUser?.platformRole ?? null,
@@ -2435,15 +2628,24 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.assertPlatformAdmin(actor);
     const subscriptions = Array.from(this.subscriptions.values());
     const invoices = Array.from(this.invoices.values());
-    const payingWorkspaces = new Set(invoices.map((invoice) => invoice.workspaceId));
+    const payingWorkspaces = new Set(
+      invoices.map((invoice) => invoice.workspaceId),
+    );
 
     return {
-      activeSubscriptions: subscriptions.filter((item) => item.status === "active").length,
-      pastDueSubscriptions: subscriptions.filter((item) => item.status === "past_due")
-        .length,
-      canceledSubscriptions: subscriptions.filter((item) => item.status === "canceled")
-        .length,
-      grossRevenueUsd: invoices.reduce((sum, invoice) => sum + invoice.amountUsd, 0),
+      activeSubscriptions: subscriptions.filter(
+        (item) => item.status === "active",
+      ).length,
+      pastDueSubscriptions: subscriptions.filter(
+        (item) => item.status === "past_due",
+      ).length,
+      canceledSubscriptions: subscriptions.filter(
+        (item) => item.status === "canceled",
+      ).length,
+      grossRevenueUsd: invoices.reduce(
+        (sum, invoice) => sum + invoice.amountUsd,
+        0,
+      ),
       invoiceCount: invoices.length,
       payingWorkspaces: payingWorkspaces.size,
     };
@@ -2458,23 +2660,28 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const items = Array.from(this.workspaceTiktokAutomationRuns.entries())
       .flatMap(([workspaceId, runs]) =>
-        runs.map((run) => ({
-          runId: run.id,
-          workspaceId,
-          workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
-          flowType: run.flowType,
-          mode: run.mode,
-          status: run.status,
-          totalCount: run.totalCount,
-          doneCount: run.doneCount,
-          failedCount: run.failedCount,
-          blockedCount: run.blockedCount,
-          createdBy: this.findAuthUserById(run.createdBy)?.email ?? run.createdBy,
-          createdAt: run.createdAt,
-          updatedAt: run.updatedAt,
-          startedAt: run.startedAt,
-          finishedAt: run.finishedAt,
-        }) satisfies PlatformAdminAutomationRunListItem),
+        runs.map(
+          (run) =>
+            ({
+              runId: run.id,
+              workspaceId,
+              workspaceName:
+                this.workspaces.get(workspaceId)?.name ?? workspaceId,
+              flowType: run.flowType,
+              mode: run.mode,
+              status: run.status,
+              totalCount: run.totalCount,
+              doneCount: run.doneCount,
+              failedCount: run.failedCount,
+              blockedCount: run.blockedCount,
+              createdBy:
+                this.findAuthUserById(run.createdBy)?.email ?? run.createdBy,
+              createdAt: run.createdAt,
+              updatedAt: run.updatedAt,
+              startedAt: run.startedAt,
+              finishedAt: run.finishedAt,
+            }) satisfies PlatformAdminAutomationRunListItem,
+        ),
       )
       .filter((item) => {
         if (!q) {
@@ -2511,7 +2718,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         if (!q) {
           return true;
         }
-        return [item.email, item.userId, item.platformRole ?? "", item.authProvider]
+        return [
+          item.email,
+          item.userId,
+          item.platformRole ?? "",
+          item.authProvider,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(q);
@@ -2533,7 +2745,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return this.paginatePlatformAdminItems(items, page, pageSize);
   }
 
-  getAdminUserDetail(actor: RequestActor, userId: string): PlatformAdminUserDetail {
+  getAdminUserDetail(
+    actor: RequestActor,
+    userId: string,
+  ): PlatformAdminUserDetail {
     this.assertPlatformAdmin(actor);
     const record = this.findAuthUserById(userId.trim());
     if (!record) {
@@ -2544,24 +2759,31 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       .flatMap(([workspaceId, members]) =>
         members
           .filter((member) => member.userId === record.userId)
-          .map((member) => ({
-            userId: member.userId,
-            email:
-              this.findAuthUserById(member.userId)?.email ??
-              this.normalizeEmail(member.email) ??
-              member.email,
-            workspaceId,
-            workspaceName: this.workspaces.get(workspaceId)?.name ?? workspaceId,
-            role: member.role,
-            createdAt: member.createdAt,
-          }) satisfies PlatformAdminUserWorkspaceMembership),
+          .map(
+            (member) =>
+              ({
+                userId: member.userId,
+                email:
+                  this.findAuthUserById(member.userId)?.email ??
+                  this.normalizeEmail(member.email) ??
+                  member.email,
+                workspaceId,
+                workspaceName:
+                  this.workspaces.get(workspaceId)?.name ?? workspaceId,
+                role: member.role,
+                createdAt: member.createdAt,
+              }) satisfies PlatformAdminUserWorkspaceMembership,
+          ),
       )
-      .sort((left, right) => left.workspaceName.localeCompare(right.workspaceName));
+      .sort((left, right) =>
+        left.workspaceName.localeCompare(right.workspaceName),
+      );
 
     const recentAuditLogs = this.auditLogs
       .filter(
         (log) =>
-          log.targetId === record.userId || this.normalizeEmail(log.actor) === record.email,
+          log.targetId === record.userId ||
+          this.normalizeEmail(log.actor) === record.email,
       )
       .slice(-20)
       .reverse();
@@ -2579,10 +2801,24 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   ): PlatformAdminListResult<PlatformAdminWorkspaceDetail> {
     this.assertPlatformAdmin(actor);
     const { q, page, pageSize } = this.normalizePlatformAdminListQuery(query);
+    const statusFilter = query.status;
+    const planFilter = query.planId;
 
     const items = Array.from(this.workspaces.values())
       .map((workspace) => this.buildPlatformAdminWorkspaceDetail(workspace))
       .filter((item) => {
+        if (statusFilter && item.subscriptionStatus !== statusFilter) {
+          return false;
+        }
+        if (planFilter) {
+          const normalizedPlan = this.normalizeWorkspacePlanForFilter(
+            item.planId,
+            item.planLabel,
+          );
+          if (normalizedPlan !== planFilter) {
+            return false;
+          }
+        }
         if (!q) {
           return true;
         }
@@ -2606,6 +2842,48 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       });
 
     return this.paginatePlatformAdminItems(items, page, pageSize);
+  }
+
+  private normalizeWorkspacePlanForFilter(
+    planId: BillingPlanId | null | undefined,
+    planLabel: string | null | undefined,
+  ): BillingPlanId | "free" {
+    if (planId) {
+      return planId;
+    }
+    const normalized = (planLabel || "").trim().toLowerCase();
+    if (!normalized) {
+      return "free";
+    }
+    if (
+      normalized.includes("custom") ||
+      normalized.includes("enterprise") ||
+      normalized.includes("platinum")
+    ) {
+      return "custom";
+    }
+    if (normalized.includes("scale") || normalized.includes("gold")) {
+      return "scale";
+    }
+    if (
+      normalized.includes("growth") ||
+      normalized.includes("team") ||
+      normalized.includes("silver") ||
+      normalized.includes("pro")
+    ) {
+      return "growth";
+    }
+    if (
+      normalized.includes("starter") ||
+      normalized.includes("basic") ||
+      normalized.includes("bronze")
+    ) {
+      return "starter";
+    }
+    if (normalized.includes("free") || normalized.includes("miễn")) {
+      return "free";
+    }
+    return "free";
   }
 
   getAdminWorkspaceDetail(
@@ -2640,7 +2918,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const members = [...(this.memberships.get(workspaceId) || [])];
     const now = new Date().toISOString();
-    const targetIndex = members.findIndex((member) => member.userId === targetAuthUser.userId);
+    const targetIndex = members.findIndex(
+      (member) => member.userId === targetAuthUser.userId,
+    );
     if (targetIndex >= 0) {
       members[targetIndex] = {
         ...members[targetIndex],
@@ -2705,7 +2985,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       this.auditLogs
         .slice()
         .reverse()
-        .find((log) => this.normalizeEmail(log.actor) === record.email)?.createdAt ?? null;
+        .find((log) => this.normalizeEmail(log.actor) === record.email)
+        ?.createdAt ?? null;
 
     return {
       userId: record.userId,
@@ -2713,9 +2994,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       platformRole: record.platformRole,
       authProvider: record.authProvider,
       hasPasswordAuth:
-        record.authProvider === "password" || record.authProvider === "password_google",
+        record.authProvider === "password" ||
+        record.authProvider === "password_google",
       hasGoogleAuth:
-        record.authProvider === "google" || record.authProvider === "password_google",
+        record.authProvider === "google" ||
+        record.authProvider === "password_google",
       workspaceCount: workspaceIds.size,
       lastActiveAt,
       createdAt: record.createdAt,
@@ -2744,14 +3027,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       }))
       .sort((left, right) => {
         const roleCompare =
-          this.getWorkspaceRoleRank(right.role) - this.getWorkspaceRoleRank(left.role);
+          this.getWorkspaceRoleRank(right.role) -
+          this.getWorkspaceRoleRank(left.role);
         if (roleCompare !== 0) {
           return roleCompare;
         }
         return left.createdAt.localeCompare(right.createdAt);
       });
     const recentAuditLogs = this.auditLogs
-      .filter((log) => log.workspaceId === workspace.id || log.targetId === workspace.id)
+      .filter(
+        (log) =>
+          log.workspaceId === workspace.id || log.targetId === workspace.id,
+      )
       .slice(-20)
       .reverse();
 
@@ -2774,7 +3061,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const entitlement = this.entitlements.get(workspace.id);
     const members = this.memberships.get(workspace.id) || [];
     const activeInvites = Array.from(this.invites.values()).filter(
-      (invite) => invite.workspaceId === workspace.id && invite.consumedAt === null,
+      (invite) =>
+        invite.workspaceId === workspace.id && invite.consumedAt === null,
     );
     const activeShareGrants = Array.from(this.shareGrants.values()).filter(
       (grant) => grant.workspaceId === workspace.id && grant.revokedAt === null,
@@ -2788,7 +3076,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         ? Math.min(
             100,
             Math.round(
-              (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) * 100,
+              (usage.storageUsedBytes / (usage.storageLimitMb * 1024 * 1024)) *
+                100,
             ),
           )
         : 0;
@@ -2796,7 +3085,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       usage.proxyBandwidthLimitMb > 0
         ? Math.min(
             100,
-            Math.round((usage.proxyBandwidthUsedMb / usage.proxyBandwidthLimitMb) * 100),
+            Math.round(
+              (usage.proxyBandwidthUsedMb / usage.proxyBandwidthLimitMb) * 100,
+            ),
           )
         : 0;
     const riskLevel: "low" | "medium" | "high" =
@@ -2816,6 +3107,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       workspaceId: workspace.id,
       workspaceName: workspace.name,
       mode: workspace.mode,
+      planId: subscription.planId,
       planLabel: subscription.planLabel,
       subscriptionStatus: subscription.status,
       entitlementState: entitlement?.state ?? "active",
@@ -2906,7 +3198,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!Number.isFinite(input.maxRedemptions) || input.maxRedemptions < 0) {
       throw new BadRequestException("invalid_max_redemptions");
     }
-    if (!Number.isFinite(input.maxPerUser ?? 0) || Number(input.maxPerUser ?? 0) < 0) {
+    if (
+      !Number.isFinite(input.maxPerUser ?? 0) ||
+      Number(input.maxPerUser ?? 0) < 0
+    ) {
       throw new BadRequestException("invalid_coupon_max_per_user");
     }
     if (
@@ -2949,7 +3244,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return coupon;
   }
 
-  revokeCoupon(couponId: string, actor: RequestActor, reason: string): CouponRecord {
+  revokeCoupon(
+    couponId: string,
+    actor: RequestActor,
+    reason: string,
+  ): CouponRecord {
     this.assertPlatformAdmin(actor);
     const normalizedReason = this.requireReason(reason);
     const coupon = this.coupons.get(couponId);
@@ -2961,7 +3260,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       coupon.revokedAt = new Date().toISOString();
     }
     this.coupons.set(coupon.id, coupon);
-    this.audit("coupon.revoked", actor.email, undefined, coupon.id, normalizedReason);
+    this.audit(
+      "coupon.revoked",
+      actor.email,
+      undefined,
+      coupon.id,
+      normalizedReason,
+    );
     this.persistState();
     return coupon;
   }
@@ -2977,7 +3282,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     codes: string[],
   ): CouponSelectionResult {
     this.assertWorkspaceAccess(workspaceId, actor);
-    const normalizedCodes = new Set(codes.map((code) => code.trim().toUpperCase()));
+    const normalizedCodes = new Set(
+      codes.map((code) => code.trim().toUpperCase()),
+    );
     if (normalizedCodes.size === 0) {
       return {
         bestCoupon: null,
@@ -2990,8 +3297,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       if (!normalizedCodes.has(coupon.code)) return false;
       if (coupon.revokedAt) return false;
       if (new Date(coupon.expiresAt).getTime() < now) return false;
-      if (coupon.maxRedemptions > 0 && coupon.redeemedCount >= coupon.maxRedemptions) return false;
-      if (coupon.workspaceAllowlist.length > 0 && !coupon.workspaceAllowlist.includes(workspaceId)) {
+      if (
+        coupon.maxRedemptions > 0 &&
+        coupon.redeemedCount >= coupon.maxRedemptions
+      )
+        return false;
+      if (
+        coupon.workspaceAllowlist.length > 0 &&
+        !coupon.workspaceAllowlist.includes(workspaceId)
+      ) {
         return false;
       }
       if (coupon.workspaceDenylist.includes(workspaceId)) return false;
@@ -3004,7 +3318,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       }
       if (
         coupon.maxPerUser > 0 &&
-        this.countCouponRedemptionsForUser(actor.userId, coupon.code) >= coupon.maxPerUser
+        this.countCouponRedemptionsForUser(actor.userId, coupon.code) >=
+          coupon.maxPerUser
       ) {
         return false;
       }
@@ -3180,13 +3495,19 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     couponCode: string,
   ): number {
     return Array.from(this.invoices.values()).filter(
-      (invoice) => invoice.workspaceId === workspaceId && invoice.couponCode === couponCode,
+      (invoice) =>
+        invoice.workspaceId === workspaceId &&
+        invoice.couponCode === couponCode,
     ).length;
   }
 
-  private countCouponRedemptionsForUser(userId: string, couponCode: string): number {
+  private countCouponRedemptionsForUser(
+    userId: string,
+    couponCode: string,
+  ): number {
     return Array.from(this.invoices.values()).filter(
-      (invoice) => invoice.actorUserId === userId && invoice.couponCode === couponCode,
+      (invoice) =>
+        invoice.actorUserId === userId && invoice.couponCode === couponCode,
     ).length;
   }
 
@@ -3197,10 +3518,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       Array.from(this.workspaces.values())
         .filter(
           (workspace) =>
-            workspace.mode === "personal" && workspace.createdBy === actor.userId,
+            workspace.mode === "personal" &&
+            workspace.createdBy === actor.userId,
         )
-        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ??
-      null
+        .sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt),
+        )[0] ?? null
     );
   }
 
@@ -3210,7 +3533,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   ) {
     const members = this.memberships.get(workspace.id) || [];
     const alreadyOwner = members.some(
-      (member) => this.isMembershipForActor(member, actor) && member.role === "owner",
+      (member) =>
+        this.isMembershipForActor(member, actor) && member.role === "owner",
     );
     const now = new Date().toISOString();
     let shouldPersist = false;
@@ -3240,7 +3564,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!this.subscriptions.has(workspace.id)) {
       this.subscriptions.set(
         workspace.id,
-        this.getDefaultSubscriptionForWorkspace(workspace.id, workspace.mode, now),
+        this.getDefaultSubscriptionForWorkspace(
+          workspace.id,
+          workspace.mode,
+          now,
+        ),
       );
       shouldPersist = true;
     }
@@ -3275,13 +3603,21 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return {
       authUsers: Array.from(this.authUsers.values()),
       workspaces: Array.from(this.workspaces.values()),
-      workspaceAdminTiktokStates: Array.from(this.workspaceAdminTiktokStates.values()),
-      workspaceTiktokCookieSources: Array.from(this.workspaceTiktokCookieSources.values()).flat(),
+      workspaceAdminTiktokStates: Array.from(
+        this.workspaceAdminTiktokStates.values(),
+      ),
+      workspaceTiktokCookieSources: Array.from(
+        this.workspaceTiktokCookieSources.values(),
+      ).flat(),
       tiktokAutomationAccounts: Array.from(
         this.workspaceTiktokAutomationAccounts.values(),
       ).flat(),
-      tiktokAutomationRuns: Array.from(this.workspaceTiktokAutomationRuns.values()).flat(),
-      tiktokAutomationRunItems: Array.from(this.tiktokAutomationRunItems.values()).flat(),
+      tiktokAutomationRuns: Array.from(
+        this.workspaceTiktokAutomationRuns.values(),
+      ).flat(),
+      tiktokAutomationRunItems: Array.from(
+        this.tiktokAutomationRunItems.values(),
+      ).flat(),
       memberships: Array.from(this.memberships.values()).flat(),
       entitlements: Array.from(this.entitlements.values()),
       invites: Array.from(this.invites.values()),
@@ -3323,7 +3659,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       this.workspaceAdminTiktokStates.set(state.workspaceId, {
         workspaceId: state.workspaceId,
         bearerKey: state.bearerKey ?? "",
-        workflowRows: Array.isArray(state.workflowRows) ? state.workflowRows : [],
+        workflowRows: Array.isArray(state.workflowRows)
+          ? state.workflowRows
+          : [],
         rotationCursor: Number(state.rotationCursor) || 0,
         autoWorkflowRun: state.autoWorkflowRun ?? null,
         updatedAt: state.updatedAt ?? new Date().toISOString(),
@@ -3331,7 +3669,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const sourceRecord of parsed.workspaceTiktokCookieSources || []) {
-      const current = this.workspaceTiktokCookieSources.get(sourceRecord.workspaceId) || [];
+      const current =
+        this.workspaceTiktokCookieSources.get(sourceRecord.workspaceId) || [];
       current.push(sourceRecord);
       this.workspaceTiktokCookieSources.set(sourceRecord.workspaceId, current);
     }
@@ -3347,7 +3686,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const run of parsed.tiktokAutomationRuns || []) {
-      const current = this.workspaceTiktokAutomationRuns.get(run.workspaceId) || [];
+      const current =
+        this.workspaceTiktokAutomationRuns.get(run.workspaceId) || [];
       current.push({
         ...run,
         flowType: this.normalizeAutomationFlowType(run.flowType),
@@ -3449,7 +3789,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     // Prevent concurrent service instances from running DDL at the same time.
     const schemaLockId = 8_613_420_017;
-    await this.postgresPool.query("select pg_advisory_lock($1)", [schemaLockId]);
+    await this.postgresPool.query("select pg_advisory_lock($1)", [
+      schemaLockId,
+    ]);
     try {
       await this.postgresPool.query(`
       create table if not exists users (
@@ -3922,7 +4264,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
                   ? row.google_sub.trim()
                   : null,
               platformRole:
-                row.platform_role === "platform_admin" ? "platform_admin" : null,
+                row.platform_role === "platform_admin"
+                  ? "platform_admin"
+                  : null,
               createdAt: new Date(row.created_at).toISOString(),
               updatedAt: new Date(row.updated_at).toISOString(),
             } satisfies AuthUserRecord;
@@ -3948,8 +4292,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             updatedAt: new Date(row.updated_at as string).toISOString(),
           }),
         ),
-        workspaceTiktokCookieSources: workspaceTiktokCookieSourcesResult.rows.map(
-          (row) => ({
+        workspaceTiktokCookieSources:
+          workspaceTiktokCookieSourcesResult.rows.map((row) => ({
             id: row.id as string,
             workspaceId: row.workspace_id as string,
             phone: (row.phone as string) ?? "",
@@ -3958,14 +4302,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             source: (row.source as "excel_import") ?? "excel_import",
             createdAt: new Date(row.created_at as string).toISOString(),
             updatedAt: new Date(row.updated_at as string).toISOString(),
-          }),
-        ),
-        tiktokAutomationAccounts: workspaceTiktokAutomationAccountsResult.rows.map(
-          (row) => ({
+          })),
+        tiktokAutomationAccounts:
+          workspaceTiktokAutomationAccountsResult.rows.map((row) => ({
             id: row.id as string,
             workspaceId: row.workspace_id as string,
-            flowType:
-              ((row.flow_type as string) ?? "signup") as TiktokAutomationFlowType,
+            flowType: ((row.flow_type as string) ??
+              "signup") as TiktokAutomationFlowType,
             phone: (row.phone as string) ?? "",
             apiPhone: (row.api_phone as string) ?? "",
             cookie: (row.cookie as string) ?? "",
@@ -3973,7 +4316,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             password: (row.password as string) ?? "",
             profileId: (row.profile_id as string | null) ?? null,
             profileName: (row.profile_name as string | null) ?? null,
-            status: ((row.status as string) ?? "queued") as TiktokAutomationItemStatus,
+            status: ((row.status as string) ??
+              "queued") as TiktokAutomationItemStatus,
             lastStep: (row.last_step as string | null) ?? null,
             lastError: (row.last_error as string | null) ?? null,
             source: ((row.source as string) ?? "excel_import") as
@@ -3982,33 +4326,36 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
               | "bugidea_pull",
             createdAt: new Date(row.created_at as string).toISOString(),
             updatedAt: new Date(row.updated_at as string).toISOString(),
+          })),
+        tiktokAutomationRuns: workspaceTiktokAutomationRunsResult.rows.map(
+          (row) => ({
+            id: row.id as string,
+            workspaceId: row.workspace_id as string,
+            flowType: ((row.flow_type as string) ??
+              "signup") as TiktokAutomationFlowType,
+            mode: ((row.mode as string) ?? "semi") as TiktokAutomationRunMode,
+            status: ((row.status as string) ??
+              "queued") as TiktokAutomationRunStatus,
+            accountIds: Array.isArray(row.account_ids)
+              ? (row.account_ids as string[])
+              : [],
+            currentIndex: Number(row.current_index) || 0,
+            activeItemId: (row.active_item_id as string | null) ?? null,
+            totalCount: Number(row.total_count) || 0,
+            doneCount: Number(row.done_count) || 0,
+            failedCount: Number(row.failed_count) || 0,
+            blockedCount: Number(row.blocked_count) || 0,
+            createdBy: (row.created_by as string) ?? "control-user",
+            startedAt: row.started_at
+              ? new Date(row.started_at as string).toISOString()
+              : null,
+            finishedAt: row.finished_at
+              ? new Date(row.finished_at as string).toISOString()
+              : null,
+            createdAt: new Date(row.created_at as string).toISOString(),
+            updatedAt: new Date(row.updated_at as string).toISOString(),
           }),
         ),
-        tiktokAutomationRuns: workspaceTiktokAutomationRunsResult.rows.map((row) => ({
-          id: row.id as string,
-          workspaceId: row.workspace_id as string,
-          flowType: ((row.flow_type as string) ?? "signup") as TiktokAutomationFlowType,
-          mode: ((row.mode as string) ?? "semi") as TiktokAutomationRunMode,
-          status: ((row.status as string) ?? "queued") as TiktokAutomationRunStatus,
-          accountIds: Array.isArray(row.account_ids)
-            ? (row.account_ids as string[])
-            : [],
-          currentIndex: Number(row.current_index) || 0,
-          activeItemId: (row.active_item_id as string | null) ?? null,
-          totalCount: Number(row.total_count) || 0,
-          doneCount: Number(row.done_count) || 0,
-          failedCount: Number(row.failed_count) || 0,
-          blockedCount: Number(row.blocked_count) || 0,
-          createdBy: (row.created_by as string) ?? "control-user",
-          startedAt: row.started_at
-            ? new Date(row.started_at as string).toISOString()
-            : null,
-          finishedAt: row.finished_at
-            ? new Date(row.finished_at as string).toISOString()
-            : null,
-          createdAt: new Date(row.created_at as string).toISOString(),
-          updatedAt: new Date(row.updated_at as string).toISOString(),
-        })),
         tiktokAutomationRunItems:
           workspaceTiktokAutomationRunItemsResult.rows.map((row) => ({
             id: row.id as string,
@@ -4019,7 +4366,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             apiPhone: (row.api_phone as string) ?? "",
             profileId: (row.profile_id as string | null) ?? null,
             profileName: (row.profile_name as string | null) ?? null,
-            status: ((row.status as string) ?? "queued") as TiktokAutomationItemStatus,
+            status: ((row.status as string) ??
+              "queued") as TiktokAutomationItemStatus,
             step: (row.step as string) ?? "queued",
             attempt: Number(row.attempt) || 0,
             username: (row.username as string) ?? "",
@@ -4042,9 +4390,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           return {
             workspaceId: row.workspace_id as string,
             userId,
-            email: resolvedEmail && !resolvedEmail.endsWith("@local")
-              ? resolvedEmail
-              : userId,
+            email:
+              resolvedEmail && !resolvedEmail.endsWith("@local")
+                ? resolvedEmail
+                : userId,
             role: row.role as WorkspaceRole,
             createdAt: new Date(row.created_at as string).toISOString(),
           };
@@ -4096,7 +4445,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             : [],
           maxRedemptions: Number(row.max_redemptions),
           redeemedCount: Number(row.redeemed_count),
-          maxPerUser: Number((row as { max_per_user?: number }).max_per_user ?? 0),
+          maxPerUser: Number(
+            (row as { max_per_user?: number }).max_per_user ?? 0,
+          ),
           maxPerWorkspace: Number(
             (row as { max_per_workspace?: number }).max_per_workspace ?? 0,
           ),
@@ -4113,7 +4464,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           planId: row.plan_id as BillingPlanId,
           planLabel: row.plan_label as string,
           profileLimit: Number(row.profile_limit),
-          memberLimit: Number((row as { member_limit?: number }).member_limit ?? 1),
+          memberLimit: Number(
+            (row as { member_limit?: number }).member_limit ?? 1,
+          ),
           billingCycle: row.billing_cycle as BillingCycle,
           redeemedAt: new Date(row.redeemed_at as string).toISOString(),
           redeemedBy: row.redeemed_by as string,
@@ -4123,7 +4476,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           planId: (row.plan_id as BillingPlanId | null) ?? null,
           planLabel: row.plan_label as string,
           profileLimit: Number(row.profile_limit),
-          memberLimit: Number((row as { member_limit?: number }).member_limit ?? 1),
+          memberLimit: Number(
+            (row as { member_limit?: number }).member_limit ?? 1,
+          ),
           billingCycle: (row.billing_cycle as BillingCycle | null) ?? null,
           status: row.status as "active" | "past_due" | "canceled",
           source: row.source as "internal" | "license" | "stripe",
@@ -4199,7 +4554,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
       this.applySnapshot(snapshot);
     } catch (error) {
-      console.warn("[control-state] Failed to load state from PostgreSQL:", error);
+      console.warn(
+        "[control-state] Failed to load state from PostgreSQL:",
+        error,
+      );
       this.clearInMemoryState();
     }
   }
@@ -4211,7 +4569,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.persistPostgresQueue = this.persistPostgresQueue
       .then(() => this.persistStateToPostgres())
       .catch((error) => {
-        console.warn("[control-state] Failed to persist state to PostgreSQL:", error);
+        console.warn(
+          "[control-state] Failed to persist state to PostgreSQL:",
+          error,
+        );
       });
   }
 
@@ -4233,13 +4594,17 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       if (!normalizedId) {
         return;
       }
-      const normalizedEmail = email?.trim().toLowerCase() || `${normalizedId}@local`;
+      const normalizedEmail =
+        email?.trim().toLowerCase() || `${normalizedId}@local`;
       const current = usersById.get(normalizedId);
       if (!current) {
         usersById.set(normalizedId, normalizedEmail);
         return;
       }
-      if (isPlaceholderLocalEmail(current) && !isPlaceholderLocalEmail(normalizedEmail)) {
+      if (
+        isPlaceholderLocalEmail(current) &&
+        !isPlaceholderLocalEmail(normalizedEmail)
+      ) {
         usersById.set(normalizedId, normalizedEmail);
       }
     };
@@ -4364,7 +4729,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
             state.workspaceId,
             state.bearerKey,
             JSON.stringify(state.workflowRows ?? []),
-            state.autoWorkflowRun ? JSON.stringify(state.autoWorkflowRun) : null,
+            state.autoWorkflowRun
+              ? JSON.stringify(state.autoWorkflowRun)
+              : null,
             state.operationProgress
               ? JSON.stringify(state.operationProgress)
               : null,
@@ -4755,7 +5122,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (this.platformAdminEmails.has(normalizedEmail)) {
       return "platform_admin";
     }
-    if (this.authUsers.get(normalizedEmail)?.platformRole === "platform_admin") {
+    if (
+      this.authUsers.get(normalizedEmail)?.platformRole === "platform_admin"
+    ) {
       return "platform_admin";
     }
     return null;
@@ -4801,7 +5170,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return {
       id: actor.userId,
       email: actor.email,
-      platformRole: actor.platformRole === "platform_admin" ? "platform_admin" : null,
+      platformRole:
+        actor.platformRole === "platform_admin" ? "platform_admin" : null,
     };
   }
 
@@ -4855,7 +5225,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       workspaceId: normalizedWorkspaceId,
       bearerKey: input.bearerKey,
       workflowRows: input.workflowRows ?? [],
-      rotationCursor: Number.isFinite(input.rotationCursor) ? input.rotationCursor : 0,
+      rotationCursor: Number.isFinite(input.rotationCursor)
+        ? input.rotationCursor
+        : 0,
       autoWorkflowRun: input.autoWorkflowRun ?? null,
       operationProgress: input.operationProgress ?? null,
       updatedAt: now,
@@ -4865,7 +5237,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return nextState;
   }
 
-  async getWorkspaceTiktokCookieSources(workspaceId: string, actor: RequestActor) {
+  async getWorkspaceTiktokCookieSources(
+    workspaceId: string,
+    actor: RequestActor,
+  ) {
     const normalizedWorkspaceId = workspaceId.trim();
     if (!normalizedWorkspaceId) {
       throw new BadRequestException("workspace_id_required");
@@ -4897,20 +5272,20 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const now = new Date().toISOString();
     const nextRows: WorkspaceTiktokCookieSourceRecord[] = [];
     for (const row of input.rows ?? []) {
-        const cookie = row.cookie?.trim() ?? "";
-        if (!cookie) {
-          continue;
-        }
-        nextRows.push({
-          id: randomUUID(),
-          workspaceId: normalizedWorkspaceId,
-          phone: row.phone?.trim() ?? "",
-          apiPhone: row.apiPhone?.trim() ?? "",
-          cookie,
-          source: "excel_import" as const,
-          createdAt: now,
-          updatedAt: now,
-        });
+      const cookie = row.cookie?.trim() ?? "";
+      if (!cookie) {
+        continue;
+      }
+      nextRows.push({
+        id: randomUUID(),
+        workspaceId: normalizedWorkspaceId,
+        phone: row.phone?.trim() ?? "",
+        apiPhone: row.apiPhone?.trim() ?? "",
+        cookie,
+        source: "excel_import" as const,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
     this.workspaceTiktokCookieSources.set(normalizedWorkspaceId, nextRows);
@@ -4927,7 +5302,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return digits || raw;
   }
 
-  private resolveAutomationUsername(phone: string, fallback?: string | null): string {
+  private resolveAutomationUsername(
+    phone: string,
+    fallback?: string | null,
+  ): string {
     const direct = fallback?.trim();
     if (direct) {
       return direct;
@@ -4939,7 +5317,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return `${normalizedPhone}.bug`;
   }
 
-  private resolveAutomationPassword(phone: string, fallback?: string | null): string {
+  private resolveAutomationPassword(
+    phone: string,
+    fallback?: string | null,
+  ): string {
     const direct = fallback?.trim();
     if (direct) {
       return direct;
@@ -4979,8 +5360,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     const isSellerRun = accountIds.every(
       (accountId) =>
-        this.normalizeAutomationFlowType(accountById.get(accountId)?.flowType) ===
-        "signup_seller",
+        this.normalizeAutomationFlowType(
+          accountById.get(accountId)?.flowType,
+        ) === "signup_seller",
     );
     return isSellerRun ? "signup_seller" : "signup";
   }
@@ -4988,16 +5370,22 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private sortAutomationAccounts(
     rows: TiktokAutomationAccountRecord[],
   ): TiktokAutomationAccountRecord[] {
-    return [...rows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return [...rows].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
   }
 
   private sortAutomationRuns(
     rows: TiktokAutomationRunRecord[],
   ): TiktokAutomationRunRecord[] {
-    return [...rows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return [...rows].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
   }
 
-  private isAutomationItemTerminal(status: TiktokAutomationItemStatus): boolean {
+  private isAutomationItemTerminal(
+    status: TiktokAutomationItemStatus,
+  ): boolean {
     return (
       status === "done" ||
       status === "blocked" ||
@@ -5012,9 +5400,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     items: TiktokAutomationRunItemRecord[],
   ): TiktokAutomationRunRecord {
     const doneCount = items.filter((item) => item.status === "done").length;
-    const failedCount = items.filter((item) => item.status === "step_failed").length;
-    const blockedCount = items.filter((item) => item.status === "blocked").length;
-    const allTerminal = items.length > 0 && items.every((item) => this.isAutomationItemTerminal(item.status));
+    const failedCount = items.filter(
+      (item) => item.status === "step_failed",
+    ).length;
+    const blockedCount = items.filter(
+      (item) => item.status === "blocked",
+    ).length;
+    const allTerminal =
+      items.length > 0 &&
+      items.every((item) => this.isAutomationItemTerminal(item.status));
     const now = new Date().toISOString();
     return {
       ...run,
@@ -5101,7 +5495,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
 
     const now = new Date().toISOString();
-    const currentRows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const currentRows = this.ensureWorkspaceAutomationAccounts(
+      normalizedWorkspaceId,
+    );
     const nextRows = [...currentRows];
     const force = Boolean(input.force);
     const importFlowType = this.normalizeAutomationFlowType(input.flowType);
@@ -5110,7 +5506,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       nextRows.findIndex(
         (row) =>
           this.normalizeAutomationFlowType(row.flowType) === importFlowType &&
-          this.normalizeAutomationPhone(row.phone) === this.normalizeAutomationPhone(phone) &&
+          this.normalizeAutomationPhone(row.phone) ===
+            this.normalizeAutomationPhone(phone) &&
           row.apiPhone.trim() === apiPhone.trim(),
       );
 
@@ -5153,11 +5550,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         profileId:
           row.profileId !== undefined
             ? row.profileId
-            : existing?.profileId ?? null,
+            : (existing?.profileId ?? null),
         profileName:
           row.profileName !== undefined
             ? row.profileName
-            : existing?.profileName ?? null,
+            : (existing?.profileName ?? null),
         status: existing?.status ?? "queued",
         lastStep: existing?.lastStep ?? null,
         lastError: existing?.lastError ?? null,
@@ -5193,8 +5590,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
 
-    const currentRows = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
-    const nextRows = currentRows.filter((row) => row.id !== normalizedAccountId);
+    const currentRows = this.ensureWorkspaceAutomationAccounts(
+      normalizedWorkspaceId,
+    );
+    const nextRows = currentRows.filter(
+      (row) => row.id !== normalizedAccountId,
+    );
     if (nextRows.length === currentRows.length) {
       throw new NotFoundException("automation_account_not_found");
     }
@@ -5203,9 +5604,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const runs = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId);
     const nextRuns: TiktokAutomationRunRecord[] = [];
     for (const run of runs) {
-      const nextItems = (this.tiktokAutomationRunItems.get(run.id) ?? []).filter(
-        (item) => item.accountId !== normalizedAccountId,
-      );
+      const nextItems = (
+        this.tiktokAutomationRunItems.get(run.id) ?? []
+      ).filter((item) => item.accountId !== normalizedAccountId);
       this.tiktokAutomationRunItems.set(run.id, nextItems);
       const nextRun = this.recalcAutomationRunProgress(run, nextItems);
       nextRun.accountIds = nextRun.accountIds.filter(
@@ -5241,8 +5642,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!flowType) {
       return this.sortAutomationRuns(rows);
     }
-    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
-    const accountById = new Map(accounts.map((account) => [account.id, account]));
+    const accounts = this.ensureWorkspaceAutomationAccounts(
+      normalizedWorkspaceId,
+    );
+    const accountById = new Map(
+      accounts.map((account) => [account.id, account]),
+    );
     const targetFlow = this.normalizeAutomationFlowType(flowType);
     return this.sortAutomationRuns(
       rows.filter(
@@ -5267,9 +5672,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
 
-    const run = this
-      .ensureWorkspaceAutomationRuns(normalizedWorkspaceId)
-      .find((row) => row.id === normalizedRunId);
+    const run = this.ensureWorkspaceAutomationRuns(normalizedWorkspaceId).find(
+      (row) => row.id === normalizedRunId,
+    );
     if (!run) {
       throw new NotFoundException("run_not_found");
     }
@@ -5295,12 +5700,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.ensureWorkspaceOperator(actor, normalizedWorkspaceId);
     const targetFlowType = this.normalizeAutomationFlowType(input.flowType);
 
-    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
+    const accounts = this.ensureWorkspaceAutomationAccounts(
+      normalizedWorkspaceId,
+    );
     const requestedIds = Array.from(
       new Set(
-        (input.accountIds ?? [])
-          .map((value) => value.trim())
-          .filter(Boolean),
+        (input.accountIds ?? []).map((value) => value.trim()).filter(Boolean),
       ),
     );
     const selectedRows =
@@ -5405,11 +5810,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         items.find((item) => item.id === run.activeItemId) ??
         items.find((item) => item.status === "queued");
       if (activeItem) {
-        const activeIndex = items.findIndex((item) => item.id === activeItem.id);
+        const activeIndex = items.findIndex(
+          (item) => item.id === activeItem.id,
+        );
         items[activeIndex] = {
           ...activeItem,
           status: "running",
-          step: activeItem.step === "queued" ? "launch_profile" : activeItem.step,
+          step:
+            activeItem.step === "queued" ? "launch_profile" : activeItem.step,
           startedAt: activeItem.startedAt ?? now,
           updatedAt: now,
         };
@@ -5516,7 +5924,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           : currentItem.errorMessage,
       startedAt:
         nextStatus === "running"
-          ? currentItem.startedAt ?? now
+          ? (currentItem.startedAt ?? now)
           : currentItem.startedAt,
       finishedAt: this.isAutomationItemTerminal(nextStatus)
         ? now
@@ -5525,8 +5933,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
     items[itemIndex] = updatedItem;
 
-    const accounts = this.ensureWorkspaceAutomationAccounts(normalizedWorkspaceId);
-    const accountIndex = accounts.findIndex((row) => row.id === updatedItem.accountId);
+    const accounts = this.ensureWorkspaceAutomationAccounts(
+      normalizedWorkspaceId,
+    );
+    const accountIndex = accounts.findIndex(
+      (row) => row.id === updatedItem.accountId,
+    );
     if (accountIndex >= 0) {
       accounts[accountIndex] = {
         ...accounts[accountIndex],
@@ -5538,18 +5950,27 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         profileName: updatedItem.profileName,
         updatedAt: now,
       };
-      this.workspaceTiktokAutomationAccounts.set(normalizedWorkspaceId, accounts);
+      this.workspaceTiktokAutomationAccounts.set(
+        normalizedWorkspaceId,
+        accounts,
+      );
     }
 
     const run = { ...runs[runIndex] };
-    if (run.status === "running" && this.isAutomationItemTerminal(updatedItem.status)) {
+    if (
+      run.status === "running" &&
+      this.isAutomationItemTerminal(updatedItem.status)
+    ) {
       const nextQueued = items.find((item) => item.status === "queued");
       if (nextQueued) {
-        const nextQueuedIndex = items.findIndex((item) => item.id === nextQueued.id);
+        const nextQueuedIndex = items.findIndex(
+          (item) => item.id === nextQueued.id,
+        );
         items[nextQueuedIndex] = {
           ...nextQueued,
           status: "running",
-          step: nextQueued.step === "queued" ? "launch_profile" : nextQueued.step,
+          step:
+            nextQueued.step === "queued" ? "launch_profile" : nextQueued.step,
           startedAt: nextQueued.startedAt ?? now,
           updatedAt: now,
         };
@@ -5585,16 +6006,18 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       since?: string | null;
     },
   ) {
-    const payload = await this.getWorkspaceTiktokAutomationRun(workspaceId, runId, actor);
+    const payload = await this.getWorkspaceTiktokAutomationRun(
+      workspaceId,
+      runId,
+      actor,
+    );
     const since = input.since ? Date.parse(input.since) : NaN;
     if (!Number.isFinite(since)) {
       return payload;
     }
     return {
       run: payload.run,
-      items: payload.items.filter(
-        (row) => Date.parse(row.updatedAt) > since,
-      ),
+      items: payload.items.filter((row) => Date.parse(row.updatedAt) > since),
     };
   }
 
@@ -5666,19 +6089,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     bearerToken: string,
     input: { label: string; cookie: string; notes?: string | null },
   ) {
-    return this.proxyBugIdeaRequest(
-      actor,
-      bearerToken,
-      "/api/tiktok-cookies",
-      {
-        method: "POST",
-        body: {
-          label: input.label,
-          cookie: input.cookie,
-          notes: input.notes ?? undefined,
-        },
+    return this.proxyBugIdeaRequest(actor, bearerToken, "/api/tiktok-cookies", {
+      method: "POST",
+      body: {
+        label: input.label,
+        cookie: input.cookie,
+        notes: input.notes ?? undefined,
       },
-    );
+    });
   }
 
   updateTiktokCookie(
@@ -5759,7 +6177,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     return { salt, hash };
   }
 
-  private verifyPassword(password: string, salt: string, hash: string): boolean {
+  private verifyPassword(
+    password: string,
+    salt: string,
+    hash: string,
+  ): boolean {
     try {
       const derived = scryptSync(password, salt, 64);
       const expected = Buffer.from(hash, "hex");

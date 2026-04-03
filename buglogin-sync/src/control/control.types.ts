@@ -413,6 +413,7 @@ export interface PlatformAdminWorkspaceHealthRow {
   workspaceId: string;
   workspaceName: string;
   mode: WorkspaceMode;
+  planId: BillingPlanId | null;
   planLabel: string;
   subscriptionStatus: WorkspaceSubscriptionStatus;
   entitlementState: EntitlementState;
@@ -437,7 +438,8 @@ export interface PlatformAdminWorkspaceOwnerSummary {
   email: string;
 }
 
-export interface PlatformAdminWorkspaceDetail extends PlatformAdminWorkspaceHealthRow {
+export interface PlatformAdminWorkspaceDetail
+  extends PlatformAdminWorkspaceHealthRow {
   createdAt: string;
   createdBy: string;
   owner: PlatformAdminWorkspaceOwnerSummary | null;
