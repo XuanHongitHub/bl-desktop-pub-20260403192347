@@ -10,6 +10,20 @@ import { Button } from "@/components/ui/button";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(
+    Math.floor(Math.log(value) / Math.log(1024)),
+    units.length - 1,
+  );
+  const normalized = value / 1024 ** index;
+  const digits = normalized >= 100 ? 0 : normalized >= 10 ? 1 : 2;
+  return `${normalized.toFixed(digits)} ${units[index]}`;
+}
+
 export default function AdminSystemPage() {
   const { t } = useTranslation();
   const {
@@ -178,7 +192,7 @@ export default function AdminSystemPage() {
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {usage
-                ? `${usage.storageUsedBytes} / ${usage.storageLimitMb} MB`
+                ? `${formatBytes(usage.storageUsedBytes)} / ${formatBytes(usage.storageLimitMb * 1024 * 1024)}`
                 : t("portalSite.account.notAvailable")}
             </p>
           </div>
@@ -188,7 +202,7 @@ export default function AdminSystemPage() {
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {usage
-                ? `${usage.proxyBandwidthUsedMb} MB`
+                ? `${Math.round(usage.proxyBandwidthUsedMb)} / ${Math.round(usage.proxyBandwidthLimitMb)} MB`
                 : t("portalSite.account.notAvailable")}
             </p>
           </div>

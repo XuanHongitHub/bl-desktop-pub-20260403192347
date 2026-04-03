@@ -4608,7 +4608,8 @@
         "time": "Thời gian",
         "action": "Thao tác",
         "actor": "Người thực hiện",
-        "reason": "Lý do"
+        "reason": "Lý do",
+        "proxy": "Proxy băng thông"
       },
       "risk": {
         "low": "Thấp",

@@ -4608,7 +4608,8 @@
         "time": "Time",
         "action": "Action",
         "actor": "Actor",
-        "reason": "Reason"
+        "reason": "Reason",
+        "proxy": "Proxy bandwidth"
       },
       "risk": {
         "low": "Low",
