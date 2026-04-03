@@ -274,6 +274,35 @@ export class ControlController {
     );
   }
 
+  @Get("auth/invites")
+  listAuthInvites(@Headers() headers: ActorHeaders) {
+    return this.controlService.listAuthInvites(this.actorFromHeaders(headers));
+  }
+
+  @Post("auth/invites/:inviteId/accept")
+  acceptAuthInviteById(
+    @Headers() headers: ActorHeaders,
+    @Param("inviteId") inviteId: string,
+  ) {
+    return this.controlService.acceptAuthInviteById(
+      inviteId,
+      this.actorFromHeaders(headers),
+    );
+  }
+
+  @Post("auth/invites/:inviteId/decline")
+  declineAuthInviteById(
+    @Headers() headers: ActorHeaders,
+    @Param("inviteId") inviteId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.controlService.declineAuthInviteById(
+      inviteId,
+      this.actorFromHeaders(headers),
+      body.reason ?? "declined_from_portal_notifications",
+    );
+  }
+
   @Get("workspaces/:workspaceId/invites")
   listInvites(
     @Headers() headers: ActorHeaders,

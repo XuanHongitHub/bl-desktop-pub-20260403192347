@@ -3734,6 +3734,33 @@
       "superAdmin": "Quản trị nền tảng",
       "openMenu": "Mở menu"
     },
+    "invites": {
+      "notificationsTitle": "Lời mời workspace",
+      "pageTitle": "Lời mời workspace",
+      "pageDescription": "Xem các lời mời cộng tác và quyết định tham gia workspace phù hợp.",
+      "pendingCount": "{{count}} chờ xử lý",
+      "totalCount": "{{count}} tổng",
+      "empty": "Không có lời mời nào.",
+      "refresh": "Làm mới",
+      "viewAll": "Mở trang lời mời",
+      "roleLabel": "Vai trò: {{role}}",
+      "expiresAt": "Hết hạn: {{at}}",
+      "accept": "Chấp nhận",
+      "decline": "Từ chối",
+      "accepted": "Đã chấp nhận lời mời.",
+      "declined": "Đã từ chối lời mời.",
+      "acceptFailed": "Không thể chấp nhận lời mời.",
+      "declineFailed": "Không thể từ chối lời mời.",
+      "loadFailed": "Không thể tải danh sách lời mời.",
+      "connectionMissing": "Thiếu phiên portal. Vui lòng đăng nhập lại.",
+      "columns": {
+        "workspace": "Workspace",
+        "role": "Vai trò",
+        "expiresAt": "Hết hạn",
+        "createdAt": "Thời gian mời",
+        "actions": "Thao tác"
+      }
+    },
     "footer": {
       "title": "Cổng BugLogin",
       "description": "Website điều phối toàn bộ hành trình mua gói, xác thực, thanh toán và vận hành admin cho BugLogin.",

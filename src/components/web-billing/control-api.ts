@@ -18,6 +18,7 @@ import type {
   ControlAdminWorkspaceDetail,
   ControlAdminWorkspaceHealthRow,
   ControlAuditLog,
+  ControlAuthInvite,
   ControlCoupon,
   ControlMembership,
   ControlStripeCheckoutConfirmResponse,
@@ -219,6 +220,9 @@ async function requestControl<T>(
   connection: WebBillingConnection,
   routeKey:
     | "authMe"
+    | "authInvites"
+    | "authInviteAccept"
+    | "authInviteDecline"
     | "workspaces"
     | "adminOverview"
     | "adminWorkspaceHealth"
@@ -262,6 +266,7 @@ async function requestControl<T>(
   routeInput: {
     workspaceId?: string;
     userId?: string;
+    inviteId?: string;
     scope?: "member";
     checkoutSessionId?: string;
     planId?: string;
@@ -320,6 +325,50 @@ export async function getAuthMeProfile(
     email: string;
     platformRole: "platform_admin" | null;
   }>(connection, "authMe", {}, { method: "GET" });
+}
+
+export async function listAuthInvites(
+  connection: WebBillingConnection,
+): Promise<ControlAuthInvite[]> {
+  return requestControl<ControlAuthInvite[]>(
+    connection,
+    "authInvites",
+    {},
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function acceptAuthInvite(
+  connection: WebBillingConnection,
+  inviteId: string,
+): Promise<ControlMembership> {
+  return requestControl<ControlMembership>(
+    connection,
+    "authInviteAccept",
+    { inviteId },
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function declineAuthInvite(
+  connection: WebBillingConnection,
+  inviteId: string,
+): Promise<ControlInvite> {
+  return requestControl<ControlInvite>(
+    connection,
+    "authInviteDecline",
+    { inviteId },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        reason: "declined_from_portal_notifications",
+      }),
+    },
+  );
 }
 
 export async function createWorkspace(

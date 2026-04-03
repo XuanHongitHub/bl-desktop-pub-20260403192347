@@ -244,6 +244,18 @@ export interface InviteRecord {
   consumedAt: string | null;
 }
 
+export interface AuthInviteRecord {
+  id: string;
+  workspaceId: string;
+  workspaceName: string;
+  email: string;
+  role: WorkspaceRole;
+  expiresAt: string;
+  createdAt: string;
+  createdBy: string;
+  isExpired: boolean;
+}
+
 export interface ShareGrantRecord {
   id: string;
   workspaceId: string;

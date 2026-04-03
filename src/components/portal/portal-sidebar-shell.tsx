@@ -17,6 +17,7 @@ function mapAccountPathToSection(pathname: string): AppSection {
   if (pathname.startsWith("/account/plan")) return "pricing";
   if (pathname.startsWith("/account/billing")) return "pricing";
   if (pathname.startsWith("/account/invoices")) return "billing";
+  if (pathname.startsWith("/account/invites")) return "billing";
   if (pathname.startsWith("/account/settings")) return "settings";
   return "profiles";
 }

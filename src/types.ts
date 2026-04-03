@@ -270,6 +270,18 @@ export interface ControlInvite {
   consumedAt: string | null;
 }
 
+export interface ControlAuthInvite {
+  id: string;
+  workspaceId: string;
+  workspaceName: string;
+  email: string;
+  role: TeamRole;
+  expiresAt: string;
+  createdAt: string;
+  createdBy: string;
+  isExpired: boolean;
+}
+
 export interface ControlShareGrant {
   id: string;
   workspaceId: string;

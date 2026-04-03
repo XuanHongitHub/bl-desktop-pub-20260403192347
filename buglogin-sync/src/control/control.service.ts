@@ -20,6 +20,7 @@ import { Pool } from "pg";
 import { SyncService } from "../sync/sync.service.js";
 import type {
   AuditLogRecord,
+  AuthInviteRecord,
   AuthProvider,
   AuthUserRecord,
   BillingCancellationMode,
@@ -1794,6 +1795,91 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         createdAt: now,
       }
     );
+  }
+
+  listAuthInvites(actor: RequestActor): AuthInviteRecord[] {
+    const normalizedActorEmail = this.normalizeEmail(actor.email);
+    if (!normalizedActorEmail) {
+      return [];
+    }
+
+    return Array.from(this.invites.values())
+      .filter(
+        (invite) =>
+          invite.email === normalizedActorEmail && invite.consumedAt === null,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .map((invite) => {
+        const workspaceName =
+          this.workspaces.get(invite.workspaceId)?.name ?? invite.workspaceId;
+        const isExpired = new Date(invite.expiresAt).getTime() < Date.now();
+        return {
+          id: invite.id,
+          workspaceId: invite.workspaceId,
+          workspaceName,
+          email: invite.email,
+          role: invite.role,
+          expiresAt: invite.expiresAt,
+          createdAt: invite.createdAt,
+          createdBy: invite.createdBy,
+          isExpired,
+        };
+      });
+  }
+
+  acceptAuthInviteById(
+    inviteId: string,
+    actor: RequestActor,
+  ): MembershipRecord {
+    const normalizedInviteId = inviteId.trim();
+    if (!normalizedInviteId) {
+      throw new BadRequestException("invite_id_required");
+    }
+    const invite = Array.from(this.invites.values()).find(
+      (item) => item.id === normalizedInviteId,
+    );
+    if (!invite) {
+      throw new NotFoundException("invite_not_found");
+    }
+    return this.acceptInvite(invite.token, actor);
+  }
+
+  declineAuthInviteById(
+    inviteId: string,
+    actor: RequestActor,
+    reason: string,
+  ): InviteRecord {
+    const normalizedInviteId = inviteId.trim();
+    if (!normalizedInviteId) {
+      throw new BadRequestException("invite_id_required");
+    }
+    const invite = Array.from(this.invites.values()).find(
+      (item) => item.id === normalizedInviteId,
+    );
+    if (!invite) {
+      throw new NotFoundException("invite_not_found");
+    }
+    if (invite.consumedAt) {
+      throw new BadRequestException("invite_already_used");
+    }
+
+    const normalizedActorEmail = this.normalizeEmail(actor.email);
+    if (!normalizedActorEmail || invite.email !== normalizedActorEmail) {
+      throw new UnauthorizedException("permission_denied");
+    }
+
+    const normalizedReason = this.requireReason(reason);
+    invite.consumedAt = new Date().toISOString();
+    this.invites.set(invite.token, invite);
+    this.audit(
+      "invite.declined",
+      normalizedActorEmail,
+      invite.workspaceId,
+      invite.id,
+      normalizedReason,
+    );
+    this.persistState();
+    return invite;
   }
 
   createShareGrant(

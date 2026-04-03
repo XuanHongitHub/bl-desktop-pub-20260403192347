@@ -3734,6 +3734,33 @@
       "superAdmin": "Super Admin",
       "openMenu": "Open menu"
     },
+    "invites": {
+      "notificationsTitle": "Workspace invites",
+      "pageTitle": "Workspace invites",
+      "pageDescription": "Review collaboration invites and decide whether to join each workspace.",
+      "pendingCount": "{{count}} pending",
+      "totalCount": "{{count}} total",
+      "empty": "No invites available.",
+      "refresh": "Refresh",
+      "viewAll": "Open invite center",
+      "roleLabel": "Role: {{role}}",
+      "expiresAt": "Expires: {{at}}",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "Invite accepted.",
+      "declined": "Invite declined.",
+      "acceptFailed": "Failed to accept invite.",
+      "declineFailed": "Failed to decline invite.",
+      "loadFailed": "Failed to load invites.",
+      "connectionMissing": "Portal session is missing. Please sign in again.",
+      "columns": {
+        "workspace": "Workspace",
+        "role": "Role",
+        "expiresAt": "Expires",
+        "createdAt": "Invited at",
+        "actions": "Actions"
+      }
+    },
     "footer": {
       "title": "BugLogin Portal",
       "description": "The website layer that owns BugLogin marketing, authentication, checkout, account billing, and internal admin operations.",

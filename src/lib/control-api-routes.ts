@@ -27,6 +27,7 @@ function resolveControlApiPrefix(backend: ControlApiBackend): string {
 type RouteBuilderInput = {
   workspaceId?: string;
   userId?: string;
+  inviteId?: string;
   route?: "register" | "login" | "google";
   scope?: "member";
   checkoutSessionId?: string;
@@ -45,6 +46,9 @@ type RouteBuilderInput = {
 export function buildControlApiPath(
   routeKey:
     | "authMe"
+    | "authInvites"
+    | "authInviteAccept"
+    | "authInviteDecline"
     | "workspaces"
     | "publicAuth"
     | "adminOverview"
@@ -93,6 +97,12 @@ export function buildControlApiPath(
   switch (routeKey) {
     case "authMe":
       return `${prefix}/auth/me`;
+    case "authInvites":
+      return `${prefix}/auth/invites`;
+    case "authInviteAccept":
+      return `${prefix}/auth/invites/${encodeURIComponent(input.inviteId ?? "")}/accept`;
+    case "authInviteDecline":
+      return `${prefix}/auth/invites/${encodeURIComponent(input.inviteId ?? "")}/decline`;
     case "workspaces":
       return input.scope === "member"
         ? `${prefix}/workspaces?scope=member`
@@ -221,6 +231,9 @@ export function buildControlApiUrl(
   baseUrl: string,
   routeKey:
     | "authMe"
+    | "authInvites"
+    | "authInviteAccept"
+    | "authInviteDecline"
     | "workspaces"
     | "publicAuth"
     | "adminOverview"
