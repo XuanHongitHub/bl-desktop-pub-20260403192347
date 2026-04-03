@@ -85,6 +85,7 @@ import type {
   GroupWithCount,
   ProfileGroup,
   StoredProxy,
+  TeamRole,
   VpnConfig,
 } from "@/types";
 import { RippleButton } from "./ui/ripple";
