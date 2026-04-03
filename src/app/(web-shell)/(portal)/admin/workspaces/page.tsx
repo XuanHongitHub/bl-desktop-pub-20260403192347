@@ -321,7 +321,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#overview`}
+                              href={`/admin/workspaces/manage/${workspace.workspaceId}`}
                             >
                               {t("portalSite.admin.workspaces.actions.details")}
                             </Link>
@@ -333,7 +333,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#members`}
+                              href={`/admin/workspaces/manage/${workspace.workspaceId}?section=members`}
                             >
                               {t("portalSite.admin.workspaces.actions.members")}
                             </Link>
@@ -345,7 +345,7 @@ export default function AdminWorkspacesOverviewPage() {
                             className="h-7 px-2 text-xs"
                           >
                             <Link
-                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#subscription`}
+                              href={`/admin/workspaces/manage/${workspace.workspaceId}?section=subscription`}
                             >
                               {t("portalSite.admin.workspaces.actions.billing")}
                             </Link>

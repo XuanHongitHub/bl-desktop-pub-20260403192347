@@ -83,6 +83,8 @@ export default function AdminWorkspacesPage() {
   const { connection } = usePortalBillingData();
   const searchParams = useSearchParams();
   const initialWorkspaceId = searchParams.get("workspaceId")?.trim() ?? "";
+  const initialSection = searchParams.get("section")?.trim() ?? "";
+  const detailOnlyMode = searchParams.get("mode")?.trim() === "detail";
   const [rows, setRows] = useState<ControlAdminWorkspaceDetail[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
   const [selectedDetail, setSelectedDetail] =
@@ -237,6 +239,17 @@ export default function AdminWorkspacesPage() {
     }
     void refreshDetail(selectedWorkspaceId);
   }, [refreshDetail, selectedWorkspaceId]);
+
+  useEffect(() => {
+    if (!initialSection || detailLoading || !selectedDetail) {
+      return;
+    }
+    const node = document.getElementById(initialSection);
+    if (!node) {
+      return;
+    }
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [detailLoading, initialSection, selectedDetail]);
 
   const handleSaveWorkspace = async () => {
     if (!connection || !selectedDetail) {
@@ -479,6 +492,13 @@ export default function AdminWorkspacesPage() {
               {t("portalSite.admin.nav.workspaces")}
             </Link>
           </Button>
+          {detailOnlyMode ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/admin/workspaces/manage">
+                {t("portalSite.admin.workspaces.actions.manage")}
+              </Link>
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
@@ -658,246 +678,255 @@ export default function AdminWorkspacesPage() {
         </DialogContent>
       </Dialog>
 
-      <section className="mx-auto grid w-full max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="grid min-h-[760px] grid-rows-[auto_auto_minmax(0,1fr)_auto] rounded-xl border border-border bg-card">
-          <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_140px_160px_120px]">
-            <Input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder={t("portalSite.admin.workspaces.searchPlaceholder")}
-              className="h-9"
-            />
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => {
-                setStatusFilter(
-                  value as "all" | "active" | "past_due" | "canceled",
-                );
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t("portalSite.admin.workspaces.allStatuses")}
-                </SelectItem>
-                <SelectItem value="active">active</SelectItem>
-                <SelectItem value="past_due">past_due</SelectItem>
-                <SelectItem value="canceled">canceled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={planFilter}
-              onValueChange={(value) => {
-                setPlanFilter(
-                  value as
-                    | "all"
-                    | "free"
-                    | "starter"
-                    | "team"
-                    | "scale"
-                    | "enterprise",
-                );
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t("portalSite.admin.workspaces.allPlans")}
-                </SelectItem>
-                <SelectItem value="free">
-                  {getUnifiedPlanLabel({ planId: "free" })}
-                </SelectItem>
-                <SelectItem value="starter">
-                  {getUnifiedPlanLabel({ planId: "starter" })}
-                </SelectItem>
-                <SelectItem value="team">
-                  {getUnifiedPlanLabel({ planId: "team" })}
-                </SelectItem>
-                <SelectItem value="scale">
-                  {getUnifiedPlanLabel({ planId: "scale" })}
-                </SelectItem>
-                <SelectItem value="enterprise">
-                  {getUnifiedPlanLabel({ planId: "enterprise" })}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => {
-                setPageSize(Number(value));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-                <SelectItem value="200">200</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <section
+        className={cn(
+          "mx-auto grid w-full gap-4",
+          detailOnlyMode
+            ? "max-w-[1120px]"
+            : "max-w-[1440px] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]",
+        )}
+      >
+        {!detailOnlyMode ? (
+          <div className="grid min-h-[760px] grid-rows-[auto_auto_minmax(0,1fr)_auto] rounded-xl border border-border bg-card">
+            <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_140px_160px_120px]">
+              <Input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder={t("portalSite.admin.workspaces.searchPlaceholder")}
+                className="h-9"
+              />
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(
+                    value as "all" | "active" | "past_due" | "canceled",
+                  );
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("portalSite.admin.workspaces.allStatuses")}
+                  </SelectItem>
+                  <SelectItem value="active">active</SelectItem>
+                  <SelectItem value="past_due">past_due</SelectItem>
+                  <SelectItem value="canceled">canceled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={planFilter}
+                onValueChange={(value) => {
+                  setPlanFilter(
+                    value as
+                      | "all"
+                      | "free"
+                      | "starter"
+                      | "team"
+                      | "scale"
+                      | "enterprise",
+                  );
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("portalSite.admin.workspaces.allPlans")}
+                  </SelectItem>
+                  <SelectItem value="free">
+                    {getUnifiedPlanLabel({ planId: "free" })}
+                  </SelectItem>
+                  <SelectItem value="starter">
+                    {getUnifiedPlanLabel({ planId: "starter" })}
+                  </SelectItem>
+                  <SelectItem value="team">
+                    {getUnifiedPlanLabel({ planId: "team" })}
+                  </SelectItem>
+                  <SelectItem value="scale">
+                    {getUnifiedPlanLabel({ planId: "scale" })}
+                  </SelectItem>
+                  <SelectItem value="enterprise">
+                    {getUnifiedPlanLabel({ planId: "enterprise" })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => {
+                  setPageSize(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-            <Badge variant="outline">
-              {t("portalSite.admin.workspaces.table.total", {
-                count: summary.total,
-              })}
-            </Badge>
-            <Badge variant="outline">
-              {t("portalSite.admin.workspaces.table.showing", {
-                count: summary.visible,
-              })}
-            </Badge>
-            <Badge variant="outline">
-              {t("portalSite.admin.workspaces.table.active", {
-                count: summary.active,
-              })}
-            </Badge>
-            <Badge variant="secondary">
-              {t("portalSite.admin.workspaces.table.highRisk", {
-                count: summary.highRisk,
-              })}
-            </Badge>
-            <Badge variant="outline" className="ml-auto">
-              {t("portalSite.admin.workspaces.pagination.page", { page })}
-            </Badge>
-          </div>
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+              <Badge variant="outline">
+                {t("portalSite.admin.workspaces.table.total", {
+                  count: summary.total,
+                })}
+              </Badge>
+              <Badge variant="outline">
+                {t("portalSite.admin.workspaces.table.showing", {
+                  count: summary.visible,
+                })}
+              </Badge>
+              <Badge variant="outline">
+                {t("portalSite.admin.workspaces.table.active", {
+                  count: summary.active,
+                })}
+              </Badge>
+              <Badge variant="secondary">
+                {t("portalSite.admin.workspaces.table.highRisk", {
+                  count: summary.highRisk,
+                })}
+              </Badge>
+              <Badge variant="outline" className="ml-auto">
+                {t("portalSite.admin.workspaces.pagination.page", { page })}
+              </Badge>
+            </div>
 
-          <ScrollArea className="h-[560px]">
-            {loading ? (
-              <div className="p-3 text-sm text-muted-foreground">
-                {t("portalSite.admin.loading")}
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="p-3 text-sm text-muted-foreground">
-                {t("portalSite.account.workspaceEmpty")}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
-                  <TableRow>
-                    <TableHead className="w-[34%]">
-                      {t("portalSite.admin.columns.workspace")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.workspaces.panel.owner")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.workspaces.manage.plan")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.columns.status")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.columns.members")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.workspaces.manage.profileLimit")}
-                    </TableHead>
-                    <TableHead>
-                      {t("portalSite.admin.workspaces.table.risk")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((workspace) => {
-                    const selected =
-                      workspace.workspaceId === selectedWorkspaceId;
-                    const unifiedPlan = resolveUnifiedPlanId({
-                      planId: workspace.planId,
-                      planLabel: workspace.planLabel,
-                    });
-                    return (
-                      <TableRow
-                        key={workspace.workspaceId}
-                        className={cn(
-                          "cursor-pointer",
-                          selected
-                            ? "bg-muted/80 hover:bg-muted/80"
-                            : "hover:bg-muted/40",
-                        )}
-                        onClick={() =>
-                          setSelectedWorkspaceId(workspace.workspaceId)
-                        }
-                      >
-                        <TableCell className="align-top">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">
-                              {workspace.workspaceName}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {workspace.workspaceId}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[220px] truncate text-sm">
-                          {workspace.owner?.email ?? "--"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={getUnifiedPlanToneClass(unifiedPlan)}
-                          >
-                            {getUnifiedPlanLabel({
-                              planId: workspace.planId,
-                              planLabel: workspace.planLabel,
-                            })}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {workspace.subscriptionStatus}
-                        </TableCell>
-                        <TableCell>{workspace.members}</TableCell>
-                        <TableCell>{workspace.profileLimit}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              workspace.riskLevel === "high"
-                                ? "destructive"
-                                : "outline"
-                            }
-                            className="capitalize"
-                          >
-                            {workspace.riskLevel}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </ScrollArea>
-          <div className="flex items-center gap-2 border-t border-border p-4">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1 || loading}
-            >
-              {t("portalSite.admin.workspaces.pagination.prev")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPage((current) => current + 1)}
-              disabled={loading || page * pageSize >= totalRows}
-            >
-              {t("portalSite.admin.workspaces.pagination.next")}
-            </Button>
+            <ScrollArea className="h-[560px]">
+              {loading ? (
+                <div className="p-3 text-sm text-muted-foreground">
+                  {t("portalSite.admin.loading")}
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground">
+                  {t("portalSite.account.workspaceEmpty")}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow>
+                      <TableHead className="w-[34%]">
+                        {t("portalSite.admin.columns.workspace")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.workspaces.panel.owner")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.workspaces.manage.plan")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.columns.status")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.columns.members")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.workspaces.manage.profileLimit")}
+                      </TableHead>
+                      <TableHead>
+                        {t("portalSite.admin.workspaces.table.risk")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((workspace) => {
+                      const selected =
+                        workspace.workspaceId === selectedWorkspaceId;
+                      const unifiedPlan = resolveUnifiedPlanId({
+                        planId: workspace.planId,
+                        planLabel: workspace.planLabel,
+                      });
+                      return (
+                        <TableRow
+                          key={workspace.workspaceId}
+                          className={cn(
+                            "cursor-pointer",
+                            selected
+                              ? "bg-muted/80 hover:bg-muted/80"
+                              : "hover:bg-muted/40",
+                          )}
+                          onClick={() =>
+                            setSelectedWorkspaceId(workspace.workspaceId)
+                          }
+                        >
+                          <TableCell className="align-top">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {workspace.workspaceName}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {workspace.workspaceId}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[220px] truncate text-sm">
+                            {workspace.owner?.email ?? "--"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={getUnifiedPlanToneClass(unifiedPlan)}
+                            >
+                              {getUnifiedPlanLabel({
+                                planId: workspace.planId,
+                                planLabel: workspace.planLabel,
+                              })}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {workspace.subscriptionStatus}
+                          </TableCell>
+                          <TableCell>{workspace.members}</TableCell>
+                          <TableCell>{workspace.profileLimit}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                workspace.riskLevel === "high"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              className="capitalize"
+                            >
+                              {workspace.riskLevel}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+            <div className="flex items-center gap-2 border-t border-border p-4">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page <= 1 || loading}
+              >
+                {t("portalSite.admin.workspaces.pagination.prev")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={loading || page * pageSize >= totalRows}
+              >
+                {t("portalSite.admin.workspaces.pagination.next")}
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="rounded-xl border border-border bg-card">
           {!selectedWorkspaceId ? (

@@ -1,17 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listAdminMemberships } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { listAdminMemberships } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlAdminMembershipItem } from "@/types";
+import type { ControlAdminMembershipItem, TeamRole } from "@/types";
 
 export default function AdminMembershipsPage() {
   const { t } = useTranslation();
@@ -19,6 +34,7 @@ export default function AdminMembershipsPage() {
   const [rows, setRows] = useState<ControlAdminMembershipItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | TeamRole>("all");
 
   const refresh = useCallback(async () => {
     if (!connection) {
@@ -30,7 +46,7 @@ export default function AdminMembershipsPage() {
       const payload = await listAdminMemberships(connection, {
         q: query.trim() || undefined,
         page: 1,
-        pageSize: 200,
+        pageSize: 300,
       });
       setRows(payload.items ?? []);
     } catch (error) {
@@ -50,6 +66,14 @@ export default function AdminMembershipsPage() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
+  const filtered = useMemo(
+    () =>
+      rows.filter((row) =>
+        roleFilter === "all" ? true : row.role === roleFilter,
+      ),
+    [roleFilter, rows],
+  );
+
   return (
     <PortalSettingsPage
       eyebrow={t("portalSite.admin.eyebrow")}
@@ -61,68 +85,130 @@ export default function AdminMembershipsPage() {
         </Button>
       }
     >
-      <section className="mx-auto w-full max-w-[1180px] space-y-4">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center gap-2">
+      <section className="mx-auto w-full max-w-[1280px] space-y-4">
+        <div className="rounded-xl border border-border bg-card">
+          <div className="grid gap-2 border-b border-border p-4 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("portalSite.admin.memberships.search")}
-              className="h-9 w-full sm:max-w-sm"
+              className="h-9"
             />
-            <Badge variant="outline">
-              {t("portalSite.admin.memberships.memberCount", { count: rows.length })}
+            <Select
+              value={roleFilter}
+              onValueChange={(value) =>
+                setRoleFilter(value as "all" | TeamRole)
+              }
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="owner">owner</SelectItem>
+                <SelectItem value="admin">admin</SelectItem>
+                <SelectItem value="member">member</SelectItem>
+                <SelectItem value="viewer">viewer</SelectItem>
+              </SelectContent>
+            </Select>
+            <Badge variant="outline" className="w-fit">
+              {t("portalSite.admin.memberships.memberCount", {
+                count: filtered.length,
+              })}
             </Badge>
           </div>
-        </div>
 
-        <div className="rounded-xl border border-border bg-card">
-          <ScrollArea className="h-[680px]">
-            <div className="divide-y divide-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t("portalSite.adminUsers.columns.email")}
+                </TableHead>
+                <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
+                <TableHead>{t("portalSite.adminUsers.columns.role")}</TableHead>
+                <TableHead>{t("portalSite.admin.columns.time")}</TableHead>
+                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <div className="p-4 text-sm text-muted-foreground">
-                  {t("portalSite.admin.loading")}
-                </div>
-              ) : rows.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">
-                  {t("portalSite.admin.memberships.empty")}
-                </div>
-              ) : (
-                rows.map((row) => (
-                  <div
-                    key={`${row.workspaceId}:${row.userId}`}
-                    className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_112px_160px]"
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-sm text-muted-foreground"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {row.email}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.userId}
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {row.workspaceName}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.workspaceId}
-                      </p>
-                    </div>
-                    <div className="flex items-center">
+                    {t("portalSite.admin.loading")}
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-sm text-muted-foreground"
+                  >
+                    {t("portalSite.admin.memberships.empty")}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((row) => (
+                  <TableRow key={`${row.workspaceId}:${row.userId}`}>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{row.email}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {row.userId}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {row.workspaceName}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {row.workspaceId}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className="capitalize">
                         {t(`portalSite.adminUsers.roles.${row.role}`)}
                       </Badge>
-                    </div>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>{formatLocaleDateTime(row.createdAt)}</p>
-                      <p>{row.authProvider}</p>
-                    </div>
-                  </div>
+                    </TableCell>
+                    <TableCell>{formatLocaleDateTime(row.createdAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Link
+                            href={`/admin/workspaces/manage/${row.workspaceId}?section=members`}
+                          >
+                            Workspace
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Link
+                            href={`/admin/users/manage?userId=${row.userId}`}
+                          >
+                            User
+                          </Link>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </div>
-          </ScrollArea>
+            </TableBody>
+          </Table>
         </div>
       </section>
     </PortalSettingsPage>
