@@ -1,16 +1,18 @@
 "use client";
 
 import {
-  createElement,
   createContext,
+  createElement,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
+  getAuthMeProfile,
   getWorkspaceBillingState,
   listWorkspaces,
   type WebBillingConnection,
@@ -46,6 +48,7 @@ function parseGoogleProfile(raw: string | null): GooglePortalProfile | null {
 
 function usePortalBillingDataState() {
   const session = usePortalSessionStore();
+  const authProfileRefreshKeyRef = useRef<string | null>(null);
   const [workspaces, setWorkspaces] = useState<WebBillingWorkspaceListItem[]>(
     [],
   );
@@ -122,6 +125,66 @@ function usePortalBillingDataState() {
       return;
     }
   }, []);
+
+  useEffect(() => {
+    if (!connection || !session) {
+      return;
+    }
+
+    const refreshKey = [
+      connection.controlBaseUrl,
+      connection.controlToken,
+      connection.userId,
+      connection.userEmail,
+    ].join("|");
+    if (authProfileRefreshKeyRef.current === refreshKey) {
+      return;
+    }
+    authProfileRefreshKeyRef.current = refreshKey;
+
+    let canceled = false;
+    void (async () => {
+      try {
+        const profile = await getAuthMeProfile(connection);
+        if (canceled) {
+          return;
+        }
+        const nextRole =
+          profile.platformRole === "platform_admin" ? "platform_admin" : null;
+        const hasSessionChange =
+          profile.id !== session.user.id ||
+          profile.email !== session.user.email ||
+          profile.id !== session.connection.userId ||
+          profile.email !== session.connection.userEmail ||
+          nextRole !== (session.user.platformRole ?? null) ||
+          nextRole !== (session.connection.platformRole ?? null);
+        if (!hasSessionChange) {
+          return;
+        }
+        writePortalSessionStorage({
+          ...session,
+          user: {
+            ...session.user,
+            id: profile.id,
+            email: profile.email,
+            platformRole: nextRole,
+          },
+          connection: {
+            ...session.connection,
+            userId: profile.id,
+            userEmail: profile.email,
+            platformRole: nextRole,
+          },
+        });
+      } catch {
+        // Ignore auth profile refresh failures and keep existing session.
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [connection, session]);
 
   const loadWorkspaces = useCallback(
     async (connectionInput: WebBillingConnection) => {

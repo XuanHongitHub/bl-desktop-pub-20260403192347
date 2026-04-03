@@ -218,6 +218,7 @@ function buildHeaders(
 async function requestControl<T>(
   connection: WebBillingConnection,
   routeKey:
+    | "authMe"
     | "workspaces"
     | "adminOverview"
     | "adminWorkspaceHealth"
@@ -305,6 +306,20 @@ export async function listWorkspaces(
       method: "GET",
     },
   );
+}
+
+export async function getAuthMeProfile(
+  connection: WebBillingConnection,
+): Promise<{
+  id: string;
+  email: string;
+  platformRole: "platform_admin" | null;
+}> {
+  return requestControl<{
+    id: string;
+    email: string;
+    platformRole: "platform_admin" | null;
+  }>(connection, "authMe", {}, { method: "GET" });
 }
 
 export async function createWorkspace(
