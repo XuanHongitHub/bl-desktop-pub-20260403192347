@@ -20,10 +20,27 @@ cd buglogin-sync
 pnpm build
 cd ..
 
-pm2 delete buglogin-web >/dev/null 2>&1 || true
-pm2 delete buglogin-api >/dev/null 2>&1 || true
+if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
+  echo "Missing Next.js production build artifact (.next/BUILD_ID). Abort deploy."
+  exit 1
+fi
 
-pm2 start pnpm --name buglogin-web --cwd "$APP_DIR" -- exec next start -p 3003
-pm2 start pnpm --name buglogin-api --cwd "$APP_DIR/buglogin-sync" -- start:prod
+if [ ! -f "$APP_DIR/buglogin-sync/dist/main.js" ]; then
+  echo "Missing API production build artifact (buglogin-sync/dist/main.js). Abort deploy."
+  exit 1
+fi
+
+if pm2 describe buglogin-web >/dev/null 2>&1; then
+  pm2 restart buglogin-web --update-env
+else
+  pm2 start pnpm --name buglogin-web --cwd "$APP_DIR" -- exec next start -p 3003
+fi
+
+if pm2 describe buglogin-api >/dev/null 2>&1; then
+  pm2 restart buglogin-api --update-env
+else
+  pm2 start pnpm --name buglogin-api --cwd "$APP_DIR/buglogin-sync" -- start:prod
+fi
+
 pm2 save
 pm2 status
