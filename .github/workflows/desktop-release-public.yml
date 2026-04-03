@@ -26,7 +26,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 90
-    env:
+    env: &desktop_env
       BUGLOGIN_BROWSER_API_BASE: https://api.gnohh.com
       NEXT_PUBLIC_SYNC_SERVER_URL: https://api.gnohh.com
       NEXT_PUBLIC_WEB_PORTAL_URL: https://gnohh.com
@@ -57,7 +57,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-          shared-key: "buglogin-desktop-public-release"
+          shared-key: buglogin-desktop-public-release-win
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -80,8 +80,66 @@ jobs:
           path: dist-release/*
           if-no-files-found: error
 
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env: *desktop_env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: buglogin-desktop-public-release-macos
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build macOS installer (DMG)
+        run: pnpm tauri build --bundles dmg
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist-release
+          cp -f src-tauri/target/release/bundle/dmg/* dist-release/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: buglogin-desktop-macos-dmg
+          path: dist-release/*
+          if-no-files-found: error
+
+  create-release:
+    needs:
+      - build-windows
+      - build-macos
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || inputs.publish_release }}
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          merge-multiple: true
+
       - name: Create GitHub release
-        if: ${{ github.event_name == 'push' || inputs.publish_release }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
