@@ -1,7 +1,7 @@
-import { NestFactory } from "@nestjs/core";
-import { json, urlencoded } from "express";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
+import { NestFactory } from "@nestjs/core";
+import { json, urlencoded } from "express";
 import { AppModule } from "./app.module.js";
 
 export const LOCAL_CONTROL_DEFAULT_TOKEN = "dev-sync-token-change-me";
@@ -96,10 +96,16 @@ export function applyEmbeddedLocalControlDefaults(
 export function validateEnv(env: NodeJS.ProcessEnv = process.env) {
   const missing: string[] = [];
 
-  if (!hasNonEmptyValue(env.SYNC_TOKEN) && !hasNonEmptyValue(env.SYNC_JWT_PUBLIC_KEY)) {
+  if (
+    !hasNonEmptyValue(env.SYNC_TOKEN) &&
+    !hasNonEmptyValue(env.SYNC_JWT_PUBLIC_KEY)
+  ) {
     missing.push("SYNC_TOKEN or SYNC_JWT_PUBLIC_KEY");
   }
-  if (!hasNonEmptyValue(env.CONTROL_API_TOKEN) && !hasNonEmptyValue(env.SYNC_TOKEN)) {
+  if (
+    !hasNonEmptyValue(env.CONTROL_API_TOKEN) &&
+    !hasNonEmptyValue(env.SYNC_TOKEN)
+  ) {
     missing.push("CONTROL_API_TOKEN or SYNC_TOKEN");
   }
   if (!hasNonEmptyValue(env.BUGLOGIN_RELEASE_API_TOKEN)) {
@@ -125,7 +131,7 @@ async function bootstrap() {
   const allowedOrigins = resolveCorsOrigins();
   app.enableCors({
     origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -153,7 +159,10 @@ function isDirectExecution(): boolean {
   };
 
   if (typeof require !== "undefined" && require.main) {
-    return normalizeEntrypoint(require.main.filename) === normalizeEntrypoint(entrypoint);
+    return (
+      normalizeEntrypoint(require.main.filename) ===
+      normalizeEntrypoint(entrypoint)
+    );
   }
 
   return normalizeEntrypoint(entrypoint).endsWith("main.js");

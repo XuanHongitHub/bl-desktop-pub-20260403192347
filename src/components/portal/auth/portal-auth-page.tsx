@@ -632,7 +632,13 @@ export function PortalAuthPage({
 
               <CardContent className="mx-auto w-full max-w-[440px] space-y-4 p-6 md:p-8">
                 {authView === "login" ? (
-                  <div className="space-y-4">
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleSignIn();
+                    }}
+                  >
                     <div className="space-y-3">
                       <Label
                         htmlFor="portal-login-email"
@@ -724,9 +730,8 @@ export function PortalAuthPage({
                     </label>
 
                     <Button
-                      type="button"
+                      type="submit"
                       className={AUTH_ACTION_BUTTON_CLASS}
-                      onClick={handleSignIn}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
@@ -778,11 +783,17 @@ export function PortalAuthPage({
                         {t("authLanding.signUpCta")}
                       </Button>
                     </p>
-                  </div>
+                  </form>
                 ) : null}
 
                 {authView === "register" ? (
-                  <div className="space-y-4">
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleRegister();
+                    }}
+                  >
                     <div className="space-y-2.5">
                       <Label
                         htmlFor="portal-register-name"
@@ -906,21 +917,24 @@ export function PortalAuthPage({
                     </div>
 
                     <Button
-                      type="button"
+                      type="submit"
                       className={AUTH_ACTION_BUTTON_CLASS}
-                      onClick={() => {
-                        void handleRegister();
-                      }}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
                       {t("authLanding.registerAction")}
                     </Button>
-                  </div>
+                  </form>
                 ) : null}
 
                 {authView === "forgot" ? (
-                  <div className="space-y-4">
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleForgotPassword();
+                    }}
+                  >
                     <div className="space-y-2.5">
                       <Label
                         htmlFor="portal-forgot-email"
@@ -947,11 +961,8 @@ export function PortalAuthPage({
 
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Button
-                        type="button"
+                        type="submit"
                         className="h-10 text-sm font-medium"
-                        onClick={() => {
-                          void handleForgotPassword();
-                        }}
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
@@ -969,7 +980,7 @@ export function PortalAuthPage({
                         {t("authDialog.back")}
                       </Button>
                     </div>
-                  </div>
+                  </form>
                 ) : null}
               </CardContent>
 
