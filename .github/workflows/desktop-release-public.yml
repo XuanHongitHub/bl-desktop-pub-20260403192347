@@ -1,25 +1,21 @@
-name: Desktop Release (Public Repo)
+name: Packaging Matrix
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag (for example v0.17.1-desktop.1)"
+        description: "Release tag for target repo (for example v1.0.0)"
         required: true
-      publish_release:
-        description: "Create GitHub Release"
+      target_repo:
+        description: "Target repository (owner/name)"
         required: true
-        type: boolean
-        default: true
-  push:
-    tags:
-      - "v*-desktop*"
+        default: "keyduc91/Malvanut-Login"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: packaging-matrix-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -124,12 +120,11 @@ jobs:
           path: dist-release/*
           if-no-files-found: error
 
-  create-release:
+  publish-to-target:
     needs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || inputs.publish_release }}
     steps:
       - name: Download workflow artifacts
         uses: actions/download-artifact@v4
@@ -137,9 +132,28 @@ jobs:
           path: dist-release
           merge-multiple: true
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
-          generate_release_notes: true
-          files: dist-release/*
+      - name: Publish release in target repository
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
+          TARGET_REPO: ${{ inputs.target_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "TARGET_REPO_TOKEN secret is not configured."
+            exit 1
+          fi
+          if [ -z "${TARGET_REPO:-}" ]; then
+            echo "target_repo input is required."
+            exit 1
+          fi
+          if [ -z "${RELEASE_TAG:-}" ]; then
+            echo "release_tag input is required."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --clobber
+          else
+            gh release create "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --title "$RELEASE_TAG" --notes "Automated desktop package release."
+          fi
