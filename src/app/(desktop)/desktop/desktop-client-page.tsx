@@ -21,6 +21,7 @@ import {
 } from "@/components/profiles-workspace-chrome";
 import { Button } from "@/components/ui/button";
 import { PageLoader, PageLoaderOverlay } from "@/components/ui/page-loader";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkspacePageShell } from "@/components/workspace-page-shell";
 import { useAppUpdateNotifications } from "@/hooks/use-app-update-notifications";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
@@ -30,7 +31,6 @@ import { useProfileEvents } from "@/hooks/use-profile-events";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useUpdateNotifications } from "@/hooks/use-update-notifications";
-import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { useWayfernTerms } from "@/hooks/use-wayfern-terms";
 import { getBrowserDisplayName } from "@/lib/browser-utils";
 import { extractRootError } from "@/lib/error-utils";
@@ -157,20 +157,12 @@ const GroupAssignmentDialog = dynamic(
   { ssr: false },
 );
 
-const GroupManagementPanel = dynamic(
+const GroupManagementDialog = dynamic(
   () =>
     import("@/components/group-management-dialog").then(
-      (mod) => mod.GroupManagementPanel,
+      (mod) => mod.GroupManagementDialog,
     ),
-  { ssr: false, loading: () => <PageLoader className="min-h-0 flex-1" /> },
-);
-
-const IntegrationsDialog = dynamic(
-  () =>
-    import("@/components/integrations-dialog").then(
-      (mod) => mod.IntegrationsDialog,
-    ),
-  { ssr: false, loading: () => <PageLoader /> },
+  { ssr: false },
 );
 
 const LaunchOnLoginDialog = dynamic(
@@ -343,13 +335,13 @@ type ProfileViewMode = "active" | "archived";
 const ALL_GROUP_ID = "all";
 const FREE_WORKSPACE_PROFILE_LIMIT = 3;
 const PLAN_PROFILE_LIMIT_FALLBACK: Record<
-  "starter" | "growth" | "scale" | "custom",
+  "starter" | "team" | "scale" | "enterprise",
   number
 > = {
   starter: 100,
-  growth: 300,
+  team: 300,
   scale: 1000,
-  custom: 2000,
+  enterprise: 2000,
 };
 const WORKSPACE_SWITCH_MIN_DURATION_MS = 1100;
 const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 700;
@@ -417,7 +409,6 @@ const APP_SECTION_VALUES: AppSection[] = [
   "workspace-admin-analytics",
   "workspace-governance",
   "settings",
-  "integrations",
   "admin-overview",
   "admin-workspace",
   "admin-billing",
@@ -803,13 +794,10 @@ export default function Home() {
     isSuperAdminPanelActive;
   const [hasHydratedGroupData, setHasHydratedGroupData] = useState(true);
   const [hasHydratedProxyData, setHasHydratedProxyData] = useState(false);
-  const [hasHydratedVpnData, setHasHydratedVpnData] = useState(false);
   const shouldLoadProfileGroupData =
     isProfilesSectionActive && hasHydratedGroupData;
   const shouldLoadProxyEntityData =
     hasHydratedProxyData || isProfilesSectionActive || isBugideaSectionActive;
-  const shouldLoadVpnEntityData =
-    hasHydratedVpnData || isProfilesSectionActive || isBugideaSectionActive;
   const shouldLoadWorkspaceProfileUsage = shouldLoadWorkspaceEntityData;
   const shouldLoadWorkspaceSwitcherData = false;
   const shouldSeedWorkspaceScopes = shouldLoadWorkspaceEntityData;
@@ -822,7 +810,6 @@ export default function Home() {
     isLoading: profilesLoading,
     error: profilesError,
     loadProfiles: reloadProfiles,
-    loadGroups: reloadGroups,
   } = useProfileEvents({
     enabled: shouldLoadWorkspaceEntityData,
     includeGroups: shouldLoadProfileGroupData,
@@ -839,14 +826,8 @@ export default function Home() {
     includeUsage: false,
   });
 
-  const {
-    vpnConfigs,
-    isLoading: vpnConfigsLoading,
-    loadVpnConfigs: reloadVpnConfigs,
-  } = useVpnEvents({
-    enabled: shouldLoadVpnEntityData,
-    includeUsage: false,
-  });
+  const vpnConfigs: never[] = [];
+  const vpnConfigsLoading = false;
 
   // Wayfern terms hooks
   const {
@@ -1753,6 +1734,8 @@ export default function Home() {
     useState(false);
   const [extensionManagementDialogOpen, setExtensionManagementDialogOpen] =
     useState(false);
+  const [groupManagementDialogOpen, setGroupManagementDialogOpen] =
+    useState(false);
   const [groupAssignmentDialogOpen, setGroupAssignmentDialogOpen] =
     useState(false);
   const [
@@ -1858,7 +1841,6 @@ export default function Home() {
       proxyAssignmentDialogOpen
     ) {
       setHasHydratedProxyData(true);
-      setHasHydratedVpnData(true);
     }
   }, [normalizedActiveSection, proxyAssignmentDialogOpen]);
 
@@ -2841,12 +2823,11 @@ export default function Home() {
           );
           setHasHydratedGroupData(true);
           setHasHydratedProxyData(true);
-          setHasHydratedVpnData(true);
           setActiveSection("profiles-create");
         },
       );
 
-      // Listen for custom logo click events
+      // Listen for enterprise logo click events
       const handleLogoUrlEvent = (event: CustomEvent) => {
         console.log("Received logo URL event:", event.detail);
         void handleUrlOpenRef.current(event.detail);
@@ -3426,7 +3407,6 @@ export default function Home() {
         return;
       }
       setHasHydratedProxyData(true);
-      setHasHydratedVpnData(true);
       setSelectedProfilesForProxy(profileIds);
       setProxyAssignmentDialogOpen(true);
     },
@@ -3816,7 +3796,9 @@ export default function Home() {
     }
 
     if (showPinnedOnly) {
-      filtered = filtered.filter((profile) => pinnedProfileIdsSet.has(profile.id));
+      filtered = filtered.filter((profile) =>
+        pinnedProfileIdsSet.has(profile.id),
+      );
     }
 
     filtered.sort((left, right) => {
@@ -3877,6 +3859,211 @@ export default function Home() {
   const isLoading = profilesLoading;
   const sidebarActiveSection: AppSection =
     activeSection === "profiles-create" ? "profiles" : activeSection;
+  const profilesWorkspaceActions = (
+    <ProfilesWorkspaceHeaderActions
+      onCreateProfileDialogOpen={(open) => {
+        if (!open) {
+          return;
+        }
+        setHasHydratedGroupData(true);
+        setHasHydratedProxyData(true);
+        setActiveSection("profiles-create");
+      }}
+      onGroupsPageOpen={() => setActiveSection("groups")}
+      onImportProfileDialogOpen={setImportProfileDialogOpen}
+      onProxyPageOpen={() => setActiveSection("proxies")}
+      onSettingsPageOpen={() => setActiveSection("settings")}
+      onSyncConfigDialogOpen={setSyncConfigDialogOpen}
+      onExtensionManagementDialogOpen={setExtensionManagementDialogOpen}
+      extensionManagementUnlocked={extensionManagementUnlocked}
+    />
+  );
+  const profilesWorkspaceToolbar = (
+    <ProfilesWorkspaceToolbar
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      selectedGroupId={selectedGroupId}
+      groups={groupsData}
+      onSelectedGroupChange={handleSelectGroup}
+      savedViews={savedViews}
+      onCreateSavedView={handleCreateSavedView}
+      onApplySavedView={handleApplySavedView}
+      onDeleteSavedView={handleDeleteSavedView}
+      profileViewMode={profileViewMode}
+      onToggleProfileViewMode={() =>
+        setProfileViewMode((prev) =>
+          prev === "active" ? "archived" : "active",
+        )
+      }
+      archivedCount={archivedProfileIds.length}
+      pinnedCount={pinnedProfileIds.length}
+      showPinnedOnly={showPinnedOnly}
+      onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
+    />
+  );
+  const profilesWorkspaceContent = (
+    <>
+      {filteredProfiles.length === 0 &&
+        profiles.length > 0 &&
+        hasProfileVisibilityFilters && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              {t("profiles.filteredStateHint", {
+                visible: filteredProfiles.length,
+                total: profiles.length,
+                hidden: hiddenProfilesCount,
+              })}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2.5 text-xs"
+              onClick={handleResetProfileVisibilityFilters}
+            >
+              {t("profiles.resetFilters")}
+            </Button>
+          </div>
+        )}
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ProfilesDataTable
+            profiles={filteredProfiles}
+            isLoading={isLoading}
+            onLaunchProfile={launchProfile}
+            onKillProfile={handleKillProfile}
+            onCloneProfile={handleCloneProfile}
+            onDeleteProfile={handleDeleteProfile}
+            onRenameProfile={handleRenameProfile}
+            onConfigureCamoufox={handleConfigureCamoufox}
+            onCopyCookiesToProfile={handleCopyCookiesToProfile}
+            onOpenCookieManagement={handleOpenCookieManagement}
+            runningProfiles={runningProfiles}
+            isUpdating={isUpdating}
+            onDeleteSelectedProfiles={handleDeleteSelectedProfiles}
+            onAssignProfilesToGroup={handleAssignProfilesToGroup}
+            selectedGroupId={selectedGroupId}
+            onSelectionChange={updateSelectedProfilesRef}
+            selectionResetNonce={selectionResetNonce}
+            onBulkDelete={handleBulkDelete}
+            onBulkGroupAssignment={handleBulkGroupAssignment}
+            onBulkProxyAssignment={handleBulkProxyAssignment}
+            onBulkCopyCookies={handleBulkCopyCookies}
+            onBulkExtensionGroupAssignment={handleBulkExtensionGroupAssignment}
+            onBulkArchive={handleArchiveSelectedProfiles}
+            onAssignExtensionGroup={handleAssignExtensionGroup}
+            onOpenProxyCenter={() => setActiveSection("proxies")}
+            onOpenProfileSyncDialog={handleOpenProfileSyncDialog}
+            onToggleProfileSync={handleToggleProfileSync}
+            onArchiveProfile={handleArchiveProfile}
+            onRestoreProfile={handleRestoreProfile}
+            isProfileArchived={(profileId) =>
+              archivedProfileIdsSet.has(profileId)
+            }
+            onPinProfile={handlePinProfile}
+            onUnpinProfile={handleUnpinProfile}
+            isProfilePinned={(profileId) => pinnedProfileIdsSet.has(profileId)}
+            workspaceRole={selectedWorkspaceRole}
+            fallbackTeamRole={teamRole}
+            currentUserId={cloudUser?.id ?? null}
+            isEntitlementReadOnly={isReadOnly}
+            crossOsUnlocked={crossOsUnlocked}
+            extensionManagementUnlocked={extensionManagementUnlocked}
+            cookieManagementUnlocked={cookieManagementUnlocked}
+            syncUnlocked={syncUnlocked}
+            storedProxies={storedProxies}
+            vpnConfigs={vpnConfigs}
+            isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
+          />
+        </div>
+      </div>
+    </>
+  );
+  const groupSidebarItems = useMemo(() => {
+    const nonSpecialGroups = groupsData.filter(
+      (group) => group.id !== ALL_GROUP_ID && group.id !== "default",
+    );
+    const defaultGroup = groupsData.find((group) => group.id === "default");
+    return [
+      {
+        id: ALL_GROUP_ID,
+        name: t("groups.all"),
+        count: profiles.length,
+      },
+      ...(defaultGroup
+        ? [
+            {
+              id: "default",
+              name: defaultGroup.name || t("common.labels.default"),
+              count: defaultGroup.count ?? 0,
+            },
+          ]
+        : []),
+      ...nonSpecialGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        count: group.count ?? 0,
+      })),
+    ];
+  }, [groupsData, profiles.length, t]);
+  const groupsWorkspaceContent = (
+    <div className="flex min-h-0 flex-1 items-start gap-3">
+      <aside className="flex h-full w-[280px] shrink-0 flex-col rounded-md border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <p className="text-sm font-medium text-foreground">
+            {t("groups.title")}
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2.5 text-xs"
+            onClick={() => setGroupManagementDialogOpen(true)}
+          >
+            {t("groups.management")}
+          </Button>
+        </div>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-1 p-2">
+            {groupSidebarItems.map((group) => {
+              const isActive = selectedGroupId === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => handleSelectGroup(group.id)}
+                  className={`flex w-full items-center justify-between rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
+                    isActive
+                      ? "border-border bg-muted text-foreground"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  <span className="truncate">{group.name}</span>
+                  <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                    {group.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </aside>
+      <section className="min-h-0 min-w-0 flex-1 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            {t("groupManagementDialog.description")}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => setGroupManagementDialogOpen(true)}
+          >
+            {t("groups.management")}
+          </Button>
+        </div>
+        {profilesWorkspaceContent}
+      </section>
+    </div>
+  );
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -3884,9 +4071,13 @@ export default function Home() {
         return (
           <WorkspacePageShell
             title={t("shell.sections.groups")}
-            contentClassName="w-full max-w-none space-y-4 pb-0"
+            actions={profilesWorkspaceActions}
+            toolbar={profilesWorkspaceToolbar}
+            shellClassName="gap-2.5"
+            toolbarClassName="mt-2"
+            contentClassName="max-w-none space-y-2.5 pb-0"
           >
-            <GroupManagementPanel />
+            {groupsWorkspaceContent}
           </WorkspacePageShell>
         );
       case "proxies":
@@ -3902,7 +4093,6 @@ export default function Home() {
           <SettingsDialog
             isOpen={true}
             onClose={() => void 0}
-            onIntegrationsOpen={() => setActiveSection("integrations")}
             onSectionOpen={setActiveSection}
             onSyncConfigOpen={() => setSyncConfigDialogOpen(true)}
             canUseEncryption={syncEncryptionUnlocked}
@@ -3983,14 +4173,6 @@ export default function Home() {
           </WorkspacePageShell>
         );
       }
-      case "integrations":
-        return (
-          <IntegrationsDialog
-            isOpen={true}
-            onClose={() => void 0}
-            mode="page"
-          />
-        );
       case "billing":
         if (!canManageSelectedWorkspaceBilling) {
           return (
@@ -4192,133 +4374,13 @@ export default function Home() {
         return (
           <WorkspacePageShell
             title={t("shell.sections.profiles")}
-            actions={
-              <ProfilesWorkspaceHeaderActions
-                onCreateProfileDialogOpen={(open) => {
-                  if (!open) {
-                    return;
-                  }
-                  setHasHydratedGroupData(true);
-                  setHasHydratedProxyData(true);
-                  setHasHydratedVpnData(true);
-                  setActiveSection("profiles-create");
-                }}
-                onGroupsPageOpen={() => setActiveSection("groups")}
-                onImportProfileDialogOpen={setImportProfileDialogOpen}
-                onProxyPageOpen={() => setActiveSection("proxies")}
-                onSettingsPageOpen={() => setActiveSection("settings")}
-                onSyncConfigDialogOpen={setSyncConfigDialogOpen}
-                onIntegrationsPageOpen={() => setActiveSection("integrations")}
-                onExtensionManagementDialogOpen={
-                  setExtensionManagementDialogOpen
-                }
-                extensionManagementUnlocked={extensionManagementUnlocked}
-              />
-            }
-            toolbar={
-              <ProfilesWorkspaceToolbar
-                searchQuery={searchQuery}
-                onSearchQueryChange={setSearchQuery}
-                selectedGroupId={selectedGroupId}
-                groups={groupsData}
-                onSelectedGroupChange={handleSelectGroup}
-                savedViews={savedViews}
-                onCreateSavedView={handleCreateSavedView}
-                onApplySavedView={handleApplySavedView}
-                onDeleteSavedView={handleDeleteSavedView}
-                profileViewMode={profileViewMode}
-                onToggleProfileViewMode={() =>
-                  setProfileViewMode((prev) =>
-                    prev === "active" ? "archived" : "active",
-                  )
-                }
-                archivedCount={archivedProfileIds.length}
-                pinnedCount={pinnedProfileIds.length}
-                showPinnedOnly={showPinnedOnly}
-                onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
-              />
-            }
+            actions={profilesWorkspaceActions}
+            toolbar={profilesWorkspaceToolbar}
             shellClassName="gap-2.5"
             toolbarClassName="mt-2"
             contentClassName="max-w-none space-y-2.5 pb-0"
           >
-            {filteredProfiles.length === 0 &&
-              profiles.length > 0 &&
-              hasProfileVisibilityFilters && (
-                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2">
-                  <p className="text-xs text-muted-foreground">
-                    {t("profiles.filteredStateHint", {
-                      visible: filteredProfiles.length,
-                      total: profiles.length,
-                      hidden: hiddenProfilesCount,
-                    })}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2.5 text-xs"
-                    onClick={handleResetProfileVisibilityFilters}
-                  >
-                    {t("profiles.resetFilters")}
-                  </Button>
-                </div>
-              )}
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <div className="flex min-h-0 flex-1 flex-col">
-                <ProfilesDataTable
-                  profiles={filteredProfiles}
-                  isLoading={isLoading}
-                  onLaunchProfile={launchProfile}
-                  onKillProfile={handleKillProfile}
-                  onCloneProfile={handleCloneProfile}
-                  onDeleteProfile={handleDeleteProfile}
-                  onRenameProfile={handleRenameProfile}
-                  onConfigureCamoufox={handleConfigureCamoufox}
-                  onCopyCookiesToProfile={handleCopyCookiesToProfile}
-                  onOpenCookieManagement={handleOpenCookieManagement}
-                  runningProfiles={runningProfiles}
-                  isUpdating={isUpdating}
-                  onDeleteSelectedProfiles={handleDeleteSelectedProfiles}
-                  onAssignProfilesToGroup={handleAssignProfilesToGroup}
-                  selectedGroupId={selectedGroupId}
-                  onSelectionChange={updateSelectedProfilesRef}
-                  selectionResetNonce={selectionResetNonce}
-                  onBulkDelete={handleBulkDelete}
-                  onBulkGroupAssignment={handleBulkGroupAssignment}
-                  onBulkProxyAssignment={handleBulkProxyAssignment}
-                  onBulkCopyCookies={handleBulkCopyCookies}
-                  onBulkExtensionGroupAssignment={
-                    handleBulkExtensionGroupAssignment
-                  }
-                  onBulkArchive={handleArchiveSelectedProfiles}
-                  onAssignExtensionGroup={handleAssignExtensionGroup}
-                  onOpenProxyCenter={() => setActiveSection("proxies")}
-                  onOpenProfileSyncDialog={handleOpenProfileSyncDialog}
-                  onToggleProfileSync={handleToggleProfileSync}
-                  onArchiveProfile={handleArchiveProfile}
-                  onRestoreProfile={handleRestoreProfile}
-                  isProfileArchived={(profileId) =>
-                    archivedProfileIdsSet.has(profileId)
-                  }
-                  onPinProfile={handlePinProfile}
-                  onUnpinProfile={handleUnpinProfile}
-                  isProfilePinned={(profileId) =>
-                    pinnedProfileIdsSet.has(profileId)
-                  }
-                  workspaceRole={selectedWorkspaceRole}
-                  fallbackTeamRole={teamRole}
-                  currentUserId={cloudUser?.id ?? null}
-                  isEntitlementReadOnly={isReadOnly}
-                  crossOsUnlocked={crossOsUnlocked}
-                  extensionManagementUnlocked={extensionManagementUnlocked}
-                  cookieManagementUnlocked={cookieManagementUnlocked}
-                  syncUnlocked={syncUnlocked}
-                  storedProxies={storedProxies}
-                  vpnConfigs={vpnConfigs}
-                  isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
-                />
-              </div>
-            </div>
+            {profilesWorkspaceContent}
           </WorkspacePageShell>
         );
     }
@@ -4506,6 +4568,17 @@ export default function Home() {
         />
       )}
 
+      {groupManagementDialogOpen && (
+        <GroupManagementDialog
+          isOpen={groupManagementDialogOpen}
+          onClose={() => setGroupManagementDialogOpen(false)}
+          onGroupManagementComplete={() => {
+            setGroupManagementDialogOpen(false);
+            void reloadProfiles();
+          }}
+        />
+      )}
+
       {groupAssignmentDialogOpen && (
         <GroupAssignmentDialog
           isOpen={groupAssignmentDialogOpen}
@@ -4541,7 +4614,6 @@ export default function Home() {
           onAssignmentComplete={handleProxyAssignmentComplete}
           profiles={profiles}
           storedProxies={storedProxies}
-          vpnConfigs={vpnConfigs}
         />
       )}
 

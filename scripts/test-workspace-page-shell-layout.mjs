@@ -5,7 +5,7 @@ const source = readFileSync("src/components/workspace-page-shell.tsx", "utf8");
 
 assert.match(
   source,
-  /<div className="(?=[^"]*\bflex-1\b)(?=[^"]*\bmin-h-0\b)(?=[^"]*\bmin-w-0\b)(?=[^"]*\bflex-col\b)[^"]*"/,
+  /className=\{cn\(\s*"[^"]*flex[^"]*min-h-0[^"]*min-w-0[^"]*flex-1[^"]*flex-col[^"]*overflow-hidden[^"]*"/,
   "Workspace page shell should expand with flex-1 so page-mode content gets a real scroll height",
 );
 
@@ -35,7 +35,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /w-full space-y-6 pr-4 pb-8 md:pr-6/,
+  /w-full space-y-3 pr-2\.5 pb-3 md:pr-3/,
   "Workspace page shell should keep a small content gutter without moving the scrollbar off the edge",
 );
 

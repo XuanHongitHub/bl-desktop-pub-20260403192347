@@ -8,19 +8,18 @@ import {
   LuCloud,
   LuPin,
   LuPinOff,
-  LuPlug,
   LuPuzzle,
   LuSearch,
   LuUsers,
   LuX,
 } from "react-icons/lu";
-import { cn } from "@/lib/utils";
 import {
   GROUP_APPEARANCE_STORAGE_KEY,
   GROUP_APPEARANCE_UPDATED_EVENT,
   readGroupAppearanceMap,
   sanitizeGroupColor,
 } from "@/lib/group-appearance-store";
+import { cn } from "@/lib/utils";
 import type { GroupWithCount } from "@/types";
 import { Button } from "./ui/button";
 import {
@@ -52,7 +51,6 @@ type HeaderActionsProps = {
   onImportProfileDialogOpen: (open: boolean) => void;
   onCreateProfileDialogOpen: (open: boolean) => void;
   onSyncConfigDialogOpen: (open: boolean) => void;
-  onIntegrationsPageOpen: () => void;
   onExtensionManagementDialogOpen: (open: boolean) => void;
   extensionManagementUnlocked?: boolean;
 };
@@ -116,9 +114,7 @@ function SavedViewsMenu({
       <DropdownMenuContent align="start" className="w-60">
         <DropdownMenuItem
           onClick={onCreateSavedView}
-          disabled={
-            !searchQuery.trim() && selectedGroupId === "all"
-          }
+          disabled={!searchQuery.trim() && selectedGroupId === "all"}
         >
           <GoPlus className="mr-2 h-4 w-4" />
           {t("header.savedViews.saveCurrent")}
@@ -162,7 +158,6 @@ export function ProfilesWorkspaceHeaderActions({
   onImportProfileDialogOpen,
   onCreateProfileDialogOpen,
   onSyncConfigDialogOpen,
-  onIntegrationsPageOpen,
   onExtensionManagementDialogOpen,
   extensionManagementUnlocked = false,
 }: HeaderActionsProps) {
@@ -235,14 +230,6 @@ export function ProfilesWorkspaceHeaderActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              onIntegrationsPageOpen();
-            }}
-          >
-            <LuPlug className="mr-2 h-4 w-4" />
-            {t("header.menu.integrations")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
               onImportProfileDialogOpen(true);
             }}
           >
@@ -284,7 +271,9 @@ export function ProfilesWorkspaceToolbar({
   onTogglePinnedOnly,
 }: ToolbarProps) {
   const { t } = useTranslation();
-  const [groupColorById, setGroupColorById] = useState<Record<string, string>>({});
+  const [groupColorById, setGroupColorById] = useState<Record<string, string>>(
+    {},
+  );
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
   useEffect(() => {
@@ -357,7 +346,8 @@ export function ProfilesWorkspaceToolbar({
                   <span
                     className="h-2 w-2 rounded-full border border-border/60"
                     style={{
-                      backgroundColor: groupColorById[group.id] ?? "transparent",
+                      backgroundColor:
+                        groupColorById[group.id] ?? "transparent",
                     }}
                   />
                   <span>{group.name}</span>

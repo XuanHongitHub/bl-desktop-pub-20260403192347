@@ -144,6 +144,13 @@ function normalizeEmail(input) {
   return value.includes("@") ? value : "";
 }
 
+function extractPrimaryEmail(input) {
+  const value = String(input || "").trim();
+  if (!value) return "";
+  const first = value.split("|")[0]?.trim() || "";
+  return normalizeEmail(first);
+}
+
 function splitPipe(value) {
   return String(value || "")
     .split("|")
@@ -167,9 +174,9 @@ function deriveSeedContext(seed) {
   const hotmailBundle = pickSeedValue(payload, ["hotmail", "email", "mail", "apiMail"]);
   const hotmailParts = splitPipe(hotmailBundle);
   const email =
-    normalizeEmail(pickSeedValue(payload, ["email", "mail", "hotmail"])) ||
+    extractPrimaryEmail(pickSeedValue(payload, ["email", "mail", "hotmail"])) ||
     normalizeEmail(hotmailParts[0]) ||
-    normalizeEmail(pickSeedValue(raw, ["hotmail", "mail", "email"]));
+    extractPrimaryEmail(pickSeedValue(raw, ["hotmail", "mail", "email"]));
   const phoneFromPayload = pickSeedValue(payload, ["phone", "phoneNumber"]);
   const phone = normalizeDigits(
     phoneFromPayload.includes("----")
@@ -299,6 +306,8 @@ function createAutoState() {
     otpAttempted: false,
     otpFilled: false,
     otpSubmitted: false,
+    otpLastSubmittedCode: "",
+    otpCandidateCode: "",
     registerSubmitted: false,
     businessInfoFilled: false,
     businessSubmitted: false,
@@ -360,11 +369,32 @@ async function safeClick(locator) {
   }
 }
 
+async function safeClickVisible(locator) {
+  try {
+    const item = locator.first();
+    const visible = await item.isVisible();
+    if (!visible) return false;
+    await item.click({ timeout: 1500 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function fallbackClickButtonByText(page, candidates) {
   return page
     .evaluate((texts) => {
       const list = Array.from(document.querySelectorAll("button"));
       for (const button of list) {
+        const style = window.getComputedStyle(button);
+        const rect = button.getBoundingClientRect();
+        const visible =
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          Number(style.opacity || "1") > 0 &&
+          rect.width > 0 &&
+          rect.height > 0;
+        if (!visible) continue;
         const content = String(button.textContent || "").trim().toLowerCase();
         if (!content) continue;
         const disabled = button.disabled || button.getAttribute("aria-disabled") === "true";
@@ -585,19 +615,133 @@ async function fallbackFillLoginIdentifier(page, value) {
 
 function extractOtpCode(text) {
   const source = String(text || "");
-  const direct = source.match(/\b(\d{4,8})\b/);
-  if (direct) {
-    return direct[1];
+  const contextual = source.match(
+    /\b(?:verification\s*code|verify\s*code|otp|code)\b[^\d]{0,24}(\d{4,8})\b/i,
+  );
+  if (contextual) {
+    return contextual[1];
+  }
+  const reverseContextual = source.match(
+    /\b(\d{4,8})\b[^\n\r]{0,48}\b(?:verification\s*code|verify\s*code|otp|code)\b/i,
+  );
+  if (reverseContextual) {
+    return reverseContextual[1];
+  }
+  const all = Array.from(source.matchAll(/\b(\d{4,8})\b/g));
+  if (all.length > 0) {
+    return all[0]?.[1] || "";
   }
   return "";
 }
 
-async function fetchOtpCode(endpoint) {
-  const target = String(endpoint || "").trim();
-  if (!target || !/^https?:\/\//i.test(target)) {
+function parseMailOauth2Bundle(rawSource) {
+  const source = String(rawSource || "").trim();
+  if (!source || !source.includes("@")) {
+    return null;
+  }
+  const parts = source
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+  if (parts.length < 3) {
+    return null;
+  }
+
+  const email = parts.find((part) => part.includes("@")) || "";
+  if (!email) {
+    return null;
+  }
+
+  let refreshToken = "";
+  let clientId = "";
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  for (const part of parts) {
+    if (!refreshToken && /^M\./.test(part)) {
+      refreshToken = part;
+    }
+    if (!clientId && uuidRegex.test(part)) {
+      clientId = part;
+    }
+  }
+  if (!refreshToken || !clientId) {
+    return null;
+  }
+  return {
+    email,
+    refreshToken,
+    clientId,
+  };
+}
+
+function extractOtpCodeFromDongvanMessages(payload) {
+  if (!payload || typeof payload !== "object") {
     return "";
   }
+  const value = payload;
+  const messages = Array.isArray(value.messages) ? value.messages : [];
+  for (const message of messages) {
+    const sender = Array.isArray(message?.from)
+      ? message.from
+          .map((entry) => `${entry?.address || ""} ${entry?.name || ""}`.toLowerCase())
+          .join(" ")
+      : "";
+    const subject = String(message?.subject || "").toLowerCase();
+    const isTiktok = sender.includes("tiktok") || subject.includes("tiktok");
+    if (!isTiktok) {
+      continue;
+    }
+    const fromCode = extractOtpCode(message?.code || "");
+    if (fromCode) {
+      return fromCode;
+    }
+    const fromContent = extractOtpCode(
+      `${message?.subject || ""} ${message?.message || ""} ${message?.content || ""}`,
+    );
+    if (fromContent) {
+      return fromContent;
+    }
+  }
+  return extractOtpCode(JSON.stringify(payload));
+}
+
+async function fetchOtpCode(endpoint) {
+  const source = String(endpoint || "").trim();
+  if (!source) {
+    return "";
+  }
+
   try {
+    const oauth2Bundle = parseMailOauth2Bundle(source);
+    if (oauth2Bundle) {
+      const response = await fetch("https://tools.dongvanfb.net/api/get_messages_oauth2", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json,text/plain,*/*",
+        },
+        body: JSON.stringify({
+          email: oauth2Bundle.email,
+          refresh_token: oauth2Bundle.refreshToken,
+          client_id: oauth2Bundle.clientId,
+          list_mail: "all",
+        }),
+      });
+      if (!response.ok) {
+        return "";
+      }
+      const payload = await response.json().catch(() => null);
+      if (!payload) {
+        return "";
+      }
+      return extractOtpCodeFromDongvanMessages(payload);
+    }
+
+    if (!/^https?:\/\//i.test(source)) {
+      return extractOtpCode(source);
+    }
+
+    const target = source;
     const response = await fetch(target, {
       method: "GET",
       headers: { accept: "application/json,text/plain,*/*" },
@@ -625,6 +769,10 @@ async function fetchOtpCode(endpoint) {
         const code = extractOtpCode(candidate);
         if (code) return code;
       }
+      const fromPayload = extractOtpCode(JSON.stringify(json));
+      if (fromPayload) {
+        return fromPayload;
+      }
       return "";
     }
     const text = await response.text();
@@ -647,6 +795,109 @@ async function fillOtpInputs(page, otpCode) {
   const code = String(otpCode || "").replace(/[^\d]/g, "").slice(0, 8);
   if (!code || code.length < 4) return false;
 
+  // Strategy 1 (preferred): focus the left-most OTP cell and type naturally.
+  // Most OTP widgets auto-advance caret; this keeps strict left-to-right input.
+  const typedFromFirstCell = await page
+    .evaluate((rawCode) => {
+      const allInputs = Array.from(document.querySelectorAll("input"));
+      const otpLike = allInputs.filter((input) => {
+        if (!(input instanceof HTMLInputElement)) return false;
+        const type = String(input.type || "").toLowerCase();
+        const maxLength = Number(input.maxLength || 0);
+        const inputMode = String(input.getAttribute("inputmode") || "").toLowerCase();
+        const name = String(input.getAttribute("name") || "").toLowerCase();
+        const id = String(input.getAttribute("id") || "").toLowerCase();
+        const placeholder = String(input.getAttribute("placeholder") || "").toLowerCase();
+        const ariaLabel = String(input.getAttribute("aria-label") || "").toLowerCase();
+        const rect = input.getBoundingClientRect();
+        const visibleEnough = rect.width >= 10 && rect.height >= 10;
+        return (
+          input.offsetParent !== null &&
+          visibleEnough &&
+          (maxLength === 1 ||
+            inputMode.includes("numeric") ||
+            name.includes("otp") ||
+            name.includes("code") ||
+            id.includes("otp") ||
+            id.includes("code") ||
+            placeholder.includes("code") ||
+            ariaLabel.includes("code")) &&
+          (type === "text" || type === "tel" || type === "number" || type === "")
+        );
+      });
+      if (otpLike.length < 4) {
+        return false;
+      }
+      otpLike.sort((a, b) => {
+        const aRect = a.getBoundingClientRect();
+        const bRect = b.getBoundingClientRect();
+        if (Math.abs(aRect.top - bRect.top) > 2) {
+          return aRect.top - bRect.top;
+        }
+        return aRect.left - bRect.left;
+      });
+      const first = otpLike[0];
+      if (!(first instanceof HTMLInputElement)) {
+        return false;
+      }
+      first.focus();
+      first.click();
+      first.value = "";
+      first.dispatchEvent(new Event("input", { bubbles: true }));
+      first.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    }, code)
+    .catch(() => false);
+  if (typedFromFirstCell) {
+    try {
+      await page.keyboard.type(code, { delay: 45 });
+      const looksFilled = await page
+        .evaluate((rawCode) => {
+          const targetDigits = String(rawCode || "")
+            .replace(/[^\d]/g, "")
+            .slice(0, 8);
+          const allInputs = Array.from(document.querySelectorAll("input"));
+          const otpLike = allInputs.filter((input) => {
+            if (!(input instanceof HTMLInputElement)) return false;
+            const rect = input.getBoundingClientRect();
+            const visibleEnough = rect.width >= 10 && rect.height >= 10;
+            const maxLength = Number(input.maxLength || 0);
+            const inputMode = String(input.getAttribute("inputmode") || "").toLowerCase();
+            const name = String(input.getAttribute("name") || "").toLowerCase();
+            const id = String(input.getAttribute("id") || "").toLowerCase();
+            const placeholder = String(input.getAttribute("placeholder") || "").toLowerCase();
+            return (
+              input.offsetParent !== null &&
+              visibleEnough &&
+              (maxLength === 1 ||
+                inputMode.includes("numeric") ||
+                name.includes("otp") ||
+                name.includes("code") ||
+                id.includes("otp") ||
+                id.includes("code") ||
+                placeholder.includes("code"))
+            );
+          });
+          otpLike.sort((a, b) => {
+            const aRect = a.getBoundingClientRect();
+            const bRect = b.getBoundingClientRect();
+            if (Math.abs(aRect.top - bRect.top) > 2) return aRect.top - bRect.top;
+            return aRect.left - bRect.left;
+          });
+          const collected = otpLike
+            .slice(0, Math.min(otpLike.length, targetDigits.length))
+            .map((input) => String(input.value || "").trim())
+            .join("");
+          if (!collected) return false;
+          return collected.length >= Math.min(4, targetDigits.length);
+        }, code)
+        .catch(() => false);
+      if (looksFilled) return true;
+    } catch {
+      // Continue with direct assignment fallback below.
+    }
+  }
+
   const filledGrouped = await page
     .evaluate((rawCode) => {
       const digits = rawCode.split("");
@@ -660,8 +911,11 @@ async function fillOtpInputs(page, otpCode) {
         const id = String(input.getAttribute("id") || "").toLowerCase();
         const placeholder = String(input.getAttribute("placeholder") || "").toLowerCase();
         const ariaLabel = String(input.getAttribute("aria-label") || "").toLowerCase();
+        const rect = input.getBoundingClientRect();
+        const visibleEnough = rect.width >= 10 && rect.height >= 10;
         return (
           input.offsetParent !== null &&
+          visibleEnough &&
           (maxLength === 1 ||
             inputMode.includes("numeric") ||
             name.includes("otp") ||
@@ -740,13 +994,35 @@ async function hasBlockingCaptchaModal(page) {
 async function fillPasswordPair(page, password) {
   const value = String(password || "").trim();
   if (!value) return false;
-  return page
+  const filledByDom = await page
     .evaluate((pass) => {
       const passwordInputs = Array.from(
-        document.querySelectorAll("input[type='password'], input[name*='password' i], input[id*='password' i]"),
-      ).filter((node) => node instanceof HTMLInputElement && node.offsetParent !== null);
+        document.querySelectorAll(
+          [
+            "input[type='password']",
+            "input[name*='password' i]",
+            "input[id*='password' i]",
+            "input[placeholder*='password' i]",
+            "input[autocomplete*='password' i]",
+            "input[data-testid*='password' i]",
+          ].join(", "),
+        ),
+      ).filter((node) => {
+        if (!(node instanceof HTMLInputElement)) return false;
+        if (node.offsetParent === null) return false;
+        if (node.disabled || node.readOnly) return false;
+        const rect = node.getBoundingClientRect();
+        return rect.width >= 10 && rect.height >= 10;
+      });
       if (passwordInputs.length === 0) return false;
+      passwordInputs.sort((a, b) => {
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        if (Math.abs(ra.top - rb.top) > 2) return ra.top - rb.top;
+        return ra.left - rb.left;
+      });
       const targets = passwordInputs.slice(0, 2);
+      let filledCount = 0;
       for (const input of targets) {
         input.focus();
         input.value = "";
@@ -754,10 +1030,44 @@ async function fillPasswordPair(page, password) {
         input.value = pass;
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(new Event("blur", { bubbles: true }));
+        if (String(input.value || "").trim()) {
+          filledCount += 1;
+        }
       }
-      return true;
+      if (targets.length < 2) {
+        // In some builds, confirm field appears slightly later. Retry on next tick.
+        return false;
+      }
+      return filledCount >= 2;
     }, value)
     .catch(() => false);
+  if (filledByDom) return true;
+
+  // Fallback for controlled inputs that ignore direct DOM value assignment.
+  const fallbackSelector = [
+    "input[type='password']",
+    "input[name*='password' i]",
+    "input[id*='password' i]",
+    "input[placeholder*='password' i]",
+    "input[autocomplete*='password' i]",
+    "input[data-testid*='password' i]",
+  ].join(", ");
+  const candidates = page.locator(fallbackSelector);
+  const total = await safeCount(candidates);
+  if (total < 2) return false;
+  let filled = 0;
+  for (let i = 0; i < total; i += 1) {
+    const input = candidates.nth(i);
+    const isVisible = await input.isVisible().catch(() => false);
+    if (!isVisible) continue;
+    const isEnabled = await input.isEnabled().catch(() => false);
+    if (!isEnabled) continue;
+    const ok = await safeFill(input, value);
+    if (ok) filled += 1;
+    if (filled >= 2) break;
+  }
+  return filled >= 2;
 }
 
 function splitNameParts(fullName) {
@@ -1303,6 +1613,7 @@ function canAttemptStep(state, step, action, cooldownMs, maxAttempts = 2) {
 async function detectSellerStep(page) {
   return page
     .evaluate(() => {
+      const href = String(window.location?.href || "").toLowerCase();
       const body = String(document.body?.innerText || "").toLowerCase();
       const has = (selector) => !!document.querySelector(selector);
       if (body.includes("what type of business do you operate")) {
@@ -1325,7 +1636,12 @@ async function detectSellerStep(page) {
       }
       if (body.includes("enter verification code")) return "otp";
       if (body.includes("set your password")) return "password";
-      if (has("#phone_email_input") || has("input[placeholder*='phone number or email' i]")) {
+      if (
+        has("#phone_email_input") ||
+        has("input[placeholder*='phone number or email' i]") ||
+        body.includes("phone number or email") ||
+        (href.includes("/account/register") && body.includes("sign up"))
+      ) {
         return "register";
       }
       if (
@@ -1343,6 +1659,7 @@ async function detectSellerStep(page) {
       ) {
         return "ein_verify";
       }
+      if (href.includes("/account/register")) return "register";
       return "unknown";
     })
     .catch(() => "unknown");
@@ -1357,6 +1674,15 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   const configuredContactMode = String(options.contactMode || "auto").toLowerCase();
   const entryMode = String(options.entryMode || "register").toLowerCase();
   const allowEinSubmit = Boolean(options.allowEinSubmit);
+  const resolvePreferredContactMode = () =>
+    state.forcedContactMode ||
+    (configuredContactMode === "phone" || configuredContactMode === "email"
+      ? configuredContactMode
+      : seedContext.email
+        ? "email"
+        : seedContext.phone
+          ? "phone"
+          : "");
   if (!page || page.isClosed()) return;
   const currentUrl = page.url();
   const isSellerRegister = /seller-us\.tiktok\.com\/account\/register/i.test(currentUrl);
@@ -1389,8 +1715,9 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   };
 
   if (/maximum number of attempts reached|try again later/i.test(bodyText)) {
+    const activeMode = resolvePreferredContactMode();
     if (
-      !state.forcedContactMode &&
+      activeMode === "phone" &&
       seedContext.email &&
       (configuredContactMode === "auto" || configuredContactMode === "phone")
     ) {
@@ -1401,6 +1728,22 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         stage: "register_entry",
         action: "switch_contact_mode",
         result: "rate_limited_phone_switch_to_email",
+        url: page.url(),
+      });
+      return;
+    }
+    if (
+      activeMode === "email" &&
+      seedContext.phone &&
+      (configuredContactMode === "auto" || configuredContactMode === "email")
+    ) {
+      state.forcedContactMode = "phone";
+      state.recordedContact = false;
+      state.registerSubmitted = false;
+      await emitAutoEvent(events, {
+        stage: "register_entry",
+        action: "switch_contact_mode",
+        result: "rate_limited_email_switch_to_phone",
         url: page.url(),
       });
       return;
@@ -1879,6 +2222,14 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
 
   // Country pre-confirm modal on first entry.
   if (isSellerRegister && canAttempt(state, "country_confirm", 2500)) {
+    const isCountryModalVisible = await page
+      .locator("[data-uid*='confirmmarketmodal'], .theme-arco-modal-wrapper")
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!isCountryModalVisible) {
+      // No modal shown, skip country-confirm logic to avoid misclick loops.
+    } else {
     let didConfirm = false;
     const confirmButtons = [
       page.locator("button", { hasText: "Confirm" }),
@@ -1886,7 +2237,7 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
     ];
     for (const button of confirmButtons) {
       if ((await safeCount(button)) === 0) continue;
-      const clicked = await safeClick(button);
+      const clicked = await safeClickVisible(button);
       if (clicked) {
         didConfirm = true;
         await emitAutoEvent(events, {
@@ -1910,18 +2261,11 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         url: page.url(),
       });
     }
+    }
   }
 
   // Step 1: account register input.
-  const preferredContactMode =
-    state.forcedContactMode ||
-    (configuredContactMode === "phone" || configuredContactMode === "email"
-      ? configuredContactMode
-      : seedContext.phone
-        ? "phone"
-        : seedContext.email
-          ? "email"
-          : "");
+  const preferredContactMode = resolvePreferredContactMode();
   if (currentStep === "register" && entryMode === "tiktok_existing") {
     if (manualGated) {
       await emitAutoEvent(events, {
@@ -2054,11 +2398,32 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         ? seedContext.phoneApiEndpoint || seedContext.apiPhone
         : seedContext.emailApiEndpoint || seedContext.apiMail;
     const otpCode = await fetchOtpCode(otpEndpoint);
+    await emitAutoEvent(events, {
+      stage: "otp",
+      action: "fetch_otp",
+      result: otpCode ? "received" : "empty",
+      source: preferredContactMode,
+      endpoint: otpEndpoint ? String(otpEndpoint).slice(0, 120) : "",
+      codePreview: otpCode ? `${String(otpCode).slice(0, 2)}**` : "",
+      url: page.url(),
+    });
     if (otpCode) {
+      const normalizedOtpCode = String(otpCode || "").replace(/[^\d]/g, "");
+      if (normalizedOtpCode && normalizedOtpCode === state.otpLastSubmittedCode) {
+        await emitAutoEvent(events, {
+          stage: "otp",
+          action: "skip_stale_otp",
+          result: "same_as_last_submitted",
+          codePreview: `${normalizedOtpCode.slice(0, 2)}**`,
+          url: page.url(),
+        });
+        return;
+      }
       const filled = await fillOtpInputs(page, otpCode);
       if (filled) {
         state.otpAttempted = true;
         state.otpFilled = true;
+        state.otpCandidateCode = normalizedOtpCode;
         await emitAutoEvent(events, {
           stage: "otp",
           action: "fill_otp",
@@ -2095,6 +2460,7 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
       const clicked = await safeClick(button);
       if (clicked) {
         state.otpSubmitted = true;
+        state.otpLastSubmittedCode = String(state.otpCandidateCode || "");
         await emitAutoEvent(events, {
           stage: "otp",
           action: "submit_otp",
@@ -2103,6 +2469,50 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         });
         break;
       }
+    }
+  }
+
+  if (
+    currentStep === "otp" &&
+    state.otpSubmitted &&
+    canAttemptStep(state, currentStep, "otp_retry_after_submit", 7000, 4)
+  ) {
+    const stillOtpVisible = await page
+      .evaluate(() => {
+        const text = String(document.body?.innerText || "").toLowerCase();
+        const inputs = Array.from(document.querySelectorAll("input")).filter((el) => {
+          if (!(el instanceof HTMLInputElement)) return false;
+          const id = String(el.id || "").toLowerCase();
+          const name = String(el.name || "").toLowerCase();
+          const placeholder = String(el.placeholder || "").toLowerCase();
+          const type = String(el.type || "").toLowerCase();
+          return (
+            (id.includes("otp") ||
+              id.includes("code") ||
+              name.includes("otp") ||
+              name.includes("code") ||
+              placeholder.includes("code")) &&
+            (type === "text" || type === "tel" || type === "number" || type === "")
+          );
+        });
+        return text.includes("enter verification code") || inputs.length >= 4;
+      })
+      .catch(() => false);
+
+    if (stillOtpVisible) {
+      const clickedResend = await fallbackClickButtonByText(page, [
+        "resend the code",
+        "resend code",
+        "send code again",
+      ]);
+      state.otpFilled = false;
+      state.otpSubmitted = false;
+      await emitAutoEvent(events, {
+        stage: "otp",
+        action: "retry_after_submit",
+        result: clickedResend ? "resend_clicked" : "reset_without_resend",
+        url: page.url(),
+      });
     }
   }
 
@@ -2381,6 +2791,15 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   }
 
   if (currentStep === "unknown" && canAttemptStep(state, currentStep, "generic_progress", 4500, 12)) {
+    if (isSellerRegister) {
+      await emitAutoEvent(events, {
+        stage: "unknown",
+        action: "generic_progress",
+        result: "skipped_register_guard",
+        url: page.url(),
+      });
+      return;
+    }
     const isBusinessTypePage = await page
       .evaluate(() =>
         String(document.body?.innerText || "")
@@ -2474,6 +2893,8 @@ async function main() {
   const startUrl = args["start-url"] || "https://seller-us.tiktok.com/account/register";
   const browserType = String(args["browser-type"] || "firefox").toLowerCase();
   const executablePath = args["executable-path"]?.trim();
+  const extensionPath = args["extension-path"]?.trim();
+  const omoKey = args["omo-key"]?.trim();
   const proxyValue = args.proxy?.trim() || "";
   const maxDurationSeconds = Number(args["max-duration-seconds"] || 0);
   const snapshotIntervalSeconds = Number(args["snapshot-interval-seconds"] || 8);
@@ -2518,6 +2939,8 @@ async function main() {
     browserType,
     headless,
     executablePath: executablePath || "",
+    extensionPath: extensionPath || "",
+    omoKeySet: Boolean(omoKey),
     proxy: proxyValue || "",
     maxDurationSeconds,
     snapshotIntervalSeconds,
@@ -2544,6 +2967,13 @@ async function main() {
     headless,
     ...(executablePath ? { executablePath } : {}),
   };
+  const resolvedExtensionPath = browserType === "chromium" && extensionPath ? path.resolve(extensionPath) : "";
+  if (browserType === "chromium" && extensionPath) {
+    launchOptions.args = [
+      `--disable-extensions-except=${resolvedExtensionPath}`,
+      `--load-extension=${resolvedExtensionPath}`,
+    ];
+  }
   const parsedProxy = parseProxyValue(proxyValue);
   if (parsedProxy?.server) {
     launchOptions.proxy = {
@@ -2551,6 +2981,40 @@ async function main() {
       ...(parsedProxy.username ? { username: parsedProxy.username } : {}),
       ...(parsedProxy.password ? { password: parsedProxy.password } : {}),
     };
+  }
+
+  // For Firefox: extension XPI is installed in the userDataDir's extensions/
+  // folder. Launch a temporary persistent session to apply the OMO key URL so
+  // the extension can persist it in the profile's storage.
+  if (browserType === "firefox" && userDataDir && omoKey) {
+    // For Firefox: extension XPI is installed in the userDataDir's extensions/
+    // folder. Launch a temporary persistent session to apply the OMO key URL so
+    // the extension can persist it in the profile's storage.
+    try {
+      const firefoxLaunchOptions = {
+        headless,
+        ...(executablePath ? { executablePath } : {}),
+        ...(parsedProxy?.server ? { proxy: launchOptions.proxy } : {}),
+      };
+      const keyContext = await firefox.launchPersistentContext(path.resolve(userDataDir), {
+        ...firefoxLaunchOptions,
+        viewport: null,
+        locale: "en-US",
+      });
+      const keyPage = await keyContext.newPage();
+      const keyUrl = `https://omocaptcha.com/set-key/?api_key=${encodeURIComponent(omoKey)}`;
+      await keyPage.goto(keyUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await keyPage.waitForTimeout(2000);
+      await events.write({ kind: "extension_key_apply", status: "ok", keyUrl, browserType: "firefox" });
+      await keyContext.close().catch(() => {});
+    } catch (error) {
+      await events.write({
+        kind: "extension_key_apply",
+        status: "error",
+        browserType: "firefox",
+        error: String(error?.message || error || "unknown"),
+      });
+    }
   }
 
   const contextOptions = {
@@ -2643,6 +3107,30 @@ async function main() {
   });
 
   const page = context.pages()[0] ?? (await context.newPage());
+
+  // Ensure OMO key is applied inside the same automation context.
+  // This avoids key state being lost when a separate short-lived browser is used.
+  if (browserType === "chromium" && resolvedExtensionPath && omoKey) {
+    try {
+      const keyPage = await context.newPage();
+      const keyUrl = `https://omocaptcha.com/set-key/?api_key=${encodeURIComponent(omoKey)}`;
+      await keyPage.goto(keyUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await keyPage.waitForTimeout(1500);
+      await events.write({
+        kind: "extension_key_apply_context",
+        status: "ok",
+        keyUrl,
+      });
+      await keyPage.close().catch(() => {});
+    } catch (error) {
+      await events.write({
+        kind: "extension_key_apply_context",
+        status: "error",
+        error: String(error?.message || error || "unknown"),
+      });
+    }
+  }
+
   page.on("request", async (request) => {
     await events.write({
       kind: "request",
@@ -2681,6 +3169,13 @@ async function main() {
     autoIntervalSeconds,
     seedContext,
   });
+  if (browserType === "chromium" && extensionPath) {
+    await events.write({
+      kind: "extension_config",
+      extensionPath: path.resolve(extensionPath),
+      omoKeySet: Boolean(omoKey),
+    });
+  }
   await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 120000 });
   await events.write({ kind: "first_page_ready", url: page.url(), title: await page.title() });
   await captureSnapshot(page, outputDir, events);
@@ -2693,6 +3188,28 @@ async function main() {
   while (Date.now() < endAt) {
     if (context.pages().length === 0) {
       await events.write({ kind: "no_open_pages" });
+      if (keepOpen) {
+        try {
+          const recoveredPage = await context.newPage();
+          await recoveredPage.goto(startUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 45000,
+          });
+          await events.write({
+            kind: "page_recovered",
+            url: recoveredPage.url(),
+          });
+          lastSnapshot = 0;
+          lastAutomationTick = 0;
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
+        } catch (recoveryError) {
+          await events.write({
+            kind: "page_recover_failed",
+            error: String(recoveryError?.message || recoveryError),
+          });
+        }
+      }
       break;
     }
     if (Date.now() - lastSnapshot >= snapshotIntervalSeconds * 1000) {
@@ -2717,7 +3234,7 @@ async function main() {
       }
       lastAutomationTick = Date.now();
     }
-    await page.waitForTimeout(1000);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   if (hasDurationLimit && Date.now() >= endAt) {
@@ -2736,7 +3253,7 @@ async function main() {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       if (context.pages().length === 0) break;
-      await page.waitForTimeout(1000);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 

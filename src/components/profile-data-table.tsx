@@ -102,6 +102,7 @@ import {
 } from "@/lib/group-appearance-store";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { trimName } from "@/lib/name-utils";
+import { getProfileSharedActionKeys } from "@/lib/profile-action-contract";
 import { canPerformTeamAction } from "@/lib/team-permissions";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
@@ -274,6 +275,7 @@ type TableMeta = {
 
   // Overflow actions
   onAssignProfilesToGroup?: (profileIds: string[]) => void;
+  onAssignExtensionGroup?: (profileIds: string[]) => void;
   onConfigureCamoufox?: (profile: BrowserProfile) => void;
   onCloneProfile?: (profile: BrowserProfile) => void;
   onCopyCookiesToProfile?: (profile: BrowserProfile) => void;
@@ -1076,6 +1078,7 @@ export function ProfilesDataTable({
   isLoading = false,
 }: ProfilesDataTableProps) {
   const { t } = useTranslation();
+  const sharedActionKeys = getProfileSharedActionKeys();
   const { getTableSorting, updateSorting, isLoaded } = useTableSorting();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -1169,9 +1172,6 @@ export function ProfilesDataTable({
   const [cachedProxyNamesById, setCachedProxyNamesById] = React.useState<
     Record<string, string>
   >({});
-  const [cachedVpnNamesById, setCachedVpnNamesById] = React.useState<
-    Record<string, string>
-  >({});
 
   // Stable refs for volatile state — keeps tableMeta stable when these values
   // change (traffic polls, sync events, proxy checks, user edits). Column cells
@@ -1195,7 +1195,6 @@ export function ProfilesDataTable({
   const hasCloudProxy = storedProxies.some((p) => p.is_cloud_managed);
   const canCreateLocationProxy = hasCloudProxy || crossOsUnlocked;
   const PROXY_NAME_CACHE_KEY = "buglogin.proxyNameById.v1";
-  const VPN_NAME_CACHE_KEY = "buglogin.vpnNameById.v1";
 
   React.useEffect(() => {
     const applyGroupColors = () => {
@@ -1245,13 +1244,6 @@ export function ProfilesDataTable({
           setCachedProxyNamesById(parsed);
         }
       }
-      const rawVpn = window.localStorage.getItem(VPN_NAME_CACHE_KEY);
-      if (rawVpn) {
-        const parsed = JSON.parse(rawVpn) as Record<string, string>;
-        if (parsed && typeof parsed === "object") {
-          setCachedVpnNamesById(parsed);
-        }
-      }
     } catch {
       // Ignore local cache parse issues.
     }
@@ -1274,24 +1266,6 @@ export function ProfilesDataTable({
       return next;
     });
   }, [storedProxies]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined" || vpnConfigs.length === 0) {
-      return;
-    }
-    setCachedVpnNamesById((prev) => {
-      const next = { ...prev };
-      for (const vpn of vpnConfigs) {
-        next[vpn.id] = vpn.name;
-      }
-      try {
-        window.localStorage.setItem(VPN_NAME_CACHE_KEY, JSON.stringify(next));
-      } catch {
-        // Ignore localStorage write issues.
-      }
-      return next;
-    });
-  }, [vpnConfigs]);
 
   const loadCountries = React.useCallback(async () => {
     if (countriesLoaded || !canCreateLocationProxy || !currentUserId) return;
@@ -2000,6 +1974,7 @@ export function ProfilesDataTable({
 
       // Overflow actions
       onAssignProfilesToGroup,
+      onAssignExtensionGroup,
       onCloneProfile,
       onConfigureCamoufox,
       onCopyCookiesToProfile,
@@ -2081,6 +2056,7 @@ export function ProfilesDataTable({
       onKillProfile,
       onLaunchProfile,
       onAssignProfilesToGroup,
+      onAssignExtensionGroup,
       onCloneProfile,
       onConfigureCamoufox,
       onCopyCookiesToProfile,
@@ -2459,10 +2435,6 @@ export function ProfilesDataTable({
           const effectiveProxyId = hasProxyOverride
             ? meta.proxyOverrides[profile.id]
             : (profile.proxy_id ?? null);
-          const hasVpnOverride = Object.hasOwn(meta.vpnOverrides, profile.id);
-          const effectiveVpnId = hasVpnOverride
-            ? meta.vpnOverrides[profile.id]
-            : (profile.vpn_id ?? null);
           const proxyCheckResult = effectiveProxyId
             ? (meta.proxyCheckResults[effectiveProxyId] ?? null)
             : null;
@@ -2506,7 +2478,7 @@ export function ProfilesDataTable({
                   </>
                 )}
               </Badge>
-              {effectiveProxyId && !effectiveVpnId && proxyCheckResult && (
+              {effectiveProxyId && proxyCheckResult && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex items-center">
@@ -2899,55 +2871,27 @@ export function ProfilesDataTable({
             ? (meta.storedProxies.find((p) => p.id === effectiveProxyId) ??
               null)
             : null;
-
-          const hasVpnOverride = Object.hasOwn(meta.vpnOverrides, profile.id);
-          const effectiveVpnId = hasVpnOverride
-            ? meta.vpnOverrides[profile.id]
-            : (profile.vpn_id ?? null);
-          const effectiveVpn = effectiveVpnId
-            ? (meta.vpnConfigs.find((v) => v.id === effectiveVpnId) ?? null)
-            : null;
-
-          const cachedVpnName = effectiveVpnId
-            ? cachedVpnNamesById[effectiveVpnId]
-            : undefined;
           const cachedProxyName = effectiveProxyId
             ? cachedProxyNamesById[effectiveProxyId]
             : undefined;
-          const isAssignmentIdPresent = Boolean(
-            effectiveProxyId || effectiveVpnId,
-          );
+          const isAssignmentIdPresent = Boolean(effectiveProxyId);
           const isResolvingAssignment =
             isAssignmentIdPresent &&
             !effectiveProxy &&
-            !effectiveVpn &&
             isProxyVpnCatalogLoading;
           const hasAssignment = Boolean(
-            effectiveProxy ||
-              effectiveVpn ||
-              cachedVpnName ||
-              cachedProxyName ||
-              isResolvingAssignment,
+            effectiveProxy || cachedProxyName || isResolvingAssignment,
           );
-          const displayName = effectiveVpn
-            ? effectiveVpn.name
-            : effectiveProxy
-              ? effectiveProxy.name
-              : cachedVpnName
-                ? cachedVpnName
-                : cachedProxyName
-                  ? cachedProxyName
-                  : isResolvingAssignment
-                    ? t("common.buttons.loading")
-                    : t("profiles.table.none");
-          const vpnBadge = effectiveVpn
-            ? effectiveVpn.vpn_type === "WireGuard"
-              ? "WG"
-              : "OVPN"
-            : null;
+          const displayName = effectiveProxy
+            ? effectiveProxy.name
+            : cachedProxyName
+              ? cachedProxyName
+              : isResolvingAssignment
+                ? t("common.buttons.loading")
+                : t("profiles.table.none");
           const tooltipText = hasAssignment ? displayName : null;
           const isSelectorOpen = meta.openProxySelectorFor === profile.id;
-          const selectedId = effectiveVpnId ?? effectiveProxyId ?? null;
+          const selectedId = effectiveProxyId ?? null;
 
           // When profile is running, show bandwidth chart instead of proxy selector
           if (isRunning && meta.trafficSnapshots) {
@@ -2988,14 +2932,6 @@ export function ProfilesDataTable({
                             : "cursor-pointer hover:bg-accent/50",
                         )}
                       >
-                        {vpnBadge && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1 py-0 leading-tight"
-                          >
-                            {vpnBadge}
-                          </Badge>
-                        )}
                         <span
                           className={cn(
                             "type-ui text-xs font-normal",
@@ -3121,7 +3057,7 @@ export function ProfilesDataTable({
                               <LuCheck
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  effectiveProxyId === proxy.id && !effectiveVpn
+                                  effectiveProxyId === proxy.id
                                     ? "opacity-100"
                                     : "opacity-0",
                                 )}
@@ -3130,39 +3066,6 @@ export function ProfilesDataTable({
                             </CommandItem>
                           ))}
                         </CommandGroup>
-                        {meta.vpnConfigs.length > 0 && (
-                          <CommandGroup heading={meta.t("profiles.table.vpns")}>
-                            {meta.vpnConfigs.map((vpn) => (
-                              <CommandItem
-                                key={vpn.id}
-                                className="h-8 whitespace-nowrap rounded-sm text-sm"
-                                value={`vpn-${vpn.name}`}
-                                onSelect={() =>
-                                  void meta.handleVpnSelection(
-                                    profile.id,
-                                    vpn.id,
-                                  )
-                                }
-                              >
-                                <LuCheck
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    effectiveVpnId === vpn.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-1 py-0 leading-tight mr-1"
-                                >
-                                  {vpn.vpn_type === "WireGuard" ? "WG" : "OVPN"}
-                                </Badge>
-                                <span className="truncate">{vpn.name}</span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        )}
                         {meta.canCreateLocationProxy &&
                           meta.countries.length > 0 && (
                             <CommandGroup
@@ -3202,7 +3105,7 @@ export function ProfilesDataTable({
                   </PopoverContent>
                 )}
               </Popover>
-              {effectiveProxy && !effectiveVpn && !isDisabled && (
+              {effectiveProxy && !isDisabled && (
                 <ProxyCheckButton
                   proxy={effectiveProxy}
                   profileId={profile.id}
@@ -3350,6 +3253,28 @@ export function ProfilesDataTable({
                     <LuUsers className="h-4 w-4" />
                     {t("profiles.actions.assignToGroup")}
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isBusy || meta.isReadOnlyRole}
+                    onClick={() => {
+                      meta.setOpenProxySelectorFor(profile.id);
+                    }}
+                  >
+                    <FiWifi className="h-4 w-4" />
+                    {t("profiles.table.assignProxy")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={
+                      isBusy ||
+                      meta.isReadOnlyRole ||
+                      !meta.extensionManagementUnlocked
+                    }
+                    onClick={() => {
+                      meta.onAssignExtensionGroup?.([profile.id]);
+                    }}
+                  >
+                    <LuPuzzle className="h-4 w-4" />
+                    {t("profiles.table.assignExtensionGroup")}
+                  </DropdownMenuItem>
                   {canCopyCookies && (
                     <DropdownMenuItem
                       disabled={isBusy}
@@ -3436,7 +3361,6 @@ export function ProfilesDataTable({
       onArchiveProfile,
       onRestoreProfile,
       cachedProxyNamesById,
-      cachedVpnNamesById,
       isProxyVpnCatalogLoading,
     ],
   );
@@ -3837,90 +3761,114 @@ export function ProfilesDataTable({
           selectedCount={selectedProfiles.length}
           onClearSelection={handleClearSelection}
         />
-        {onBulkGroupAssignment && (
-          <DataTableActionBarAction
-            tooltip={t("profiles.actions.assignToGroup")}
-            onClick={onBulkGroupAssignment}
-            size="icon"
-            disabled={isReadOnlyRole}
-          >
-            <LuUsers />
-          </DataTableActionBarAction>
-        )}
-        {onBulkProxyAssignment && (
-          <DataTableActionBarAction
-            tooltip={t("profiles.table.assignProxy")}
-            onClick={onBulkProxyAssignment}
-            size="icon"
-            disabled={isReadOnlyRole}
-          >
-            <FiWifi />
-          </DataTableActionBarAction>
-        )}
-        {onBulkExtensionGroupAssignment && (
-          <DataTableActionBarAction
-            tooltip={
-              extensionManagementUnlocked
-                ? t("profiles.table.assignExtensionGroup")
-                : t("profiles.table.assignExtensionGroupPro")
-            }
-            onClick={onBulkExtensionGroupAssignment}
-            size="icon"
-            disabled={!extensionManagementUnlocked || isReadOnlyRole}
-          >
-            <span className="relative">
-              <LuPuzzle />
-              {!extensionManagementUnlocked && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-tight bg-primary text-primary-foreground px-0.5 rounded-sm">
-                  PRO
+        {sharedActionKeys.map((actionKey) => {
+          if (actionKey === "assignToGroup" && onBulkGroupAssignment) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={t("profiles.actions.assignToGroup")}
+                onClick={onBulkGroupAssignment}
+                size="icon"
+                disabled={isReadOnlyRole}
+              >
+                <LuUsers />
+              </DataTableActionBarAction>
+            );
+          }
+          if (actionKey === "assignProxy" && onBulkProxyAssignment) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={t("profiles.table.assignProxy")}
+                onClick={onBulkProxyAssignment}
+                size="icon"
+                disabled={isReadOnlyRole}
+              >
+                <FiWifi />
+              </DataTableActionBarAction>
+            );
+          }
+          if (
+            actionKey === "assignExtensionGroup" &&
+            onBulkExtensionGroupAssignment
+          ) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={
+                  extensionManagementUnlocked
+                    ? t("profiles.table.assignExtensionGroup")
+                    : t("profiles.table.assignExtensionGroupPro")
+                }
+                onClick={onBulkExtensionGroupAssignment}
+                size="icon"
+                disabled={!extensionManagementUnlocked || isReadOnlyRole}
+              >
+                <span className="relative">
+                  <LuPuzzle />
+                  {!extensionManagementUnlocked && (
+                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-tight bg-primary text-primary-foreground px-0.5 rounded-sm">
+                      PRO
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-          </DataTableActionBarAction>
-        )}
-        {onBulkCopyCookies && (
-          <DataTableActionBarAction
-            tooltip={
-              cookieManagementUnlocked
-                ? t("profiles.actions.copyCookies")
-                : `${t("profiles.actions.copyCookies")} (Pro)`
-            }
-            onClick={onBulkCopyCookies}
-            size="icon"
-            disabled={!cookieManagementUnlocked || isReadOnlyRole}
-          >
-            <span className="relative">
-              <LuCookie />
-              {!cookieManagementUnlocked && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-tight bg-primary text-primary-foreground px-0.5 rounded-sm">
-                  PRO
+              </DataTableActionBarAction>
+            );
+          }
+          if (actionKey === "copyCookies" && onBulkCopyCookies) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={
+                  cookieManagementUnlocked
+                    ? t("profiles.actions.copyCookies")
+                    : `${t("profiles.actions.copyCookies")} (Pro)`
+                }
+                onClick={onBulkCopyCookies}
+                size="icon"
+                disabled={!cookieManagementUnlocked || isReadOnlyRole}
+              >
+                <span className="relative">
+                  <LuCookie />
+                  {!cookieManagementUnlocked && (
+                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] font-bold leading-tight bg-primary text-primary-foreground px-0.5 rounded-sm">
+                      PRO
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-          </DataTableActionBarAction>
-        )}
-        {onBulkDelete && (
-          <DataTableActionBarAction
-            tooltip={t("common.buttons.delete")}
-            onClick={onBulkDelete}
-            size="icon"
-            variant="destructive"
-            className="border-destructive bg-destructive/50 hover:bg-destructive/70"
-            disabled={isReadOnlyRole}
-          >
-            <LuTrash2 />
-          </DataTableActionBarAction>
-        )}
-        {onBulkArchive && (
-          <DataTableActionBarAction
-            tooltip={t("profiles.actions.archive")}
-            onClick={onBulkArchive}
-            size="icon"
-            disabled={isReadOnlyRole}
-          >
-            <LuArchive />
-          </DataTableActionBarAction>
-        )}
+              </DataTableActionBarAction>
+            );
+          }
+          if (actionKey === "archive" && onBulkArchive) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={t("profiles.actions.archive")}
+                onClick={onBulkArchive}
+                size="icon"
+                disabled={isReadOnlyRole}
+              >
+                <LuArchive />
+              </DataTableActionBarAction>
+            );
+          }
+          if (actionKey === "delete" && onBulkDelete) {
+            return (
+              <DataTableActionBarAction
+                key={actionKey}
+                tooltip={t("common.buttons.delete")}
+                onClick={onBulkDelete}
+                size="icon"
+                variant="destructive"
+                className="border-destructive bg-destructive/50 hover:bg-destructive/70"
+                disabled={isReadOnlyRole}
+              >
+                <LuTrash2 />
+              </DataTableActionBarAction>
+            );
+          }
+          return null;
+        })}
       </DataTableActionBar>
       {trafficDialogProfile && (
         <TrafficDetailsDialog

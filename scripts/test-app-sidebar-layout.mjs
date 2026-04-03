@@ -5,8 +5,14 @@ const source = readFileSync("src/components/app-sidebar.tsx", "utf8");
 
 assert.doesNotMatch(
   source,
-  /BugLogin/,
-  "App sidebar should use the logo asset instead of hardcoded brand text",
+  /<span[^>]*>\s*BugLogin\s*<\/span>/,
+  "App sidebar should use the logo component for branding instead of rendering a raw BugLogin text node",
+);
+
+assert.match(
+  source,
+  /import\s+\{\s*Logo\s*\}\s+from\s+"\.\/icons\/logo";/,
+  "App sidebar should import and render the shared logo component",
 );
 
 assert.doesNotMatch(
@@ -17,8 +23,14 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /onClick=\{\(\) => onCollapsedChange\(!collapsed\)\}/,
-  "Sidebar should toggle collapse from the header row",
+  /onClick=\{\(\) => onCollapsedChange\(true\)\}/,
+  "Sidebar should expose a collapse trigger in expanded mode",
+);
+
+assert.match(
+  source,
+  /onClick=\{\(\) =>\s*\{\s*if \(onCollapsedChange\) \{\s*onCollapsedChange\(false\);/s,
+  "Sidebar should expose an expand trigger in collapsed mode",
 );
 
 console.log("app sidebar layout guard passed");

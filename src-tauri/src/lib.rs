@@ -924,6 +924,7 @@ struct TiktokSellerSeedRow {
   phone: String,
   api_phone: String,
   email: String,
+  password: String,
   api_mail: String,
   proxy: String,
   first_name: String,
@@ -939,6 +940,7 @@ struct TiktokSellerSeedRow {
   state: String,
   zip: String,
   file: String,
+  document_root: String,
   doc_type: String,
   raw: BTreeMap<String, String>,
 }
@@ -1025,6 +1027,7 @@ fn row_has_seed_signal(row: &TiktokSellerSeedRow) -> bool {
     || !row.ssn.is_empty()
     || !row.address.is_empty()
     || !row.file.is_empty()
+    || !row.document_root.is_empty()
     || !row.raw.is_empty()
     || !row.phone.is_empty()
     || !row.api_phone.is_empty()
@@ -1238,6 +1241,17 @@ fn map_seed_row_from_columns(
   if api_mail.is_empty() {
     api_mail = hotmail_api_mail;
   }
+  let password = get(header_index(
+    headers,
+    &[
+      "password",
+      "pass",
+      "pass_tiktok",
+      "tiktok_password",
+      "shop_password",
+      "account_password",
+    ],
+  ));
   let proxy = get(header_index(
     headers,
     &["proxy", "proxy_raw", "proxy_string", "proxy_full", "proxy_value"],
@@ -1303,6 +1317,17 @@ fn map_seed_row_from_columns(
       "ssn_pdf",
     ],
   ));
+  let document_root = get(header_index(
+    headers,
+    &[
+      "document_root",
+      "doc_root",
+      "file_root",
+      "pdf_root",
+      "folder",
+      "folder_path",
+    ],
+  ));
   let doc_type = get(header_index(
     headers,
     &["type", "file_type", "document_type", "doc_type"],
@@ -1323,6 +1348,7 @@ fn map_seed_row_from_columns(
     phone,
     api_phone,
     email,
+    password,
     api_mail,
     proxy,
     first_name,
@@ -1338,6 +1364,7 @@ fn map_seed_row_from_columns(
     state,
     zip,
     file,
+    document_root,
     doc_type,
     raw,
   };
@@ -1426,6 +1453,7 @@ fn parse_seed_rows_from_text(raw_text: &str) -> Vec<TiktokSellerSeedRow> {
         phone: normalized,
         api_phone: String::new(),
         email: String::new(),
+        password: String::new(),
         api_mail: String::new(),
         proxy: String::new(),
         first_name: String::new(),
@@ -1441,6 +1469,7 @@ fn parse_seed_rows_from_text(raw_text: &str) -> Vec<TiktokSellerSeedRow> {
         state: String::new(),
         zip: String::new(),
         file: String::new(),
+        document_root: String::new(),
         doc_type: String::new(),
         raw: BTreeMap::new(),
       });
@@ -1546,6 +1575,25 @@ struct AutomationOutputAppendResult {
   path: String,
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BundledExtensionPayload {
+  file_name: String,
+  file_data: Vec<u8>,
+}
+
+#[tauri::command]
+fn get_bundled_omocaptcha_extension() -> Result<BundledExtensionPayload, String> {
+  const OMO_FILE_NAME: &str = "omocaptcha_auto_solve_captcha-1.6.9.xpi";
+  const OMO_FILE_BYTES: &[u8] =
+    include_bytes!("../../assets/extensions/omocaptcha_auto_solve_captcha-1.6.9.xpi");
+
+  Ok(BundledExtensionPayload {
+    file_name: OMO_FILE_NAME.to_string(),
+    file_data: OMO_FILE_BYTES.to_vec(),
+  })
+}
+
 #[tauri::command]
 fn append_automation_output_record(
   input: AutomationOutputRecordInput,
@@ -1628,6 +1676,65 @@ struct StartTiktokProbeSessionInput {
   headless: Option<bool>,
   max_duration_seconds: Option<u64>,
   seed_payload: Option<serde_json::Value>,
+  user_data_dir: Option<String>,
+  keep_open: Option<bool>,
+  auto_best_effort: Option<bool>,
+  contact_mode: Option<String>,
+  entry_mode: Option<String>,
+  ein_submit: Option<bool>,
+  omo_key: Option<String>,
+}
+
+fn collect_pdf_files_recursive(
+  root: &Path,
+  entries: &mut Vec<String>,
+  depth: usize,
+) -> Result<(), String> {
+  if depth > 24 {
+    return Ok(());
+  }
+  let read_dir = fs::read_dir(root)
+    .map_err(|error| format!("Failed to read directory '{}': {error}", root.display()))?;
+  for item in read_dir {
+    let entry = item.map_err(|error| format!("Failed to read directory entry: {error}"))?;
+    let path = entry.path();
+    let metadata = entry
+      .metadata()
+      .map_err(|error| format!("Failed to read metadata for '{}': {error}", path.display()))?;
+    if metadata.is_dir() {
+      collect_pdf_files_recursive(&path, entries, depth + 1)?;
+      continue;
+    }
+    if !metadata.is_file() {
+      continue;
+    }
+    let is_pdf = path
+      .extension()
+      .and_then(|ext| ext.to_str())
+      .map(|ext| ext.eq_ignore_ascii_case("pdf"))
+      .unwrap_or(false);
+    if is_pdf {
+      entries.push(path.to_string_lossy().to_string());
+    }
+  }
+  Ok(())
+}
+
+#[tauri::command]
+fn list_pdf_files_recursive(root_dir: String) -> Result<Vec<String>, String> {
+  let normalized = root_dir.trim();
+  if normalized.is_empty() {
+    return Ok(Vec::new());
+  }
+  let root = PathBuf::from(normalized);
+  if !root.exists() || !root.is_dir() {
+    return Err(format!("Folder does not exist: {}", root.display()));
+  }
+  let mut entries = Vec::new();
+  collect_pdf_files_recursive(&root, &mut entries, 0)?;
+  entries.sort();
+  entries.dedup();
+  Ok(entries)
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -1887,8 +1994,12 @@ fn read_tiktok_probe_progress(
 
 #[tauri::command]
 fn start_tiktok_probe_session(
-  input: StartTiktokProbeSessionInput,
+  input: Option<StartTiktokProbeSessionInput>,
 ) -> Result<StartTiktokProbeSessionResult, String> {
+  let input = input.ok_or_else(|| {
+    "Missing required payload: input. Expected invoke('start_tiktok_probe_session', { input: {...} })."
+      .to_string()
+  })?;
   let settings = settings_manager::SettingsManager::instance()
     .load_settings()
     .map_err(|error| format!("Failed to load settings: {error}"))?;
@@ -1918,6 +2029,62 @@ fn start_tiktok_probe_session(
   fs::create_dir_all(&session_dir)
     .map_err(|error| format!("Failed to create probe output dir: {error}"))?;
 
+  let mut resolved_user_data_dir = input
+    .user_data_dir
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(|value| value.to_string());
+
+  if let Some(profile_id_raw) = input.profile_id.as_deref().map(str::trim) {
+    if let Ok(profile_uuid) = uuid::Uuid::parse_str(profile_id_raw) {
+      let profile_manager = crate::profile::manager::ProfileManager::instance();
+      if let Ok(Some(profile)) = profile_manager.get_profile_by_id(&profile_uuid) {
+        let profiles_dir = profile_manager.get_profiles_dir();
+        let effective_profile_path = if let Some(user_data_dir) = resolved_user_data_dir
+          .as_deref()
+          .map(str::trim)
+          .filter(|value| !value.is_empty())
+        {
+          PathBuf::from(user_data_dir)
+        } else {
+          crate::ephemeral_dirs::get_effective_profile_path(&profile, &profiles_dir)
+        };
+        if resolved_user_data_dir.is_none() {
+          resolved_user_data_dir =
+            Some(effective_profile_path.to_string_lossy().to_string());
+        }
+
+        if profile.extension_group_id.is_some() {
+          if let Ok(mgr) = crate::extension_manager::EXTENSION_MANAGER.lock() {
+            if let Err(error) = mgr.install_extensions_for_profile(&profile, &effective_profile_path)
+            {
+              log::warn!(
+                "Failed to install extensions for profile {} before probe launch: {}",
+                profile.name,
+                error
+              );
+            }
+          }
+        }
+
+        if let Err(error) =
+          crate::browser_identity_extension::ensure_runtime_identity_for_browser(
+            &profile.browser,
+            &effective_profile_path,
+            &profile.name,
+          )
+        {
+          log::warn!(
+            "Failed to ensure runtime identity extension for profile {} before probe launch: {}",
+            profile.name,
+            error
+          );
+        }
+      }
+    }
+  }
+
   let seed_json = serde_json::json!({
     "profileId": input.profile_id,
     "profileName": input.profile_name,
@@ -1927,6 +2094,12 @@ fn start_tiktok_probe_session(
     "executablePath": input.executable_path,
     "proxyUrl": input.proxy_url,
     "maxDurationSeconds": input.max_duration_seconds,
+    "userDataDir": resolved_user_data_dir,
+    "keepOpen": input.keep_open,
+    "autoBestEffort": input.auto_best_effort,
+    "contactMode": input.contact_mode,
+    "entryMode": input.entry_mode,
+    "einSubmit": input.ein_submit,
     "seedPayload": input.seed_payload,
     "createdAt": Utc::now().to_rfc3339(),
   });
@@ -2007,6 +2180,52 @@ fn start_tiktok_probe_session(
     .filter(|value| !value.is_empty())
   {
     command.arg("--proxy").arg(proxy_url);
+  }
+  if let Some(user_data_dir) = resolved_user_data_dir
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--user-data-dir").arg(user_data_dir);
+  }
+  if let Some(keep_open) = input.keep_open {
+    command
+      .arg("--keep-open")
+      .arg(if keep_open { "true" } else { "false" });
+  }
+  if let Some(auto_best_effort) = input.auto_best_effort {
+    command
+      .arg("--auto-best-effort")
+      .arg(if auto_best_effort { "true" } else { "false" });
+  }
+  if let Some(contact_mode) = input
+    .contact_mode
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--contact-mode").arg(contact_mode);
+  }
+  if let Some(entry_mode) = input
+    .entry_mode
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--entry-mode").arg(entry_mode);
+  }
+  if let Some(ein_submit) = input.ein_submit {
+    command
+      .arg("--ein-submit")
+      .arg(if ein_submit { "true" } else { "false" });
+  }
+  if let Some(omo_key) = input
+    .omo_key
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+  {
+    command.arg("--omo-key").arg(omo_key);
   }
 
   let stdout_log = session_dir.join("probe.stdout.log");
@@ -3371,6 +3590,8 @@ pub fn run() {
       bugidea_tiktok_request,
       read_tiktok_account_cookie_source,
       parse_tiktok_seller_seed_file,
+      get_bundled_omocaptcha_extension,
+      list_pdf_files_recursive,
       append_automation_output_record,
       start_tiktok_probe_session,
       read_tiktok_probe_progress,

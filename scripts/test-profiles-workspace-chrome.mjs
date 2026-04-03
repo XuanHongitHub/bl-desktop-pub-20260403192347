@@ -23,7 +23,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /<Button[\s\S]*?onClick=\{\(\) => \{\s*onCreateProfileDialogOpen\(true\);\s*\}\}[\s\S]*?<GoPlus className="h-4 w-4" \/>[\s\S]*?\{t\("header\.createProfile"\)\}/s,
+  /<Button[\s\S]*?onClick=\{\(\) => \{\s*onCreateProfileDialogOpen\(true\);\s*\}\}[\s\S]*?<GoPlus className="h-(?:3\.5|4) w-(?:3\.5|4)" \/>[\s\S]*?\{t\("header\.createProfile"\)\}/s,
   "Profiles primary CTA should be a labeled create button, not an icon-only tooltip trigger",
 );
 

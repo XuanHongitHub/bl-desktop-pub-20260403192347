@@ -11,7 +11,7 @@ assert.match(
 
 assert.match(
   source,
-  /\{toolbar && <div className=/,
+  /\{toolbar &&\s*\(\s*<div className=\{cn\("mt-2", toolbarClassName\)\}>/s,
   "WorkspacePageShell should render the toolbar below the title row",
 );
 

@@ -39,6 +39,8 @@ type RouteBuilderInput = {
   q?: string;
   page?: number;
   pageSize?: number;
+  status?: "active" | "past_due" | "canceled";
+  planIdFilter?: "starter" | "team" | "scale" | "enterprise" | "free";
 };
 
 export function buildControlApiPath(
@@ -50,6 +52,7 @@ export function buildControlApiPath(
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
+    | "workspaceMemberInvite"
     | "workspaceMemberRole"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
@@ -102,6 +105,8 @@ export function buildControlApiPath(
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/state`;
     case "workspaceMembers":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/members`;
+    case "workspaceMemberInvite":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/members/invite`;
     case "workspaceMemberRole":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/members/${encodeURIComponent(input.userId ?? "")}/role`;
     case "workspaceStripeCheckout":
@@ -144,6 +149,12 @@ export function buildControlApiPath(
       const params = new URLSearchParams();
       if (input.q?.trim()) {
         params.set("q", input.q.trim());
+      }
+      if (input.status) {
+        params.set("status", input.status);
+      }
+      if (input.planIdFilter) {
+        params.set("planId", input.planIdFilter);
       }
       params.set("page", String(Math.max(1, input.page ?? 1)));
       params.set("pageSize", String(Math.max(1, input.pageSize ?? 25)));
@@ -208,6 +219,7 @@ export function buildControlApiUrl(
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
+    | "workspaceMemberInvite"
     | "workspaceMemberRole"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"

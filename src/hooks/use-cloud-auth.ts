@@ -234,13 +234,13 @@ function deriveProfileLimitFromPlanLabel(
   if (normalizedPlanId === "starter") {
     return 50;
   }
-  if (normalizedPlanId === "growth") {
+  if (normalizedPlanId === "team") {
     return 300;
   }
   if (normalizedPlanId === "scale") {
     return 1000;
   }
-  if (normalizedPlanId === "custom") {
+  if (normalizedPlanId === "enterprise") {
     return 5000;
   }
   return mode === "personal" ? 3 : 50;

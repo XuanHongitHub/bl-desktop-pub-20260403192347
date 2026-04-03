@@ -16,9 +16,9 @@ export const EXTRA_PROFILE_BUNDLE_PRICE_MONTHLY = 2;
 
 const DEFAULT_PLAN_ADDONS: PlanAddonConfig = {
   starter: { extraMembers: 0, extraProfileBundles: 0 },
-  growth: { extraMembers: 0, extraProfileBundles: 0 },
+  team: { extraMembers: 0, extraProfileBundles: 0 },
   scale: { extraMembers: 0, extraProfileBundles: 0 },
-  custom: { extraMembers: 0, extraProfileBundles: 0 },
+  enterprise: { extraMembers: 0, extraProfileBundles: 0 },
 };
 
 function canUseStorage(): boolean {

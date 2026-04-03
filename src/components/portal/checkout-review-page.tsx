@@ -56,7 +56,7 @@ export function CheckoutReviewPage() {
 
   const selectedPlanId = useMemo<BillingPlanId>(() => {
     const plan = searchParams.get("plan");
-    return isBillingPlanId(plan) ? plan : "growth";
+    return isBillingPlanId(plan) ? plan : "team";
   }, [searchParams]);
 
   const selectedPlan = useMemo(() => {
@@ -80,7 +80,7 @@ export function CheckoutReviewPage() {
   const billedNow =
     billingCycle === "yearly" ? monthlyEquivalent * 12 : monthlyEquivalent;
   const yearlySavings =
-    selectedPlan.id === "custom"
+    selectedPlan.id === "enterprise"
       ? 0
       : Math.max(0, (selectedPlan.monthlyPrice - selectedPlan.yearlyPrice) * 12);
 

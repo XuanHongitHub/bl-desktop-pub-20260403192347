@@ -21,6 +21,11 @@ import type { ComponentType } from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getSectionIcon } from "@/lib/app-icon-registry";
+import {
+  getUnifiedPlanLabel,
+  getUnifiedPlanToneClass,
+  resolveUnifiedPlanId,
+} from "@/lib/plan-display";
 import { cn } from "@/lib/utils";
 import type { AppSection, TeamRole } from "@/types";
 import { Logo } from "./icons/logo";
@@ -149,13 +154,6 @@ const PRICING_NAV_ITEM: NavLeafItem = {
   icon: getSectionIcon("pricing"),
 };
 
-const INTEGRATIONS_NAV_ITEM: NavLeafItem = {
-  type: "item",
-  id: "integrations",
-  labelKey: "shell.sections.integrations",
-  icon: getSectionIcon("integrations"),
-};
-
 const SETTINGS_NAV_ITEM: NavLeafItem = {
   type: "item",
   id: "settings",
@@ -167,7 +165,6 @@ const WORKSPACE_NAV_BASE_ITEMS: NavLeafItem[] = [
   PROFILES_NAV_ITEM,
   GROUPS_NAV_ITEM,
   PROXIES_NAV_ITEM,
-  INTEGRATIONS_NAV_ITEM,
   SETTINGS_NAV_ITEM,
 ];
 
@@ -428,29 +425,7 @@ function buildNavItems(input: NavBuildInput): NavEntry[] {
     const bugIdeaInsertIndex = profileIndex >= 0 ? profileIndex + 1 : 0;
     base.splice(bugIdeaInsertIndex, 0, AUTOMATION_NAV_GROUP);
   }
-  if (input.teamRole !== "viewer") {
-    return base;
-  }
-  return base
-    .map((item) => {
-      if (item.type === "group") {
-        const children = item.children.filter(
-          (child) => child.id !== "integrations",
-        );
-        if (children.length === 0) {
-          return null;
-        }
-        return {
-          ...item,
-          children,
-        } satisfies NavGroupItem;
-      }
-      if (item.id === "integrations") {
-        return null;
-      }
-      return item;
-    })
-    .filter((item): item is NavEntry => item !== null);
+  return base;
 }
 
 type Props = {
@@ -789,27 +764,7 @@ function AppSidebarComponent({
     ) ??
     workspaceOptions[0] ??
     null;
-  const workspaceContextLabel = roleLabel;
-  const selectedWorkspaceSubLabel =
-    selectedWorkspace?.details ??
-    selectedWorkspace?.status ??
-    workspaceContextLabel;
-  const resolvePlanToneClass = useCallback((planLabelRaw?: string | null) => {
-    const plan = (planLabelRaw || "").trim().toLowerCase();
-    if (plan.includes("enterprise") || plan.includes("custom")) {
-      return "plan-badge-tier-enterprise";
-    }
-    if (plan.includes("scale")) {
-      return "plan-badge-tier-scale";
-    }
-    if (plan.includes("team") || plan.includes("growth")) {
-      return "plan-badge-tier-team";
-    }
-    if (plan.includes("starter")) {
-      return "plan-badge-tier-starter";
-    }
-    return "plan-badge-tier-free";
-  }, []);
+  const workspaceContextLabel = selectedWorkspace?.label ?? roleLabel;
   const resolveWorkspacePlanLabel = useCallback(
     (
       workspace?: {
@@ -817,17 +772,11 @@ function AppSidebarComponent({
         details?: string;
       } | null,
     ) => {
-      const rawPlan = workspace?.planLabel?.trim();
-      if (rawPlan) {
-        return rawPlan;
-      }
-      const fallback = workspace?.details?.trim();
-      if (fallback) {
-        return fallback;
-      }
-      return t("billingPage.freePlanLabel");
+      return getUnifiedPlanLabel({
+        planLabel: workspace?.planLabel,
+      });
     },
-    [t],
+    [],
   );
   const formatWorkspaceQuotaBadge = useCallback(
     (profileLimit?: number | null, profilesUsed?: number | null) => {
@@ -963,8 +912,11 @@ function AppSidebarComponent({
               )
             : null;
           const workspacePlanBadge = resolveWorkspacePlanLabel(workspace);
-          const workspacePlanToneClass =
-            resolvePlanToneClass(workspacePlanBadge);
+          const workspacePlanToneClass = getUnifiedPlanToneClass(
+            resolveUnifiedPlanId({
+              planLabel: workspace.planLabel,
+            }),
+          );
           return (
             <DropdownMenuItem
               key={workspace.id}
@@ -1408,14 +1360,14 @@ function AppSidebarComponent({
                 </div>
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <p className={`min-w-0 ${SIDEBAR_ACCOUNT_TITLE_CLASS}`}>
-                    {selectedWorkspace?.label ??
-                      t("shell.workspaceSwitcher.placeholder")}
+                    {authEmail ?? t("shell.auth.loggedOut")}
                   </p>
                   <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
                     <p
                       className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}
                     >
-                      {selectedWorkspaceSubLabel}
+                      {selectedWorkspace?.label ??
+                        t("shell.workspaceSwitcher.placeholder")}
                     </p>
                     {selectedWorkspace &&
                       (() => {
@@ -1447,7 +1399,11 @@ function AppSidebarComponent({
                             variant="default"
                             className={cn(
                               "h-4 shrink-0 rounded-full px-1 text-[9px] font-semibold",
-                              resolvePlanToneClass(selectedPlanBadge),
+                              getUnifiedPlanToneClass(
+                                resolveUnifiedPlanId({
+                                  planLabel: selectedWorkspace.planLabel,
+                                }),
+                              ),
                             )}
                           >
                             {selectedPlanBadge}

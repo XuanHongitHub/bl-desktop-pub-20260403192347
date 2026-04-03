@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
+import { getUnifiedPlanLabel } from "@/lib/plan-display";
 
 export default function AdminSubscriptionsPage() {
   const { t } = useTranslation();
@@ -139,7 +140,9 @@ export default function AdminSubscriptionsPage() {
                   <tr key={workspace.id} className="border-t border-border/70">
                     <td className="px-3 py-2 text-foreground">{workspace.name}</td>
                     <td className="px-3 py-2">
-                      <p className="text-foreground">{workspace.planLabel}</p>
+                      <p className="text-foreground">
+                        {getUnifiedPlanLabel({ planLabel: workspace.planLabel })}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {workspace.billingCycle
                           ? t(`portalSite.admin.subscriptions.cycle.${workspace.billingCycle}`)

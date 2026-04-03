@@ -356,13 +356,10 @@ const OMO_CAPTCHA_EXTENSION_FILE_HINT = "omocaptcha_auto_solve_captcha";
 const OMO_CAPTCHA_EXTENSION_PATH =
   process.env.NEXT_PUBLIC_OMOCAPTCHA_XPI_PATH ??
   process.env.BUGLOGIN_OMOCAPTCHA_XPI_PATH ??
-  "E:\\bug-login\\assets\\extensions\\omocaptcha_auto_solve_captcha-1.6.9.xpi";
+  "";
 const OMO_CAPTCHA_EXTENSION_FALLBACK_PATHS = [
   OMO_CAPTCHA_EXTENSION_PATH,
-  "E:/bug-login/assets/extensions/omocaptcha_auto_solve_captcha-1.6.9.xpi",
-  "/mnt/e/bug-login/assets/extensions/omocaptcha_auto_solve_captcha-1.6.9.xpi",
-  "D:/Download/omocaptcha_auto_solve_captcha-1.6.9.xpi",
-];
+].filter((value) => value.trim().length > 0);
 const workflowCookiePreviewCacheByWorkspace = new Map<
   string,
   Map<string, { preview: string; snapshot: string }>
@@ -5049,17 +5046,29 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         let fileData: number[] | null = null;
         let fileName = "omocaptcha_auto_solve_captcha-1.6.9.xpi";
 
-        for (const candidatePath of OMO_CAPTCHA_EXTENSION_FALLBACK_PATHS) {
-          const normalized = candidatePath.trim();
-          if (!normalized) {
-            continue;
-          }
-          try {
-            fileData = Array.from(await readFile(normalized));
-            fileName = normalized.split(/[/\\]/).pop() || fileName;
-            break;
-          } catch {
-            // try next candidate path
+        try {
+          const bundled = await invoke<{ fileName: string; fileData: number[] }>(
+            "get_bundled_omocaptcha_extension",
+          );
+          fileData = bundled.fileData;
+          fileName = bundled.fileName || fileName;
+        } catch {
+          // keep fallback path strategy below
+        }
+
+        if (!fileData || fileData.length === 0) {
+          for (const candidatePath of OMO_CAPTCHA_EXTENSION_FALLBACK_PATHS) {
+            const normalized = candidatePath.trim();
+            if (!normalized) {
+              continue;
+            }
+            try {
+              fileData = Array.from(await readFile(normalized));
+              fileName = normalized.split(/[/\\]/).pop() || fileName;
+              break;
+            } catch {
+              // try next candidate path
+            }
           }
         }
 
@@ -5659,7 +5668,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         storedProxies.find(
           (proxy) => proxy.id === (runtimeProfile?.proxy_id ?? row.proxyId),
         ) ?? null;
-
+      const omoKey = workflowCaptchaApiKey.trim();
       const result = await invoke<StartTiktokProbeSessionResult>(
         "start_tiktok_probe_session",
         {
@@ -5682,6 +5691,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           contactMode: "auto",
           entryMode: "register",
           einSubmit: false,
+          omoKey: omoKey || undefined,
         },
       );
 

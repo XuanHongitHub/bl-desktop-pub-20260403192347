@@ -72,9 +72,11 @@ export function PortalHeaderControls({
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(
     "system",
   );
-  const userName = identityName || "BugLogin";
   const userEmail = identityLabel || "portal@buglogin.com";
-  const userFallback = userName.trim().slice(0, 1).toUpperCase() || "B";
+  const userName = userEmail;
+  const userMeta =
+    identityName && identityName !== userEmail ? identityName : t("portalSite.nav.account");
+  const userFallback = userEmail.trim().slice(0, 1).toUpperCase() || "B";
 
   useEffect(() => {
     setMounted(true);
@@ -191,7 +193,7 @@ export function PortalHeaderControls({
               >
                 <DropdownMenuLabel className="space-y-0.5 px-3 pt-2 pb-1.5">
                   <p className={PORTAL_ACCOUNT_TITLE_CLASS}>{userName}</p>
-                  <p className={PORTAL_ACCOUNT_META_CLASS}>{userEmail}</p>
+                  <p className={PORTAL_ACCOUNT_META_CLASS}>{userMeta}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

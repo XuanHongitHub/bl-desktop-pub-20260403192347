@@ -1338,6 +1338,9 @@ mod tests {
       launch_on_login_declined: false,
       language: None,
       window_resize_warning_dismissed: false,
+      disable_rtc_for_all_browsers: default_disable_rtc_for_all_browsers(),
+      automation_output_enabled: false,
+      automation_output_dir: None,
     };
 
     let save_result = manager.save_settings(&test_settings);

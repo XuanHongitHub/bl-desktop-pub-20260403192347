@@ -118,7 +118,7 @@
         "notifications": "Thông báo",
         "profileDefaults": "Mặc định Profile",
         "templatesStartup": "Template & Khởi động",
-        "proxyVpn": "Proxy & VPN",
+        "proxyVpn": "Proxy",
         "fingerprintPrivacy": "Fingerprint & Riêng tư",
         "dnsTraffic": "DNS / Luật lưu lượng",
         "teamRoles": "Thành viên & Vai trò",
@@ -184,7 +184,7 @@
       "managedAt": "Quản lý tại: {{location}}",
       "locations": {
         "settingsPage": "Trang Cài đặt",
-        "proxyCenter": "Proxy & VPN",
+        "proxyCenter": "Proxy",
         "workspaceGovernance": "Quản trị Workspace",
         "pricingBilling": "Pricing & Billing",
         "syncIntegrations": "Tích hợp + Sync",
@@ -477,8 +477,8 @@
     }
   },
   "proxyManagementDialog": {
-    "title": "Proxy & VPN",
-    "description": "Quản lý cấu hình proxy và VPN để tái sử dụng trên nhiều profile.",
+    "title": "Proxy Center",
+    "description": "Quản lý cấu hình proxy để tái sử dụng trên nhiều profile.",
     "tabs": {
       "proxies": "Proxy",
       "vpns": "VPN"
@@ -714,10 +714,10 @@
     }
   },
   "proxyAssignmentDialog": {
-    "title": "Gán Proxy / VPN",
+    "title": "Gán Proxy",
     "labels": {
       "selectedProfiles": "Profile đã chọn:",
-      "assignProxyVpn": "Gán Proxy / VPN:",
+      "assignProxyVpn": "Gán Proxy:",
       "proxies": "Proxy",
       "vpns": "VPN"
     }
@@ -866,7 +866,7 @@
     "createProfile": "Tạo profile mới",
     "menu": {
       "settings": "Cài đặt",
-      "proxies": "Proxy & VPN",
+      "proxies": "Proxy",
       "groups": "Nhóm",
       "syncService": "Tài khoản",
       "integrations": "Tích hợp",
@@ -914,18 +914,18 @@
       "note": "Ghi chú",
       "tags": "Nhãn",
       "group": "Nhóm",
-      "proxy": "Proxy / VPN",
+      "proxy": "Proxy",
       "lastLaunch": "Lần mở gần nhất",
       "noTags": "Chưa có nhãn",
       "addTags": "Thêm nhãn",
       "noNote": "Không có ghi chú",
       "notePlaceholder": "Thêm ghi chú...",
-      "proxySearch": "Tìm proxy hoặc VPN...",
-      "proxySearchWithCountries": "Tìm proxy, VPN hoặc quốc gia...",
+      "proxySearch": "Tìm proxy...",
+      "proxySearchWithCountries": "Tìm proxy hoặc quốc gia...",
       "proxyQuickActions": "Tác vụ nhanh",
       "openProxyCenter": "Mở Proxy Center",
       "quickAddProxy": "Thêm nhanh proxy",
-      "proxyEmpty": "Không tìm thấy proxy hoặc VPN.",
+      "proxyEmpty": "Không tìm thấy proxy.",
       "none": "Không",
       "vpns": "VPN",
       "createByCountry": "Tạo theo quốc gia",
@@ -1034,7 +1034,7 @@
       "advancedHint": "Cấu hình anti-detect nâng cao và tùy chọn mở rộng."
     },
     "proxy": {
-      "title": "Proxy / VPN",
+      "title": "Proxy",
       "addProxy": "Thêm proxy",
       "noProxy": "Không dùng proxy / VPN",
       "noProxiesAvailable": "Chưa có proxy hoặc VPN nào. Thêm một mục để định tuyến lưu lượng cho profile này.",
@@ -1076,7 +1076,7 @@
   },
   "proxies": {
     "title": "Proxy",
-    "management": "Proxy & VPN",
+    "management": "Proxy",
     "add": "Thêm proxy",
     "edit": "Sửa proxy",
     "delete": "Xóa proxy",
@@ -1657,7 +1657,7 @@
       "profileId": "Profile ID",
       "browser": "Trình duyệt",
       "releaseType": "Loại phát hành",
-      "proxyVpn": "Proxy / VPN",
+      "proxyVpn": "Proxy",
       "group": "Nhóm",
       "tags": "Thẻ",
       "note": "Ghi chú",
@@ -2567,6 +2567,16 @@
         "phoneFileFailed": "Không thể đọc file phone.",
         "phoneFileExcelUnsupported": "Chưa hỗ trợ đọc trực tiếp file .xlsx/.xls. Vui lòng xuất sang CSV/TSV/TXT rồi import.",
         "phoneListEmpty": "Danh sách phone đang trống.",
+        "sellerSampleCsv": "CSV mẫu",
+        "sellerSampleCsvDownloaded": "Đã tải CSV mẫu seller.",
+        "sellerNoFileChosen": "Chưa chọn file",
+        "sellerPdfFolder": "Thư mục PDF",
+        "sellerSelectPdfFolder": "Chọn thư mục PDF seller",
+        "sellerPdfFolderIndexed": "Đã index thư mục PDF seller.",
+        "sellerPdfFolderIndexedCount": "{{count}} file PDF",
+        "sellerPdfFolderSelectFailed": "Không thể chọn thư mục PDF.",
+        "sellerPdfFolderScanFailed": "Không thể quét thư mục PDF.",
+        "sellerPdfRootSummary": "PDF root: {{root}} (đã index {{count}} file)",
         "apiPhoneEndpoint": "API phone endpoint",
         "apiPhoneEndpointPlaceholder": "https://.../phones",
         "apiPhoneEndpointRequired": "Cần nhập endpoint API phone.",
@@ -2723,7 +2733,7 @@
           "import": "Import nguồn",
           "forceImport": "Force import",
           "syncAll": "Sync All",
-          "runNow": "Tạo & chạy run",
+          "runNow": "Run Queue",
           "pause": "Tạm dừng",
           "resume": "Tiếp tục",
           "progress": "Tiến độ {{done}} / {{total}}",
@@ -2854,6 +2864,9 @@
         "autoRunLaunching": "Đang mở profile kế tiếp...",
         "autoRunOpeningProfile": "Đang chờ browser profile phản hồi...",
         "autoRunCapturingCookie": "Đang đọc cookie sau khi profile đã đóng...",
+        "autoRunCooldownActive": "Tỷ lệ rejected cao. Queue tạm dừng 30 phút.",
+        "autoRunCooldownStarted": "Queue tạm dừng 30 phút ({{rejected}} / {{total}} bị rejected).",
+        "autoRunCooldownResumed": "Đã hết thời gian chờ. Queue tiếp tục chạy.",
         "autoRunWaiting": "Đóng browser hiện tại để chuyển sang profile tiếp theo.",
         "monitorRunning": "Automation đang chạy",
         "monitorStalled": "Có thể đang bị kẹt",
@@ -3082,7 +3095,7 @@
       "automationSignupTiktokSeller": "Sign Up Tiktok Seller",
       "automationUpdateCookies": "Update Cookies",
       "bugideaAutomation": "BugIdea Automation",
-      "proxies": "Proxy & VPN",
+      "proxies": "Proxy",
       "pricing": "Bảng giá",
       "settings": "Cài đặt",
       "integrations": "Tích hợp",
@@ -3123,7 +3136,7 @@
       "system": "Hệ thống"
     },
     "proxyPage": {
-      "title": "Proxy & VPN",
+      "title": "Proxy",
       "description": "Quản lý proxy, VPN và các thao tác mạng nhanh trong một workspace rộng, thay vì bị bó hẹp trong modal nhỏ.",
       "manage": "Mở trình quản lý đầy đủ",
       "proxyCount": "Số proxy đã lưu",
@@ -3134,7 +3147,7 @@
       "quickActionsDescription": "Khi cần import hàng loạt, kiểm tra proxy hoặc chỉnh VPN, hãy mở trình quản lý đầy đủ.",
       "createProfile": "Tạo profile với preset mạng",
       "syncService": "Mở dịch vụ sync",
-      "openWorkspace": "Quản lý Proxy & VPN"
+      "openWorkspace": "Quản lý Proxy"
     },
     "settingsPage": {
       "title": "Cài đặt",
@@ -4258,6 +4271,14 @@
         "custom": {
           "name": "Enterprise",
           "audience": "Tổ chức cần quota, governance và chính sách billing theo hợp đồng"
+        },
+        "team": {
+          "name": "Team",
+          "audience": "Team nhỏ và vừa cần workspace chung, quota rộng hơn để vận hành ổn định"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "audience": "Tổ chức cần quota, governance và chính sách billing theo hợp đồng"
         }
       },
       "support": {
@@ -4690,9 +4711,26 @@
         "canceled": "Workspace đã hủy",
         "searchPlaceholder": "Tìm workspace...",
         "allStatuses": "Tất cả trạng thái",
+        "allPlans": "Tất cả gói",
+        "create": {
+          "name": "Tên workspace",
+          "modeTeam": "Team",
+          "modePersonal": "Cá nhân",
+          "owner": "Owner tuỳ chọn",
+          "ownerSearch": "Tìm owner theo email...",
+          "action": "Tạo workspace"
+        },
+        "pagination": {
+          "prev": "Trang trước",
+          "next": "Trang sau",
+          "page": "Trang {{page}}"
+        },
         "actions": {
           "manage": "Cấu hình",
-          "saveSubscription": "Lưu subscription"
+          "saveSubscription": "Lưu subscription",
+          "quickAddMember": "Thêm member nhanh",
+          "memberEmail": "Email user",
+          "invite": "Mời vào workspace"
         },
         "manage": {
           "title": "Cấu hình subscription workspace",
@@ -4712,10 +4750,16 @@
           "invalidExpiry": "Thời điểm hết hạn phải nằm trong tương lai.",
           "updateFailed": "Không thể cập nhật subscription workspace.",
           "loadFailed": "Không thể tải danh sách workspace.",
-          "invalidMemberLimit": "Giới hạn member phải lớn hơn 0."
+          "invalidMemberLimit": "Giới hạn member phải lớn hơn 0.",
+          "createNameRequired": "Tên workspace là bắt buộc.",
+          "createFailed": "Không thể tạo workspace.",
+          "inviteInvalidEmail": "Cần email user hợp lệ.",
+          "inviteFailed": "Không thể mời user vào workspace."
         },
         "toasts": {
-          "subscriptionUpdated": "Đã cập nhật subscription workspace."
+          "subscriptionUpdated": "Đã cập nhật subscription workspace.",
+          "workspaceCreated": "Đã tạo workspace.",
+          "memberInvited": "Đã mời member."
         },
         "panel": {
           "emptySelection": "Chọn một workspace để xem chi tiết.",

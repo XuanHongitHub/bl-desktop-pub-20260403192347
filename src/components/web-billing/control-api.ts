@@ -52,7 +52,7 @@ export interface WebBillingWorkspaceListItem {
 }
 
 export interface CreateCheckoutInput {
-  planId: "starter" | "growth" | "scale" | "custom";
+  planId: "starter" | "team" | "scale" | "enterprise";
   billingCycle: BillingCycle;
   couponCode?: string | null;
   successUrl: string;
@@ -65,8 +65,13 @@ export interface CreateAdminUserInput {
   platformRole?: "platform_admin" | null;
 }
 
+export interface CreateWorkspaceInput {
+  name: string;
+  mode?: "personal" | "team";
+}
+
 export interface OverrideWorkspaceSubscriptionInput {
-  planId: "starter" | "growth" | "scale" | "custom";
+  planId: "starter" | "team" | "scale" | "enterprise";
   billingCycle: BillingCycle;
   profileLimit?: number;
   memberLimit?: number;
@@ -126,6 +131,8 @@ export interface PlatformAdminListQuery {
   q?: string;
   page?: number;
   pageSize?: number;
+  status?: "active" | "past_due" | "canceled";
+  planIdFilter?: "starter" | "team" | "scale" | "enterprise" | "free";
 }
 
 function mapControlCouponToCommerceCoupon(input: ControlCoupon): CommerceCoupon {
@@ -209,6 +216,7 @@ async function requestControl<T>(
     | "adminWorkspaceHealth"
     | "workspaceBillingState"
     | "workspaceMembers"
+    | "workspaceMemberInvite"
     | "workspaceMemberRole"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
@@ -253,6 +261,8 @@ async function requestControl<T>(
     q?: string;
     page?: number;
     pageSize?: number;
+    status?: "active" | "past_due" | "canceled";
+    planIdFilter?: "starter" | "team" | "scale" | "enterprise" | "free";
   },
   init: RequestInit,
 ): Promise<T> {
@@ -280,6 +290,33 @@ export async function listWorkspaces(
     {},
     {
       method: "GET",
+    },
+  );
+}
+
+export async function createWorkspace(
+  connection: WebBillingConnection,
+  input: CreateWorkspaceInput,
+): Promise<{
+  id: string;
+  name: string;
+  mode: "personal" | "team";
+  createdAt: string;
+  createdBy: string;
+}> {
+  return requestControl<{
+    id: string;
+    name: string;
+    mode: "personal" | "team";
+    createdAt: string;
+    createdBy: string;
+  }>(
+    connection,
+    "workspaces",
+    {},
+    {
+      method: "POST",
+      body: JSON.stringify(input),
     },
   );
 }
@@ -351,6 +388,32 @@ export async function updateWorkspaceMemberRole(
     {
       method: "PATCH",
       body: JSON.stringify({ role, reason: "updated_from_super_admin_users" }),
+    },
+  );
+}
+
+export async function inviteWorkspaceMember(
+  connection: WebBillingConnection,
+  workspaceId: string,
+  input: { email: string; role: "owner" | "admin" | "member" | "viewer" },
+): Promise<{
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: "owner" | "admin" | "member" | "viewer";
+}> {
+  return requestControl<{
+    id: string;
+    workspaceId: string;
+    email: string;
+    role: "owner" | "admin" | "member" | "viewer";
+  }>(
+    connection,
+    "workspaceMemberInvite",
+    { workspaceId },
+    {
+      method: "POST",
+      body: JSON.stringify(input),
     },
   );
 }

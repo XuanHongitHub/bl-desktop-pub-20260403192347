@@ -445,6 +445,7 @@ export interface AdminTiktokWorkflowRow {
   phoneNumber?: string;
   apiPhone?: string;
   email?: string;
+  password?: string;
   apiMail?: string;
   firstName?: string;
   lastName?: string;
@@ -459,6 +460,7 @@ export interface AdminTiktokWorkflowRow {
   state?: string;
   zip?: string;
   file?: string;
+  documentRoot?: string;
   docType?: string;
   probeOutputDir?: string;
   status:
@@ -586,6 +588,9 @@ export interface AdminTiktokAutoWorkflowRunState {
   launching: boolean;
   observedRunning: boolean;
   processingClose: boolean;
+  windowProcessed?: number;
+  windowRejected?: number;
+  pausedUntilMs?: number | null;
 }
 
 export type AdminTiktokOperationProgressStatus =
@@ -638,6 +643,7 @@ export interface ControlAdminWorkspaceHealthRow {
   workspaceId: string;
   workspaceName: string;
   mode: "personal" | "team";
+  planId: "starter" | "team" | "scale" | "enterprise" | null;
   planLabel: string;
   subscriptionStatus: "active" | "past_due" | "canceled";
   entitlementState: EntitlementState;
@@ -707,7 +713,7 @@ export interface ControlAdminAutomationRunListItem {
 
 export interface ControlWorkspaceSubscription {
   workspaceId: string;
-  planId: "starter" | "growth" | "scale" | "custom" | null;
+  planId: "starter" | "team" | "scale" | "enterprise" | null;
   planLabel: string;
   profileLimit: number;
   memberLimit: number;
@@ -724,7 +730,7 @@ export interface ControlWorkspaceSubscription {
 export interface ControlBillingInvoice {
   id: string;
   workspaceId: string;
-  planId: "starter" | "growth" | "scale" | "custom";
+  planId: "starter" | "team" | "scale" | "enterprise";
   planLabel: string;
   billingCycle: "monthly" | "yearly";
   baseAmountUsd: number;
@@ -1417,7 +1423,6 @@ export type AppSection =
   | "workspace-admin-analytics"
   | "workspace-governance"
   | "settings"
-  | "integrations"
   | "admin-overview"
   | "admin-workspace"
   | "admin-billing"

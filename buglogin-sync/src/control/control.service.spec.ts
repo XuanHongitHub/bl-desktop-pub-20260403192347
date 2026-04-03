@@ -579,7 +579,7 @@ describe("ControlService", () => {
       },
       workspace.id,
       {
-        planId: "custom",
+        planId: "enterprise",
         billingCycle: "yearly",
         profileLimit: 2500,
         memberLimit: 40,
@@ -598,7 +598,7 @@ describe("ControlService", () => {
     );
     expect(detailBefore.owner?.email).toBe("owner@buglogin.local");
     expect(detailBefore.memberLimit).toBe(40);
-    expect(detailBefore.planLabel).toBe("Enterprise Custom");
+    expect(detailBefore.planLabel).toBe("Enterprise");
 
     const detailAfter = service.transferWorkspaceOwnershipAsAdmin(
       {
@@ -730,7 +730,7 @@ describe("ControlService", () => {
       { userId: owner.user.id, email: owner.user.email, platformRole: null },
       workspace.id,
       {
-        planId: "growth",
+        planId: "team",
         billingCycle: "monthly",
         method: "self_host_checkout",
       },

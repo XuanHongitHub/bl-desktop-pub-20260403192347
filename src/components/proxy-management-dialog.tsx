@@ -38,7 +38,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -49,7 +48,6 @@ import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import type { ProxyCheckFailureMeta } from "@/lib/proxy-check-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
-import { cn } from "@/lib/utils";
 import type { ProxyCheckResult, StoredProxy, VpnConfig } from "@/types";
 import { FlagIcon } from "./flag-icon";
 import { LocationProxyDialog } from "./location-proxy-dialog";
@@ -119,7 +117,7 @@ export function ProxyManagementDialog({
   mode = "dialog",
 }: ProxyManagementDialogProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"proxies" | "vpns">("proxies");
+  const activeTab: "proxies" | "vpns" = "proxies";
   // Proxy state
   const [showProxyForm, setShowProxyForm] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -175,11 +173,19 @@ export function ProxyManagementDialog({
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
   const storedProxyIdsSignature = useMemo(
-    () => storedProxies.map((proxy) => proxy.id).sort().join("|"),
+    () =>
+      storedProxies
+        .map((proxy) => proxy.id)
+        .sort()
+        .join("|"),
     [storedProxies],
   );
   const vpnIdsSignature = useMemo(
-    () => vpnConfigs.map((vpn) => vpn.id).sort().join("|"),
+    () =>
+      vpnConfigs
+        .map((vpn) => vpn.id)
+        .sort()
+        .join("|"),
     [vpnConfigs],
   );
 
@@ -304,7 +310,9 @@ export function ProxyManagementDialog({
   useEffect(() => {
     const vpnIds = vpnIdsSignature ? vpnIdsSignature.split("|") : [];
     if (vpnIds.length === 0) {
-      setVpnInUse((current) => (Object.keys(current).length === 0 ? current : {}));
+      setVpnInUse((current) =>
+        Object.keys(current).length === 0 ? current : {},
+      );
       return;
     }
     const loadVpnInUse = async () => {
@@ -942,36 +950,6 @@ export function ProxyManagementDialog({
     </div>
   );
 
-  const managementTabs = (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => setActiveTab(value as "proxies" | "vpns")}
-      className="min-h-0"
-    >
-      <TabsList
-        className={cn(
-          "w-full rounded-xl bg-muted/60 p-1",
-          mode === "dialog" && "bg-transparent p-0",
-        )}
-      >
-        <TabsTrigger value="proxies" className="flex-1">
-          {t("proxyManagementDialog.tabs.proxies")}
-        </TabsTrigger>
-        <TabsTrigger value="vpns" className="flex-1">
-          {t("proxyManagementDialog.tabs.vpns")}
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="proxies" className="mt-4">
-        {proxyPanel}
-      </TabsContent>
-
-      <TabsContent value="vpns" className="mt-4">
-        {vpnPanel}
-      </TabsContent>
-    </Tabs>
-  );
-
   const content = (
     <>
       <div className="app-shell-safe-header shrink-0 border-b px-5 py-4">
@@ -984,7 +962,9 @@ export function ProxyManagementDialog({
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="px-5 py-4">{managementTabs}</div>
+        <div className="px-5 py-4">
+          {activeTab === "proxies" ? proxyPanel : vpnPanel}
+        </div>
       </ScrollArea>
       {mode === "dialog" && (
         <DialogFooter className="shrink-0 border-t px-5 py-4">
@@ -1002,23 +982,6 @@ export function ProxyManagementDialog({
         <WorkspacePageShell
           title={t("proxyManagementDialog.title")}
           description={t("proxyManagementDialog.description")}
-          toolbar={
-            <Tabs
-              value={activeTab}
-              onValueChange={(value) =>
-                setActiveTab(value as "proxies" | "vpns")
-              }
-            >
-              <TabsList className="grid w-[220px] grid-cols-2">
-                <TabsTrigger value="proxies">
-                  {t("proxyManagementDialog.tabs.proxies")}
-                </TabsTrigger>
-                <TabsTrigger value="vpns">
-                  {t("proxyManagementDialog.tabs.vpns")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
           contentClassName="max-w-none"
         >
           {activeTab === "proxies" ? proxyPanel : vpnPanel}

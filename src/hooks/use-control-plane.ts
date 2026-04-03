@@ -429,6 +429,19 @@ function normalizeAdminTiktokState(
             launching: Boolean(input.autoWorkflowRun.launching),
             observedRunning: Boolean(input.autoWorkflowRun.observedRunning),
             processingClose: Boolean(input.autoWorkflowRun.processingClose),
+            windowProcessed: Math.max(
+              0,
+              Number(input.autoWorkflowRun.windowProcessed ?? 0),
+            ),
+            windowRejected: Math.max(
+              0,
+              Number(input.autoWorkflowRun.windowRejected ?? 0),
+            ),
+            pausedUntilMs:
+              typeof input.autoWorkflowRun.pausedUntilMs === "number" &&
+              Number.isFinite(input.autoWorkflowRun.pausedUntilMs)
+                ? input.autoWorkflowRun.pausedUntilMs
+                : null,
           }
         : null,
     operationProgress: normalizedOperationProgress,

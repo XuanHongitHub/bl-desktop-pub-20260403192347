@@ -100,7 +100,7 @@ export class ControlController {
     @Param("workspaceId") workspaceId: string,
     @Body()
     body: {
-      planId: "starter" | "growth" | "scale" | "custom";
+      planId: "starter" | "team" | "scale" | "enterprise";
       billingCycle: "monthly" | "yearly";
       profileLimit?: number;
       memberLimit?: number;
@@ -121,7 +121,7 @@ export class ControlController {
     @Param("workspaceId") workspaceId: string,
     @Body()
     body: {
-      planId: "starter" | "growth" | "scale" | "custom";
+      planId: "starter" | "team" | "scale" | "enterprise";
       billingCycle: "monthly" | "yearly";
       method: "self_host_checkout" | "coupon";
       couponCode?: string | null;
@@ -140,7 +140,7 @@ export class ControlController {
     @Param("workspaceId") workspaceId: string,
     @Body()
     body: {
-      planId: "starter" | "growth" | "scale" | "custom";
+      planId: "starter" | "team" | "scale" | "enterprise";
       billingCycle: "monthly" | "yearly";
       couponCode?: string | null;
       successUrl: string;
@@ -687,11 +687,31 @@ export class ControlController {
   listAdminWorkspaces(
     @Headers() headers: ActorHeaders,
     @Query("q") q?: string,
+    @Query("status") status?: string,
+    @Query("planId") planId?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
     return this.controlService.listAdminWorkspaces(this.actorFromHeaders(headers), {
       q,
+      status:
+        status === "active" || status === "past_due" || status === "canceled"
+          ? status
+          : undefined,
+      planId:
+        planId === "starter" ||
+        planId === "team" ||
+        planId === "growth" ||
+        planId === "scale" ||
+        planId === "enterprise" ||
+        planId === "custom" ||
+        planId === "free"
+          ? planId === "growth"
+            ? "team"
+            : planId === "custom"
+              ? "enterprise"
+              : planId
+          : undefined,
       page: Number(page ?? 1),
       pageSize: Number(pageSize ?? 25),
     });

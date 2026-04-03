@@ -83,12 +83,12 @@ test("merges current workspace and plan context without losing identity", () => 
   const merged = mergePortalSessionCurrent(base, {
     workspaceId: "ws-2",
     workspaceName: "Admin Team",
-    planId: "custom",
+    planId: "enterprise",
     planLabel: "Custom",
   });
 
   assert.equal(merged.user.email, "user@example.com");
   assert.equal(merged.connection.platformRole, "platform_admin");
   assert.equal(merged.current?.workspaceId, "ws-2");
-  assert.equal(merged.current?.planId, "custom");
+  assert.equal(merged.current?.planId, "enterprise");
 });

@@ -1,5 +1,12 @@
+import {
+  PAID_PLAN_IDS,
+  PLAN_CATALOG,
+  type PaidPlanId,
+  type PlanSupportTier,
+} from "@/lib/plan-catalog";
+
 export type BillingCycle = "monthly" | "yearly";
-export type BillingPlanId = "starter" | "growth" | "scale" | "custom";
+export type BillingPlanId = PaidPlanId;
 
 export type BillingPlan = {
   id: BillingPlanId;
@@ -8,7 +15,7 @@ export type BillingPlan = {
   profiles: number;
   members: number;
   storageGb: number;
-  support: "email" | "priority" | "dedicated";
+  support: PlanSupportTier;
   recommended?: boolean;
 };
 
@@ -19,49 +26,25 @@ export type CustomPlanOverride = {
   profiles: number;
   members: number;
   storageGb: number;
-  support: "email" | "priority" | "dedicated";
+  support: PlanSupportTier;
   recommended: boolean;
 };
 
-export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] = [
-  {
-    id: "starter",
-    monthlyPrice: 9,
-    yearlyPrice: 9,
-    profiles: 50,
-    members: 1,
-    storageGb: 5,
-    support: "email",
+export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] = PAID_PLAN_IDS.map(
+  (id) => {
+    const item = PLAN_CATALOG[id];
+    return {
+      id,
+      monthlyPrice: item.monthlyPriceUsd ?? 0,
+      yearlyPrice: item.yearlyPriceUsd ?? 0,
+      profiles: item.profiles,
+      members: item.members,
+      storageGb: item.storageGb,
+      support: item.support,
+      recommended: item.recommended,
+    } satisfies BillingPlan;
   },
-  {
-    id: "growth",
-    monthlyPrice: 29,
-    yearlyPrice: 29,
-    profiles: 300,
-    members: 5,
-    storageGb: 30,
-    support: "priority",
-    recommended: true,
-  },
-  {
-    id: "scale",
-    monthlyPrice: 79,
-    yearlyPrice: 79,
-    profiles: 1000,
-    members: 15,
-    storageGb: 120,
-    support: "dedicated",
-  },
-  {
-    id: "custom",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    profiles: 5000,
-    members: 50,
-    storageGb: 500,
-    support: "dedicated",
-  },
-];
+);
 
 export function getBillingPlanPrice(
   plan: BillingPlan,
@@ -78,10 +61,10 @@ export function mergeCustomPlanOverride(
     return [...plans];
   }
   if (!customOverride.enabled) {
-    return plans.filter((plan) => plan.id !== "custom");
+    return plans.filter((plan) => plan.id !== "enterprise");
   }
   return plans.map((plan) =>
-    plan.id === "custom"
+    plan.id === "enterprise"
       ? {
           ...plan,
           monthlyPrice: customOverride.monthlyPrice,

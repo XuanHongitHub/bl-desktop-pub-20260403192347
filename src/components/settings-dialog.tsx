@@ -44,7 +44,6 @@ import { useLanguage } from "@/hooks/use-language";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
 import type { SupportedLanguage } from "@/i18n";
-import type { AppSection } from "@/types";
 import {
   mergeAppSettingsCache,
   readAppSettingsCache,
@@ -57,6 +56,7 @@ import {
   THEMES,
 } from "@/lib/themes";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import type { AppSection } from "@/types";
 import { RippleButton } from "./ui/ripple";
 import { WorkspacePageShell } from "./workspace-page-shell";
 
@@ -247,7 +247,6 @@ function ThemeChoiceIndicator({
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onIntegrationsOpen?: () => void;
   onSectionOpen?: (section: AppSection) => void;
   onSyncConfigOpen?: () => void;
   canUseEncryption?: boolean;
@@ -1411,7 +1410,6 @@ export function SettingsDialog({
       >
         {t("settings.advanced.clearCache")}
       </LoadingButton>
-
     </section>
   );
 
@@ -1467,10 +1465,7 @@ export function SettingsDialog({
 
   if (mode === "page") {
     return (
-      <WorkspacePageShell
-        title={title}
-        contentClassName="max-w-none"
-      >
+      <WorkspacePageShell title={title} contentClassName="max-w-none">
         {isLoading ? loadingSections : settingsSections}
       </WorkspacePageShell>
     );

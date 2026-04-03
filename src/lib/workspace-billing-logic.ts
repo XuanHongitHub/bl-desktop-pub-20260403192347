@@ -19,11 +19,17 @@ export function normalizePlanId(
   plan: string | null | undefined,
 ): BillingPlanId | null {
   const normalized = plan?.toLowerCase();
+  if (normalized === "growth") {
+    return "team";
+  }
+  if (normalized === "custom") {
+    return "enterprise";
+  }
   if (
     normalized === "starter" ||
-    normalized === "growth" ||
+    normalized === "team" ||
     normalized === "scale" ||
-    normalized === "custom"
+    normalized === "enterprise"
   ) {
     return normalized;
   }
@@ -34,13 +40,13 @@ export function getPlanRank(planId: BillingPlanId | null | undefined): number {
   if (planId === "starter") {
     return 1;
   }
-  if (planId === "growth") {
+  if (planId === "team") {
     return 2;
   }
   if (planId === "scale") {
     return 3;
   }
-  if (planId === "custom") {
+  if (planId === "enterprise") {
     return 4;
   }
   return 0;
@@ -60,18 +66,18 @@ export function normalizePlanIdFromLabel(
   if (!normalized) {
     return null;
   }
-  if (normalized.includes("custom") || normalized.includes("enterprise")) {
-    return "custom";
+  if (normalized.includes("enterprise") || normalized.includes("custom")) {
+    return "enterprise";
   }
   if (normalized.includes("scale") || normalized.includes("business")) {
     return "scale";
   }
   if (
-    normalized.includes("growth") ||
     normalized.includes("team") ||
+    normalized.includes("growth") ||
     normalized.includes("pro")
   ) {
-    return "growth";
+    return "team";
   }
   if (
     normalized.includes("starter") ||
@@ -104,7 +110,7 @@ export function buildEffectivePlans(
 export function getPlanById(
   plans: BillingPlan[],
   planId: BillingPlanId | null,
-  fallbackId: BillingPlanId = "growth",
+  fallbackId: BillingPlanId = "team",
 ): BillingPlan {
   return (
     plans.find((plan) => plan.id === planId) ??

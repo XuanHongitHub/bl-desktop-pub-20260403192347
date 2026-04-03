@@ -53,8 +53,8 @@ export function getPlanTier(planLabel?: string | null): PlanTier {
   }
   if (
     normalized.includes("silver") ||
-    normalized.includes("growth") ||
     normalized.includes("team") ||
+    normalized.includes("growth") ||
     normalized.includes("pro") ||
     normalized.includes("ag")
   ) {
@@ -74,7 +74,7 @@ export function getPlanTierByBillingPlanId(planId: BillingPlanId): PlanTier {
   if (planId === "starter") {
     return "bronze";
   }
-  if (planId === "growth") {
+  if (planId === "team") {
     return "silver";
   }
   if (planId === "scale") {

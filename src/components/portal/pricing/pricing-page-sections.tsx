@@ -11,6 +11,7 @@ import {
   BILLING_PLAN_DEFINITIONS,
   type BillingPlanId,
 } from "@/lib/billing-plans";
+import { PLAN_CATALOG } from "@/lib/plan-catalog";
 import { showErrorToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import {
@@ -65,7 +66,7 @@ export function PricingPageSections() {
       nameKey: `portalSite.pricing.plans.${plan.id}.name`,
       audienceKey: `portalSite.pricing.plans.${plan.id}.audience`,
       annualSavings:
-        plan.id === "custom"
+        plan.id === "enterprise"
           ? 0
           : Math.max(0, (plan.monthlyPrice - plan.yearlyPrice) * 12),
       values: [
@@ -75,7 +76,7 @@ export function PricingPageSections() {
       ] as [string, string, string],
       supportKey: plan.support,
       highlight: Boolean(plan.recommended),
-      isCustomPlan: plan.id === "custom",
+      isCustomPlan: plan.id === "enterprise",
       isFreePlan: false,
       monthlyPriceLabel: `$${plan.monthlyPrice}`,
       yearlyPriceLabel: `$${plan.yearlyPrice}`,
@@ -86,13 +87,17 @@ export function PricingPageSections() {
       nameKey: "portalSite.pricing.plans.free.name",
       audienceKey: "portalSite.pricing.plans.free.audience",
       annualSavings: 0,
-      values: ["3", "1", "1 GB"],
+      values: [
+        PLAN_CATALOG.free.profiles.toLocaleString("en-US"),
+        String(PLAN_CATALOG.free.members),
+        `${PLAN_CATALOG.free.storageGb.toLocaleString("en-US")} GB`,
+      ],
       supportKey: "email",
       highlight: false,
       isCustomPlan: false,
       isFreePlan: true,
-      monthlyPriceLabel: "$0",
-      yearlyPriceLabel: "$0",
+      monthlyPriceLabel: `$${PLAN_CATALOG.free.monthlyPriceUsd ?? 0}`,
+      yearlyPriceLabel: `$${PLAN_CATALOG.free.yearlyPriceUsd ?? 0}`,
     };
 
     return [freePlan, ...paidPlans];
@@ -113,7 +118,7 @@ export function PricingPageSections() {
   };
 
   const handlePlanIntent = async (planId: BillingPlanId) => {
-    if (planId === "custom") {
+    if (planId === "enterprise") {
       router.push("/help");
       return;
     }
@@ -230,7 +235,7 @@ export function PricingPageSections() {
                         ? "var(--chart-1)"
                         : plan.id === "starter"
                           ? "var(--chart-2)"
-                          : plan.id === "growth"
+                          : plan.id === "team"
                             ? "var(--chart-3)"
                             : plan.id === "scale"
                               ? "var(--chart-4)"

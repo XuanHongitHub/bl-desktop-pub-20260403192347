@@ -5,7 +5,8 @@ use zip::write::FileOptions;
 
 use crate::browser::BrowserType;
 
-const RUNTIME_IDENTITY_EXTENSION_VERSION: &str = "1.1.1";
+const RUNTIME_IDENTITY_EXTENSION_VERSION: &str = "1.1.2";
+const RUNTIME_IDENTITY_EXTENSION_NAME: &str = "BugLogin Identity";
 
 fn build_profile_tag(profile_name: &str) -> String {
   let compact: String = profile_name
@@ -27,103 +28,6 @@ fn escape_js_single_quoted(value: &str) -> String {
     .replace('\'', "\\'")
     .replace('\n', "\\n")
     .replace('\r', "\\r")
-}
-
-fn build_content_js(profile_name: &str) -> String {
-  let safe_name = escape_js_single_quoted(profile_name.trim());
-  let safe_tag = escape_js_single_quoted(&build_profile_tag(profile_name));
-  format!(
-    r#"(function () {{
-  const PROFILE_NAME = '{safe_name}';
-  const PROFILE_TAG = '{safe_tag}';
-
-  function labelFromLocation() {{
-    try {{
-      const host = (location.hostname || '').replace(/^www\./, '');
-      const path = (location.pathname || '') + (location.search || '');
-      const label = (host + path).trim();
-      return label || (location.href || '').trim();
-    }} catch (_e) {{
-      return '';
-    }}
-  }}
-
-  function buildTitle() {{
-    const label = labelFromLocation();
-    if (!PROFILE_NAME) return document.title || '';
-    if (!label) return `[${{PROFILE_TAG}}] ${{PROFILE_NAME}}`;
-    return `[${{PROFILE_TAG}}] ${{PROFILE_NAME}} • ${{label}}`;
-  }}
-
-  function buildFaviconDataUrl() {{
-    try {{
-      const canvas = document.createElement('canvas');
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, 64, 64);
-      ctx.fillStyle = '#111d33';
-      ctx.fillRect(4, 4, 56, 56);
-      ctx.fillStyle = '#f8fafc';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      const compact = (PROFILE_TAG || 'profile').replace(/[^a-z0-9]/gi, '').slice(0, 7);
-      const firstLine = compact.slice(0, 4);
-      const secondLine = compact.slice(4);
-
-      if (secondLine) {{
-        ctx.font = '700 11px "Segoe UI Variable Text", "Segoe UI", sans-serif';
-        ctx.fillText(firstLine, 32, 24);
-        ctx.fillText(secondLine, 32, 40);
-      }} else {{
-        ctx.font = '700 12px "Segoe UI Variable Text", "Segoe UI", sans-serif';
-        ctx.fillText(firstLine || 'profile', 32, 32);
-      }}
-      return canvas.toDataURL('image/png');
-    }} catch (_e) {{
-      return null;
-    }}
-  }}
-
-  function applyFavicon() {{
-    const dataUrl = buildFaviconDataUrl();
-    if (!dataUrl) return;
-
-    let icon = document.querySelector('link[rel="icon"]');
-    if (!icon) {{
-      icon = document.createElement('link');
-      icon.setAttribute('rel', 'icon');
-      document.head.appendChild(icon);
-    }}
-    icon.setAttribute('href', dataUrl);
-  }}
-
-  function applyTitle() {{
-    const next = buildTitle();
-    if (!next) return;
-    if (document.title !== next) {{
-      document.title = next;
-    }}
-    applyFavicon();
-  }}
-
-  applyTitle();
-  setInterval(applyTitle, 700);
-  window.addEventListener('hashchange', applyTitle, true);
-  window.addEventListener('popstate', applyTitle, true);
-
-  const titleNode = document.querySelector('title');
-  if (titleNode && 'MutationObserver' in window) {{
-    const observer = new MutationObserver(applyTitle);
-    observer.observe(titleNode, {{ childList: true, subtree: true, characterData: true }});
-  }}
-}})();
-"#
-  )
 }
 
 fn build_newtab_html() -> &'static str {
@@ -259,52 +163,6 @@ fn build_newtab_js(profile_name: &str) -> String {
   )
 }
 
-fn escape_css_content(value: &str) -> String {
-  value
-    .replace('\\', "\\\\")
-    .replace('"', "\\\"")
-    .replace('\n', " ")
-    .replace('\r', " ")
-}
-
-fn upsert_marked_css_block(
-  file_path: &Path,
-  start_marker: &str,
-  end_marker: &str,
-  block: &str,
-) -> Result<(), String> {
-  let mut current = fs::read_to_string(file_path).unwrap_or_default();
-  let wrapped_block = format!("{start_marker}\n{block}\n{end_marker}\n");
-
-  if let Some(start_idx) = current.find(start_marker) {
-    if let Some(relative_end_idx) = current[start_idx..].find(end_marker) {
-      let end_idx = start_idx + relative_end_idx + end_marker.len();
-      current.replace_range(start_idx..end_idx, wrapped_block.trim_end());
-      if !current.ends_with('\n') {
-        current.push('\n');
-      }
-    } else {
-      if !current.ends_with('\n') && !current.is_empty() {
-        current.push('\n');
-      }
-      current.push_str(&wrapped_block);
-    }
-  } else {
-    if !current.ends_with('\n') && !current.is_empty() {
-      current.push('\n');
-    }
-    current.push_str(&wrapped_block);
-  }
-
-  fs::write(file_path, current).map_err(|e| {
-    format!(
-      "Failed to write Firefox userChrome.css block at {}: {e}",
-      file_path.display()
-    )
-  })?;
-  Ok(())
-}
-
 fn upsert_user_pref_bool(file_path: &Path, key: &str, value: bool) -> Result<(), String> {
   let mut lines: Vec<String> = fs::read_to_string(file_path)
     .ok()
@@ -327,98 +185,49 @@ fn upsert_user_pref_bool(file_path: &Path, key: &str, value: bool) -> Result<(),
   Ok(())
 }
 
-fn ensure_firefox_urlbar_profile_badge(
-  profile_path: &Path,
-  profile_name: &str,
+fn remove_marked_css_block(
+  file_path: &Path,
+  start_marker: &str,
+  end_marker: &str,
 ) -> Result<(), String> {
+  let mut current = match fs::read_to_string(file_path) {
+    Ok(content) => content,
+    Err(_) => return Ok(()),
+  };
+
+  if let Some(start_idx) = current.find(start_marker) {
+    if let Some(relative_end_idx) = current[start_idx..].find(end_marker) {
+      let mut end_idx = start_idx + relative_end_idx + end_marker.len();
+      while end_idx < current.len() && current.as_bytes()[end_idx] == b'\n' {
+        end_idx += 1;
+      }
+      current.replace_range(start_idx..end_idx, "");
+      fs::write(file_path, current).map_err(|e| {
+        format!(
+          "Failed to clean Firefox userChrome.css block at {}: {e}",
+          file_path.display()
+        )
+      })?;
+    }
+  }
+  Ok(())
+}
+
+fn cleanup_firefox_urlbar_profile_badge(profile_path: &Path) -> Result<(), String> {
   const START_MARKER: &str = "/* BUGLOGIN_PROFILE_BADGE_START */";
   const END_MARKER: &str = "/* BUGLOGIN_PROFILE_BADGE_END */";
   const PREF_KEY_STYLESHEETS: &str = "toolkit.legacyUserProfileCustomizations.stylesheets";
   const PREF_KEY_TASKBAR_GROUPING: &str = "taskbar.grouping.useprofile";
 
-  let chrome_dir = profile_path.join("chrome");
-  fs::create_dir_all(&chrome_dir)
-    .map_err(|e| format!("Failed to create Firefox chrome directory: {e}"))?;
-
-  let display_name = profile_name.trim();
-  let safe_display_name = if display_name.is_empty() {
-    "BugLogin Profile"
-  } else {
-    display_name
-  };
-  let profile_tag = build_profile_tag(profile_name);
-  let css_label = escape_css_content(&format!("[{profile_tag}] {safe_display_name}"));
-
-  let css_block = format!(
-    r#"#urlbar .urlbar-input-container::before,
-#urlbar-input-container::before {{
-  content: "{css_label}" !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  -moz-box-align: center !important;
-  flex: 0 0 auto !important;
-  margin-inline-end: 8px !important;
-  padding: 2px 9px !important;
-  min-height: 24px !important;
-  border-radius: 999px !important;
-  border: 1px solid color-mix(in srgb, var(--toolbar-field-color, #e5e7eb) 16%, transparent) !important;
-  background-color: color-mix(in srgb, var(--toolbar-field-background-color, #111827) 78%, #334155 22%) !important;
-  color: var(--toolbar-field-color, #e5e7eb) !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.04em !important;
-  text-transform: none !important;
-  font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif !important;
-  max-width: 320px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}}
-
-/* Fallback for themes/layouts where input-container pseudo elements are ignored. */
-#identity-box::after,
-#identity-icon-box::after {{
-  content: "{css_label}" !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  -moz-box-align: center !important;
-  margin-inline-start: 6px !important;
-  padding: 2px 9px !important;
-  min-height: 20px !important;
-  border-radius: 999px !important;
-  border: 1px solid color-mix(in srgb, var(--toolbar-field-color, #e5e7eb) 16%, transparent) !important;
-  background-color: color-mix(in srgb, var(--toolbar-field-background-color, #111827) 78%, #334155 22%) !important;
-  color: var(--toolbar-field-color, #e5e7eb) !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.04em !important;
-  text-transform: none !important;
-  font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif !important;
-  max-width: 320px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}}
-
-#main-window[inDOMFullscreen="true"] #urlbar .urlbar-input-container::before,
-#main-window[inDOMFullscreen="true"] #urlbar-input-container::before,
-#main-window[inDOMFullscreen="true"] #identity-box::after,
-#main-window[inDOMFullscreen="true"] #identity-icon-box::after {{
-  display: none !important;
-}}
-"#
-  );
-
-  upsert_marked_css_block(
-    &chrome_dir.join("userChrome.css"),
+  remove_marked_css_block(
+    &profile_path.join("chrome").join("userChrome.css"),
     START_MARKER,
     END_MARKER,
-    &css_block,
   )?;
   upsert_user_pref_bool(&profile_path.join("user.js"), PREF_KEY_STYLESHEETS, true)?;
   upsert_user_pref_bool(&profile_path.join("prefs.js"), PREF_KEY_STYLESHEETS, true)?;
-  upsert_user_pref_bool(&profile_path.join("user.js"), PREF_KEY_TASKBAR_GROUPING, true)?;
-  upsert_user_pref_bool(&profile_path.join("prefs.js"), PREF_KEY_TASKBAR_GROUPING, true)?;
+  upsert_user_pref_bool(&profile_path.join("user.js"), PREF_KEY_TASKBAR_GROUPING, false)?;
+  upsert_user_pref_bool(&profile_path.join("prefs.js"), PREF_KEY_TASKBAR_GROUPING, false)?;
   Ok(())
 }
 
@@ -432,22 +241,15 @@ fn ensure_chromium_runtime_identity_extension(
 
   let manifest = r#"{
   "manifest_version": 3,
-  "name": "BugLogin Runtime Identity",
+  "name": "__BUGLOGIN_RUNTIME_IDENTITY_NAME__",
   "version": "__BUGLOGIN_RUNTIME_IDENTITY_VERSION__",
-  "description": "Shows profile identity directly in tab titles.",
+  "description": "Custom new tab identity surface for BugLogin profiles.",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
-  },
-  "host_permissions": ["<all_urls>"],
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_start"
-    }
-  ]
+  }
 }
 "#
+  .replace("__BUGLOGIN_RUNTIME_IDENTITY_NAME__", RUNTIME_IDENTITY_EXTENSION_NAME)
   .replace(
     "__BUGLOGIN_RUNTIME_IDENTITY_VERSION__",
     RUNTIME_IDENTITY_EXTENSION_VERSION,
@@ -456,8 +258,6 @@ fn ensure_chromium_runtime_identity_extension(
   fs::write(ext_dir.join("manifest.json"), manifest)
     .map_err(|e| format!("Failed to write runtime identity manifest: {e}"))?;
 
-  fs::write(ext_dir.join("content.js"), build_content_js(profile_name))
-    .map_err(|e| format!("Failed to write runtime identity content script: {e}"))?;
   fs::write(ext_dir.join("newtab.html"), build_newtab_html())
     .map_err(|e| format!("Failed to write runtime identity newtab page: {e}"))?;
   fs::write(ext_dir.join("newtab.js"), build_newtab_js(profile_name))
@@ -479,9 +279,9 @@ fn ensure_firefox_runtime_identity_extension(
   let manifest = format!(
     r#"{{
   "manifest_version": 2,
-  "name": "BugLogin Runtime Identity",
+  "name": "{RUNTIME_IDENTITY_EXTENSION_NAME}",
   "version": "{RUNTIME_IDENTITY_EXTENSION_VERSION}",
-  "description": "Shows profile identity directly in tab titles.",
+  "description": "Custom new tab identity surface for BugLogin profiles.",
   "browser_specific_settings": {{
     "gecko": {{
       "id": "{extension_id}"
@@ -489,18 +289,10 @@ fn ensure_firefox_runtime_identity_extension(
   }},
   "chrome_url_overrides": {{
     "newtab": "newtab.html"
-  }},
-  "content_scripts": [
-    {{
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_start"
-    }}
-  ]
+  }}
 }}
 "#
   );
-  let content_js = build_content_js(profile_name);
   let newtab_js = build_newtab_js(profile_name);
   let newtab_html = build_newtab_html();
 
@@ -516,12 +308,6 @@ fn ensure_firefox_runtime_identity_extension(
     .write_all(manifest.as_bytes())
     .map_err(|e| format!("Failed to write manifest into XPI: {e}"))?;
 
-  zip
-    .start_file("content.js", options)
-    .map_err(|e| format!("Failed to start content script entry in XPI: {e}"))?;
-  zip
-    .write_all(content_js.as_bytes())
-    .map_err(|e| format!("Failed to write content script into XPI: {e}"))?;
   zip
     .start_file("newtab.html", options)
     .map_err(|e| format!("Failed to start newtab page entry in XPI: {e}"))?;
@@ -565,7 +351,7 @@ pub fn ensure_runtime_identity_for_browser(
     | BrowserType::Zen
     | BrowserType::Camoufox => {
       ensure_firefox_runtime_identity_extension(profile_path, profile_name)?;
-      ensure_firefox_urlbar_profile_badge(profile_path, profile_name)?;
+      cleanup_firefox_urlbar_profile_badge(profile_path)?;
       Ok(RuntimeIdentityInstallResult::FirefoxInstalled)
     }
   }
@@ -574,7 +360,7 @@ pub fn ensure_runtime_identity_for_browser(
 #[cfg(test)]
 mod tests {
   use super::{
-    build_profile_tag, ensure_firefox_urlbar_profile_badge, ensure_runtime_identity_for_browser,
+    build_profile_tag, cleanup_firefox_urlbar_profile_badge, ensure_runtime_identity_for_browser,
     RuntimeIdentityInstallResult,
   };
   use std::fs::File;
@@ -588,35 +374,31 @@ mod tests {
   }
 
   #[test]
-  fn firefox_urlbar_badge_is_written_and_idempotent() {
+  fn firefox_urlbar_badge_cleanup_removes_existing_marker_block() {
     let temp = tempdir().expect("create temp dir");
     let profile_path = temp.path();
-    ensure_firefox_urlbar_profile_badge(profile_path, "Bug Idea Sync-01")
-      .expect("first badge write should succeed");
-    ensure_firefox_urlbar_profile_badge(profile_path, "Bug Idea Sync-01")
-      .expect("second badge write should succeed");
+    let chrome_dir = profile_path.join("chrome");
+    std::fs::create_dir_all(&chrome_dir).expect("create chrome dir");
+    let css_path = chrome_dir.join("userChrome.css");
+    std::fs::write(
+      &css_path,
+      "before\n/* BUGLOGIN_PROFILE_BADGE_START */\nold\n/* BUGLOGIN_PROFILE_BADGE_END */\nafter\n",
+    )
+    .expect("seed css");
+    cleanup_firefox_urlbar_profile_badge(profile_path).expect("badge cleanup should succeed");
 
-    let chrome_css = std::fs::read_to_string(profile_path.join("chrome").join("userChrome.css"))
-      .expect("must write userChrome.css");
-    assert!(chrome_css.contains("[bugidea] Bug Idea Sync-01"));
-    assert_eq!(
-      chrome_css
-        .matches("/* BUGLOGIN_PROFILE_BADGE_START */")
-        .count(),
-      1
-    );
-    assert_eq!(
-      chrome_css
-        .matches("/* BUGLOGIN_PROFILE_BADGE_END */")
-        .count(),
-      1
-    );
+    let chrome_css = std::fs::read_to_string(css_path).expect("must keep userChrome.css");
+    assert!(chrome_css.contains("before"));
+    assert!(chrome_css.contains("after"));
+    assert!(!chrome_css.contains("BUGLOGIN_PROFILE_BADGE_START"));
+    assert!(!chrome_css.contains("BUGLOGIN_PROFILE_BADGE_END"));
 
     for pref_file in ["user.js", "prefs.js"] {
       let content =
         std::fs::read_to_string(profile_path.join(pref_file)).expect("must write pref file");
       assert!(content.contains("toolkit.legacyUserProfileCustomizations.stylesheets"));
-      assert!(content.contains("true"));
+      assert!(content.contains("taskbar.grouping.useprofile"));
+      assert!(content.contains("false"));
     }
   }
 

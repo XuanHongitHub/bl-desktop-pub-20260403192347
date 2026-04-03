@@ -132,8 +132,12 @@ export function PortalHeader() {
     handleResize();
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  const userInitial =
-    (identityName || identityLabel).trim().charAt(0).toUpperCase() || "B";
+  const userPrimary = identityLabel || identityName;
+  const userSecondary =
+    identityName && identityName !== identityLabel
+      ? identityName
+      : t("portalSite.nav.account");
+  const userInitial = userPrimary.trim().charAt(0).toUpperCase() || "B";
   const signedNavItems = [
     { href: dashboardHref, key: "portalSite.nav.dashboard" },
     { href: "/account", key: "portalSite.nav.account" },
@@ -404,10 +408,10 @@ export function PortalHeader() {
                     >
                       <DropdownMenuLabel className="space-y-0.5 px-3 pt-2 pb-1.5">
                         <p className={PORTAL_ACCOUNT_TITLE_CLASS}>
-                          {identityName}
+                          {userPrimary}
                         </p>
                         <p className={PORTAL_ACCOUNT_META_CLASS}>
-                          {identityLabel}
+                          {userSecondary}
                         </p>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />

@@ -181,7 +181,7 @@ create table if not exists coupons (
 create table if not exists license_redemptions (
   code text primary key,
   workspace_id text not null references workspaces(id) on delete cascade,
-  plan_id text not null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
+  plan_id text not null check (plan_id in ('starter', 'team', 'scale', 'enterprise')),
   plan_label text not null,
   profile_limit integer not null,
   billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),

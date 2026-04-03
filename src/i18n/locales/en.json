@@ -118,7 +118,7 @@
         "notifications": "Notifications",
         "profileDefaults": "Profile Defaults",
         "templatesStartup": "Templates & Startup",
-        "proxyVpn": "Proxy & VPN",
+        "proxyVpn": "Proxy",
         "fingerprintPrivacy": "Fingerprint & Privacy",
         "dnsTraffic": "DNS / Traffic Rules",
         "teamRoles": "Team Members & Roles",
@@ -184,7 +184,7 @@
       "managedAt": "Managed at: {{location}}",
       "locations": {
         "settingsPage": "Settings Page",
-        "proxyCenter": "Proxy & VPN",
+        "proxyCenter": "Proxy",
         "workspaceGovernance": "Workspace Governance",
         "pricingBilling": "Pricing & Billing",
         "syncIntegrations": "Integrations + Sync",
@@ -477,8 +477,8 @@
     }
   },
   "proxyManagementDialog": {
-    "title": "Proxies & VPNs",
-    "description": "Manage your proxy and VPN configurations for reuse across profiles.",
+    "title": "Proxy Center",
+    "description": "Manage your proxy configurations for reuse across profiles.",
     "tabs": {
       "proxies": "Proxies",
       "vpns": "VPNs"
@@ -714,10 +714,10 @@
     }
   },
   "proxyAssignmentDialog": {
-    "title": "Assign Proxy / VPN",
+    "title": "Assign Proxy",
     "labels": {
       "selectedProfiles": "Selected Profiles:",
-      "assignProxyVpn": "Assign Proxy / VPN:",
+      "assignProxyVpn": "Assign Proxy:",
       "proxies": "Proxies",
       "vpns": "VPNs"
     }
@@ -866,7 +866,7 @@
     "createProfile": "Create a new profile",
     "menu": {
       "settings": "Settings",
-      "proxies": "Proxies & VPNs",
+      "proxies": "Proxies",
       "groups": "Groups",
       "syncService": "Account",
       "integrations": "Integrations",
@@ -914,18 +914,18 @@
       "note": "Note",
       "tags": "Tags",
       "group": "Group",
-      "proxy": "Proxy / VPN",
+      "proxy": "Proxy",
       "lastLaunch": "Last Launch",
       "noTags": "No tags",
       "addTags": "Add tags",
       "noNote": "No Note",
       "notePlaceholder": "Add a note...",
-      "proxySearch": "Search proxies or VPNs...",
-      "proxySearchWithCountries": "Search proxies, VPNs, or countries...",
+      "proxySearch": "Search proxies...",
+      "proxySearchWithCountries": "Search proxies or countries...",
       "proxyQuickActions": "Quick actions",
       "openProxyCenter": "Open Proxy Center",
       "quickAddProxy": "Quick add proxy",
-      "proxyEmpty": "No proxies or VPNs found.",
+      "proxyEmpty": "No proxies found.",
       "none": "None",
       "vpns": "VPNs",
       "createByCountry": "Create by country",
@@ -1034,7 +1034,7 @@
       "advancedHint": "Configure advanced anti-detect and extra options."
     },
     "proxy": {
-      "title": "Proxy / VPN",
+      "title": "Proxy",
       "addProxy": "Add Proxy",
       "noProxy": "No proxy / VPN",
       "noProxiesAvailable": "No proxies or VPNs available. Add one to route this profile's traffic.",
@@ -1076,7 +1076,7 @@
   },
   "proxies": {
     "title": "Proxies",
-    "management": "Proxies & VPNs",
+    "management": "Proxies",
     "add": "Add Proxy",
     "edit": "Edit Proxy",
     "delete": "Delete Proxy",
@@ -1657,7 +1657,7 @@
       "profileId": "Profile ID",
       "browser": "Browser",
       "releaseType": "Release Type",
-      "proxyVpn": "Proxy / VPN",
+      "proxyVpn": "Proxy",
       "group": "Group",
       "tags": "Tags",
       "note": "Note",
@@ -2567,6 +2567,16 @@
         "phoneFileFailed": "Failed to read phone file.",
         "phoneFileExcelUnsupported": "Direct .xlsx/.xls import is not supported yet. Export to CSV/TSV/TXT and import again.",
         "phoneListEmpty": "Phone list is empty.",
+        "sellerSampleCsv": "Sample CSV",
+        "sellerSampleCsvDownloaded": "Seller sample CSV downloaded.",
+        "sellerNoFileChosen": "No file chosen",
+        "sellerPdfFolder": "PDF folder",
+        "sellerSelectPdfFolder": "Select seller PDF folder",
+        "sellerPdfFolderIndexed": "Seller PDF folder indexed.",
+        "sellerPdfFolderIndexedCount": "{{count}} PDF file(s)",
+        "sellerPdfFolderSelectFailed": "Failed to select PDF folder.",
+        "sellerPdfFolderScanFailed": "Failed to scan PDF folder.",
+        "sellerPdfRootSummary": "PDF root: {{root}} ({{count}} files indexed)",
         "apiPhoneEndpoint": "API phone endpoint",
         "apiPhoneEndpointPlaceholder": "https://.../phones",
         "apiPhoneEndpointRequired": "API phone endpoint is required.",
@@ -2723,7 +2733,7 @@
           "import": "Import sources",
           "forceImport": "Force import",
           "syncAll": "Sync All",
-          "runNow": "Create & start run",
+          "runNow": "Run Queue",
           "pause": "Pause",
           "resume": "Resume",
           "progress": "Progress {{done}} / {{total}}",
@@ -2854,6 +2864,9 @@
         "autoRunLaunching": "Opening the next profile...",
         "autoRunOpeningProfile": "Waiting for browser profile response...",
         "autoRunCapturingCookie": "Capturing cookie after profile close...",
+        "autoRunCooldownActive": "Rejected too high. Queue is paused for 30 minutes.",
+        "autoRunCooldownStarted": "Queue paused for 30 minutes ({{rejected}} / {{total}} rejected).",
+        "autoRunCooldownResumed": "Queue cooldown ended. Auto run resumed.",
         "autoRunWaiting": "Close the current browser window to move to the next profile.",
         "monitorRunning": "Automation is running",
         "monitorStalled": "Likely stalled",
@@ -4258,6 +4271,14 @@
         "custom": {
           "name": "Enterprise",
           "audience": "Organizations requiring custom quota, governance, and billing support"
+        },
+        "team": {
+          "name": "Team",
+          "audience": "Small-to-mid teams that need shared workspace controls and room to scale"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "audience": "Organizations requiring custom quota, governance, and billing support"
         }
       },
       "support": {
@@ -4690,9 +4711,26 @@
         "canceled": "Canceled workspaces",
         "searchPlaceholder": "Search workspace...",
         "allStatuses": "All statuses",
+        "allPlans": "All plans",
+        "create": {
+          "name": "Workspace name",
+          "modeTeam": "Team",
+          "modePersonal": "Personal",
+          "owner": "Custom owner (optional)",
+          "ownerSearch": "Search owner by email...",
+          "action": "Create workspace"
+        },
+        "pagination": {
+          "prev": "Prev",
+          "next": "Next",
+          "page": "Page {{page}}"
+        },
         "actions": {
           "manage": "Manage",
-          "saveSubscription": "Save subscription"
+          "saveSubscription": "Save subscription",
+          "quickAddMember": "Quick add member",
+          "memberEmail": "User email",
+          "invite": "Invite"
         },
         "manage": {
           "title": "Workspace subscription config",
@@ -4712,10 +4750,16 @@
           "invalidExpiry": "Expiry time must be in the future.",
           "updateFailed": "Unable to update workspace subscription.",
           "loadFailed": "Unable to load workspaces.",
-          "invalidMemberLimit": "Member limit must be greater than 0."
+          "invalidMemberLimit": "Member limit must be greater than 0.",
+          "createNameRequired": "Workspace name is required.",
+          "createFailed": "Unable to create workspace.",
+          "inviteInvalidEmail": "A valid user email is required.",
+          "inviteFailed": "Unable to invite user into workspace."
         },
         "toasts": {
-          "subscriptionUpdated": "Workspace subscription updated."
+          "subscriptionUpdated": "Workspace subscription updated.",
+          "workspaceCreated": "Workspace created.",
+          "memberInvited": "Member invited."
         },
         "panel": {
           "emptySelection": "Select a workspace to inspect details.",

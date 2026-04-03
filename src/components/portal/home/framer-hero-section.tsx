@@ -341,7 +341,7 @@ export function FramerHeroSection() {
                     <p className="col-span-2">Status</p>
                     <p className="col-span-3">Name</p>
                     <p className="col-span-2">Last Launch</p>
-                    <p className="col-span-2">Proxy / VPN</p>
+                    <p className="col-span-2">Proxy</p>
                   </div>
 
                   {rows.map((row, idx) => (

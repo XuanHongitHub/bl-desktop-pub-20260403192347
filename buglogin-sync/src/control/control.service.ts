@@ -227,7 +227,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "starter") {
       return 50;
     }
-    if (planId === "growth") {
+    if (planId === "team") {
       return 300;
     }
     if (planId === "scale") {
@@ -240,7 +240,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "starter") {
       return 1;
     }
-    if (planId === "growth") {
+    if (planId === "team") {
       return 5;
     }
     if (planId === "scale") {
@@ -256,7 +256,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "starter") {
       return billingCycle === "monthly" ? 9 : 90;
     }
-    if (planId === "growth") {
+    if (planId === "team") {
       return billingCycle === "monthly" ? 29 : 290;
     }
     if (planId === "scale") {
@@ -267,17 +267,17 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   private getPlanStorageLimitMb(planId: BillingPlanId | null): number {
     if (planId === "starter") return 5 * 1024;
-    if (planId === "growth") return 30 * 1024;
+    if (planId === "team") return 30 * 1024;
     if (planId === "scale") return 120 * 1024;
-    if (planId === "custom") return 500 * 1024;
+    if (planId === "enterprise") return 500 * 1024;
     return 1 * 1024;
   }
 
   private getPlanProxyBandwidthLimitMb(planId: BillingPlanId | null): number {
     if (planId === "starter") return 2 * 1024;
-    if (planId === "growth") return 20 * 1024;
+    if (planId === "team") return 20 * 1024;
     if (planId === "scale") return 100 * 1024;
-    if (planId === "custom") return 500 * 1024;
+    if (planId === "enterprise") return 500 * 1024;
     return 0;
   }
 
@@ -341,7 +341,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "starter") {
       return "Starter";
     }
-    if (planId === "growth") {
+    if (planId === "team") {
       return "Team";
     }
     if (planId === "scale") {
@@ -363,13 +363,13 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (planId === "starter") {
       return 1;
     }
-    if (planId === "growth") {
+    if (planId === "team") {
       return 2;
     }
     if (planId === "scale") {
       return 3;
     }
-    if (planId === "custom") {
+    if (planId === "enterprise") {
       return 4;
     }
     return 0;
@@ -795,11 +795,17 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   private parseBillingPlanId(raw: string): BillingPlanId | null {
     const normalized = raw.trim().toLowerCase();
+    if (normalized === "growth") {
+      return "team";
+    }
+    if (normalized === "custom") {
+      return "enterprise";
+    }
     if (
       normalized === "starter" ||
-      normalized === "growth" ||
+      normalized === "team" ||
       normalized === "scale" ||
-      normalized === "custom"
+      normalized === "enterprise"
     ) {
       return normalized;
     }
@@ -2868,22 +2874,22 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return "free";
     }
     if (
-      normalized.includes("custom") ||
       normalized.includes("enterprise") ||
+      normalized.includes("custom") ||
       normalized.includes("platinum")
     ) {
-      return "custom";
+      return "enterprise";
     }
     if (normalized.includes("scale") || normalized.includes("gold")) {
       return "scale";
     }
     if (
-      normalized.includes("growth") ||
       normalized.includes("team") ||
+      normalized.includes("growth") ||
       normalized.includes("silver") ||
       normalized.includes("pro")
     ) {
-      return "growth";
+      return "team";
     }
     if (
       normalized.includes("starter") ||
@@ -3990,7 +3996,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       create table if not exists license_redemptions (
         code text primary key,
         workspace_id text not null references workspaces(id) on delete cascade,
-        plan_id text not null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
+        plan_id text not null check (plan_id in ('starter', 'team', 'scale', 'enterprise')),
         plan_label text not null,
         profile_limit integer not null,
         member_limit integer not null,
@@ -4001,7 +4007,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
       create table if not exists workspace_subscriptions (
         workspace_id text primary key references workspaces(id) on delete cascade,
-        plan_id text null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
+        plan_id text null check (plan_id in ('starter', 'team', 'scale', 'enterprise')),
         plan_label text not null,
         profile_limit integer not null,
         member_limit integer not null,
@@ -4018,7 +4024,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       create table if not exists billing_invoices (
         id text primary key,
         workspace_id text not null references workspaces(id) on delete cascade,
-        plan_id text not null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
+        plan_id text not null check (plan_id in ('starter', 'team', 'scale', 'enterprise')),
         plan_label text not null,
         billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
         base_amount_usd integer not null,
@@ -4038,7 +4044,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         stripe_session_id text primary key,
         id text not null,
         workspace_id text not null references workspaces(id) on delete cascade,
-        plan_id text not null check (plan_id in ('starter', 'growth', 'scale', 'custom')),
+        plan_id text not null check (plan_id in ('starter', 'team', 'scale', 'enterprise')),
         plan_label text not null,
         billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
         profile_limit integer not null,
@@ -4110,6 +4116,62 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
       alter table license_redemptions
       add column if not exists member_limit integer not null default 1;
+
+      alter table workspace_subscriptions
+      drop constraint if exists workspace_subscriptions_plan_id_check;
+
+      alter table license_redemptions
+      drop constraint if exists license_redemptions_plan_id_check;
+
+      alter table billing_invoices
+      drop constraint if exists billing_invoices_plan_id_check;
+
+      alter table stripe_checkout_sessions
+      drop constraint if exists stripe_checkout_sessions_plan_id_check;
+
+      update workspace_subscriptions
+      set plan_id = case
+        when plan_id = 'growth' then 'team'
+        when plan_id = 'custom' then 'enterprise'
+        else plan_id
+      end;
+
+      update license_redemptions
+      set plan_id = case
+        when plan_id = 'growth' then 'team'
+        when plan_id = 'custom' then 'enterprise'
+        else plan_id
+      end;
+
+      update billing_invoices
+      set plan_id = case
+        when plan_id = 'growth' then 'team'
+        when plan_id = 'custom' then 'enterprise'
+        else plan_id
+      end;
+
+      update stripe_checkout_sessions
+      set plan_id = case
+        when plan_id = 'growth' then 'team'
+        when plan_id = 'custom' then 'enterprise'
+        else plan_id
+      end;
+
+      alter table workspace_subscriptions
+      add constraint workspace_subscriptions_plan_id_check
+      check (plan_id is null or plan_id in ('starter', 'team', 'scale', 'enterprise'));
+
+      alter table license_redemptions
+      add constraint license_redemptions_plan_id_check
+      check (plan_id in ('starter', 'team', 'scale', 'enterprise'));
+
+      alter table billing_invoices
+      add constraint billing_invoices_plan_id_check
+      check (plan_id in ('starter', 'team', 'scale', 'enterprise'));
+
+      alter table stripe_checkout_sessions
+      add constraint stripe_checkout_sessions_plan_id_check
+      check (plan_id in ('starter', 'team', 'scale', 'enterprise'));
 
       update users
       set email = lower(trim(email))
