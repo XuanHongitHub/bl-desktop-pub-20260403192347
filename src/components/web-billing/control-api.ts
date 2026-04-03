@@ -20,6 +20,7 @@ import type {
   ControlAuditLog,
   ControlAuthInvite,
   ControlCoupon,
+  ControlInvite,
   ControlMembership,
   ControlStripeCheckoutConfirmResponse,
   ControlStripeCheckoutCreateResponse,
