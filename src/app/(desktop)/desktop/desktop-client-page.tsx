@@ -21,7 +21,6 @@ import {
 } from "@/components/profiles-workspace-chrome";
 import { Button } from "@/components/ui/button";
 import { PageLoader, PageLoaderOverlay } from "@/components/ui/page-loader";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkspacePageShell } from "@/components/workspace-page-shell";
 import { useAppUpdateNotifications } from "@/hooks/use-app-update-notifications";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
@@ -48,7 +47,11 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
-import { openWebBillingPortal } from "@/lib/web-billing-desktop";
+import {
+  openWebBillingPortal,
+  resolveWebBillingPortalUrl,
+} from "@/lib/web-billing-desktop";
+import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import {
   DATA_SCOPE_CHANGED_EVENT,
@@ -488,6 +491,55 @@ function isSuperAdminSection(section: AppSection): boolean {
   return section.startsWith("super-admin-") || section.startsWith("admin-");
 }
 
+function resolveEmbeddedPortalRouteForSection(
+  section: AppSection,
+): WebBillingPortalRoute | null {
+  if (
+    section === "workspace-owner-overview" ||
+    section === "workspace-owner-directory" ||
+    section === "workspace-owner-permissions" ||
+    section === "workspace-governance" ||
+    section === "workspace-admin-overview" ||
+    section === "workspace-admin-directory" ||
+    section === "workspace-admin-permissions" ||
+    section === "workspace-admin-members" ||
+    section === "workspace-admin-access" ||
+    section === "workspace-admin-workspace" ||
+    section === "workspace-admin-audit" ||
+    section === "workspace-admin-system" ||
+    section === "workspace-admin-analytics"
+  ) {
+    return "management";
+  }
+
+  if (
+    section === "super-admin-overview" ||
+    section === "admin-overview" ||
+    section === "super-admin-cookies" ||
+    section === "admin-cookies"
+  ) {
+    return "adminCommandCenter";
+  }
+  if (section === "super-admin-workspace" || section === "admin-workspace") {
+    return "adminWorkspaces";
+  }
+  if (section === "super-admin-billing" || section === "admin-billing") {
+    return "adminRevenue";
+  }
+  if (section === "super-admin-audit" || section === "admin-audit") {
+    return "adminAudit";
+  }
+  if (
+    section === "super-admin-system" ||
+    section === "admin-system" ||
+    section === "super-admin-analytics" ||
+    section === "admin-analytics"
+  ) {
+    return "adminSystem";
+  }
+  return null;
+}
+
 function parsePersistedAppSection(
   value: string | null | undefined,
 ): AppSection | null {
@@ -511,23 +563,6 @@ function normalizeBaseUrl(url?: string | null): string | null {
   }
   const normalized = url.trim().replace(/\/$/, "");
   return normalized.length > 0 ? normalized : null;
-}
-
-function formatPlanLabel(plan?: string | null): string | null {
-  if (!plan) {
-    return null;
-  }
-  const normalized = plan.trim();
-  if (!normalized) {
-    return null;
-  }
-  return normalized
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map(
-      (token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase(),
-    )
-    .join(" ");
 }
 
 function resolveWorkspaceProfileLimit(input: {
@@ -779,7 +814,9 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<AppSection>("profiles");
   const normalizedActiveSection = normalizeLegacyAppSection(activeSection);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const isProfilesSectionActive = normalizedActiveSection === "profiles";
+  const isProfilesSectionActive =
+    normalizedActiveSection === "profiles" ||
+    normalizedActiveSection === "groups";
   const isBugideaSectionActive =
     normalizedActiveSection === "bugidea-automation";
   const isWorkspaceOwnerPanelActive = isWorkspaceOwnerSection(
@@ -799,7 +836,7 @@ export default function Home() {
   const shouldLoadProxyEntityData =
     hasHydratedProxyData || isProfilesSectionActive || isBugideaSectionActive;
   const shouldLoadWorkspaceProfileUsage = shouldLoadWorkspaceEntityData;
-  const shouldLoadWorkspaceSwitcherData = false;
+  const shouldLoadWorkspaceSwitcherData = true;
   const shouldSeedWorkspaceScopes = shouldLoadWorkspaceEntityData;
 
   // Use the new profile events hook for centralized profile management
@@ -902,9 +939,7 @@ export default function Home() {
   const [workspaceSwitcherSummaries, setWorkspaceSwitcherSummaries] = useState<
     WorkspaceSwitcherSummary[]
   >([]);
-  const [workspaceSwitcherError, setWorkspaceSwitcherError] = useState<
-    string | null
-  >(null);
+  const [, setWorkspaceSwitcherError] = useState<string | null>(null);
   const [workspaceProfilesUsed, setWorkspaceProfilesUsed] = useState<
     Record<string, number>
   >({});
@@ -964,133 +999,7 @@ export default function Home() {
     };
   }, []);
 
-  const fallbackWorkspaceDescriptors = useMemo<
-    Array<{
-      id: string;
-      name: string;
-      mode: "personal" | "team";
-      role: TeamRole;
-      planLabel: string | null;
-      entitlementState: "active" | "grace_active" | "read_only";
-      profileLimit: number | null;
-      expiresAt: string | null;
-    }>
-  >(() => {
-    if (!cloudUser) {
-      return [];
-    }
-    const freePlanLabel = t("billingPage.freePlanLabel");
-
-    if (cloudUser?.workspaceSeeds && cloudUser?.workspaceSeeds.length > 0) {
-      return cloudUser?.workspaceSeeds.map((workspace) => {
-        const planLabel = workspace.planLabel ?? null;
-        const workspaceName = resolveWorkspaceDisplayName({
-          name: workspace.name,
-          mode: workspace.mode,
-          userEmail: cloudUser?.email,
-        });
-        return {
-          id: workspace.id,
-          name: workspaceName,
-          mode: workspace.mode,
-          role: resolveWorkspaceRole({
-            workspaceId: workspace.id,
-            workspaceMode: workspace.mode,
-            platformRole: cloudUser?.platformRole,
-            workspaceSeedRole: workspace.role ?? null,
-            teamWorkspaceId: cloudUser?.teamId ?? null,
-            userTeamRole: teamRole,
-          }),
-          planLabel,
-          entitlementState: workspace.entitlementState ?? "active",
-          profileLimit: resolveWorkspaceProfileLimit({
-            workspaceId: workspace.id,
-            workspaceMode: workspace.mode,
-            planLabel,
-            profileLimit: workspace.profileLimit,
-          }),
-          expiresAt: workspace.expiresAt ?? null,
-        };
-      });
-    }
-
-    const defaultPersonalPlanLabel =
-      formatPlanLabel(cloudUser?.plan) ?? freePlanLabel;
-    const defaultPersonalName = resolveWorkspaceDisplayName({
-      name: cloudUser?.email,
-      mode: "personal",
-      userEmail: cloudUser?.email,
-    });
-
-    const rows: Array<{
-      id: string;
-      name: string;
-      mode: "personal" | "team";
-      role: TeamRole;
-      planLabel: string | null;
-      entitlementState: "active" | "grace_active" | "read_only";
-      profileLimit: number | null;
-      expiresAt: string | null;
-    }> = [];
-    if (cloudUser?.teamId || cloudUser?.teamName) {
-      const teamPlanLabel = formatPlanLabel(cloudUser?.plan);
-      rows.push({
-        id: cloudUser?.teamId ?? "team",
-        name: cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
-        mode: "team",
-        role: teamRole ?? "member",
-        planLabel: teamPlanLabel,
-        entitlementState: "active",
-        profileLimit: resolveWorkspaceProfileLimit({
-          workspaceId: cloudUser?.teamId ?? "team",
-          workspaceMode: "team",
-          planLabel: teamPlanLabel,
-          profileLimit: cloudUser?.profileLimit,
-        }),
-        expiresAt: null,
-      });
-    }
-    rows.push({
-      id: "personal",
-      name: defaultPersonalName,
-      mode: "personal",
-      role: "owner",
-      planLabel: defaultPersonalPlanLabel,
-      entitlementState: "active",
-      profileLimit: resolveWorkspaceProfileLimit({
-        workspaceId: "personal",
-        workspaceMode: "personal",
-        planLabel: defaultPersonalPlanLabel,
-        profileLimit: cloudUser?.profileLimit,
-      }),
-      expiresAt: null,
-    });
-    return rows;
-  }, [cloudUser, t, teamRole]);
-
-  const workspaceSeedSignature = useMemo(() => {
-    const seeds = cloudUser?.workspaceSeeds ?? [];
-    if (seeds.length === 0) {
-      return "";
-    }
-    return seeds
-      .map((seed) =>
-        [
-          seed.id,
-          seed.mode,
-          seed.role ?? "",
-          seed.planLabel ?? "",
-          seed.profileLimit ?? "",
-          seed.entitlementState ?? "",
-          seed.expiresAt ?? "",
-        ].join(":"),
-      )
-      .sort()
-      .join("|");
-  }, [cloudUser?.workspaceSeeds]);
-
-  const [sidebarWorkspaceId, setSidebarWorkspaceId] =
-    useState<string>("personal");
+  const [sidebarWorkspaceId, setSidebarWorkspaceId] = useState<string>("");
   const [workspaceSwitchState, setWorkspaceSwitchState] = useState<{
     targetWorkspaceId: string;
     startedAt: number;
@@ -1139,48 +1048,6 @@ export default function Home() {
       }
       if (!cloudUser) {
         setWorkspaceSwitcherSummaries([]);
-        setWorkspaceSwitcherError(null);
-        return;
-      }
-
-      const persistedSeeds = cloudUser.workspaceSeeds ?? [];
-      if (persistedSeeds.length > 0) {
-        const summaryRows: WorkspaceSwitcherSummary[] = persistedSeeds.map(
-          (workspace) => ({
-            id: workspace.id,
-            name: resolveWorkspaceDisplayName({
-              name: workspace.name,
-              mode: workspace.mode,
-              userEmail: cloudUser?.email,
-            }),
-            mode: workspace.mode,
-            role: resolveWorkspaceRole({
-              workspaceId: workspace.id,
-              workspaceMode: workspace.mode,
-              workspaceActorRole: null,
-              platformRole: cloudUser?.platformRole,
-              workspaceSeedRole: workspace.role ?? null,
-              teamWorkspaceId: cloudUser?.teamId ?? null,
-              userTeamRole: teamRole,
-            }),
-            members: workspace.members ?? 0,
-            activeInvites: workspace.activeInvites ?? 0,
-            activeShareGrants: workspace.activeShareGrants ?? 0,
-            entitlementState: workspace.entitlementState ?? "active",
-            profileLimit: resolveWorkspaceProfileLimit({
-              workspaceId: workspace.id,
-              workspaceMode: workspace.mode,
-              planLabel: workspace.planLabel,
-              profileLimit: workspace.profileLimit,
-            }),
-            profilesUsed:
-              workspaceProfilesUsed[workspace.id] ??
-              (workspace.id === sidebarWorkspaceId ? profiles.length : 0),
-            planLabel: workspace.planLabel ?? null,
-            expiresAt: workspace.expiresAt ?? null,
-          }),
-        );
-        setWorkspaceSwitcherSummaries(summaryRows);
         setWorkspaceSwitcherError(null);
         return;
       }
@@ -1236,6 +1103,85 @@ export default function Home() {
         const workspaces =
           (await workspaceResponse.json()) as ControlWorkspace[];
         if (!Array.isArray(workspaces) || workspaces.length === 0) {
+          const defaultWorkspaceName = (() => {
+            const localPart = cloudUser?.email?.split("@")[0]?.trim();
+            return localPart ? `${localPart} Workspace` : "Personal Workspace";
+          })();
+          try {
+            await fetch(`${baseUrl}/v1/control/workspaces`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                name: defaultWorkspaceName,
+                mode: "personal",
+              }),
+              signal: abortController.signal,
+            });
+            const retryResponse = await fetch(
+              `${baseUrl}/v1/control/workspaces?scope=member`,
+              {
+                method: "GET",
+                headers,
+                signal: abortController.signal,
+              },
+            );
+            if (retryResponse.ok) {
+              const retriedWorkspaces =
+                (await retryResponse.json()) as ControlWorkspace[];
+              if (
+                Array.isArray(retriedWorkspaces) &&
+                retriedWorkspaces.length > 0
+              ) {
+                const summaryRows: WorkspaceSwitcherSummary[] =
+                  retriedWorkspaces.map((workspace) => {
+                    const planLabel = workspace.planLabel ?? null;
+                    const workspaceName = resolveWorkspaceDisplayName({
+                      name: workspace.name,
+                      mode: workspace.mode,
+                      userEmail: cloudUser?.email,
+                    });
+                    const workspaceRole = resolveWorkspaceRole({
+                      workspaceId: workspace.id,
+                      workspaceMode: workspace.mode,
+                      workspaceActorRole: workspace.actorRole ?? null,
+                      platformRole: cloudUser?.platformRole,
+                      workspaceSeedRole: null,
+                      teamWorkspaceId: cloudUser?.teamId ?? null,
+                      userTeamRole: teamRole,
+                    });
+                    return {
+                      id: workspace.id,
+                      name: workspaceName,
+                      mode: workspace.mode,
+                      role: workspaceRole,
+                      members: 0,
+                      activeInvites: 0,
+                      activeShareGrants: 0,
+                      entitlementState: "active",
+                      profileLimit: resolveWorkspaceProfileLimit({
+                        workspaceId: workspace.id,
+                        workspaceMode: workspace.mode,
+                        planLabel,
+                        profileLimit:
+                          typeof workspace.profileLimit === "number"
+                            ? workspace.profileLimit
+                            : null,
+                      }),
+                      profilesUsed: 0,
+                      planLabel,
+                      expiresAt: workspace.expiresAt ?? null,
+                    };
+                  });
+                if (!isCancelled) {
+                  setWorkspaceSwitcherSummaries(summaryRows);
+                  setWorkspaceSwitcherError(null);
+                }
+                return;
+              }
+            }
+          } catch {
+            // Ignore fallback create workspace errors and keep empty state.
+          }
           if (!isCancelled) {
             setWorkspaceSwitcherSummaries([]);
             setWorkspaceSwitcherError(null);
@@ -1262,16 +1208,7 @@ export default function Home() {
 
         const summaryRows: WorkspaceSwitcherSummary[] = workspaces.map(
           (workspace) => {
-            const seed = cloudUser?.workspaceSeeds?.find(
-              (item) => item.id === workspace.id,
-            );
-            const fallbackPlanLabel =
-              workspace.planLabel ??
-              (workspace.id === cloudUser?.teamId
-                ? formatPlanLabel(cloudUser?.plan)
-                : null);
-            const planLabel =
-              workspace.planLabel ?? seed?.planLabel ?? fallbackPlanLabel;
+            const planLabel = workspace.planLabel ?? null;
             const workspaceName = resolveWorkspaceDisplayName({
               name: workspace.name,
               mode: workspace.mode,
@@ -1282,7 +1219,7 @@ export default function Home() {
               workspaceMode: workspace.mode,
               workspaceActorRole: workspace.actorRole ?? null,
               platformRole: cloudUser?.platformRole,
-              workspaceSeedRole: seed?.role ?? null,
+              workspaceSeedRole: null,
               teamWorkspaceId: cloudUser?.teamId ?? null,
               userTeamRole: teamRole,
             });
@@ -1291,10 +1228,10 @@ export default function Home() {
               name: workspaceName,
               mode: workspace.mode,
               role: workspaceRole,
-              members: seed?.members ?? 0,
-              activeInvites: seed?.activeInvites ?? 0,
-              activeShareGrants: seed?.activeShareGrants ?? 0,
-              entitlementState: seed?.entitlementState ?? "active",
+              members: 0,
+              activeInvites: 0,
+              activeShareGrants: 0,
+              entitlementState: "active",
               profileLimit: resolveWorkspaceProfileLimit({
                 workspaceId: workspace.id,
                 workspaceMode: workspace.mode,
@@ -1302,11 +1239,11 @@ export default function Home() {
                 profileLimit:
                   typeof workspace.profileLimit === "number"
                     ? workspace.profileLimit
-                    : seed?.profileLimit,
+                    : null,
               }),
               profilesUsed: profilesUsedByWorkspace[workspace.id] ?? 0,
               planLabel,
-              expiresAt: workspace.expiresAt ?? seed?.expiresAt ?? null,
+              expiresAt: workspace.expiresAt ?? null,
             };
           },
         );
@@ -1333,12 +1270,10 @@ export default function Home() {
     cloudUser?.platformRole,
     cloudUser?.teamId,
     cloudUser?.teamName,
-    cloudUser?.plan,
     profiles.length,
     sidebarWorkspaceId,
     teamRole,
     workspaceProfilesUsed,
-    workspaceSeedSignature,
     listProfilesSnapshot,
   ]);
 
@@ -1346,8 +1281,6 @@ export default function Home() {
     if (!cloudUser) {
       return [];
     }
-
-    const freePlanLabel = t("billingPage.freePlanLabel");
 
     if (workspaceSwitcherSummaries.length > 0) {
       return workspaceSwitcherSummaries.map((workspace) => ({
@@ -1380,133 +1313,8 @@ export default function Home() {
         profileLimit: workspace.profileLimit,
       }));
     }
-
-    if (fallbackWorkspaceDescriptors.length > 0) {
-      return fallbackWorkspaceDescriptors.map((workspace) => {
-        const usedProfilesFromCache = workspaceProfilesUsed[workspace.id];
-        const usedProfiles =
-          typeof usedProfilesFromCache === "number" &&
-          Number.isFinite(usedProfilesFromCache)
-            ? usedProfilesFromCache
-            : workspace.id === sidebarWorkspaceId && !profilesLoading
-              ? profiles.length
-              : undefined;
-
-        return {
-          id: workspace.id,
-          label: workspace.name,
-          details:
-            typeof usedProfiles === "number"
-              ? t("shell.workspaceSwitcher.usageProfiles", {
-                  used: usedProfiles,
-                  limit: workspace.profileLimit || "∞",
-                })
-              : t("shell.workspaceSwitcher.membersInvites", {
-                  members: 0,
-                  invites: 0,
-                }),
-          status: workspace.expiresAt
-            ? t("shell.workspaceSwitcher.planExpiry", {
-                plan: `${t(`shell.roles.${workspace.role}`)} · ${workspace.planLabel ?? t("billingPage.planFallback")}`,
-                date: formatLocaleDate(workspace.expiresAt),
-              })
-            : t("shell.workspaceSwitcher.planSummary", {
-                plan: `${t(`shell.roles.${workspace.role}`)} · ${workspace.planLabel ?? t("billingPage.planFallback")}`,
-                status: t(
-                  `shell.workspaceSwitcher.entitlement.${workspace.entitlementState}`,
-                ),
-              }),
-          planLabel: workspace.planLabel ?? undefined,
-          profileLimit: workspace.profileLimit,
-        };
-      });
-    }
-
-    const options: WorkspaceSwitcherOption[] = [];
-    if (cloudUser?.teamId || cloudUser?.teamName) {
-      const teamPlanLabel = formatPlanLabel(cloudUser?.plan);
-      const teamProfileLimit = resolveWorkspaceProfileLimit({
-        workspaceId: cloudUser?.teamId ?? "team",
-        workspaceMode: "team",
-        planLabel: teamPlanLabel,
-        profileLimit: cloudUser?.profileLimit,
-      });
-      options.push({
-        id: cloudUser?.teamId ?? "team",
-        label:
-          cloudUser?.teamName ?? t("shell.workspaceSwitcher.teamWorkspace"),
-        details: t("shell.workspaceSwitcher.usageProfiles", {
-          used: cloudUser?.cloudProfilesUsed,
-          limit: teamProfileLimit || "∞",
-        }),
-        status: t("shell.workspaceSwitcher.planSummary", {
-          plan: `${t(`shell.roles.${teamRole ?? "member"}`)} · ${cloudUser?.plan}`,
-          status: cloudUser?.subscriptionStatus,
-        }),
-        planLabel: teamPlanLabel ?? undefined,
-        profileLimit: teamProfileLimit,
-      });
-    }
-    const defaultPersonalPlanLabel =
-      formatPlanLabel(cloudUser?.plan) ?? freePlanLabel;
-    const defaultPersonalName = resolveWorkspaceDisplayName({
-      name: cloudUser?.email,
-      mode: "personal",
-      userEmail: cloudUser?.email,
-    });
-    const personalProfileLimit = resolveWorkspaceProfileLimit({
-      workspaceId: "personal",
-      workspaceMode: "personal",
-      planLabel: defaultPersonalPlanLabel,
-      profileLimit: cloudUser?.profileLimit,
-    });
-    options.push({
-      id: "personal",
-      label: defaultPersonalName,
-      details: t("shell.workspaceSwitcher.usageProfiles", {
-        used: cloudUser?.cloudProfilesUsed,
-        limit: personalProfileLimit || "∞",
-      }),
-      status: t("shell.workspaceSwitcher.planSummary", {
-        plan: `${t("shell.roles.owner")} · ${defaultPersonalPlanLabel}`,
-        status: cloudUser?.subscriptionStatus,
-      }),
-      planLabel: defaultPersonalPlanLabel,
-      profileLimit: personalProfileLimit,
-    });
-
-    if (
-      workspaceSwitcherError &&
-      cloudUser?.platformRole === "platform_admin"
-    ) {
-      options.unshift({
-        id: "platform-fallback",
-        label: "Bug Media",
-        details: t("shell.workspaceSwitcher.syncUnavailable"),
-        status: workspaceSwitcherError,
-        planLabel: formatPlanLabel(cloudUser?.plan) ?? undefined,
-        profileLimit: resolveWorkspaceProfileLimit({
-          workspaceId: "platform-fallback",
-          workspaceMode: "team",
-          planLabel: formatPlanLabel(cloudUser?.plan),
-          profileLimit: cloudUser?.profileLimit,
-        }),
-      });
-    }
-
-    return options;
-  }, [
-    cloudUser,
-    fallbackWorkspaceDescriptors,
-    t,
-    workspaceProfilesUsed,
-    profiles.length,
-    profilesLoading,
-    sidebarWorkspaceId,
-    workspaceSwitcherError,
-    workspaceSwitcherSummaries,
-    teamRole,
-  ]);
+    return [];
+  }, [cloudUser, t, workspaceSwitcherSummaries]);
 
   const selectedWorkspaceContext =
     useMemo<WorkspaceBillingContext | null>(() => {
@@ -1526,39 +1334,8 @@ export default function Home() {
           entitlementState: fromSummary.entitlementState,
         };
       }
-
-      const fromFallback = fallbackWorkspaceDescriptors.find(
-        (workspace) => workspace.id === sidebarWorkspaceId,
-      );
-      if (fromFallback) {
-        const fallbackUsed = workspaceProfilesUsed[fromFallback.id];
-        return {
-          id: fromFallback.id,
-          name: fromFallback.name,
-          mode: fromFallback.mode,
-          role: fromFallback.role,
-          planLabel: fromFallback.planLabel ?? null,
-          profileLimit: fromFallback.profileLimit ?? null,
-          profilesUsed:
-            typeof fallbackUsed === "number" && Number.isFinite(fallbackUsed)
-              ? fallbackUsed
-              : !profilesLoading
-                ? profiles.length
-                : 0,
-          expiresAt: fromFallback.expiresAt ?? null,
-          entitlementState: fromFallback.entitlementState,
-        };
-      }
-
       return null;
-    }, [
-      fallbackWorkspaceDescriptors,
-      profiles.length,
-      profilesLoading,
-      sidebarWorkspaceId,
-      workspaceProfilesUsed,
-      workspaceSwitcherSummaries,
-    ]);
+    }, [sidebarWorkspaceId, workspaceSwitcherSummaries]);
 
   useEffect(() => {
     if (!shouldLoadWorkspaceEntityData) {
@@ -1656,6 +1433,10 @@ export default function Home() {
   const canAccessSelectedWorkspaceGovernance =
     Boolean(cloudUser) && canManageSelectedWorkspaceGovernance;
   const [isOpeningWebPortal, setIsOpeningWebPortal] = useState(false);
+  const [embeddedPortalUrl, setEmbeddedPortalUrl] = useState<string | null>(
+    null,
+  );
+  const [isLoadingEmbeddedPortal, setIsLoadingEmbeddedPortal] = useState(false);
 
   const showWebBillingPortalError = useCallback(
     (error: unknown) => {
@@ -1702,6 +1483,59 @@ export default function Home() {
     sidebarWorkspaceId,
   ]);
 
+  const embeddedPortalRoute = useMemo(
+    () => resolveEmbeddedPortalRouteForSection(activeSection),
+    [activeSection],
+  );
+
+  useEffect(() => {
+    if (!embeddedPortalRoute || !cloudUser) {
+      setEmbeddedPortalUrl(null);
+      setIsLoadingEmbeddedPortal(false);
+      return;
+    }
+
+    const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
+    const workspaceName = selectedWorkspaceContext?.name ?? null;
+    let isCancelled = false;
+
+    const loadPortalUrl = async () => {
+      setIsLoadingEmbeddedPortal(true);
+      try {
+        const url = await resolveWebBillingPortalUrl({
+          route: embeddedPortalRoute,
+          user: cloudUser,
+          workspaceId,
+          workspaceName,
+        });
+        if (!isCancelled) {
+          setEmbeddedPortalUrl(url);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setEmbeddedPortalUrl(null);
+          showWebBillingPortalError(error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingEmbeddedPortal(false);
+        }
+      }
+    };
+
+    void loadPortalUrl();
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    cloudUser,
+    embeddedPortalRoute,
+    selectedWorkspaceContext?.id,
+    selectedWorkspaceContext?.name,
+    showWebBillingPortalError,
+    sidebarWorkspaceId,
+  ]);
+
   const openPricingPortal = useCallback(async () => {
     if (!cloudUser) {
       return;
@@ -1729,12 +1563,147 @@ export default function Home() {
     sidebarWorkspaceId,
   ]);
 
+  const openWorkspaceManagementPortal = useCallback(async () => {
+    if (!cloudUser) {
+      return;
+    }
+    const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
+    const workspaceName = selectedWorkspaceContext?.name ?? null;
+    setIsOpeningWebPortal(true);
+    try {
+      await openWebBillingPortal({
+        route: isPlatformAdmin ? "adminWorkspaces" : "management",
+        user: cloudUser,
+        workspaceId,
+        workspaceName,
+      });
+    } catch (error) {
+      showWebBillingPortalError(error);
+    } finally {
+      setIsOpeningWebPortal(false);
+    }
+  }, [
+    cloudUser,
+    isPlatformAdmin,
+    selectedWorkspaceContext?.id,
+    selectedWorkspaceContext?.name,
+    showWebBillingPortalError,
+    sidebarWorkspaceId,
+  ]);
+
+  const openAdminCommandCenterPortal = useCallback(async () => {
+    if (!cloudUser) {
+      return;
+    }
+    const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
+    const workspaceName = selectedWorkspaceContext?.name ?? null;
+    setIsOpeningWebPortal(true);
+    try {
+      await openWebBillingPortal({
+        route: "adminCommandCenter",
+        user: cloudUser,
+        workspaceId,
+        workspaceName,
+      });
+    } catch (error) {
+      showWebBillingPortalError(error);
+    } finally {
+      setIsOpeningWebPortal(false);
+    }
+  }, [
+    cloudUser,
+    selectedWorkspaceContext?.id,
+    selectedWorkspaceContext?.name,
+    showWebBillingPortalError,
+    sidebarWorkspaceId,
+  ]);
+
+  const handleShareGroupInvite = useCallback(
+    async (input: { groupId: string; recipientEmail: string }) => {
+      if (isReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
+        throw new Error("permission_denied");
+      }
+      if (
+        !isPlatformAdmin &&
+        !canPerformTeamAction(selectedWorkspaceRole, "share_group")
+      ) {
+        showErrorToast(t("sync.team.permissionDenied"), {
+          description: "permission_denied",
+        });
+        throw new Error("permission_denied");
+      }
+      if (!cloudUser?.id || !cloudUser?.email) {
+        throw new Error("auth_required");
+      }
+
+      const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
+      if (!workspaceId) {
+        throw new Error("workspace_id_required");
+      }
+
+      const settings = await invokeCached<SyncSettings>(
+        "get_sync_settings",
+        undefined,
+        {
+          key: "get_sync_settings",
+          ttlMs: SYNC_SETTINGS_CACHE_TTL_MS,
+        },
+      );
+      const baseUrl = normalizeBaseUrl(settings.sync_server_url);
+      if (!baseUrl) {
+        throw new Error("control_plane_not_configured");
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-user-id": cloudUser.id,
+        "x-user-email": cloudUser.email,
+      };
+      if (cloudUser.platformRole) {
+        headers["x-platform-role"] = cloudUser.platformRole;
+      }
+      if (settings.sync_token?.trim()) {
+        headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
+      }
+
+      const response = await fetch(
+        `${baseUrl}/v1/control/workspaces/${encodeURIComponent(workspaceId)}/share-grants`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            resourceType: "group",
+            resourceId: input.groupId,
+            recipientEmail: input.recipientEmail,
+            reason: "shared_from_group_management",
+          }),
+        },
+      );
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(body.trim() || `share_group_failed_${response.status}`);
+      }
+    },
+    [
+      cloudUser?.email,
+      cloudUser?.id,
+      cloudUser?.platformRole,
+      isPlatformAdmin,
+      isReadOnly,
+      selectedWorkspaceRole,
+      selectedWorkspaceContext?.id,
+      sidebarWorkspaceId,
+      t,
+    ],
+  );
+
   const [importProfileDialogOpen, setImportProfileDialogOpen] = useState(false);
   const [camoufoxConfigDialogOpen, setCamoufoxConfigDialogOpen] =
     useState(false);
   const [extensionManagementDialogOpen, setExtensionManagementDialogOpen] =
-    useState(false);
-  const [groupManagementDialogOpen, setGroupManagementDialogOpen] =
     useState(false);
   const [groupAssignmentDialogOpen, setGroupAssignmentDialogOpen] =
     useState(false);
@@ -1907,10 +1876,7 @@ export default function Home() {
     [sidebarWorkspaceId, workspaceOptions],
   );
   const workspaceOptionIds = useMemo(
-    () =>
-      workspaceOptions
-        .map((workspace) => workspace.id)
-        .filter((workspaceId) => workspaceId !== "platform-fallback"),
+    () => workspaceOptions.map((workspace) => workspace.id),
     [workspaceOptions],
   );
   const lastScopeSeedRequestKeyRef = useRef<string>("");
@@ -2244,9 +2210,7 @@ export default function Home() {
     const nextSection: AppSection =
       activeSection === "super-admin-cookies" && canAccessBugIdeaAdmin
         ? "bugidea-automation"
-        : canAccessSelectedWorkspaceGovernance
-          ? "workspace-owner-overview"
-          : "profiles";
+        : "profiles";
     setActiveSection(nextSection);
     showErrorToast(t("adminWorkspace.noAccessTitle"), {
       description: t("adminWorkspace.noAccessDescription"),
@@ -2272,11 +2236,7 @@ export default function Home() {
       return;
     }
     setActiveSection(
-      activeSection === "super-admin-cookies"
-        ? canAccessSelectedWorkspaceGovernance
-          ? "workspace-owner-overview"
-          : "profiles"
-        : "profiles",
+      activeSection === "super-admin-cookies" ? "profiles" : "profiles",
     );
     showErrorToast(t("adminWorkspace.noAccessTitle"), {
       description: t("adminWorkspace.bugideaDevOnlyDescription"),
@@ -2319,7 +2279,7 @@ export default function Home() {
 
   useEffect(() => {
     if (workspaceOptions.length === 0) {
-      setSidebarWorkspaceId("personal");
+      setSidebarWorkspaceId("");
       setIsWorkspaceSelectionReady(false);
       return;
     }
@@ -3973,93 +3933,32 @@ export default function Home() {
             storedProxies={storedProxies}
             vpnConfigs={vpnConfigs}
             isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
+            tableMode={
+              normalizedActiveSection === "groups" ? "group" : "default"
+            }
           />
         </div>
       </div>
     </>
   );
-  const groupSidebarItems = useMemo(() => {
-    const nonSpecialGroups = groupsData.filter(
-      (group) => group.id !== ALL_GROUP_ID && group.id !== "default",
-    );
-    const defaultGroup = groupsData.find((group) => group.id === "default");
-    return [
-      {
-        id: ALL_GROUP_ID,
-        name: t("groups.all"),
-        count: profiles.length,
-      },
-      ...(defaultGroup
-        ? [
-            {
-              id: "default",
-              name: defaultGroup.name || t("common.labels.default"),
-              count: defaultGroup.count ?? 0,
-            },
-          ]
-        : []),
-      ...nonSpecialGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        count: group.count ?? 0,
-      })),
-    ];
-  }, [groupsData, profiles.length, t]);
   const groupsWorkspaceContent = (
     <div className="flex min-h-0 flex-1 items-start gap-3">
-      <aside className="flex h-full w-[280px] shrink-0 flex-col rounded-md border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <p className="text-sm font-medium text-foreground">
-            {t("groups.title")}
-          </p>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 px-2.5 text-xs"
-            onClick={() => setGroupManagementDialogOpen(true)}
-          >
-            {t("groups.management")}
-          </Button>
-        </div>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-1 p-2">
-            {groupSidebarItems.map((group) => {
-              const isActive = selectedGroupId === group.id;
-              return (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => handleSelectGroup(group.id)}
-                  className={`flex w-full items-center justify-between rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
-                    isActive
-                      ? "border-border bg-muted text-foreground"
-                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
-                  }`}
-                >
-                  <span className="truncate">{group.name}</span>
-                  <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">
-                    {group.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
+      <aside className="min-h-0 w-[420px] shrink-0">
+        <GroupManagementDialog
+          isOpen={true}
+          onClose={() => void 0}
+          mode="embedded"
+          selectedGroupId={selectedGroupId}
+          onSelectedGroupChange={handleSelectGroup}
+          workspaceRole={selectedWorkspaceRole}
+          fallbackTeamRole={teamRole}
+          onShareGroupInvite={handleShareGroupInvite}
+          onGroupManagementComplete={() => {
+            void reloadProfiles();
+          }}
+        />
       </aside>
       <section className="min-h-0 min-w-0 flex-1 space-y-2.5">
-        <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            {t("groupManagementDialog.description")}
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => setGroupManagementDialogOpen(true)}
-          >
-            {t("groups.management")}
-          </Button>
-        </div>
         {profilesWorkspaceContent}
       </section>
     </div>
@@ -4111,68 +4010,45 @@ export default function Home() {
       case "workspace-admin-workspace":
       case "workspace-admin-audit":
       case "workspace-admin-system":
-      case "workspace-admin-analytics": {
-        if (!canAccessSelectedWorkspaceGovernance) {
-          return (
-            <WorkspacePageShell
-              title={t("shell.sections.workspaceOwnerPanel")}
-              description={t("adminWorkspace.ownerOnlyGovernance")}
-              contentClassName="max-w-none space-y-4 pb-0"
-            >
-              <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                {t("adminWorkspace.ownerOnlyGovernance")}
-              </div>
-            </WorkspacePageShell>
-          );
-        }
-        const ownerSidebarTab: "overview" | "workspace" = "workspace";
-        const ownerWorkspaceFlow:
-          | "overview"
-          | "directory"
-          | "permissions"
-          | "plan" =
-          activeSection === "workspace-owner-overview" ||
-          activeSection === "workspace-admin-overview"
-            ? "overview"
-            : activeSection === "workspace-owner-permissions" ||
-                activeSection === "workspace-admin-permissions" ||
-                activeSection === "workspace-admin-access"
-              ? "permissions"
-              : activeSection === "workspace-admin-workspace" ||
-                  activeSection === "workspace-admin-audit"
-                ? "plan"
-                : "directory";
+      case "workspace-admin-analytics":
         return (
           <WorkspacePageShell
             title={t("shell.sections.workspaceOwnerPanel")}
-            description={t("adminWorkspace.workspaceSubtitle")}
+            description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <PlatformAdminWorkspace
-              key={`workspace-owner-${sidebarWorkspaceId}`}
-              runtimeConfig={runtimeConfig}
-              entitlement={entitlement}
-              cloudUser={cloudUser}
-              platformRole={cloudUser?.platformRole}
-              teamRole={selectedWorkspaceRole}
-              workspaceProfiles={profiles}
-              storedProxies={storedProxies}
-              isWorkspaceProfilesLoading={profilesLoading}
-              isStoredProxiesLoading={proxiesLoading}
-              refreshWorkspaceProfiles={reloadProfiles}
-              refreshStoredProxies={reloadProxies}
-              sidebarTab={ownerSidebarTab}
-              workspaceFlow={ownerWorkspaceFlow}
-              showWorkspaceFlowTabs={true}
-              workspaceScopedOnly={true}
-              minimalView={false}
-              workspaceContextId={sidebarWorkspaceId}
-              onWorkspaceContextChange={handleWorkspaceChange}
-              onNavigateSection={setActiveSection}
-            />
+            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+              {embeddedPortalUrl ? (
+                <iframe
+                  key={embeddedPortalUrl}
+                  src={embeddedPortalUrl}
+                  className="h-full min-h-[640px] w-full border-0"
+                  title="Workspace Management Portal"
+                />
+              ) : (
+                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
+                  {isLoadingEmbeddedPortal
+                    ? t("shell.webPortal.opening")
+                    : t("shell.webPortal.movedDescription")}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void openWorkspaceManagementPortal();
+                }}
+                disabled={isOpeningWebPortal}
+              >
+                {isOpeningWebPortal
+                  ? t("shell.webPortal.opening")
+                  : t("shell.webPortal.openBilling")}
+              </Button>
+            </div>
           </WorkspacePageShell>
         );
-      }
       case "billing":
         if (!canManageSelectedWorkspaceBilling) {
           return (
@@ -4291,7 +4167,7 @@ export default function Home() {
       case "admin-cookies":
       case "admin-audit":
       case "admin-system":
-      case "admin-analytics": {
+      case "admin-analytics":
         if (!canAccessSuperAdminPanel) {
           return (
             <WorkspacePageShell
@@ -4305,54 +4181,44 @@ export default function Home() {
             </WorkspacePageShell>
           );
         }
-        const superSidebarTab:
-          | "overview"
-          | "workspace"
-          | "billing"
-          | "cookies"
-          | "audit" =
-          activeSection === "super-admin-workspace" ||
-          activeSection === "admin-workspace"
-            ? "workspace"
-            : activeSection === "super-admin-billing" ||
-                activeSection === "admin-billing"
-              ? "billing"
-              : activeSection === "super-admin-cookies" ||
-                  activeSection === "admin-cookies"
-                ? "cookies"
-                : activeSection === "super-admin-audit" ||
-                    activeSection === "admin-audit"
-                  ? "audit"
-                  : "overview";
         return (
           <WorkspacePageShell
             title={t("shell.sections.superAdminPanel")}
-            description={t("adminWorkspace.subtitle")}
+            description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <PlatformAdminWorkspace
-              key={`super-admin-${sidebarWorkspaceId}`}
-              runtimeConfig={runtimeConfig}
-              entitlement={entitlement}
-              cloudUser={cloudUser}
-              platformRole={cloudUser?.platformRole}
-              teamRole={selectedWorkspaceRole}
-              workspaceProfiles={profiles}
-              storedProxies={storedProxies}
-              isWorkspaceProfilesLoading={profilesLoading}
-              isStoredProxiesLoading={proxiesLoading}
-              refreshWorkspaceProfiles={reloadProfiles}
-              refreshStoredProxies={reloadProxies}
-              sidebarTab={superSidebarTab}
-              minimalView={false}
-              workspaceScopedOnly={false}
-              workspaceContextId={sidebarWorkspaceId}
-              onWorkspaceContextChange={handleWorkspaceChange}
-              onNavigateSection={setActiveSection}
-            />
+            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+              {embeddedPortalUrl ? (
+                <iframe
+                  key={embeddedPortalUrl}
+                  src={embeddedPortalUrl}
+                  className="h-full min-h-[640px] w-full border-0"
+                  title="Super Admin Portal"
+                />
+              ) : (
+                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
+                  {isLoadingEmbeddedPortal
+                    ? t("shell.webPortal.opening")
+                    : t("shell.webPortal.movedDescription")}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void openAdminCommandCenterPortal();
+                }}
+                disabled={isOpeningWebPortal}
+              >
+                {isOpeningWebPortal
+                  ? t("shell.webPortal.opening")
+                  : t("shell.webPortal.openBilling")}
+              </Button>
+            </div>
           </WorkspacePageShell>
         );
-      }
       case "profiles-create":
         return (
           <WorkspacePageShell
@@ -4565,17 +4431,6 @@ export default function Home() {
           isOpen={extensionManagementDialogOpen}
           onClose={() => setExtensionManagementDialogOpen(false)}
           limitedMode={!extensionManagementUnlocked}
-        />
-      )}
-
-      {groupManagementDialogOpen && (
-        <GroupManagementDialog
-          isOpen={groupManagementDialogOpen}
-          onClose={() => setGroupManagementDialogOpen(false)}
-          onGroupManagementComplete={() => {
-            setGroupManagementDialogOpen(false);
-            void reloadProfiles();
-          }}
         />
       )}
 

@@ -1078,6 +1078,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     this.authUsers.set(normalizedEmail, record);
 
     this.audit("auth.registered", normalizedEmail, undefined, resolvedUserId);
+    this.ensureDefaultPersonalWorkspaceForActor({
+      userId: record.userId,
+      email: record.email,
+      platformRole: record.platformRole,
+    });
     this.persistState();
     return {
       user: {
@@ -1132,6 +1137,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       this.persistState();
     }
 
+    this.ensureDefaultPersonalWorkspaceForActor({
+      userId: record.userId,
+      email: record.email,
+      platformRole: record.platformRole,
+    });
     this.audit("auth.logged_in", normalizedEmail, undefined, record.userId);
     return {
       user: {
@@ -1271,6 +1281,11 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       undefined,
       record.userId,
     );
+    this.ensureDefaultPersonalWorkspaceForActor({
+      userId: record.userId,
+      email: record.email,
+      platformRole: record.platformRole,
+    });
     if (shouldPersist) {
       this.persistState();
     }
@@ -1487,6 +1502,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     const normalized = this.normalizeEmail(email);
     const localPart = normalized?.split("@")[0]?.trim() || "Personal";
     return `${localPart} Workspace`;
+  }
+
+  private ensureDefaultPersonalWorkspaceForActor(actor: RequestActor): void {
+    void this.createWorkspace(
+      actor,
+      this.getDefaultPersonalWorkspaceName(actor.email),
+      "personal",
+    );
   }
 
   getWorkspaceMembership(
