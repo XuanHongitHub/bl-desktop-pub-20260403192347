@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { listAdminMemberships } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
@@ -118,95 +125,121 @@ export default function AdminMembershipsPage() {
             </Badge>
           </div>
 
-          <Table className="text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t("portalSite.adminUsers.columns.email")}
-                </TableHead>
-                <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
-                <TableHead>{t("portalSite.adminUsers.columns.role")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.time")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.loading")}
-                  </TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.memberships.empty")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((row) => (
-                  <TableRow key={`${row.workspaceId}:${row.userId}`}>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{row.email}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {row.userId}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {row.workspaceName}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {row.workspaceId}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {t(`portalSite.adminUsers.roles.${row.role}`)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatLocaleDateTime(row.createdAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link
-                            href={`/admin/workspaces/${row.workspaceId}/members`}
-                          >
-                            Workspace
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link href={`/admin/users/manage/${row.userId}`}>
-                            User
-                          </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
+          <TooltipProvider>
+            <div className="min-h-[62vh] max-h-[70vh] overflow-auto">
+              <Table className="table-fixed text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%]">
+                      {t("portalSite.adminUsers.columns.email")}
+                    </TableHead>
+                    <TableHead className="w-[30%]">
+                      {t("portalSite.admin.columns.workspace")}
+                    </TableHead>
+                    <TableHead className="w-[12%]">
+                      {t("portalSite.adminUsers.columns.role")}
+                    </TableHead>
+                    <TableHead className="w-[18%]">
+                      {t("portalSite.admin.columns.time")}
+                    </TableHead>
+                    <TableHead className="w-[10%] text-right">
+                      {t("portalSite.admin.columns.action")}
+                    </TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.loading")}
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.memberships.empty")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((row) => (
+                      <TableRow key={`${row.workspaceId}:${row.userId}`}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{row.email}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {row.userId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {row.workspaceName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {row.workspaceId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {t(`portalSite.adminUsers.roles.${row.role}`)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {formatLocaleDateTime(row.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/workspaces/${row.workspaceId}/members`}
+                                  >
+                                    <Users className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Workspace</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/users/manage/${row.userId}`}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>User</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
         </div>
       </section>
     </PortalSettingsPage>

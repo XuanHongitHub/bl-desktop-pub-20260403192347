@@ -1,5 +1,6 @@
 "use client";
 
+import { CreditCard, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { listAdminWorkspaceHealth } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
@@ -140,102 +147,132 @@ export default function AdminAbuseTrustOverviewPage() {
             </div>
           </div>
 
-          <Table className="text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.status")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.risk")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.members")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.storage")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.time")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.loading")}
-                  </TableCell>
-                </TableRow>
-              ) : filteredRows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.abuseTrust.empty")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredRows.map((row) => (
-                  <TableRow key={row.workspaceId}>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {row.workspaceName}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {row.workspaceId}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {row.subscriptionStatus}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          row.riskLevel === "high" ? "destructive" : "outline"
-                        }
-                      >
-                        {row.riskLevel}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{row.members}</TableCell>
-                    <TableCell>{Math.round(row.storagePercent)}%</TableCell>
-                    <TableCell>
-                      {row.usageUpdatedAt
-                        ? formatLocaleDateTime(row.usageUpdatedAt)
-                        : "--"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link
-                            href={`/admin/abuse-trust/manage/${row.workspaceId}?section=queue`}
-                          >
-                            Review
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link
-                            href={`/admin/workspaces/${row.workspaceId}/billing`}
-                          >
-                            Billing
-                          </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
+          <TooltipProvider>
+            <div className="min-h-[62vh] max-h-[70vh] overflow-auto">
+              <Table className="table-fixed text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[28%]">
+                      {t("portalSite.admin.columns.workspace")}
+                    </TableHead>
+                    <TableHead className="w-[12%]">
+                      {t("portalSite.admin.columns.status")}
+                    </TableHead>
+                    <TableHead className="w-[12%]">
+                      {t("portalSite.admin.columns.risk")}
+                    </TableHead>
+                    <TableHead className="w-[10%]">
+                      {t("portalSite.admin.columns.members")}
+                    </TableHead>
+                    <TableHead className="w-[10%]">
+                      {t("portalSite.admin.columns.storage")}
+                    </TableHead>
+                    <TableHead className="w-[18%]">
+                      {t("portalSite.admin.columns.time")}
+                    </TableHead>
+                    <TableHead className="w-[10%] text-right">
+                      {t("portalSite.admin.columns.action")}
+                    </TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.loading")}
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.abuseTrust.empty")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRows.map((row) => (
+                      <TableRow key={row.workspaceId}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {row.workspaceName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {row.workspaceId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {row.subscriptionStatus}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              row.riskLevel === "high"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {row.riskLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{row.members}</TableCell>
+                        <TableCell>{Math.round(row.storagePercent)}%</TableCell>
+                        <TableCell>
+                          {row.usageUpdatedAt
+                            ? formatLocaleDateTime(row.usageUpdatedAt)
+                            : "--"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/abuse-trust/manage/${row.workspaceId}?section=queue`}
+                                  >
+                                    <ShieldAlert className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Review</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/workspaces/${row.workspaceId}/billing`}
+                                  >
+                                    <CreditCard className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Billing</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
         </div>
       </section>
     </PortalSettingsPage>

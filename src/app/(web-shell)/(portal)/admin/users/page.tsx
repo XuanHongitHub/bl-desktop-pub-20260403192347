@@ -118,41 +118,6 @@ export default function AdminUsersOverviewPage() {
       }
     >
       <section className="mx-auto grid w-full max-w-[1280px] gap-4">
-        <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.adminUsers.stats.total")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {stats.total}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.adminUsers.stats.platformAdmins")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {stats.admins}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.adminUsers.stats.googleAuth")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {stats.google}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.adminUsers.stats.passwordAuth")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {stats.password}
-            </p>
-          </div>
-        </div>
-
         <div className="rounded-xl border border-border bg-card">
           <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[minmax(0,1fr)_auto]">
             <Input
@@ -161,157 +126,168 @@ export default function AdminUsersOverviewPage() {
               placeholder={t("portalSite.adminUsers.search")}
               className="h-9 md:max-w-md"
             />
-            <Badge variant="outline" className="h-9 px-3 text-xs">
-              {t("portalSite.adminUsers.stats.filtered", {
-                count: rows.length,
-              })}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="h-9 px-3 text-xs">
+                {t("portalSite.adminUsers.stats.filtered", {
+                  count: rows.length,
+                })}
+              </Badge>
+              <Badge variant="outline" className="h-9 px-3 text-xs">
+                {t("portalSite.adminUsers.stats.platformAdmins")}:{" "}
+                {stats.admins}
+              </Badge>
+              <Badge variant="outline" className="h-9 px-3 text-xs">
+                Google: {stats.google}
+              </Badge>
+            </div>
           </div>
 
           <TooltipProvider>
-            <Table className="table-fixed text-sm">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[38%]">
-                    {t("portalSite.adminUsers.columns.user")}
-                  </TableHead>
-                  <TableHead className="w-[14%]">
-                    {t("portalSite.adminUsers.columns.provider")}
-                  </TableHead>
-                  <TableHead className="w-[14%]">
-                    {t("portalSite.adminUsers.columns.role")}
-                  </TableHead>
-                  <TableHead className="w-[10%]">
-                    {t("portalSite.adminUsers.columns.workspaceCount")}
-                  </TableHead>
-                  <TableHead className="w-[18%]">
-                    {t("portalSite.adminUsers.columns.lastActive")}
-                  </TableHead>
-                  <TableHead className="w-[6%] text-right">
-                    {t("portalSite.admin.columns.action")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+            <div className="min-h-[62vh] max-h-[70vh] overflow-auto">
+              <Table className="table-fixed text-sm">
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-sm text-muted-foreground"
-                    >
-                      {t("portalSite.admin.loading")}
-                    </TableCell>
+                    <TableHead className="w-[38%]">
+                      {t("portalSite.adminUsers.columns.user")}
+                    </TableHead>
+                    <TableHead className="w-[14%]">
+                      {t("portalSite.adminUsers.columns.provider")}
+                    </TableHead>
+                    <TableHead className="w-[14%]">
+                      {t("portalSite.adminUsers.columns.role")}
+                    </TableHead>
+                    <TableHead className="w-[10%]">
+                      {t("portalSite.adminUsers.columns.workspaceCount")}
+                    </TableHead>
+                    <TableHead className="w-[18%]">
+                      {t("portalSite.adminUsers.columns.lastActive")}
+                    </TableHead>
+                    <TableHead className="w-[6%] text-right">
+                      {t("portalSite.admin.columns.action")}
+                    </TableHead>
                   </TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-sm text-muted-foreground"
-                    >
-                      {t("portalSite.adminUsers.panel.emptyUsers")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((user) => (
-                    <TableRow key={user.userId}>
-                      <TableCell>
-                        <div className="min-w-0 max-w-full">
-                          <p className="truncate text-sm font-medium">
-                            {user.email}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {user.userId}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {formatAuthProvider(user.authProvider)}
-                      </TableCell>
-                      <TableCell>
-                        {user.platformRole === "platform_admin" ? (
-                          <Badge variant="outline">
-                            {t(
-                              "portalSite.adminUsers.create.rolePlatformAdmin",
-                            )}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">
-                            {t("portalSite.adminUsers.create.roleUser")}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{user.workspaceCount}</TableCell>
-                      <TableCell className="truncate">
-                        {user.lastActiveAt
-                          ? formatLocaleDateTime(user.lastActiveAt)
-                          : "--"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                asChild
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                              >
-                                <Link
-                                  href={`/admin/users/manage/${user.userId}`}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t("portalSite.adminUsers.actions.manage")}
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                asChild
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                              >
-                                <Link
-                                  href={`/admin/memberships?q=${encodeURIComponent(user.email)}`}
-                                >
-                                  <Users className="h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t("portalSite.adminUsers.actions.memberships")}
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                asChild
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                              >
-                                <Link
-                                  href={`/admin/impersonation-center/manage/${user.userId}?section=checklist`}
-                                >
-                                  <ShieldCheck className="h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t("portalSite.adminUsers.actions.review")}
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.loading")}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.adminUsers.panel.emptyUsers")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((user) => (
+                      <TableRow key={user.userId}>
+                        <TableCell>
+                          <div className="min-w-0 max-w-full">
+                            <p className="truncate text-sm font-medium">
+                              {user.email}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {user.userId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {formatAuthProvider(user.authProvider)}
+                        </TableCell>
+                        <TableCell>
+                          {user.platformRole === "platform_admin" ? (
+                            <Badge variant="outline">
+                              {t(
+                                "portalSite.adminUsers.create.rolePlatformAdmin",
+                              )}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {t("portalSite.adminUsers.create.roleUser")}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{user.workspaceCount}</TableCell>
+                        <TableCell className="truncate">
+                          {user.lastActiveAt
+                            ? formatLocaleDateTime(user.lastActiveAt)
+                            : "--"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/users/manage/${user.userId}`}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t("portalSite.adminUsers.actions.manage")}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/memberships?q=${encodeURIComponent(user.email)}`}
+                                  >
+                                    <Users className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t("portalSite.adminUsers.actions.memberships")}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/impersonation-center/manage/${user.userId}?section=checklist`}
+                                  >
+                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t("portalSite.adminUsers.actions.review")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </TooltipProvider>
         </div>
       </section>

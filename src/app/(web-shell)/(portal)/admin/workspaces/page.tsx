@@ -1,5 +1,6 @@
 "use client";
 
+import { CreditCard, Eye, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { listAdminWorkspaces } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
@@ -246,118 +253,161 @@ export default function AdminWorkspacesOverviewPage() {
             </Badge>
           </div>
 
-          <Table className="text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("portalSite.admin.columns.workspace")}</TableHead>
-                <TableHead>
-                  {t("portalSite.admin.workspaces.panel.owner")}
-                </TableHead>
-                <TableHead>{t("portalSite.admin.columns.plan")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.status")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.members")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.time")}</TableHead>
-                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.loading")}
-                  </TableCell>
-                </TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.account.workspaceEmpty")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((workspace) => {
-                  const unifiedPlan = resolveUnifiedPlanId({
-                    planId: workspace.planId,
-                    planLabel: workspace.planLabel,
-                  });
-                  return (
-                    <TableRow key={workspace.workspaceId}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">
-                            {workspace.workspaceName}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {workspace.workspaceId}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[220px] truncate">
-                        {workspace.owner?.email ?? "--"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {getUnifiedPlanLabel({ planId: unifiedPlan })}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {workspace.subscriptionStatus}
-                      </TableCell>
-                      <TableCell>{workspace.members}</TableCell>
-                      <TableCell>
-                        {formatLocaleDateTime(workspace.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                          >
-                            <Link
-                              href={`/admin/workspaces/${workspace.workspaceId}`}
-                            >
-                              {t("portalSite.admin.workspaces.actions.details")}
-                            </Link>
-                          </Button>
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                          >
-                            <Link
-                              href={`/admin/workspaces/${workspace.workspaceId}/members`}
-                            >
-                              {t("portalSite.admin.workspaces.actions.members")}
-                            </Link>
-                          </Button>
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                          >
-                            <Link
-                              href={`/admin/workspaces/${workspace.workspaceId}/billing`}
-                            >
-                              {t("portalSite.admin.workspaces.actions.billing")}
-                            </Link>
-                          </Button>
-                        </div>
+          <TooltipProvider>
+            <div className="min-h-[62vh] max-h-[70vh] overflow-auto">
+              <Table className="table-fixed text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[28%]">
+                      {t("portalSite.admin.columns.workspace")}
+                    </TableHead>
+                    <TableHead className="w-[20%]">
+                      {t("portalSite.admin.workspaces.panel.owner")}
+                    </TableHead>
+                    <TableHead className="w-[12%]">
+                      {t("portalSite.admin.columns.plan")}
+                    </TableHead>
+                    <TableHead className="w-[10%]">
+                      {t("portalSite.admin.columns.status")}
+                    </TableHead>
+                    <TableHead className="w-[8%]">
+                      {t("portalSite.admin.columns.members")}
+                    </TableHead>
+                    <TableHead className="w-[16%]">
+                      {t("portalSite.admin.columns.time")}
+                    </TableHead>
+                    <TableHead className="w-[6%] text-right">
+                      {t("portalSite.admin.columns.action")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.loading")}
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  ) : rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.account.workspaceEmpty")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((workspace) => {
+                      const unifiedPlan = resolveUnifiedPlanId({
+                        planId: workspace.planId,
+                        planLabel: workspace.planLabel,
+                      });
+                      return (
+                        <TableRow key={workspace.workspaceId}>
+                          <TableCell>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {workspace.workspaceName}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {workspace.workspaceId}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[220px] truncate">
+                            {workspace.owner?.email ?? "--"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {getUnifiedPlanLabel({ planId: unifiedPlan })}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {workspace.subscriptionStatus}
+                          </TableCell>
+                          <TableCell>{workspace.members}</TableCell>
+                          <TableCell>
+                            {formatLocaleDateTime(workspace.createdAt)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                  >
+                                    <Link
+                                      href={`/admin/workspaces/${workspace.workspaceId}`}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t(
+                                    "portalSite.admin.workspaces.actions.details",
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                  >
+                                    <Link
+                                      href={`/admin/workspaces/${workspace.workspaceId}/members`}
+                                    >
+                                      <Users className="h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t(
+                                    "portalSite.admin.workspaces.actions.members",
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                  >
+                                    <Link
+                                      href={`/admin/workspaces/${workspace.workspaceId}/billing`}
+                                    >
+                                      <CreditCard className="h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t(
+                                    "portalSite.admin.workspaces.actions.billing",
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
 
           <div className="flex items-center gap-2 border-t border-border p-4">
             <Button

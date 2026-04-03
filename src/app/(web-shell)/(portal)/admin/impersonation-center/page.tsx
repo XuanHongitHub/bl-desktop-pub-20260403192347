@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { listAdminUsers } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
@@ -103,123 +110,145 @@ export default function AdminImpersonationCenterOverviewPage() {
       }
     >
       <section className="mx-auto grid w-full max-w-[1320px] gap-4 text-sm">
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3">
-          <Badge variant="warning">
-            {t("portalSite.admin.impersonationCenter.disabledBadge")}
-          </Badge>
-          <Badge variant="outline">{stats.total}</Badge>
-          <Badge variant="outline">{stats.admins}</Badge>
-          <Badge variant="outline">{stats.active}</Badge>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="ml-auto h-8 px-2 text-xs"
-          >
-            <Link href="/admin/support-console">
-              {t("portalSite.admin.impersonationCenter.openSupportConsole")}
-            </Link>
-          </Button>
-        </div>
-
         <div className="rounded-xl border border-border bg-card">
-          <div className="border-b border-border p-4">
+          <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("portalSite.admin.impersonationCenter.search")}
-              className="h-9 w-full sm:max-w-sm"
+              className="h-9 md:max-w-md"
             />
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="warning" className="h-9 px-3 text-xs">
+                {t("portalSite.admin.impersonationCenter.disabledBadge")}
+              </Badge>
+              <Badge variant="outline" className="h-9 px-3 text-xs">
+                {stats.total}
+              </Badge>
+              <Badge variant="outline" className="h-9 px-3 text-xs">
+                admin: {stats.admins}
+              </Badge>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-9 px-3 text-xs"
+              >
+                <Link href="/admin/support-console">
+                  {t("portalSite.admin.impersonationCenter.openSupportConsole")}
+                </Link>
+              </Button>
+            </div>
           </div>
 
-          <Table className="text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t("portalSite.adminUsers.columns.email")}
-                </TableHead>
-                <TableHead>
-                  {t("portalSite.adminUsers.columns.provider")}
-                </TableHead>
-                <TableHead>{t("portalSite.adminUsers.columns.role")}</TableHead>
-                <TableHead>
-                  {t("portalSite.admin.impersonationCenter.accountState")}
-                </TableHead>
-                <TableHead>
-                  {t("portalSite.admin.impersonationCenter.lastActive")}
-                </TableHead>
-                <TableHead>{t("portalSite.admin.columns.action")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.loading")}
-                  </TableCell>
-                </TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("portalSite.admin.impersonationCenter.empty")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((row) => (
-                  <TableRow key={row.userId}>
-                    <TableCell>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{row.email}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {row.userId}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{row.authProvider}</TableCell>
-                    <TableCell>{row.platformRole ?? "--"}</TableCell>
-                    <TableCell>{row.accountState}</TableCell>
-                    <TableCell>
-                      {row.lastActiveAt
-                        ? formatLocaleDateTime(row.lastActiveAt)
-                        : "--"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link
-                            href={`/admin/impersonation-center/manage/${row.userId}?section=checklist`}
-                          >
-                            Review
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Link href={`/admin/users/manage/${row.userId}`}>
-                            User
-                          </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
+          <TooltipProvider>
+            <div className="min-h-[62vh] max-h-[70vh] overflow-auto">
+              <Table className="table-fixed text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[34%]">
+                      {t("portalSite.adminUsers.columns.email")}
+                    </TableHead>
+                    <TableHead className="w-[14%]">
+                      {t("portalSite.adminUsers.columns.provider")}
+                    </TableHead>
+                    <TableHead className="w-[14%]">
+                      {t("portalSite.adminUsers.columns.role")}
+                    </TableHead>
+                    <TableHead className="w-[14%]">
+                      {t("portalSite.admin.impersonationCenter.accountState")}
+                    </TableHead>
+                    <TableHead className="w-[18%]">
+                      {t("portalSite.admin.impersonationCenter.lastActive")}
+                    </TableHead>
+                    <TableHead className="w-[6%] text-right">
+                      {t("portalSite.admin.columns.action")}
+                    </TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.loading")}
+                      </TableCell>
+                    </TableRow>
+                  ) : rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {t("portalSite.admin.impersonationCenter.empty")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((row) => (
+                      <TableRow key={row.userId}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{row.email}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {row.userId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{row.authProvider}</TableCell>
+                        <TableCell>{row.platformRole ?? "--"}</TableCell>
+                        <TableCell>{row.accountState}</TableCell>
+                        <TableCell>
+                          {row.lastActiveAt
+                            ? formatLocaleDateTime(row.lastActiveAt)
+                            : "--"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/impersonation-center/manage/${row.userId}?section=checklist`}
+                                  >
+                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Review</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Link
+                                    href={`/admin/users/manage/${row.userId}`}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>User</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
         </div>
       </section>
     </PortalSettingsPage>
