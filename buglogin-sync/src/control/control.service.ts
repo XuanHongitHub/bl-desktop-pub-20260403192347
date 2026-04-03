@@ -1466,6 +1466,15 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
     const primaryPersonalWorkspaceId =
       this.getPrimaryPersonalWorkspaceForActor(actor)?.id ?? null;
+    const hasOwnedUpgradedWorkspace = Array.from(
+      actorMembershipByWorkspaceId.entries(),
+    ).some(([workspaceId, membership]) => {
+      if (membership.role !== "owner") {
+        return false;
+      }
+      const subscription = this.getSubscriptionForWorkspace(workspaceId);
+      return subscription.planId !== null;
+    });
 
     return Array.from(this.workspaces.values())
       .filter((workspace) => {
@@ -1486,6 +1495,16 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
         ) {
           return false;
         }
+        if (
+          workspace.mode === "personal" &&
+          workspace.createdBy === actor.userId &&
+          hasOwnedUpgradedWorkspace
+        ) {
+          const subscription = this.getSubscriptionForWorkspace(workspace.id);
+          if (subscription.planId === null) {
+            return false;
+          }
+        }
         return true;
       })
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -1505,6 +1524,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   }
 
   private ensureDefaultPersonalWorkspaceForActor(actor: RequestActor): void {
+    const ownedWorkspaces = this.getOwnedWorkspacesForActor(actor);
+    if (ownedWorkspaces.length > 0) {
+      return;
+    }
     void this.createWorkspace(
       actor,
       this.getDefaultPersonalWorkspaceName(actor.email),

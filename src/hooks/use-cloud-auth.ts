@@ -489,21 +489,9 @@ export function useCloudAuth(): UseCloudAuthReturn {
           return (await response.json()) as ControlWorkspace[];
         };
 
-        let workspaces = await loadWorkspaces();
+        const workspaces = await loadWorkspaces();
         if (!workspaces) {
           return null;
-        }
-
-        if (workspaces.length === 0) {
-          await fetch(buildControlApiUrl(baseUrl, "workspaces"), {
-            method: "POST",
-            headers: effectiveHeaders,
-            body: JSON.stringify({
-              name: user.email,
-              mode: "personal",
-            }),
-          }).catch(() => null);
-          workspaces = await loadWorkspaces();
         }
 
         if (!workspaces || workspaces.length === 0) {
