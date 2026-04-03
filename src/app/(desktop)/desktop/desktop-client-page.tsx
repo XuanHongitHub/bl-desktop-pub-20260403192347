@@ -4084,7 +4084,7 @@ export default function Home() {
         <GroupManagementDialog
           isOpen={true}
           onClose={() => void 0}
-          mode="embedded"
+          mode="page"
           selectedGroupId={selectedGroupId}
           onSelectedGroupChange={handleSelectGroup}
           workspaceRole={selectedWorkspaceRole}
