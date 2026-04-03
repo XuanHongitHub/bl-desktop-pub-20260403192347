@@ -279,7 +279,10 @@ export interface ControlAuthInvite {
   expiresAt: string;
   createdAt: string;
   createdBy: string;
+  consumedAt: string | null;
+  status: "pending" | "accepted" | "declined" | "revoked";
   isExpired: boolean;
+  actionable: boolean;
 }
 
 export interface ControlShareGrant {

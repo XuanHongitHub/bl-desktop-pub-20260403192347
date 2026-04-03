@@ -263,7 +263,7 @@ export function PortalHeaderControls({
   ];
 
   const pendingInviteCount = inviteItems.filter(
-    (item) => !item.isExpired,
+    (item) => item.actionable,
   ).length;
 
   return (
@@ -347,6 +347,9 @@ export function PortalHeaderControls({
                           })}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
+                          {t(`portalSite.invites.status.${invite.status}`)}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
                           {t("portalSite.invites.expiresAt", {
                             at:
                               formatLocaleDateTime(invite.expiresAt) ??
@@ -359,7 +362,7 @@ export function PortalHeaderControls({
                             className="h-7 text-[11px]"
                             onClick={() => void handleAcceptInvite(invite.id)}
                             disabled={
-                              inviteActionId === invite.id || invite.isExpired
+                              inviteActionId === invite.id || !invite.actionable
                             }
                           >
                             <Check className="h-3.5 w-3.5" />
@@ -371,7 +374,7 @@ export function PortalHeaderControls({
                             className="h-7 text-[11px]"
                             onClick={() => void handleDeclineInvite(invite.id)}
                             disabled={
-                              inviteActionId === invite.id || invite.isExpired
+                              inviteActionId === invite.id || !invite.actionable
                             }
                           >
                             <X className="h-3.5 w-3.5" />

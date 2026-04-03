@@ -3756,9 +3756,16 @@
       "columns": {
         "workspace": "Workspace",
         "role": "Role",
+        "status": "Status",
         "expiresAt": "Expires",
         "createdAt": "Invited at",
         "actions": "Actions"
+      },
+      "status": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "declined": "Declined",
+        "revoked": "Revoked"
       }
     },
     "footer": {

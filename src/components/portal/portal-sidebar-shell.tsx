@@ -3,7 +3,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PortalHeaderControls } from "@/components/portal/portal-header-controls";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -188,33 +188,15 @@ function PortalSidebarShell({
     [billingState?.subscription.planLabel, selectedWorkspaceId, workspaces],
   );
 
-  useEffect(() => {
-    if (mode !== "admin") {
-      return;
-    }
-
-    const workspaceId = searchParams.get("workspaceId");
-    if (!workspaceId) {
-      return;
-    }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("workspaceId");
-    const nextHref = params.toString()
-      ? `${pathname}?${params.toString()}`
-      : pathname;
-    router.replace(nextHref);
-  }, [mode, pathname, router, searchParams]);
-
   const handleSectionChange = (section: AppSection) => {
     const nextPath =
       mode === "admin"
         ? mapAdminSectionToPath(section)
         : mapAccountSectionToPath(section);
     const params = new URLSearchParams(searchParams.toString());
-    if (mode !== "admin" && selectedWorkspaceId) {
+    if (selectedWorkspaceId) {
       params.set("workspaceId", selectedWorkspaceId);
-    } else if (mode === "admin") {
+    } else {
       params.delete("workspaceId");
     }
     const nextHref = params.toString()
@@ -231,10 +213,6 @@ function PortalSidebarShell({
 
   const handleWorkspaceChange = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
-
-    if (mode === "admin") {
-      return;
-    }
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("workspaceId", workspaceId);

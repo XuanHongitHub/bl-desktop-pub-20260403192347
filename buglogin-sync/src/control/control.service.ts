@@ -1303,6 +1303,21 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   }
 
   createWorkspace(actor: RequestActor, name: string, mode: WorkspaceMode) {
+    const ownedWorkspaces = this.getOwnedWorkspacesForActor(actor);
+    const hasUpgradedOwnedWorkspace = ownedWorkspaces.some((workspace) => {
+      const subscription = this.getSubscriptionForWorkspace(workspace.id);
+      return subscription.planId !== null;
+    });
+
+    if (
+      actor.platformRole !== "platform_admin" &&
+      !hasUpgradedOwnedWorkspace &&
+      ownedWorkspaces.length >= 1 &&
+      mode !== "personal"
+    ) {
+      throw new UnauthorizedException("free_plan_workspace_limit_reached");
+    }
+
     if (mode === "personal") {
       const existingPersonalWorkspace =
         this.getPrimaryPersonalWorkspaceForActor(actor);
@@ -1804,15 +1819,16 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
 
     return Array.from(this.invites.values())
-      .filter(
-        (invite) =>
-          invite.email === normalizedActorEmail && invite.consumedAt === null,
-      )
+      .filter((invite) => invite.email === normalizedActorEmail)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((invite) => {
         const workspaceName =
           this.workspaces.get(invite.workspaceId)?.name ?? invite.workspaceId;
         const isExpired = new Date(invite.expiresAt).getTime() < Date.now();
+        const status: AuthInviteRecord["status"] = invite.consumedAt
+          ? this.resolveConsumedInviteStatus(invite.id)
+          : "pending";
+        const actionable = status === "pending" && !isExpired;
         return {
           id: invite.id,
           workspaceId: invite.workspaceId,
@@ -1822,7 +1838,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           expiresAt: invite.expiresAt,
           createdAt: invite.createdAt,
           createdBy: invite.createdBy,
+          consumedAt: invite.consumedAt,
+          status,
           isExpired,
+          actionable,
         };
       });
   }
@@ -3780,6 +3799,20 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private getOwnedWorkspacesForActor(actor: RequestActor): WorkspaceRecord[] {
+    const ownedWorkspaceIds = new Set<string>();
+    for (const memberships of this.memberships.values()) {
+      for (const membership of memberships) {
+        if (membership.userId === actor.userId && membership.role === "owner") {
+          ownedWorkspaceIds.add(membership.workspaceId);
+        }
+      }
+    }
+    return Array.from(this.workspaces.values()).filter((workspace) =>
+      ownedWorkspaceIds.has(workspace.id),
+    );
+  }
+
   private ensurePersonalWorkspaceOwnership(
     workspace: WorkspaceRecord,
     actor: RequestActor,
@@ -5418,6 +5451,27 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       return "platform_admin";
     }
     return null;
+  }
+
+  private resolveConsumedInviteStatus(
+    inviteId: string,
+  ): "accepted" | "declined" | "revoked" {
+    for (let index = this.auditLogs.length - 1; index >= 0; index -= 1) {
+      const log = this.auditLogs[index];
+      if (log.targetId !== inviteId) {
+        continue;
+      }
+      if (log.action === "invite.accepted") {
+        return "accepted";
+      }
+      if (log.action === "invite.declined") {
+        return "declined";
+      }
+      if (log.action === "invite.revoked") {
+        return "revoked";
+      }
+    }
+    return "revoked";
   }
 
   resolveEffectivePlatformRole(

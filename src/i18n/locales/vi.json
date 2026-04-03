@@ -3756,9 +3756,16 @@
       "columns": {
         "workspace": "Workspace",
         "role": "Vai trò",
+        "status": "Trạng thái",
         "expiresAt": "Hết hạn",
         "createdAt": "Thời gian mời",
         "actions": "Thao tác"
+      },
+      "status": {
+        "pending": "Chờ xử lý",
+        "accepted": "Đã chấp nhận",
+        "declined": "Đã từ chối",
+        "revoked": "Đã thu hồi"
       }
     },
     "footer": {

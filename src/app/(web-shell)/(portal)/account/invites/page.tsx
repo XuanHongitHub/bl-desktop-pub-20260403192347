@@ -31,7 +31,7 @@ export default function AccountInvitesPage() {
   const [actingInviteId, setActingInviteId] = useState<string | null>(null);
 
   const pendingCount = useMemo(
-    () => rows.filter((item) => !item.isExpired).length,
+    () => rows.filter((item) => item.actionable).length,
     [rows],
   );
 
@@ -131,9 +131,10 @@ export default function AccountInvitesPage() {
         </div>
 
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="grid grid-cols-[minmax(220px,1.4fr)_minmax(100px,0.7fr)_minmax(170px,1fr)_minmax(170px,1fr)_180px] gap-2 border-b border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
+          <div className="grid grid-cols-[minmax(220px,1.3fr)_minmax(90px,0.6fr)_minmax(110px,0.7fr)_minmax(170px,1fr)_minmax(170px,1fr)_180px] gap-2 border-b border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
             <span>{t("portalSite.invites.columns.workspace")}</span>
             <span>{t("portalSite.invites.columns.role")}</span>
+            <span>{t("portalSite.invites.columns.status")}</span>
             <span>{t("portalSite.invites.columns.expiresAt")}</span>
             <span>{t("portalSite.invites.columns.createdAt")}</span>
             <span>{t("portalSite.invites.columns.actions")}</span>
@@ -152,7 +153,7 @@ export default function AccountInvitesPage() {
               {rows.map((invite) => (
                 <div
                   key={invite.id}
-                  className="grid grid-cols-[minmax(220px,1.4fr)_minmax(100px,0.7fr)_minmax(170px,1fr)_minmax(170px,1fr)_180px] items-center gap-2 px-3 py-2.5"
+                  className="grid grid-cols-[minmax(220px,1.3fr)_minmax(90px,0.6fr)_minmax(110px,0.7fr)_minmax(170px,1fr)_minmax(170px,1fr)_180px] items-center gap-2 px-3 py-2.5"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">
@@ -173,6 +174,10 @@ export default function AccountInvitesPage() {
                   </div>
 
                   <p className="text-[12px] text-muted-foreground">
+                    {t(`portalSite.invites.status.${invite.status}`)}
+                  </p>
+
+                  <p className="text-[12px] text-muted-foreground">
                     {formatLocaleDateTime(invite.expiresAt) ?? invite.expiresAt}
                   </p>
 
@@ -185,7 +190,7 @@ export default function AccountInvitesPage() {
                       size="sm"
                       className="h-7 text-[11px]"
                       disabled={
-                        actingInviteId === invite.id || invite.isExpired
+                        actingInviteId === invite.id || !invite.actionable
                       }
                       onClick={() => void handleAccept(invite.id)}
                     >
@@ -197,7 +202,7 @@ export default function AccountInvitesPage() {
                       variant="outline"
                       className="h-7 text-[11px]"
                       disabled={
-                        actingInviteId === invite.id || invite.isExpired
+                        actingInviteId === invite.id || !invite.actionable
                       }
                       onClick={() => void handleDecline(invite.id)}
                     >

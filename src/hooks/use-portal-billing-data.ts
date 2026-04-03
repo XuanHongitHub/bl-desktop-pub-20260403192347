@@ -23,6 +23,7 @@ import {
   createPortalSessionRecord,
   mergePortalSessionCurrent,
   PORTAL_GOOGLE_STORAGE_KEY,
+  readPortalSessionStorage,
   writePortalSessionStorage,
 } from "@/lib/portal-session";
 import { readWebBillingPortalContextFromHash } from "@/lib/web-billing-portal";
@@ -32,6 +33,34 @@ interface GooglePortalProfile {
   email?: string;
   name?: string;
   avatar?: string;
+}
+
+const PORTAL_SELECTED_WORKSPACE_STORAGE_PREFIX =
+  "buglogin.portal.selected-workspace.v1";
+
+function buildSelectedWorkspaceStorageKey(userId: string): string {
+  return `${PORTAL_SELECTED_WORKSPACE_STORAGE_PREFIX}:${userId.trim()}`;
+}
+
+function readSelectedWorkspaceFromStorage(userId: string): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  const key = buildSelectedWorkspaceStorageKey(userId);
+  return window.localStorage.getItem(key)?.trim() ?? "";
+}
+
+function writeSelectedWorkspaceToStorage(userId: string, workspaceId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const key = buildSelectedWorkspaceStorageKey(userId);
+  const normalized = workspaceId.trim();
+  if (normalized) {
+    window.localStorage.setItem(key, normalized);
+    return;
+  }
+  window.localStorage.removeItem(key);
 }
 
 function parseGoogleProfile(raw: string | null): GooglePortalProfile | null {
@@ -199,6 +228,24 @@ function usePortalBillingDataState() {
             return current;
           }
 
+          const fromSession = session?.current?.workspaceId?.trim() ?? "";
+          if (
+            fromSession &&
+            items.some((workspace) => workspace.id === fromSession)
+          ) {
+            return fromSession;
+          }
+
+          const fromStorage = readSelectedWorkspaceFromStorage(
+            connectionInput.userId,
+          );
+          if (
+            fromStorage &&
+            items.some((workspace) => workspace.id === fromStorage)
+          ) {
+            return fromStorage;
+          }
+
           if (typeof window !== "undefined") {
             const fromQuery =
               new URLSearchParams(window.location.search).get("workspaceId") ??
@@ -224,7 +271,7 @@ function usePortalBillingDataState() {
         setLoadingWorkspaces(false);
       }
     },
-    [],
+    [session?.current?.workspaceId],
   );
 
   const loadBilling = useCallback(
@@ -290,7 +337,8 @@ function usePortalBillingDataState() {
         if (workspace.id !== selectedWorkspaceId) {
           return workspace;
         }
-        const nextPlanLabel = billingState.subscription.planLabel || workspace.planLabel;
+        const nextPlanLabel =
+          billingState.subscription.planLabel || workspace.planLabel;
         const nextBillingCycle = billingState.subscription.billingCycle;
         const nextStatus = billingState.subscription.status;
         const nextExpiresAt = billingState.subscription.expiresAt;
@@ -370,13 +418,42 @@ function usePortalBillingDataState() {
     writePortalSessionStorage(nextSession);
   }, [billingState, selectedWorkspace, session]);
 
+  useEffect(() => {
+    if (!connection) {
+      return;
+    }
+    writeSelectedWorkspaceToStorage(connection.userId, selectedWorkspaceId);
+  }, [connection, selectedWorkspaceId]);
+
+  const setPortalWorkspaceId = useCallback((workspaceId: string) => {
+    const normalized = workspaceId.trim();
+    setSelectedWorkspaceId(normalized);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const record = readPortalSessionStorage();
+    if (record) {
+      const nextRecord = mergePortalSessionCurrent(record, {
+        workspaceId: normalized,
+      });
+      writePortalSessionStorage(nextRecord);
+    }
+
+    const userId = record?.connection.userId?.trim();
+    if (userId) {
+      writeSelectedWorkspaceToStorage(userId, normalized);
+    }
+  }, []);
+
   return {
     session,
     sessionReady: true,
     connection,
     workspaces,
     selectedWorkspaceId,
-    setSelectedWorkspaceId,
+    setSelectedWorkspaceId: setPortalWorkspaceId,
     selectedWorkspace,
     billingState,
     loadingWorkspaces,
@@ -405,8 +482,10 @@ export function PortalBillingDataProvider({
 
 export function usePortalBillingData(): PortalBillingDataValue {
   const context = useContext(PortalBillingDataContext);
-  if (context) {
-    return context;
+  if (!context) {
+    throw new Error(
+      "usePortalBillingData must be used within PortalBillingDataProvider",
+    );
   }
-  return usePortalBillingDataState();
+  return context;
 }
