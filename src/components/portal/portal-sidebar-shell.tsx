@@ -242,7 +242,7 @@ function PortalSidebarShell({
         authAvatar={session?.user.avatar ?? null}
         isAuthenticated={Boolean(session?.user.email)}
         isAuthBusy={false}
-        navigationMode={mode === "account" ? "portal-account" : "default"}
+        navigationMode={mode === "account" ? "portal-account" : "portal-admin"}
         onSignIn={() => {
           router.push("/signin");
         }}

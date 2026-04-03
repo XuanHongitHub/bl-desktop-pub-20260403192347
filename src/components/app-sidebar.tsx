@@ -463,7 +463,7 @@ type Props = {
   isAuthBusy?: boolean;
   onSignIn?: () => void;
   onSignOut?: () => void;
-  navigationMode?: "default" | "portal-account";
+  navigationMode?: "default" | "portal-account" | "portal-admin";
 };
 
 function AppSidebarComponent({
@@ -761,7 +761,7 @@ function AppSidebarComponent({
   );
 
   const canSwitchWorkspace =
-    panelMode !== "super-admin" &&
+    !(navigationMode === "portal-admin" && panelMode === "super-admin") &&
     workspaceOptions.length > 1 &&
     Boolean(onWorkspaceChange);
   const preferPlanBadgeOnly = navigationMode === "portal-account";
@@ -841,12 +841,13 @@ function AppSidebarComponent({
   );
 
   const renderAccountMenuContent = () => {
-    const canOpenWorkspaceOwnerPanel =
-      canAccessWorkspaceGovernance && panelMode === "workspace";
+    const canOpenWorkspaceOwnerPanel = false;
     const canOpenSuperAdminPanel = isPlatformAdmin && panelMode === "workspace";
     const canBackToWorkspace = panelMode !== "workspace";
+    const isPortalSuperAdminMenu =
+      navigationMode === "portal-admin" && panelMode === "super-admin";
     const showWorkspaceSwitcherInMenu =
-      panelMode !== "super-admin" && workspaceOptions.length > 0;
+      !isPortalSuperAdminMenu && workspaceOptions.length > 0;
     const menuWorkspaceId = selectedWorkspaceId;
 
     return (
