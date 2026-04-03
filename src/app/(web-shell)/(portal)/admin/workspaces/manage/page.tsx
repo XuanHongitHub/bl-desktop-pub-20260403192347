@@ -119,6 +119,12 @@ export default function AdminWorkspacesPage() {
   const [createWorkspaceMode, setCreateWorkspaceMode] = useState<
     "team" | "personal"
   >("team");
+  const [createPlanId, setCreatePlanId] = useState<
+    "free" | "starter" | "team" | "scale" | "enterprise"
+  >("free");
+  const [createBillingCycle, setCreateBillingCycle] = useState<
+    "monthly" | "yearly"
+  >("monthly");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createOwnerQuery, setCreateOwnerQuery] = useState("");
   const [createOwnerUserId, setCreateOwnerUserId] = useState("");
@@ -375,6 +381,12 @@ export default function AdminWorkspacesPage() {
         name,
         mode: createWorkspaceMode,
       });
+      if (createPlanId !== "free") {
+        await overrideWorkspaceSubscriptionAsAdmin(connection, created.id, {
+          planId: createPlanId,
+          billingCycle: createBillingCycle,
+        });
+      }
       if (
         createOwnerUserId.trim() &&
         createOwnerUserId.trim() !== created.createdBy
@@ -387,6 +399,8 @@ export default function AdminWorkspacesPage() {
         );
       }
       setCreateWorkspaceName("");
+      setCreatePlanId("free");
+      setCreateBillingCycle("monthly");
       setCreateOwnerQuery("");
       setCreateOwnerUserId("");
       setCreateDialogOpen(false);
@@ -521,6 +535,70 @@ export default function AdminWorkspacesPage() {
                   </SelectItem>
                   <SelectItem value="personal">
                     {t("portalSite.admin.workspaces.create.modePersonal")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.manage.plan")}
+              </p>
+              <Select
+                value={createPlanId}
+                onValueChange={(value) =>
+                  setCreatePlanId(
+                    value as
+                      | "free"
+                      | "starter"
+                      | "team"
+                      | "scale"
+                      | "enterprise",
+                  )
+                }
+                disabled={creatingWorkspace}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">
+                    {getUnifiedPlanLabel({ planId: "free" })}
+                  </SelectItem>
+                  <SelectItem value="starter">
+                    {getUnifiedPlanLabel({ planId: "starter" })}
+                  </SelectItem>
+                  <SelectItem value="team">
+                    {getUnifiedPlanLabel({ planId: "team" })}
+                  </SelectItem>
+                  <SelectItem value="scale">
+                    {getUnifiedPlanLabel({ planId: "scale" })}
+                  </SelectItem>
+                  <SelectItem value="enterprise">
+                    {getUnifiedPlanLabel({ planId: "enterprise" })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.manage.billingCycle")}
+              </p>
+              <Select
+                value={createBillingCycle}
+                onValueChange={(value) =>
+                  setCreateBillingCycle(value as "monthly" | "yearly")
+                }
+                disabled={creatingWorkspace || createPlanId === "free"}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">
+                    {t("portalSite.admin.workspaces.cycle.monthly")}
+                  </SelectItem>
+                  <SelectItem value="yearly">
+                    {t("portalSite.admin.workspaces.cycle.yearly")}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -832,7 +910,10 @@ export default function AdminWorkspacesPage() {
             </div>
           ) : (
             <div className="grid min-h-[700px] grid-rows-[auto_minmax(0,1fr)]">
-              <div className="grid gap-0 border-b border-border md:grid-cols-4">
+              <div
+                id="overview"
+                className="grid gap-0 border-b border-border md:grid-cols-4"
+              >
                 <div className="p-4">
                   <p className="text-xs text-muted-foreground">
                     {t("portalSite.admin.columns.workspace")}
@@ -904,7 +985,10 @@ export default function AdminWorkspacesPage() {
                     </div>
                   </div>
 
-                  <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
+                  <div
+                    id="members"
+                    className="border-b border-border px-4 py-3 text-sm font-medium text-foreground"
+                  >
                     {t("portalSite.admin.workspaces.panel.memberships")}
                   </div>
                   <ScrollArea className="h-[500px]">
@@ -934,7 +1018,10 @@ export default function AdminWorkspacesPage() {
                   </ScrollArea>
                 </div>
 
-                <div className="border-t border-border xl:border-l xl:border-t-0">
+                <div
+                  id="subscription"
+                  className="border-t border-border xl:border-l xl:border-t-0"
+                >
                   <div className="space-y-4 p-4">
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-foreground">

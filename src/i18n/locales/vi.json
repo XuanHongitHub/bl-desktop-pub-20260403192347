@@ -4732,7 +4732,10 @@
           "saveSubscription": "Lưu subscription",
           "quickAddMember": "Thêm member nhanh",
           "memberEmail": "Email user",
-          "invite": "Mời vào workspace"
+          "invite": "Mời vào workspace",
+          "details": "Chi tiết",
+          "members": "Thành viên",
+          "billing": "Billing"
         },
         "manage": {
           "title": "Cấu hình subscription workspace",

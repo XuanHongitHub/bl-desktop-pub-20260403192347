@@ -120,6 +120,11 @@ export default function AdminWorkspacesOverviewPage() {
           >
             {t("portalSite.admin.refresh")}
           </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/admin/workspaces/manage?create=1">
+              {t("portalSite.admin.workspaces.create.action")}
+            </Link>
+          </Button>
           <Button asChild size="sm">
             <Link href="/admin/workspaces/manage">
               {t("portalSite.admin.workspaces.actions.manage")}
@@ -129,49 +134,6 @@ export default function AdminWorkspacesOverviewPage() {
       }
     >
       <section className="mx-auto grid w-full max-w-[1320px] gap-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.workspaces.table.total", {
-                count: summary.total,
-              })}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {summary.total}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.workspaces.table.showing", {
-                count: summary.showing,
-              })}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {summary.showing}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.workspaces.table.active", {
-                count: summary.active,
-              })}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {summary.active}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.workspaces.table.highRisk", {
-                count: summary.highRisk,
-              })}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {summary.highRisk}
-            </p>
-          </div>
-        </div>
-
         <div className="rounded-xl border border-border bg-card">
           <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_150px_170px_130px]">
             <Input
@@ -261,6 +223,29 @@ export default function AdminWorkspacesOverviewPage() {
             </Select>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.total", {
+                count: summary.total,
+              })}
+            </Badge>
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.showing", {
+                count: summary.showing,
+              })}
+            </Badge>
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.active", {
+                count: summary.active,
+              })}
+            </Badge>
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.highRisk", {
+                count: summary.highRisk,
+              })}
+            </Badge>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -328,18 +313,44 @@ export default function AdminWorkspacesOverviewPage() {
                         {formatLocaleDateTime(workspace.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                        >
-                          <Link
-                            href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}`}
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
                           >
-                            {t("portalSite.admin.workspaces.actions.manage")}
-                          </Link>
-                        </Button>
+                            <Link
+                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#overview`}
+                            >
+                              {t("portalSite.admin.workspaces.actions.details")}
+                            </Link>
+                          </Button>
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Link
+                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#members`}
+                            >
+                              {t("portalSite.admin.workspaces.actions.members")}
+                            </Link>
+                          </Button>
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Link
+                              href={`/admin/workspaces/manage?workspaceId=${workspace.workspaceId}#subscription`}
+                            >
+                              {t("portalSite.admin.workspaces.actions.billing")}
+                            </Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

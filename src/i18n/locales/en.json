@@ -4732,7 +4732,10 @@
           "saveSubscription": "Save subscription",
           "quickAddMember": "Quick add member",
           "memberEmail": "User email",
-          "invite": "Invite"
+          "invite": "Invite",
+          "details": "Details",
+          "members": "Members",
+          "billing": "Billing"
         },
         "manage": {
           "title": "Workspace subscription config",
