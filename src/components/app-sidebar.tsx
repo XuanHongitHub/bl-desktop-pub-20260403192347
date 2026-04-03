@@ -761,7 +761,9 @@ function AppSidebarComponent({
   );
 
   const canSwitchWorkspace =
-    workspaceOptions.length > 1 && Boolean(onWorkspaceChange);
+    panelMode !== "super-admin" &&
+    workspaceOptions.length > 1 &&
+    Boolean(onWorkspaceChange);
   const preferPlanBadgeOnly = navigationMode === "portal-account";
   const selectedWorkspaceId =
     currentWorkspaceId ?? workspaceOptions[0]?.id ?? "default";
@@ -772,6 +774,8 @@ function AppSidebarComponent({
     workspaceOptions[0] ??
     null;
   const workspaceContextLabel = selectedWorkspace?.label ?? roleLabel;
+  const accountContextLabel =
+    panelMode === "super-admin" ? roleLabel : workspaceContextLabel;
   const resolveWorkspacePlanLabel = useCallback(
     (
       workspace?: {
@@ -841,6 +845,8 @@ function AppSidebarComponent({
       canAccessWorkspaceGovernance && panelMode === "workspace";
     const canOpenSuperAdminPanel = isPlatformAdmin && panelMode === "workspace";
     const canBackToWorkspace = panelMode !== "workspace";
+    const showWorkspaceSwitcherInMenu =
+      panelMode !== "super-admin" && workspaceOptions.length > 0;
     const menuWorkspaceId = selectedWorkspaceId;
 
     return (
@@ -849,7 +855,7 @@ function AppSidebarComponent({
           <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>
             {authEmail ?? t("shell.auth.loggedOut")}
           </p>
-          <p className={SIDEBAR_ACCOUNT_META_CLASS}>{workspaceContextLabel}</p>
+          <p className={SIDEBAR_ACCOUNT_META_CLASS}>{accountContextLabel}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {canOpenSuperAdminPanel && (
@@ -897,90 +903,97 @@ function AppSidebarComponent({
         {(canOpenSuperAdminPanel ||
           canOpenWorkspaceOwnerPanel ||
           canBackToWorkspace) && <DropdownMenuSeparator />}
-        <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-          {t("shell.accountMenu.workspaces")}
-        </DropdownMenuLabel>
-        {workspaceOptions.map((workspace) => {
-          const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
-          const canSwitchToThisWorkspace =
-            canSwitchWorkspace && !isCurrentWorkspace;
-          const hasUsageQuota =
-            !preferPlanBadgeOnly &&
-            typeof workspace.profileLimit === "number" &&
-            Number.isFinite(workspace.profileLimit) &&
-            workspace.profileLimit > 0 &&
-            typeof workspace.profilesUsed === "number" &&
-            Number.isFinite(workspace.profilesUsed) &&
-            workspace.profilesUsed >= 0;
-          const workspaceLimitBadge = hasUsageQuota
-            ? formatWorkspaceQuotaBadge(
-                workspace.profileLimit,
-                workspace.profilesUsed,
-              )
-            : null;
-          const workspacePlanBadge = resolveWorkspacePlanLabel(workspace);
-          const workspacePlanToneClass = getUnifiedPlanToneClass(
-            resolveUnifiedPlanId({
-              planLabel: workspace.planLabel,
-            }),
-          );
-          return (
-            <DropdownMenuItem
-              key={workspace.id}
-              onSelect={() => {
-                handleWorkspaceMenuItemSelect(workspace.id);
-              }}
-              disabled={!canSwitchToThisWorkspace || isWorkspaceSwitching}
-              className={cn(
-                SIDEBAR_WORKSPACE_ITEM_CLASS,
-                isCurrentWorkspace && "bg-muted",
-              )}
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
-                <Building2
-                  className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>{workspace.label}</p>
-                <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                  <p className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}>
-                    {workspace.details ??
-                      (isCurrentWorkspace
-                        ? t("shell.workspaceSwitcher.current")
-                        : t("shell.workspaceSwitcher.switchTo"))}
+        {showWorkspaceSwitcherInMenu && (
+          <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+            {t("shell.accountMenu.workspaces")}
+          </DropdownMenuLabel>
+        )}
+        {showWorkspaceSwitcherInMenu &&
+          workspaceOptions.map((workspace) => {
+            const isCurrentWorkspace = workspace.id === selectedWorkspaceId;
+            const canSwitchToThisWorkspace =
+              canSwitchWorkspace && !isCurrentWorkspace;
+            const hasUsageQuota =
+              !preferPlanBadgeOnly &&
+              typeof workspace.profileLimit === "number" &&
+              Number.isFinite(workspace.profileLimit) &&
+              workspace.profileLimit > 0 &&
+              typeof workspace.profilesUsed === "number" &&
+              Number.isFinite(workspace.profilesUsed) &&
+              workspace.profilesUsed >= 0;
+            const workspaceLimitBadge = hasUsageQuota
+              ? formatWorkspaceQuotaBadge(
+                  workspace.profileLimit,
+                  workspace.profilesUsed,
+                )
+              : null;
+            const workspacePlanBadge = resolveWorkspacePlanLabel(workspace);
+            const workspacePlanToneClass = getUnifiedPlanToneClass(
+              resolveUnifiedPlanId({
+                planLabel: workspace.planLabel,
+              }),
+            );
+            return (
+              <DropdownMenuItem
+                key={workspace.id}
+                onSelect={() => {
+                  handleWorkspaceMenuItemSelect(workspace.id);
+                }}
+                disabled={!canSwitchToThisWorkspace || isWorkspaceSwitching}
+                className={cn(
+                  SIDEBAR_WORKSPACE_ITEM_CLASS,
+                  isCurrentWorkspace && "bg-muted",
+                )}
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background">
+                  <Building2
+                    className={`${SIDEBAR_NAV_ICON_CLASS} text-muted-foreground`}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={SIDEBAR_ACCOUNT_TITLE_CLASS}>
+                    {workspace.label}
                   </p>
-                  {workspaceLimitBadge ? (
-                    <Badge
-                      variant="secondary"
-                      className="h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold"
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <p
+                      className={`min-w-0 flex-1 ${SIDEBAR_ACCOUNT_META_CLASS}`}
                     >
-                      {workspaceLimitBadge}
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="default"
-                      className={cn(
-                        "h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold",
-                        workspacePlanToneClass,
-                      )}
-                    >
-                      {workspacePlanBadge}
-                    </Badge>
+                      {workspace.details ??
+                        (isCurrentWorkspace
+                          ? t("shell.workspaceSwitcher.current")
+                          : t("shell.workspaceSwitcher.switchTo"))}
+                    </p>
+                    {workspaceLimitBadge ? (
+                      <Badge
+                        variant="secondary"
+                        className="h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold"
+                      >
+                        {workspaceLimitBadge}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="default"
+                        className={cn(
+                          "h-5 shrink-0 rounded-full px-1.5 text-[10px] font-semibold",
+                          workspacePlanToneClass,
+                        )}
+                      >
+                        {workspacePlanBadge}
+                      </Badge>
+                    )}
+                  </div>
+                  {workspace.status && (
+                    <p className="truncate text-[10px] text-muted-foreground/80">
+                      {workspace.status}
+                    </p>
                   )}
                 </div>
-                {workspace.status && (
-                  <p className="truncate text-[10px] text-muted-foreground/80">
-                    {workspace.status}
-                  </p>
+                {isCurrentWorkspace && (
+                  <Check className="h-4 w-4 shrink-0 text-foreground" />
                 )}
-              </div>
-              {isCurrentWorkspace && (
-                <Check className="h-4 w-4 shrink-0 text-foreground" />
-              )}
-            </DropdownMenuItem>
-          );
-        })}
+              </DropdownMenuItem>
+            );
+          })}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={onSignOut}
