@@ -85,8 +85,9 @@ function fromBase64Url(input: string): string {
   if (typeof window !== "undefined" && typeof window.atob === "function") {
     const binary = window.atob(normalized);
     const encoded = Array.from(binary)
-      .map((character) =>
-        `%${character.charCodeAt(0).toString(16).padStart(2, "0")}`,
+      .map(
+        (character) =>
+          `%${character.charCodeAt(0).toString(16).padStart(2, "0")}`,
       )
       .join("");
     return decodeURIComponent(encoded);
@@ -119,7 +120,9 @@ export function decodeWebBillingPortalContext(
   }
 
   try {
-    const parsed = JSON.parse(fromBase64Url(encoded)) as WebBillingPortalContext;
+    const parsed = JSON.parse(
+      fromBase64Url(encoded),
+    ) as WebBillingPortalContext;
     const controlBaseUrl = normalizeHttpUrl(parsed.controlBaseUrl);
     const controlToken = normalizeSegment(parsed.controlToken ?? "");
     const userId = normalizeSegment(parsed.userId ?? "");
@@ -163,7 +166,7 @@ function resolvePortalPath(route: WebBillingPortalRoute): string {
     case "accountPlan":
       return "/account/plan";
     case "adminCommandCenter":
-      return "/admin/command-center";
+      return "/admin/dashboard";
     case "adminWorkspaces":
       return "/admin/workspaces";
     case "adminRevenue":

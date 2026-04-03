@@ -85,7 +85,7 @@ export function resolvePortalPostAuthPath(input: {
   platformRole?: string | null;
 }): string {
   return input.platformRole === "platform_admin"
-    ? "/admin/command-center"
+    ? "/admin/dashboard"
     : "/account/billing";
 }
 

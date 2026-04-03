@@ -24,15 +24,18 @@ test("falls back to production cloud api base when env is missing", () => {
   assert.equal(resolvePortalCloudApiBaseUrl(""), "https://api.buglogin.com");
 });
 
-test("routes platform admins to command center after auth", () => {
+test("routes platform admins to dashboard after auth", () => {
   assert.equal(
     resolvePortalPostAuthPath({ platformRole: "platform_admin" }),
-    "/admin/command-center",
+    "/admin/dashboard",
   );
 });
 
 test("routes regular users to account billing after auth", () => {
-  assert.equal(resolvePortalPostAuthPath({ platformRole: null }), "/account/billing");
+  assert.equal(
+    resolvePortalPostAuthPath({ platformRole: null }),
+    "/account/billing",
+  );
 });
 
 test("parses portal session current workspace and plan context", () => {
