@@ -7,13 +7,17 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   Put,
+  Query,
   UseGuards,
 } from "@nestjs/common";
-import { ControlAuthGuard } from "./control-auth.guard.js";
-import type { EntitlementState, WorkspaceMode, WorkspaceRole } from "./control.types.js";
 import { ControlService } from "./control.service.js";
+import type {
+  EntitlementState,
+  WorkspaceMode,
+  WorkspaceRole,
+} from "./control.types.js";
+import { ControlAuthGuard } from "./control-auth.guard.js";
 
 type ActorHeaders = {
   "x-user-id"?: string;
@@ -55,7 +59,10 @@ export class ControlController {
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
   ) {
-    return this.controlService.getEntitlement(workspaceId, this.actorFromHeaders(headers));
+    return this.controlService.getEntitlement(
+      workspaceId,
+      this.actorFromHeaders(headers),
+    );
   }
 
   @Patch("workspaces/:workspaceId/entitlement")
@@ -154,7 +161,9 @@ export class ControlController {
     );
   }
 
-  @Post("workspaces/:workspaceId/billing/stripe-checkout/:checkoutSessionId/confirm")
+  @Post(
+    "workspaces/:workspaceId/billing/stripe-checkout/:checkoutSessionId/confirm",
+  )
   confirmStripeCheckout(
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
@@ -196,7 +205,10 @@ export class ControlController {
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
   ) {
-    return this.controlService.listMemberships(workspaceId, this.actorFromHeaders(headers));
+    return this.controlService.listMemberships(
+      workspaceId,
+      this.actorFromHeaders(headers),
+    );
   }
 
   @Post("workspaces/:workspaceId/members/invite")
@@ -245,8 +257,14 @@ export class ControlController {
   }
 
   @Post("auth/invite/accept")
-  acceptInvite(@Headers() headers: ActorHeaders, @Body() body: { token: string }) {
-    return this.controlService.acceptInvite(body.token, this.actorFromHeaders(headers));
+  acceptInvite(
+    @Headers() headers: ActorHeaders,
+    @Body() body: { token: string },
+  ) {
+    return this.controlService.acceptInvite(
+      body.token,
+      this.actorFromHeaders(headers),
+    );
   }
 
   @Get("auth/me")
@@ -261,7 +279,10 @@ export class ControlController {
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
   ) {
-    return this.controlService.listInvites(workspaceId, this.actorFromHeaders(headers));
+    return this.controlService.listInvites(
+      workspaceId,
+      this.actorFromHeaders(headers),
+    );
   }
 
   @Post("workspaces/:workspaceId/invites/:inviteId/revoke")
@@ -321,7 +342,10 @@ export class ControlController {
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
   ) {
-    return this.controlService.listShareGrants(workspaceId, this.actorFromHeaders(headers));
+    return this.controlService.listShareGrants(
+      workspaceId,
+      this.actorFromHeaders(headers),
+    );
   }
 
   @Get("workspaces/:workspaceId/admin/tiktok-state")
@@ -565,7 +589,9 @@ export class ControlController {
     );
   }
 
-  @Put("workspaces/:workspaceId/admin/tiktok-automation/runs/:runId/items/:itemId")
+  @Put(
+    "workspaces/:workspaceId/admin/tiktok-automation/runs/:runId/items/:itemId",
+  )
   updateWorkspaceTiktokAutomationRunItem(
     @Headers() headers: ActorHeaders,
     @Param("workspaceId") workspaceId: string,
@@ -669,6 +695,22 @@ export class ControlController {
     );
   }
 
+  @Patch("admin/users/:userId/platform-role")
+  updateAdminUserPlatformRole(
+    @Headers() headers: ActorHeaders,
+    @Param("userId") userId: string,
+    @Body() body: { platformRole?: "platform_admin" | null; reason?: string },
+  ) {
+    return this.controlService.updateAdminUserPlatformRole(
+      this.actorFromHeaders(headers),
+      userId,
+      {
+        platformRole: body.platformRole ?? null,
+        reason: body.reason ?? "updated_from_super_admin_permissions",
+      },
+    );
+  }
+
   @Get("admin/memberships")
   listAdminMemberships(
     @Headers() headers: ActorHeaders,
@@ -676,11 +718,14 @@ export class ControlController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
-    return this.controlService.listAdminMemberships(this.actorFromHeaders(headers), {
-      q,
-      page: Number(page ?? 1),
-      pageSize: Number(pageSize ?? 25),
-    });
+    return this.controlService.listAdminMemberships(
+      this.actorFromHeaders(headers),
+      {
+        q,
+        page: Number(page ?? 1),
+        pageSize: Number(pageSize ?? 25),
+      },
+    );
   }
 
   @Get("admin/workspaces")
@@ -692,29 +737,32 @@ export class ControlController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
-    return this.controlService.listAdminWorkspaces(this.actorFromHeaders(headers), {
-      q,
-      status:
-        status === "active" || status === "past_due" || status === "canceled"
-          ? status
-          : undefined,
-      planId:
-        planId === "starter" ||
-        planId === "team" ||
-        planId === "growth" ||
-        planId === "scale" ||
-        planId === "enterprise" ||
-        planId === "custom" ||
-        planId === "free"
-          ? planId === "growth"
-            ? "team"
-            : planId === "custom"
-              ? "enterprise"
-              : planId
-          : undefined,
-      page: Number(page ?? 1),
-      pageSize: Number(pageSize ?? 25),
-    });
+    return this.controlService.listAdminWorkspaces(
+      this.actorFromHeaders(headers),
+      {
+        q,
+        status:
+          status === "active" || status === "past_due" || status === "canceled"
+            ? status
+            : undefined,
+        planId:
+          planId === "starter" ||
+          planId === "team" ||
+          planId === "growth" ||
+          planId === "scale" ||
+          planId === "enterprise" ||
+          planId === "custom" ||
+          planId === "free"
+            ? planId === "growth"
+              ? "team"
+              : planId === "custom"
+                ? "enterprise"
+                : planId
+            : undefined,
+        page: Number(page ?? 1),
+        pageSize: Number(pageSize ?? 25),
+      },
+    );
   }
 
   @Get("admin/workspaces/:workspaceId")
@@ -749,11 +797,14 @@ export class ControlController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
-    return this.controlService.listAdminInvoices(this.actorFromHeaders(headers), {
-      q,
-      page: Number(page ?? 1),
-      pageSize: Number(pageSize ?? 25),
-    });
+    return this.controlService.listAdminInvoices(
+      this.actorFromHeaders(headers),
+      {
+        q,
+        page: Number(page ?? 1),
+        pageSize: Number(pageSize ?? 25),
+      },
+    );
   }
 
   @Get("admin/revenue")
@@ -770,11 +821,14 @@ export class ControlController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
-    return this.controlService.listAdminAutomationRuns(this.actorFromHeaders(headers), {
-      q,
-      page: Number(page ?? 1),
-      pageSize: Number(pageSize ?? 25),
-    });
+    return this.controlService.listAdminAutomationRuns(
+      this.actorFromHeaders(headers),
+      {
+        q,
+        page: Number(page ?? 1),
+        pageSize: Number(pageSize ?? 25),
+      },
+    );
   }
 
   @Get("admin/workspace-health")
@@ -785,7 +839,10 @@ export class ControlController {
   }
 
   @Get("admin/audit-logs")
-  getAuditLogs(@Headers() headers: ActorHeaders, @Query("limit") limit?: string) {
+  getAuditLogs(
+    @Headers() headers: ActorHeaders,
+    @Query("limit") limit?: string,
+  ) {
     const parsedLimit = Number(limit || 200);
     return this.controlService.getAuditLogs(
       this.actorFromHeaders(headers),
@@ -809,7 +866,10 @@ export class ControlController {
       expiresAt: string;
     },
   ) {
-    return this.controlService.createCoupon(this.actorFromHeaders(headers), body);
+    return this.controlService.createCoupon(
+      this.actorFromHeaders(headers),
+      body,
+    );
   }
 
   @Post("admin/coupons/:couponId/revoke")

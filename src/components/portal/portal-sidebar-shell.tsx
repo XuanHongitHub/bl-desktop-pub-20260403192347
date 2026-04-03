@@ -31,7 +31,6 @@ function mapAccountSectionToPath(section: AppSection): string {
       return "/account/settings";
     case "super-admin-overview":
       return "/admin/dashboard";
-    case "profiles":
     default:
       return "/account";
   }
@@ -41,6 +40,8 @@ function mapAdminPathToSection(pathname: string): AppSection {
   if (pathname.startsWith("/admin/dashboard")) return "super-admin-overview";
   if (pathname.startsWith("/admin/incident-board"))
     return "super-admin-incident-board";
+  if (pathname.startsWith("/admin/permissions"))
+    return "super-admin-permissions";
   if (pathname.startsWith("/admin/memberships"))
     return "super-admin-memberships";
   if (pathname.startsWith("/admin/abuse-trust"))
@@ -90,6 +91,8 @@ function mapAdminSectionToPath(section: AppSection): string {
       return "/admin/incident-board";
     case "super-admin-workspace":
       return "/admin/workspaces";
+    case "super-admin-permissions":
+      return "/admin/permissions";
     case "super-admin-memberships":
       return "/admin/memberships";
     case "super-admin-abuse-trust":
@@ -135,7 +138,6 @@ function mapAdminSectionToPath(section: AppSection): string {
       return "/admin/system";
     case "profiles":
       return "/account";
-    case "super-admin-overview":
     default:
       return "/admin/dashboard";
   }
@@ -197,7 +199,9 @@ function PortalSidebarShell({
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("workspaceId");
-    const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    const nextHref = params.toString()
+      ? `${pathname}?${params.toString()}`
+      : pathname;
     router.replace(nextHref);
   }, [mode, pathname, router, searchParams]);
 

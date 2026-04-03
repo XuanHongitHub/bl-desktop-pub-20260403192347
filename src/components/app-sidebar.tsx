@@ -271,6 +271,12 @@ const SUPER_ADMIN_IDENTITY_NAV_GROUP: NavGroupItem = {
     },
     {
       type: "item",
+      id: "super-admin-permissions",
+      labelKey: "portalSite.admin.nav.permissions",
+      icon: getSectionIcon("super-admin-permissions"),
+    },
+    {
+      type: "item",
       id: "super-admin-memberships",
       labelKey: "portalSite.admin.nav.memberships",
       icon: getSectionIcon("super-admin-memberships"),
@@ -678,6 +684,7 @@ function AppSidebarComponent({
       activeSection.startsWith("super-admin-support-console"),
     "super-identity-menu":
       activeSection.startsWith("super-admin-workspace") ||
+      activeSection.startsWith("super-admin-permissions") ||
       activeSection.startsWith("super-admin-memberships") ||
       activeSection.startsWith("super-admin-users") ||
       activeSection.startsWith("super-admin-abuse-trust") ||

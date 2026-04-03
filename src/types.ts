@@ -1389,6 +1389,7 @@ export type AppSection =
   | "super-admin-overview"
   | "super-admin-incident-board"
   | "super-admin-workspace"
+  | "super-admin-permissions"
   | "super-admin-memberships"
   | "super-admin-abuse-trust"
   | "super-admin-users"

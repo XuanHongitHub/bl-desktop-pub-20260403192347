@@ -4510,6 +4510,7 @@
         "commandCenter": "Trung tâm điều hành",
         "incidentBoard": "Incident Board",
         "workspaces": "Workspace",
+        "permissions": "Permissions",
         "memberships": "Memberships",
         "abuseTrust": "Abuse & Trust",
         "impersonationCenter": "Impersonation Center",
@@ -4566,6 +4567,20 @@
         "tableTitle": "Danh sách memberships",
         "tableDescription": "Dữ liệu lấy trực tiếp từ danh sách member của từng workspace.",
         "empty": "Không tìm thấy membership phù hợp."
+      },
+      "permissions": {
+        "title": "Permissions và phân quyền",
+        "description": "Quản lý quyền platform và role membership workspace tại một màn hình.",
+        "platformTableTitle": "Quyền cấp nền tảng",
+        "workspaceTableTitle": "Phân quyền theo workspace",
+        "searchUser": "Tìm user theo email, ID...",
+        "searchMembership": "Tìm membership theo user, workspace...",
+        "platformRole": "Vai trò nền tảng",
+        "scopeType": "Phạm vi",
+        "scopePlatform": "Platform",
+        "scopeWorkspace": "Workspace",
+        "saved": "Đã cập nhật phân quyền.",
+        "saveFailed": "Không thể cập nhật phân quyền."
       },
       "subscriptions": {
         "title": "Subscriptions",

@@ -1,30 +1,30 @@
+import type { BillingCycle } from "@/lib/billing-plans";
+import { buildControlApiUrl } from "@/lib/control-api-routes";
 import type {
-  ControlAdminOverview,
-  ControlAdminListResult,
-  ControlAdminMembershipItem,
-  ControlAdminInvoiceListItem,
-  ControlAdminRevenueSummary,
-  ControlAdminAutomationRunListItem,
-  ControlAdminUserDetail,
-  ControlAdminUserListItem,
-  ControlAdminWorkspaceDetail,
-  ControlAdminWorkspaceHealthRow,
-  ControlMembership,
-  ControlAuditLog,
-  ControlCoupon,
   CommerceAuditEvent,
   CommerceCampaign,
   CommerceCoupon,
   CommerceLicenseKey,
   CommercePlan,
   CommercePricePreviewResult,
-  ControlStripeCheckoutCreateResponse,
+  ControlAdminAutomationRunListItem,
+  ControlAdminInvoiceListItem,
+  ControlAdminListResult,
+  ControlAdminMembershipItem,
+  ControlAdminOverview,
+  ControlAdminRevenueSummary,
+  ControlAdminUserDetail,
+  ControlAdminUserListItem,
+  ControlAdminWorkspaceDetail,
+  ControlAdminWorkspaceHealthRow,
+  ControlAuditLog,
+  ControlCoupon,
+  ControlMembership,
   ControlStripeCheckoutConfirmResponse,
+  ControlStripeCheckoutCreateResponse,
   ControlWorkspaceBillingState,
   SyncServerConfigStatus,
 } from "@/types";
-import type { BillingCycle } from "@/lib/billing-plans";
-import { buildControlApiUrl } from "@/lib/control-api-routes";
 
 export interface WebBillingConnection {
   controlBaseUrl: string;
@@ -135,9 +135,12 @@ export interface PlatformAdminListQuery {
   planIdFilter?: "starter" | "team" | "scale" | "enterprise" | "free";
 }
 
-function mapControlCouponToCommerceCoupon(input: ControlCoupon): CommerceCoupon {
+function mapControlCouponToCommerceCoupon(
+  input: ControlCoupon,
+): CommerceCoupon {
   const expiresAtTime = Date.parse(input.expiresAt);
-  const isExpired = Number.isFinite(expiresAtTime) && expiresAtTime < Date.now();
+  const isExpired =
+    Number.isFinite(expiresAtTime) && expiresAtTime < Date.now();
   return {
     id: input.id,
     code: input.code,
@@ -153,7 +156,9 @@ function mapControlCouponToCommerceCoupon(input: ControlCoupon): CommerceCoupon 
   };
 }
 
-function mapControlAuditToCommerceAudit(input: ControlAuditLog): CommerceAuditEvent {
+function mapControlAuditToCommerceAudit(
+  input: ControlAuditLog,
+): CommerceAuditEvent {
   const target = input.targetId ?? "unknown";
   return {
     id: input.id,
@@ -195,7 +200,9 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return response.statusText || `${response.status}`;
 }
 
-function buildHeaders(connection: WebBillingConnection): Record<string, string> {
+function buildHeaders(
+  connection: WebBillingConnection,
+): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${connection.controlToken}`,
@@ -229,6 +236,7 @@ async function requestControl<T>(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminUserPlatformRoleUpdate"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
@@ -266,13 +274,16 @@ async function requestControl<T>(
   },
   init: RequestInit,
 ): Promise<T> {
-  const response = await fetch(buildControlApiUrl(connection.controlBaseUrl, routeKey, routeInput), {
-    ...init,
-    headers: {
-      ...buildHeaders(connection),
-      ...(init.headers || {}),
+  const response = await fetch(
+    buildControlApiUrl(connection.controlBaseUrl, routeKey, routeInput),
+    {
+      ...init,
+      headers: {
+        ...buildHeaders(connection),
+        ...(init.headers || {}),
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response));
@@ -551,6 +562,25 @@ export async function getAdminUserDetail(
   );
 }
 
+export async function updateAdminUserPlatformRole(
+  connection: WebBillingConnection,
+  userId: string,
+  platformRole: "platform_admin" | null,
+): Promise<ControlAdminUserListItem> {
+  return requestControl<ControlAdminUserListItem>(
+    connection,
+    "adminUserPlatformRoleUpdate",
+    { userId },
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        platformRole,
+        reason: "updated_from_super_admin_permissions",
+      }),
+    },
+  );
+}
+
 export async function listAdminWorkspaces(
   connection: WebBillingConnection,
   query: PlatformAdminListQuery = {},
@@ -610,26 +640,26 @@ export async function listAdminAutomationRuns(
   connection: WebBillingConnection,
   query: PlatformAdminListQuery = {},
 ): Promise<ControlAdminListResult<ControlAdminAutomationRunListItem>> {
-  return requestControl<ControlAdminListResult<ControlAdminAutomationRunListItem>>(
-    connection,
-    "adminAutomationRuns",
-    query,
-    {
-      method: "GET",
-    },
-  );
+  return requestControl<
+    ControlAdminListResult<ControlAdminAutomationRunListItem>
+  >(connection, "adminAutomationRuns", query, {
+    method: "GET",
+  });
 }
 
 export async function getControlConfigStatus(
   connection: WebBillingConnection,
 ): Promise<SyncServerConfigStatus> {
-  const response = await fetch(`${connection.controlBaseUrl.replace(/\/$/, "")}/config-status`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${connection.controlToken}`,
-      "Content-Type": "application/json",
+  const response = await fetch(
+    `${connection.controlBaseUrl.replace(/\/$/, "")}/config-status`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${connection.controlToken}`,
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response));
   }
@@ -943,7 +973,9 @@ export async function listCommerceAudit(
       method: "GET",
     },
   );
-  return Array.isArray(payload) ? payload.map(mapControlAuditToCommerceAudit) : [];
+  return Array.isArray(payload)
+    ? payload.map(mapControlAuditToCommerceAudit)
+    : [];
 }
 
 export async function listAdminAuditLogs(

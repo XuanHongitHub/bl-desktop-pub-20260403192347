@@ -2813,6 +2813,57 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  updateAdminUserPlatformRole(
+    actor: RequestActor,
+    userId: string,
+    input: {
+      platformRole: "platform_admin" | null;
+      reason: string;
+    },
+  ): PlatformAdminUserListItem {
+    this.assertPlatformAdmin(actor);
+    const normalizedReason = this.requireReason(input.reason);
+    const record = this.findAuthUserById(userId.trim());
+    if (!record) {
+      throw new NotFoundException("admin_user_not_found");
+    }
+
+    const nextRole =
+      input.platformRole === "platform_admin" ? "platform_admin" : null;
+    const normalizedEmail = this.normalizeEmail(record.email);
+    if (!normalizedEmail) {
+      throw new BadRequestException("invalid_email");
+    }
+    if (
+      nextRole === null &&
+      this.normalizeEmail(actor.email) === normalizedEmail
+    ) {
+      throw new BadRequestException("cannot_remove_own_platform_admin_role");
+    }
+
+    if (nextRole === "platform_admin") {
+      this.platformAdminEmails.add(normalizedEmail);
+    } else {
+      this.platformAdminEmails.delete(normalizedEmail);
+    }
+
+    if (record.platformRole !== nextRole) {
+      record.platformRole = nextRole;
+      record.updatedAt = new Date().toISOString();
+      this.authUsers.set(normalizedEmail, record);
+    }
+
+    this.audit(
+      "admin.user_platform_role_updated",
+      actor.email,
+      undefined,
+      record.userId,
+      normalizedReason,
+    );
+    this.persistState();
+    return this.buildPlatformAdminUserListItem(record);
+  }
+
   listAdminWorkspaces(
     actor: RequestActor,
     query: PlatformAdminListQuery = {},

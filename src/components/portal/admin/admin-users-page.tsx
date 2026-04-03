@@ -247,7 +247,7 @@ export function AdminUsersPage() {
           </Button>
           {detailOnlyMode ? (
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/users/manage">
+              <Link href="/admin/users?mode=manage">
                 {t("portalSite.adminUsers.actions.manage")}
               </Link>
             </Button>

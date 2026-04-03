@@ -1,5 +1,5 @@
-import { AdminUsersPage } from "@/components/portal/admin/admin-users-page";
+import { redirect } from "next/navigation";
 
 export default function AdminUsersManagePage() {
-  return <AdminUsersPage />;
+  redirect("/admin/users");
 }

@@ -4510,6 +4510,7 @@
         "commandCenter": "Command Center",
         "incidentBoard": "Incident Board",
         "workspaces": "Workspaces",
+        "permissions": "Permissions",
         "memberships": "Memberships",
         "abuseTrust": "Abuse & Trust",
         "impersonationCenter": "Impersonation Center",
@@ -4566,6 +4567,20 @@
         "tableTitle": "Membership directory",
         "tableDescription": "Data is loaded directly from each workspace member list.",
         "empty": "No matching memberships found."
+      },
+      "permissions": {
+        "title": "Permissions and role assignment",
+        "description": "Manage platform role and workspace membership role from one control screen.",
+        "platformTableTitle": "Platform access",
+        "workspaceTableTitle": "Workspace role grants",
+        "searchUser": "Search users by email, ID...",
+        "searchMembership": "Search memberships by user, workspace...",
+        "platformRole": "Platform role",
+        "scopeType": "Scope",
+        "scopePlatform": "Platform",
+        "scopeWorkspace": "Workspace",
+        "saved": "Permissions updated.",
+        "saveFailed": "Unable to update permission."
       },
       "subscriptions": {
         "title": "Subscriptions",

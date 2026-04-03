@@ -2,8 +2,10 @@
 
 import { Eye, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminUsersPage } from "@/components/portal/admin/admin-users-page";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +49,8 @@ function formatAuthProvider(
 export default function AdminUsersOverviewPage() {
   const { t } = useTranslation();
   const { connection } = usePortalBillingData();
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode")?.trim();
 
   const [rows, setRows] = useState<ControlAdminUserListItem[]>([]);
   const [query, setQuery] = useState("");
@@ -95,6 +99,10 @@ export default function AdminUsersOverviewPage() {
     [rows],
   );
 
+  if (mode === "detail" || mode === "manage") {
+    return <AdminUsersPage />;
+  }
+
   return (
     <PortalSettingsPage
       eyebrow={t("portalSite.adminUsers.eyebrow")}
@@ -110,7 +118,7 @@ export default function AdminUsersOverviewPage() {
             {t("portalSite.adminUsers.actions.refresh")}
           </Button>
           <Button asChild size="sm">
-            <Link href="/admin/users/manage">
+            <Link href="/admin/users?mode=manage">
               {t("portalSite.adminUsers.actions.manage")}
             </Link>
           </Button>
@@ -232,7 +240,7 @@ export default function AdminUsersOverviewPage() {
                                   className="h-7 w-7"
                                 >
                                   <Link
-                                    href={`/admin/users/manage/${user.userId}`}
+                                    href={`/admin/users?userId=${encodeURIComponent(user.userId)}&mode=detail`}
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </Link>

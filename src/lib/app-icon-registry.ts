@@ -45,6 +45,7 @@ const SECTION_ICON_MAP: Record<string, IconComponent> = {
   "super-admin-overview": LayoutDashboard,
   "super-admin-incident-board": LayoutDashboard,
   "super-admin-workspace": Users,
+  "super-admin-permissions": ShieldCheck,
   "super-admin-memberships": Users,
   "super-admin-abuse-trust": Shield,
   "super-admin-users": Users,

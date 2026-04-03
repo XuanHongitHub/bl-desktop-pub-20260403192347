@@ -19,7 +19,6 @@ function resolveControlApiPrefix(backend: ControlApiBackend): string {
     case "laravel":
       // Keep current contract by default; update this prefix when Laravel routes differ.
       return "/v1/control";
-    case "nest":
     default:
       return "/v1/control";
   }
@@ -65,6 +64,7 @@ export function buildControlApiPath(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminUserPlatformRoleUpdate"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
@@ -138,6 +138,8 @@ export function buildControlApiPath(
     }
     case "adminUserDetail":
       return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}`;
+    case "adminUserPlatformRoleUpdate":
+      return `${prefix}/admin/users/${encodeURIComponent(input.userId ?? "")}/platform-role`;
     case "adminMembershipsList": {
       const params = new URLSearchParams();
       if (input.q?.trim()) params.set("q", input.q.trim());
@@ -232,6 +234,7 @@ export function buildControlApiUrl(
     | "adminUsersCreate"
     | "adminUsersList"
     | "adminUserDetail"
+    | "adminUserPlatformRoleUpdate"
     | "adminMembershipsList"
     | "adminWorkspacesList"
     | "adminWorkspaceDetail"
