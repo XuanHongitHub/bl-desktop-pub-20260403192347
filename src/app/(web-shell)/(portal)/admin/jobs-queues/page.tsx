@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listAdminAutomationRuns } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { listAdminAutomationRuns } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -72,7 +72,9 @@ export default function AdminJobsQueuesPage() {
   const summary = useMemo(
     () => ({
       total: rows.length,
-      running: rows.filter((row) => row.status === "running" || row.status === "queued").length,
+      running: rows.filter(
+        (row) => row.status === "running" || row.status === "queued",
+      ).length,
       blocked: rows.reduce((sum, row) => sum + row.blockedCount, 0),
     }),
     [rows],
@@ -95,19 +97,25 @@ export default function AdminJobsQueuesPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.jobsQueues.metrics.total")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.total}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.total}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.jobsQueues.metrics.running")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.running}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.running}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.jobsQueues.metrics.blocked")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.blocked}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.blocked}
+            </p>
           </div>
         </div>
 
@@ -142,7 +150,9 @@ export default function AdminJobsQueuesPage() {
                         <p className="truncate text-sm font-medium text-foreground">
                           {row.workspaceName}
                         </p>
-                        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                        <Badge variant={statusVariant(row.status)}>
+                          {row.status}
+                        </Badge>
                       </div>
                       <p className="truncate text-xs text-muted-foreground">
                         {row.flowType} · {row.mode} · {row.createdBy}
@@ -150,16 +160,20 @@ export default function AdminJobsQueuesPage() {
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <p>
-                        {row.doneCount}/{row.totalCount} · {t("portalSite.admin.jobsQueues.failed")}{" "}
+                        {row.doneCount}/{row.totalCount} ·{" "}
+                        {t("portalSite.admin.jobsQueues.failed")}{" "}
                         {row.failedCount}
                       </p>
                       <p>
-                        {t("portalSite.admin.jobsQueues.blocked")} {row.blockedCount}
+                        {t("portalSite.admin.jobsQueues.blocked")}{" "}
+                        {row.blockedCount}
                       </p>
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <p>{formatLocaleDateTime(row.updatedAt)}</p>
-                      {row.finishedAt ? <p>{formatLocaleDateTime(row.finishedAt)}</p> : null}
+                      {row.finishedAt ? (
+                        <p>{formatLocaleDateTime(row.finishedAt)}</p>
+                      ) : null}
                     </div>
                   </div>
                 ))

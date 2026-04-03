@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listAdminInvoices } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { listAdminInvoices } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -60,7 +60,10 @@ export default function AdminInvoicesPage() {
   }, [query, refresh]);
 
   const summary = useMemo(() => {
-    const totalRevenue = rows.reduce((sum, invoice) => sum + invoice.amountUsd, 0);
+    const totalRevenue = rows.reduce(
+      (sum, invoice) => sum + invoice.amountUsd,
+      0,
+    );
     return {
       count: rows.length,
       revenue: totalRevenue,
@@ -85,13 +88,15 @@ export default function AdminInvoicesPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.invoices.metrics.count")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.count}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.count}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.invoices.metrics.revenue")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               ${formatLocaleNumber(summary.revenue)}
             </p>
           </div>
@@ -99,7 +104,7 @@ export default function AdminInvoicesPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.invoices.metrics.average")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               ${formatLocaleNumber(summary.average)}
             </p>
           </div>
@@ -153,7 +158,11 @@ export default function AdminInvoicesPage() {
                       {invoice.couponCode ? <p>{invoice.couponCode}</p> : null}
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>{formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}</p>
+                      <p>
+                        {formatLocaleDateTime(
+                          invoice.paidAt || invoice.createdAt,
+                        )}
+                      </p>
                       <p>{invoice.billingCycle}</p>
                     </div>
                   </div>

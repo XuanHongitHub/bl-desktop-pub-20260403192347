@@ -145,7 +145,10 @@ function shiftMonth(date: Date, offset: number): Date {
   return value;
 }
 
-function buildDateWindow(range: DashboardDateRange, now = new Date()): DateWindow {
+function buildDateWindow(
+  range: DashboardDateRange,
+  now = new Date(),
+): DateWindow {
   if (range === "all") {
     return { startMs: null, endMs: null };
   }
@@ -283,11 +286,16 @@ function resolveTrendPointLimit(range: DashboardDateRange): number {
   return 60;
 }
 
-function workspaceTimestamp(row: ControlAdminWorkspaceHealthRow): string | null {
+function workspaceTimestamp(
+  row: ControlAdminWorkspaceHealthRow,
+): string | null {
   return row.latestInvoiceAt || row.usageUpdatedAt || null;
 }
 
-function calculateDeltaPercent(current: number, previous: number): number | null {
+function calculateDeltaPercent(
+  current: number,
+  previous: number,
+): number | null {
   if (previous <= 0) {
     return null;
   }
@@ -493,7 +501,9 @@ export default function AdminDashboardPage() {
       0,
     );
     const averageInvoice =
-      filteredInvoices.length > 0 ? revenueInWindow / filteredInvoices.length : 0;
+      filteredInvoices.length > 0
+        ? revenueInWindow / filteredInvoices.length
+        : 0;
     const totalProfiles = filteredHealthRows.reduce(
       (sum, item) => sum + item.profileLimit,
       0,
@@ -537,14 +547,16 @@ export default function AdminDashboardPage() {
 
     const highRiskRatioNow =
       filteredHealthRows.length > 0
-        ? (filteredHealthRows.filter((item) => item.riskLevel === "high").length /
+        ? (filteredHealthRows.filter((item) => item.riskLevel === "high")
+            .length /
             filteredHealthRows.length) *
           100
         : 0;
 
     const highRiskRatioPrevious =
       previousHealthRows.length > 0
-        ? (previousHealthRows.filter((item) => item.riskLevel === "high").length /
+        ? (previousHealthRows.filter((item) => item.riskLevel === "high")
+            .length /
             previousHealthRows.length) *
           100
         : 0;
@@ -565,7 +577,10 @@ export default function AdminDashboardPage() {
         title: t("portalSite.admin.dashboard.invoicesInWindow"),
         value: formatLocaleNumber(invoiceCountNow),
         hint: t("portalSite.admin.dashboard.insightHints.invoices"),
-        deltaPercent: calculateDeltaPercent(invoiceCountNow, invoiceCountPrevious),
+        deltaPercent: calculateDeltaPercent(
+          invoiceCountNow,
+          invoiceCountPrevious,
+        ),
       },
       {
         key: "past_due",
@@ -589,7 +604,13 @@ export default function AdminDashboardPage() {
         invertDelta: true,
       },
     ] satisfies InsightCard[];
-  }, [filteredHealthRows, filteredInvoices, previousHealthRows, previousInvoices, t]);
+  }, [
+    filteredHealthRows,
+    filteredInvoices,
+    previousHealthRows,
+    previousInvoices,
+    t,
+  ]);
 
   const attentionQueue = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -629,7 +650,8 @@ export default function AdminDashboardPage() {
   }, [filteredHealthRows, query, riskFilter, statusFilter]);
 
   const trendPoints = useMemo(
-    () => buildInvoiceTrend(filteredInvoices, resolveTrendPointLimit(dateRange)),
+    () =>
+      buildInvoiceTrend(filteredInvoices, resolveTrendPointLimit(dateRange)),
     [dateRange, filteredInvoices],
   );
 
@@ -659,7 +681,9 @@ export default function AdminDashboardPage() {
   const topRiskRows = attentionQueue.slice(0, 5);
   const loading = loadingHealth || loadingWorkspaces || loadingRevenue;
 
-  const currentRangeLabel = t(`portalSite.admin.dashboard.timeRanges.${dateRange}`);
+  const currentRangeLabel = t(
+    `portalSite.admin.dashboard.timeRanges.${dateRange}`,
+  );
 
   const windowLabel = useMemo(() => {
     if (currentWindow.startMs === null || currentWindow.endMs === null) {
@@ -836,10 +860,12 @@ export default function AdminDashboardPage() {
                 <p className="text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
                   {item.title}
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">
+                <p className="mt-1 text-sm font-semibold text-foreground">
                   {item.value}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">{item.hint}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.hint}
+                </p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                   {adjustedDelta === null ? null : adjustedDelta >= 0 ? (
                     <TrendingUp className="h-3.5 w-3.5" />
@@ -958,7 +984,9 @@ export default function AdminDashboardPage() {
                 <Button
                   key={option.value}
                   size="sm"
-                  variant={statusFilter === option.value ? "secondary" : "outline"}
+                  variant={
+                    statusFilter === option.value ? "secondary" : "outline"
+                  }
                   onClick={() => setStatusFilter(option.value)}
                 >
                   {option.label}
@@ -970,7 +998,9 @@ export default function AdminDashboardPage() {
                 <Button
                   key={option.value}
                   size="sm"
-                  variant={riskFilter === option.value ? "secondary" : "outline"}
+                  variant={
+                    riskFilter === option.value ? "secondary" : "outline"
+                  }
                   onClick={() => setRiskFilter(option.value)}
                 >
                   {option.label}
@@ -983,12 +1013,24 @@ export default function AdminDashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-                  <th className="px-3 py-2">{t("portalSite.admin.columns.workspace")}</th>
-                  <th className="px-3 py-2">{t("portalSite.admin.columns.plan")}</th>
-                  <th className="px-3 py-2">{t("portalSite.admin.dashboard.totalProfiles")}</th>
-                  <th className="px-3 py-2">{t("portalSite.admin.columns.members")}</th>
-                  <th className="px-3 py-2">{t("portalSite.admin.columns.risk")}</th>
-                  <th className="px-3 py-2">{t("portalSite.admin.columns.status")}</th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.columns.workspace")}
+                  </th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.columns.plan")}
+                  </th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.dashboard.totalProfiles")}
+                  </th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.columns.members")}
+                  </th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.columns.risk")}
+                  </th>
+                  <th className="px-3 py-2">
+                    {t("portalSite.admin.columns.status")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1098,11 +1140,11 @@ export default function AdminDashboardPage() {
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span>
-                    {t("portalSite.admin.dashboard.totalProfiles")}: {" "}
+                    {t("portalSite.admin.dashboard.totalProfiles")}:{" "}
                     {formatLocaleNumber(row.profileLimit)}
                   </span>
                   <span>
-                    {t("portalSite.admin.dashboard.totalMembers")}: {" "}
+                    {t("portalSite.admin.dashboard.totalMembers")}:{" "}
                     {formatLocaleNumber(row.members)}
                   </span>
                 </div>

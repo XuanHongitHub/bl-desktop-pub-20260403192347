@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listAdminAuditLogs } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { listAdminAuditLogs } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -20,7 +20,9 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function toneForAction(action: string): "outline" | "warning" | "destructive" | "info" {
+function toneForAction(
+  action: string,
+): "outline" | "warning" | "destructive" | "info" {
   if (action.startsWith("billing.") || action.startsWith("entitlement.")) {
     return "warning";
   }
@@ -68,7 +70,13 @@ export default function AdminAuditPage() {
       return rows;
     }
     return rows.filter((row) =>
-      [row.action, row.actor, row.workspaceId ?? "", row.targetId ?? "", row.reason ?? ""]
+      [
+        row.action,
+        row.actor,
+        row.workspaceId ?? "",
+        row.targetId ?? "",
+        row.reason ?? "",
+      ]
         .join(" ")
         .toLowerCase()
         .includes(keyword),
@@ -83,7 +91,8 @@ export default function AdminAuditPage() {
     return {
       total: filteredRows.length,
       last24h,
-      billing: filteredRows.filter((row) => row.action.startsWith("billing.")).length,
+      billing: filteredRows.filter((row) => row.action.startsWith("billing."))
+        .length,
     };
   }, [filteredRows]);
 
@@ -104,19 +113,25 @@ export default function AdminAuditPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.audit.metrics.total")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.total}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.total}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.audit.metrics.last24h")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.last24h}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.last24h}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.audit.metrics.billing")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.billing}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.billing}
+            </p>
           </div>
         </div>
 
@@ -148,16 +163,22 @@ export default function AdminAuditPage() {
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={toneForAction(row.action)}>{row.action}</Badge>
+                        <Badge variant={toneForAction(row.action)}>
+                          {row.action}
+                        </Badge>
                         {row.workspaceId ? (
                           <span className="truncate text-xs text-muted-foreground">
                             {row.workspaceId}
                           </span>
                         ) : null}
                       </div>
-                      <p className="truncate text-sm text-foreground">{row.reason || "--"}</p>
+                      <p className="truncate text-sm text-foreground">
+                        {row.reason || "--"}
+                      </p>
                       {row.targetId ? (
-                        <p className="truncate text-xs text-muted-foreground">{row.targetId}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {row.targetId}
+                        </p>
                       ) : null}
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">

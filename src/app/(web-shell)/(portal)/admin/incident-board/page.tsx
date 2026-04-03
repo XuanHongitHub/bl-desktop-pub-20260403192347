@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listAdminWorkspaceHealth } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { listAdminWorkspaceHealth } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -52,7 +52,11 @@ export default function AdminIncidentBoardPage() {
       )
       .map((item) => {
         const score =
-          (item.riskLevel === "high" ? 100 : item.riskLevel === "medium" ? 60 : 20) +
+          (item.riskLevel === "high"
+            ? 100
+            : item.riskLevel === "medium"
+              ? 60
+              : 20) +
           (item.subscriptionStatus === "past_due" ? 40 : 0) +
           (item.entitlementState === "read_only" ? 35 : 0) +
           item.storagePercent / 4;
@@ -79,13 +83,15 @@ export default function AdminIncidentBoardPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.incidentBoard.metrics.total")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{incidentRows.length}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {incidentRows.length}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.incidentBoard.metrics.highRisk")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {incidentRows.filter((item) => item.riskLevel === "high").length}
             </p>
           </div>
@@ -93,8 +99,12 @@ export default function AdminIncidentBoardPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.incidentBoard.metrics.pastDue")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
-              {incidentRows.filter((item) => item.subscriptionStatus === "past_due").length}
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {
+                incidentRows.filter(
+                  (item) => item.subscriptionStatus === "past_due",
+                ).length
+              }
             </p>
           </div>
         </div>
@@ -132,34 +142,53 @@ export default function AdminIncidentBoardPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.admin.loading")}
                   </td>
                 </tr>
               ) : incidentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.admin.incidentBoard.empty")}
                   </td>
                 </tr>
               ) : (
                 incidentRows.map((item) => (
-                  <tr key={item.workspaceId} className="border-t border-border/70">
+                  <tr
+                    key={item.workspaceId}
+                    className="border-t border-border/70"
+                  >
                     <td className="px-3 py-2">
-                      <p className="font-medium text-foreground">{item.workspaceName}</p>
-                      <p className="text-xs text-muted-foreground">{item.planLabel}</p>
+                      <p className="font-medium text-foreground">
+                        {item.workspaceName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.planLabel}
+                      </p>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{t(`portalSite.admin.risk.${item.riskLevel}`)}</Badge>
+                      <Badge variant="outline">
+                        {t(`portalSite.admin.risk.${item.riskLevel}`)}
+                      </Badge>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="secondary">{item.subscriptionStatus}</Badge>
+                      <Badge variant="secondary">
+                        {item.subscriptionStatus}
+                      </Badge>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {Math.round(item.storagePercent)}%
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {item.usageUpdatedAt ? formatLocaleDateTime(item.usageUpdatedAt) : "--"}
+                      {item.usageUpdatedAt
+                        ? formatLocaleDateTime(item.usageUpdatedAt)
+                        : "--"}
                     </td>
                   </tr>
                 ))

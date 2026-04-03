@@ -3,4 +3,3 @@ import { AdminCommerceAuditPage } from "@/components/portal/commerce/commerce-ad
 export default function Page() {
   return <AdminCommerceAuditPage />;
 }
-

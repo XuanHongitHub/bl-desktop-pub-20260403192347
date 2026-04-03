@@ -12,7 +12,8 @@ import { getUnifiedPlanLabel } from "@/lib/plan-display";
 
 export default function AdminSubscriptionsPage() {
   const { t } = useTranslation();
-  const { workspaces, loadingWorkspaces, refreshWorkspaces } = usePortalBillingData();
+  const { workspaces, loadingWorkspaces, refreshWorkspaces } =
+    usePortalBillingData();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "past_due" | "canceled"
@@ -22,7 +23,9 @@ export default function AdminSubscriptionsPage() {
     const keyword = query.trim().toLowerCase();
     return workspaces.filter((workspace) => {
       const matchStatus =
-        statusFilter === "all" ? true : workspace.subscriptionStatus === statusFilter;
+        statusFilter === "all"
+          ? true
+          : workspace.subscriptionStatus === statusFilter;
       const matchQuery = keyword
         ? [
             workspace.name,
@@ -44,7 +47,11 @@ export default function AdminSubscriptionsPage() {
       title={t("portalSite.admin.subscriptions.title")}
       description={t("portalSite.admin.subscriptions.description")}
       actions={
-        <Button variant="outline" size="sm" onClick={() => void refreshWorkspaces()}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void refreshWorkspaces()}
+        >
           {t("portalSite.admin.refresh")}
         </Button>
       }
@@ -55,22 +62,32 @@ export default function AdminSubscriptionsPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.subscriptions.metrics.total")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{filteredRows.length}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {filteredRows.length}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.subscriptions.metrics.active")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
-              {filteredRows.filter((item) => item.subscriptionStatus === "active").length}
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {
+                filteredRows.filter(
+                  (item) => item.subscriptionStatus === "active",
+                ).length
+              }
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.subscriptions.metrics.pastDue")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
-              {filteredRows.filter((item) => item.subscriptionStatus === "past_due").length}
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {
+                filteredRows.filter(
+                  (item) => item.subscriptionStatus === "past_due",
+                ).length
+              }
             </p>
           </div>
         </div>
@@ -85,19 +102,21 @@ export default function AdminSubscriptionsPage() {
             className="h-9 w-full sm:max-w-sm"
           />
           <div className="flex items-center gap-1">
-            {(["all", "active", "past_due", "canceled"] as const).map((status) => (
-              <Button
-                key={status}
-                size="sm"
-                variant={statusFilter === status ? "secondary" : "outline"}
-                onClick={() => setStatusFilter(status)}
-                className="h-8 px-2.5 text-xs"
-              >
-                {status === "all"
-                  ? t("portalSite.admin.workspaces.allStatuses")
-                  : t(`portalSite.admin.subscriptions.status.${status}`)}
-              </Button>
-            ))}
+            {(["all", "active", "past_due", "canceled"] as const).map(
+              (status) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant={statusFilter === status ? "secondary" : "outline"}
+                  onClick={() => setStatusFilter(status)}
+                  className="h-8 px-2.5 text-xs"
+                >
+                  {status === "all"
+                    ? t("portalSite.admin.workspaces.allStatuses")
+                    : t(`portalSite.admin.subscriptions.status.${status}`)}
+                </Button>
+              ),
+            )}
           </div>
         </div>
 
@@ -125,38 +144,56 @@ export default function AdminSubscriptionsPage() {
             <tbody>
               {loadingWorkspaces ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.admin.loading")}
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.admin.subscriptions.empty")}
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((workspace) => (
                   <tr key={workspace.id} className="border-t border-border/70">
-                    <td className="px-3 py-2 text-foreground">{workspace.name}</td>
+                    <td className="px-3 py-2 text-foreground">
+                      {workspace.name}
+                    </td>
                     <td className="px-3 py-2">
                       <p className="text-foreground">
-                        {getUnifiedPlanLabel({ planLabel: workspace.planLabel })}
+                        {getUnifiedPlanLabel({
+                          planLabel: workspace.planLabel,
+                        })}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {workspace.billingCycle
-                          ? t(`portalSite.admin.subscriptions.cycle.${workspace.billingCycle}`)
+                          ? t(
+                              `portalSite.admin.subscriptions.cycle.${workspace.billingCycle}`,
+                            )
                           : "--"}
                       </p>
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{workspace.subscriptionSource}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {workspace.subscriptionSource}
+                    </td>
                     <td className="px-3 py-2">
                       <Badge variant="outline">
-                        {t(`portalSite.admin.subscriptions.status.${workspace.subscriptionStatus}`)}
+                        {t(
+                          `portalSite.admin.subscriptions.status.${workspace.subscriptionStatus}`,
+                        )}
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {workspace.expiresAt ? formatLocaleDateTime(workspace.expiresAt) : "--"}
+                      {workspace.expiresAt
+                        ? formatLocaleDateTime(workspace.expiresAt)
+                        : "--"}
                     </td>
                   </tr>
                 ))

@@ -2,20 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getAdminRevenue, listAdminInvoices } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  getAdminRevenue,
+  listAdminInvoices,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlAdminInvoiceListItem, ControlAdminRevenueSummary } from "@/types";
+import type {
+  ControlAdminInvoiceListItem,
+  ControlAdminRevenueSummary,
+} from "@/types";
 
 export default function AdminRevenuePage() {
   const { t } = useTranslation();
   const { connection } = usePortalBillingData();
-  const [summary, setSummary] = useState<ControlAdminRevenueSummary | null>(null);
+  const [summary, setSummary] = useState<ControlAdminRevenueSummary | null>(
+    null,
+  );
   const [invoices, setInvoices] = useState<ControlAdminInvoiceListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -35,7 +43,8 @@ export default function AdminRevenuePage() {
       setInvoices(invoicePayload.items ?? []);
     } catch (error) {
       showErrorToast(t("portalSite.admin.revenue.loadFailed"), {
-        description: error instanceof Error ? error.message : "admin_revenue_load_failed",
+        description:
+          error instanceof Error ? error.message : "admin_revenue_load_failed",
       });
     } finally {
       setLoading(false);
@@ -63,7 +72,7 @@ export default function AdminRevenuePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.revenue.activeSubscriptions")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {summary?.activeSubscriptions ?? 0}
             </p>
           </div>
@@ -71,7 +80,7 @@ export default function AdminRevenuePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.revenue.pastDue")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {summary?.pastDueSubscriptions ?? 0}
             </p>
           </div>
@@ -79,7 +88,7 @@ export default function AdminRevenuePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.revenue.grossRevenue")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               ${formatLocaleNumber(summary?.grossRevenueUsd ?? 0)}
             </p>
           </div>
@@ -87,7 +96,7 @@ export default function AdminRevenuePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.revenue.payingWorkspaces")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {summary?.payingWorkspaces ?? 0}
             </p>
           </div>
@@ -98,7 +107,9 @@ export default function AdminRevenuePage() {
             <p className="text-sm font-medium text-foreground">
               {t("portalSite.admin.revenue.latestTitle")}
             </p>
-            <Badge variant="outline">{summary?.invoiceCount ?? invoices.length}</Badge>
+            <Badge variant="outline">
+              {summary?.invoiceCount ?? invoices.length}
+            </Badge>
           </div>
           <ScrollArea className="h-[560px]">
             <div className="divide-y divide-border">
@@ -131,7 +142,11 @@ export default function AdminRevenuePage() {
                       {invoice.planLabel}
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>{formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}</p>
+                      <p>
+                        {formatLocaleDateTime(
+                          invoice.paidAt || invoice.createdAt,
+                        )}
+                      </p>
                       <p>{invoice.method}</p>
                     </div>
                   </div>

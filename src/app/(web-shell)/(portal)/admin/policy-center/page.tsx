@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getAdminOverview,
-  listAdminAuditLogs,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  getAdminOverview,
+  listAdminAuditLogs,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -99,7 +99,10 @@ export default function AdminPolicyCenterPage() {
             </div>
             <div className="divide-y divide-border">
               {policyRows.map((row) => (
-                <div key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
                   <div>
                     <p className="text-sm text-foreground">{row.label}</p>
                     <p className="text-xs text-muted-foreground">{row.value}</p>
@@ -130,10 +133,14 @@ export default function AdminPolicyCenterPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{row.action}</Badge>
                         {row.workspaceId ? (
-                          <span className="text-xs text-muted-foreground">{row.workspaceId}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {row.workspaceId}
+                          </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-muted-foreground">{row.reason || row.actor}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.reason || row.actor}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {formatLocaleDateTime(row.createdAt)}
                       </p>

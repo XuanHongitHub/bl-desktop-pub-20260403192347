@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getControlConfigStatus,
-  getAdminOverview,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  getAdminOverview,
+  getControlConfigStatus,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { showErrorToast } from "@/lib/toast-utils";
 import type { ControlAdminOverview, SyncServerConfigStatus } from "@/types";
@@ -83,7 +83,9 @@ export default function AdminFeatureFlagsPage() {
       {
         id: "stripe",
         label: t("portalSite.admin.featureFlags.gates.stripe"),
-        ready: config.stripe.stripeSecretConfigured && config.stripe.stripeWebhookConfigured,
+        ready:
+          config.stripe.stripeSecretConfigured &&
+          config.stripe.stripeWebhookConfigured,
         description: t("portalSite.admin.featureFlags.descriptions.stripe"),
       },
       {
@@ -112,7 +114,7 @@ export default function AdminFeatureFlagsPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.featureFlags.metrics.ready")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {gates.filter((gate) => gate.ready).length}/{gates.length}
             </p>
           </div>
@@ -120,7 +122,7 @@ export default function AdminFeatureFlagsPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.featureFlags.metrics.audit")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {overview?.auditsLast24h ?? 0}
             </p>
           </div>
@@ -128,7 +130,7 @@ export default function AdminFeatureFlagsPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.featureFlags.metrics.entitlement")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {overview?.entitlementActive ?? 0}
             </p>
           </div>
@@ -141,16 +143,23 @@ export default function AdminFeatureFlagsPage() {
             </div>
           ) : (
             gates.map((gate) => (
-              <div key={gate.id} className="rounded-xl border border-border bg-card p-4">
+              <div
+                key={gate.id}
+                className="rounded-xl border border-border bg-card p-4"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{gate.label}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {gate.label}
+                  </p>
                   <Badge variant={gate.ready ? "success" : "warning"}>
                     {gate.ready
                       ? t("portalSite.admin.system.ready")
                       : t("portalSite.admin.system.pending")}
                   </Badge>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">{gate.description}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {gate.description}
+                </p>
               </div>
             ))
           )}

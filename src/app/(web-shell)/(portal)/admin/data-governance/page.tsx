@@ -2,17 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getAdminOverview,
-  listAdminWorkspaceHealth,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  getAdminOverview,
+  listAdminWorkspaceHealth,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlAdminOverview, ControlAdminWorkspaceHealthRow } from "@/types";
+import type {
+  ControlAdminOverview,
+  ControlAdminWorkspaceHealthRow,
+} from "@/types";
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -59,9 +62,14 @@ export default function AdminDataGovernancePage() {
     () =>
       [...rows]
         .sort((left, right) => {
-          const leftScore = left.activeShareGrants * 100 + left.activeInvites * 10 + left.storagePercent;
+          const leftScore =
+            left.activeShareGrants * 100 +
+            left.activeInvites * 10 +
+            left.storagePercent;
           const rightScore =
-            right.activeShareGrants * 100 + right.activeInvites * 10 + right.storagePercent;
+            right.activeShareGrants * 100 +
+            right.activeInvites * 10 +
+            right.storagePercent;
           return rightScore - leftScore;
         })
         .slice(0, 20),
@@ -85,13 +93,15 @@ export default function AdminDataGovernancePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.dataGovernance.metrics.invites")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{overview?.activeInvites ?? 0}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {overview?.activeInvites ?? 0}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.dataGovernance.metrics.shares")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {overview?.activeShareGrants ?? 0}
             </p>
           </div>
@@ -99,7 +109,7 @@ export default function AdminDataGovernancePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.dataGovernance.metrics.readOnly")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {overview?.entitlementReadOnly ?? 0}
             </p>
           </div>

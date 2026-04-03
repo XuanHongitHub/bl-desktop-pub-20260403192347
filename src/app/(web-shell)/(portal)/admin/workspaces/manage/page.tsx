@@ -703,7 +703,7 @@ export default function AdminWorkspacesPage() {
               }}
               disabled={creatingWorkspace}
             >
-              {t("common.cancel", "Cancel")}
+              {t("common.cancel", { defaultValue: "Cancel" })}
             </Button>
             <Button
               onClick={() => void handleCreateWorkspace()}

@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getAdminOverview,
-  listAdminWorkspaceHealth,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  getAdminOverview,
+  listAdminWorkspaceHealth,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
-import type { ControlAdminOverview, ControlAdminWorkspaceHealthRow } from "@/types";
+import type {
+  ControlAdminOverview,
+  ControlAdminWorkspaceHealthRow,
+} from "@/types";
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -84,26 +87,36 @@ export default function AdminCommandCenterPage() {
       <section className="mx-auto w-full max-w-[1180px] space-y-4">
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.metrics.workspaces")}</p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{overview?.workspaces ?? 0}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.metrics.workspaces")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {overview?.workspaces ?? 0}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.metrics.activeRevenue")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {overview?.entitlementActive ?? 0}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.metrics.highRisk")}</p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.metrics.highRisk")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {rows.filter((row) => row.riskLevel === "high").length}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{t("portalSite.admin.metrics.audits")}</p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{overview?.auditsLast24h ?? 0}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.admin.metrics.audits")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {overview?.auditsLast24h ?? 0}
+            </p>
           </div>
         </div>
 
@@ -149,7 +162,8 @@ export default function AdminCommandCenterPage() {
                           </Badge>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
-                          {row.planLabel} · {row.subscriptionStatus} · {row.entitlementState}
+                          {row.planLabel} · {row.subscriptionStatus} ·{" "}
+                          {row.entitlementState}
                         </p>
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -162,7 +176,12 @@ export default function AdminCommandCenterPage() {
                             ? formatLocaleDateTime(row.latestInvoiceAt)
                             : "--"}
                         </p>
-                        <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs"
+                        >
                           <Link href="/admin/workspaces">
                             {t("portalSite.admin.workspaces.actions.manage")}
                           </Link>

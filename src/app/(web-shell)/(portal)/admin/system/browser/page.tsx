@@ -167,7 +167,9 @@ export default function AdminBrowserUpdatePage() {
           <h2 className="text-sm font-semibold text-foreground">
             {t("portalSite.admin.browserUpdate.secretTitle")}
           </h2>
-          <Badge variant="outline">{t("portalSite.admin.browserUpdate.required")}</Badge>
+          <Badge variant="outline">
+            {t("portalSite.admin.browserUpdate.required")}
+          </Badge>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -208,7 +210,9 @@ export default function AdminBrowserUpdatePage() {
                     "portalSite.admin.browserUpdate.toastTokenCopied",
                   );
                 }}
-                aria-label={t("portalSite.admin.browserUpdate.actions.copyToken")}
+                aria-label={t(
+                  "portalSite.admin.browserUpdate.actions.copyToken",
+                )}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -263,7 +267,9 @@ export default function AdminBrowserUpdatePage() {
               onChange={(event) => {
                 setUpdateMessage(event.target.value);
               }}
-              placeholder={t("portalSite.admin.browserUpdate.fields.updateMessagePlaceholder")}
+              placeholder={t(
+                "portalSite.admin.browserUpdate.fields.updateMessagePlaceholder",
+              )}
             />
           </div>
         </div>
@@ -279,7 +285,10 @@ export default function AdminBrowserUpdatePage() {
             size="sm"
             variant="outline"
             onClick={() => {
-              void copyText(envSnippet, "portalSite.admin.browserUpdate.toastEnvCopied");
+              void copyText(
+                envSnippet,
+                "portalSite.admin.browserUpdate.toastEnvCopied",
+              );
             }}
           >
             <Copy className="h-4 w-4" />
@@ -295,4 +304,3 @@ export default function AdminBrowserUpdatePage() {
     </PortalSettingsPage>
   );
 }
-

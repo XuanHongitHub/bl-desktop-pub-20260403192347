@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  listAdminAuditLogs,
-  listAdminUsers,
-  listAdminWorkspaces,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  listAdminAuditLogs,
+  listAdminUsers,
+  listAdminWorkspaces,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -34,7 +34,9 @@ export default function AdminSupportConsolePage() {
   const { connection } = usePortalBillingData();
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<ControlAdminUserListItem[]>([]);
-  const [workspaces, setWorkspaces] = useState<ControlAdminWorkspaceDetail[]>([]);
+  const [workspaces, setWorkspaces] = useState<ControlAdminWorkspaceDetail[]>(
+    [],
+  );
   const [auditLogs, setAuditLogs] = useState<ControlAuditLog[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -66,7 +68,10 @@ export default function AdminSupportConsolePage() {
         setAuditLogs(audits.slice(0, 20));
       } catch (error) {
         showErrorToast(t("portalSite.admin.supportConsole.loadFailed"), {
-          description: extractErrorMessage(error, "load_support_console_failed"),
+          description: extractErrorMessage(
+            error,
+            "load_support_console_failed",
+          ),
         });
       } finally {
         setLoading(false);
@@ -121,13 +126,17 @@ export default function AdminSupportConsolePage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.supportConsole.metrics.users")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.users}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.users}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">
               {t("portalSite.admin.supportConsole.metrics.flagged")}
             </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">{summary.flagged}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {summary.flagged}
+            </p>
           </div>
         </div>
 
@@ -163,8 +172,15 @@ export default function AdminSupportConsolePage() {
                           {user.workspaceCount} ws · {user.authProvider}
                         </p>
                       </div>
-                      <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs">
-                        <Link href="/admin/users">{t("portalSite.admin.supportConsole.openUser")}</Link>
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs"
+                      >
+                        <Link href="/admin/users">
+                          {t("portalSite.admin.supportConsole.openUser")}
+                        </Link>
                       </Button>
                     </div>
                   ))
@@ -245,7 +261,10 @@ export default function AdminSupportConsolePage() {
           <ScrollArea className="h-[220px]">
             <div className="divide-y divide-border">
               {auditLogs.map((row) => (
-                <div key={row.id} className="grid gap-2 px-4 py-3 md:grid-cols-[160px_minmax(0,1fr)_180px]">
+                <div
+                  key={row.id}
+                  className="grid gap-2 px-4 py-3 md:grid-cols-[160px_minmax(0,1fr)_180px]"
+                >
                   <Badge variant="outline" className="w-fit">
                     {row.action}
                   </Badge>

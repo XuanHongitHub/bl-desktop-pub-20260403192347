@@ -3,4 +3,3 @@ import { AdminCommerceCouponsPage } from "@/components/portal/commerce/commerce-
 export default function Page() {
   return <AdminCommerceCouponsPage />;
 }
-
