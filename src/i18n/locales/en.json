@@ -5105,7 +5105,10 @@
       "loading": "Loading users...",
       "empty": "No users found.",
       "actions": {
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "manage": "Manage",
+        "memberships": "Memberships",
+        "review": "Review"
       },
       "create": {
         "title": "Create account",
@@ -5128,9 +5131,19 @@
       },
       "columns": {
         "user": "User",
+        "provider": "Provider",
         "workspace": "Workspace",
         "role": "Role",
-        "joinedAt": "Joined"
+        "joinedAt": "Joined",
+        "workspaceCount": "Workspaces",
+        "lastActive": "Last active"
+      },
+      "stats": {
+        "total": "Total users",
+        "platformAdmins": "Platform admins",
+        "googleAuth": "Google auth",
+        "passwordAuth": "Password auth",
+        "filtered": "{{count}} users shown"
       },
       "toasts": {
         "roleUpdated": "User role updated.",
@@ -5147,6 +5160,7 @@
       "panel": {
         "workspaceCount": "{{count}} workspaces",
         "emptySelection": "Select a user to inspect details.",
+        "emptyUsers": "No users found.",
         "email": "Email",
         "auth": "Auth",
         "lastActive": "Last active",

@@ -5105,7 +5105,10 @@
       "loading": "Đang tải danh sách user...",
       "empty": "Không có user phù hợp.",
       "actions": {
-        "refresh": "Làm mới"
+        "refresh": "Làm mới",
+        "manage": "Quản lý",
+        "memberships": "Memberships",
+        "review": "Rà soát"
       },
       "create": {
         "title": "Tạo tài khoản",
@@ -5128,9 +5131,19 @@
       },
       "columns": {
         "user": "User",
+        "provider": "Đăng nhập",
         "workspace": "Workspace",
         "role": "Vai trò",
-        "joinedAt": "Tham gia"
+        "joinedAt": "Tham gia",
+        "workspaceCount": "Workspace",
+        "lastActive": "Hoạt động gần nhất"
+      },
+      "stats": {
+        "total": "Tổng user",
+        "platformAdmins": "Platform admin",
+        "googleAuth": "Google auth",
+        "passwordAuth": "Password auth",
+        "filtered": "Hiển thị {{count}} user"
       },
       "toasts": {
         "roleUpdated": "Đã cập nhật vai trò user.",
@@ -5147,6 +5160,7 @@
       "panel": {
         "workspaceCount": "{{count}} workspace",
         "emptySelection": "Chọn một user để xem chi tiết.",
+        "emptyUsers": "Không có user phù hợp.",
         "email": "Email",
         "auth": "Đăng nhập",
         "lastActive": "Hoạt động gần nhất",
