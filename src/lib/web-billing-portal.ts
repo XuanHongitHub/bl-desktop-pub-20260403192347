@@ -59,7 +59,11 @@ function normalizeHttpUrl(raw: unknown): string | null {
 
 function toBase64Url(input: string): string {
   if (typeof Buffer !== "undefined") {
-    return Buffer.from(input, "utf8").toString("base64url");
+    return Buffer.from(input, "utf8")
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
   }
 
   if (typeof window !== "undefined" && typeof window.btoa === "function") {
@@ -78,12 +82,16 @@ function toBase64Url(input: string): string {
 
 function fromBase64Url(input: string): string {
   const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
   if (typeof Buffer !== "undefined") {
-    return Buffer.from(normalized, "base64").toString("utf8");
+    return Buffer.from(padded, "base64").toString("utf8");
   }
 
   if (typeof window !== "undefined" && typeof window.atob === "function") {
-    const binary = window.atob(normalized);
+    const binary = window.atob(padded);
     const encoded = Array.from(binary)
       .map(
         (character) =>
