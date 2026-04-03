@@ -4718,7 +4718,8 @@
           "modePersonal": "Personal",
           "owner": "Custom owner (optional)",
           "ownerSearch": "Search owner by email...",
-          "action": "Create workspace"
+          "action": "Create workspace",
+          "mode": "Workspace mode"
         },
         "pagination": {
           "prev": "Prev",
@@ -4768,6 +4769,13 @@
           "memberships": "Current members",
           "activity": "Recent activity",
           "emptyActivity": "No recent audit activity."
+        },
+        "table": {
+          "total": "Total: {{count}}",
+          "showing": "Showing: {{count}}",
+          "active": "Active: {{count}}",
+          "highRisk": "High risk: {{count}}",
+          "risk": "Risk"
         }
       },
       "revenue": {

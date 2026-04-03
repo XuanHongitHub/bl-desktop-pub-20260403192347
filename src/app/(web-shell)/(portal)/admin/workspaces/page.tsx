@@ -1,20 +1,19 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  createWorkspace,
-  getAdminWorkspaceDetail,
-  getWorkspaceBillingState,
-  inviteWorkspaceMember,
-  listAdminUsers,
-  listAdminWorkspaces,
-  overrideWorkspaceSubscriptionAsAdmin,
-  transferAdminWorkspaceOwner,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -25,6 +24,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  createWorkspace,
+  getAdminWorkspaceDetail,
+  getWorkspaceBillingState,
+  inviteWorkspaceMember,
+  listAdminUsers,
+  listAdminWorkspaces,
+  overrideWorkspaceSubscriptionAsAdmin,
+  transferAdminWorkspaceOwner,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import {
@@ -33,6 +50,7 @@ import {
   resolveUnifiedPlanId,
 } from "@/lib/plan-display";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import { cn } from "@/lib/utils";
 import type { ControlAdminWorkspaceDetail } from "@/types";
 
 function toDatetimeLocalValue(value: string | null | undefined): string {
@@ -80,9 +98,9 @@ export default function AdminWorkspacesPage() {
   const [formPlanId, setFormPlanId] = useState<
     "starter" | "team" | "scale" | "enterprise"
   >("starter");
-  const [formBillingCycle, setFormBillingCycle] = useState<"monthly" | "yearly">(
-    "monthly",
-  );
+  const [formBillingCycle, setFormBillingCycle] = useState<
+    "monthly" | "yearly"
+  >("monthly");
   const [formProfileLimit, setFormProfileLimit] = useState("50");
   const [formMemberLimit, setFormMemberLimit] = useState("5");
   const [formExpiresAt, setFormExpiresAt] = useState("");
@@ -94,9 +112,10 @@ export default function AdminWorkspacesPage() {
   const [inviteSuggestions, setInviteSuggestions] = useState<string[]>([]);
   const [invitingMember, setInvitingMember] = useState(false);
   const [createWorkspaceName, setCreateWorkspaceName] = useState("");
-  const [createWorkspaceMode, setCreateWorkspaceMode] = useState<"team" | "personal">(
-    "team",
-  );
+  const [createWorkspaceMode, setCreateWorkspaceMode] = useState<
+    "team" | "personal"
+  >("team");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createOwnerQuery, setCreateOwnerQuery] = useState("");
   const [createOwnerUserId, setCreateOwnerUserId] = useState("");
   const [createOwnerOptions, setCreateOwnerOptions] = useState<
@@ -136,7 +155,10 @@ export default function AdminWorkspacesPage() {
         });
       } catch (error) {
         showErrorToast(t("portalSite.admin.workspaces.errors.loadFailed"), {
-          description: extractErrorMessage(error, "load_admin_workspaces_failed"),
+          description: extractErrorMessage(
+            error,
+            "load_admin_workspaces_failed",
+          ),
         });
       } finally {
         setLoading(false);
@@ -154,18 +176,28 @@ export default function AdminWorkspacesPage() {
       setDetailLoading(true);
       try {
         const detail = await getAdminWorkspaceDetail(connection, workspaceId);
-        const billingState = await getWorkspaceBillingState(connection, workspaceId);
+        const billingState = await getWorkspaceBillingState(
+          connection,
+          workspaceId,
+        );
         setSelectedDetail(detail);
         setFormPlanId(billingState.subscription.planId ?? "starter");
-        setFormBillingCycle(billingState.subscription.billingCycle ?? "monthly");
+        setFormBillingCycle(
+          billingState.subscription.billingCycle ?? "monthly",
+        );
         setFormProfileLimit(String(billingState.subscription.profileLimit));
         setFormMemberLimit(String(billingState.subscription.memberLimit));
-        setFormExpiresAt(toDatetimeLocalValue(billingState.subscription.expiresAt));
+        setFormExpiresAt(
+          toDatetimeLocalValue(billingState.subscription.expiresAt),
+        );
         setFormOwnerUserId(detail.owner?.userId ?? "");
       } catch (error) {
         setSelectedDetail(null);
         showErrorToast(t("portalSite.admin.workspaces.errors.loadFailed"), {
-          description: extractErrorMessage(error, "load_admin_workspace_detail_failed"),
+          description: extractErrorMessage(
+            error,
+            "load_admin_workspace_detail_failed",
+          ),
         });
       } finally {
         setDetailLoading(false);
@@ -173,10 +205,6 @@ export default function AdminWorkspacesPage() {
     },
     [connection, t],
   );
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, statusFilter, planFilter, pageSize]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -200,14 +228,21 @@ export default function AdminWorkspacesPage() {
     }
 
     const normalizedProfileLimit = Number.parseInt(formProfileLimit, 10);
-    if (!Number.isFinite(normalizedProfileLimit) || normalizedProfileLimit <= 0) {
-      showErrorToast(t("portalSite.admin.workspaces.errors.invalidProfileLimit"));
+    if (
+      !Number.isFinite(normalizedProfileLimit) ||
+      normalizedProfileLimit <= 0
+    ) {
+      showErrorToast(
+        t("portalSite.admin.workspaces.errors.invalidProfileLimit"),
+      );
       return;
     }
 
     const normalizedMemberLimit = Number.parseInt(formMemberLimit, 10);
     if (!Number.isFinite(normalizedMemberLimit) || normalizedMemberLimit <= 0) {
-      showErrorToast(t("portalSite.admin.workspaces.errors.invalidMemberLimit"));
+      showErrorToast(
+        t("portalSite.admin.workspaces.errors.invalidMemberLimit"),
+      );
       return;
     }
 
@@ -223,14 +258,18 @@ export default function AdminWorkspacesPage() {
 
     setSavingWorkspaceConfig(true);
     try {
-      await overrideWorkspaceSubscriptionAsAdmin(connection, selectedDetail.workspaceId, {
-        planId: formPlanId,
-        billingCycle: formBillingCycle,
-        profileLimit: normalizedProfileLimit,
-        memberLimit: normalizedMemberLimit,
-        expiresAt,
-        planLabel: getUnifiedPlanLabel({ planId: formPlanId }),
-      });
+      await overrideWorkspaceSubscriptionAsAdmin(
+        connection,
+        selectedDetail.workspaceId,
+        {
+          planId: formPlanId,
+          billingCycle: formBillingCycle,
+          profileLimit: normalizedProfileLimit,
+          memberLimit: normalizedMemberLimit,
+          expiresAt,
+          planLabel: getUnifiedPlanLabel({ planId: formPlanId }),
+        },
+      );
 
       if (
         formOwnerUserId.trim() &&
@@ -248,7 +287,9 @@ export default function AdminWorkspacesPage() {
         refresh(query, page),
         refreshDetail(selectedDetail.workspaceId),
       ]);
-      showSuccessToast(t("portalSite.admin.workspaces.toasts.subscriptionUpdated"));
+      showSuccessToast(
+        t("portalSite.admin.workspaces.toasts.subscriptionUpdated"),
+      );
     } catch (error) {
       showErrorToast(t("portalSite.admin.workspaces.errors.updateFailed"), {
         description: extractErrorMessage(error, "update_workspace_failed"),
@@ -312,7 +353,9 @@ export default function AdminWorkspacesPage() {
     }
     const name = createWorkspaceName.trim();
     if (!name) {
-      showErrorToast(t("portalSite.admin.workspaces.errors.createNameRequired"));
+      showErrorToast(
+        t("portalSite.admin.workspaces.errors.createNameRequired"),
+      );
       return;
     }
     setCreatingWorkspace(true);
@@ -321,7 +364,10 @@ export default function AdminWorkspacesPage() {
         name,
         mode: createWorkspaceMode,
       });
-      if (createOwnerUserId.trim() && createOwnerUserId.trim() !== created.createdBy) {
+      if (
+        createOwnerUserId.trim() &&
+        createOwnerUserId.trim() !== created.createdBy
+      ) {
         await transferAdminWorkspaceOwner(
           connection,
           created.id,
@@ -332,10 +378,13 @@ export default function AdminWorkspacesPage() {
       setCreateWorkspaceName("");
       setCreateOwnerQuery("");
       setCreateOwnerUserId("");
+      setCreateDialogOpen(false);
       setPage(1);
       await refresh(name, 1);
       setSelectedWorkspaceId(created.id);
-      showSuccessToast(t("portalSite.admin.workspaces.toasts.workspaceCreated"));
+      showSuccessToast(
+        t("portalSite.admin.workspaces.toasts.workspaceCreated"),
+      );
     } catch (error) {
       showErrorToast(t("portalSite.admin.workspaces.errors.createFailed"), {
         description: extractErrorMessage(error, "create_workspace_failed"),
@@ -352,7 +401,9 @@ export default function AdminWorkspacesPage() {
     }
     const normalizedEmail = inviteEmail.trim().toLowerCase();
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
-      showErrorToast(t("portalSite.admin.workspaces.errors.inviteInvalidEmail"));
+      showErrorToast(
+        t("portalSite.admin.workspaces.errors.inviteInvalidEmail"),
+      );
       return;
     }
     setInvitingMember(true);
@@ -370,7 +421,10 @@ export default function AdminWorkspacesPage() {
       showSuccessToast(t("portalSite.admin.workspaces.toasts.memberInvited"));
     } catch (error) {
       showErrorToast(t("portalSite.admin.workspaces.errors.inviteFailed"), {
-        description: extractErrorMessage(error, "invite_workspace_member_failed"),
+        description: extractErrorMessage(
+          error,
+          "invite_workspace_member_failed",
+        ),
       });
     } finally {
       setInvitingMember(false);
@@ -382,7 +436,8 @@ export default function AdminWorkspacesPage() {
       total: totalRows,
       visible: rows.length,
       highRisk: rows.filter((item) => item.riskLevel === "high").length,
-      active: rows.filter((item) => item.subscriptionStatus === "active").length,
+      active: rows.filter((item) => item.subscriptionStatus === "active")
+        .length,
     }),
     [rows, totalRows],
   );
@@ -393,22 +448,47 @@ export default function AdminWorkspacesPage() {
       title={t("portalSite.admin.workspaces.title")}
       description={t("portalSite.admin.workspaces.description")}
       actions={
-        <Button size="sm" variant="outline" onClick={() => void refresh(query, page)}>
-          {t("portalSite.admin.refresh")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void refresh(query, page)}
+          >
+            {t("portalSite.admin.refresh")}
+          </Button>
+          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            {t("portalSite.admin.workspaces.create.action")}
+          </Button>
+        </div>
       }
     >
-      <section className="mx-auto grid w-full max-w-[1320px] gap-4 xl:grid-cols-[400px_minmax(0,1fr)]">
-        <div className="rounded-xl border border-border bg-card">
-          <div className="space-y-3 p-4">
-            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("portalSite.admin.workspaces.create.action")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("portalSite.admin.workspaces.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.create.name")}
+              </p>
               <Input
                 value={createWorkspaceName}
                 onChange={(event) => setCreateWorkspaceName(event.target.value)}
-                placeholder={t("portalSite.admin.workspaces.create.name")}
                 className="h-9"
                 disabled={creatingWorkspace}
               />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.create.mode")}
+              </p>
               <Select
                 value={createWorkspaceMode}
                 onValueChange={(value) =>
@@ -428,23 +508,35 @@ export default function AdminWorkspacesPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.create.ownerSearch")}
+              </p>
+              <Input
+                value={createOwnerQuery}
+                onChange={(event) => setCreateOwnerQuery(event.target.value)}
+                className="h-9"
+                placeholder={t(
+                  "portalSite.admin.workspaces.create.ownerSearch",
+                )}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.admin.workspaces.create.owner")}
+              </p>
               <Select
                 value={createOwnerUserId}
                 onValueChange={setCreateOwnerUserId}
                 disabled={creatingWorkspace}
               >
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder={t("portalSite.admin.workspaces.create.owner")} />
+                  <SelectValue
+                    placeholder={t("portalSite.admin.workspaces.create.owner")}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <div className="px-2 py-1.5">
-                    <Input
-                      value={createOwnerQuery}
-                      onChange={(event) => setCreateOwnerQuery(event.target.value)}
-                      className="h-8"
-                      placeholder={t("portalSite.admin.workspaces.create.ownerSearch")}
-                    />
-                  </div>
                   {createOwnerOptions.map((item) => (
                     <SelectItem key={item.userId} value={item.userId}>
                       {item.email}
@@ -452,164 +544,265 @@ export default function AdminWorkspacesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                onClick={() => void handleCreateWorkspace()}
-                disabled={creatingWorkspace}
-                className="h-9"
-              >
-                {t("portalSite.admin.workspaces.create.action")}
-              </Button>
             </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={creatingWorkspace}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={() => void handleCreateWorkspace()}
+              disabled={creatingWorkspace}
+            >
+              {t("portalSite.admin.workspaces.create.action")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      <section className="mx-auto grid w-full max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="grid min-h-[760px] grid-rows-[auto_auto_minmax(0,1fr)_auto] rounded-xl border border-border bg-card">
+          <div className="grid gap-2 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_140px_160px_120px]">
             <Input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
               placeholder={t("portalSite.admin.workspaces.searchPlaceholder")}
               className="h-9"
             />
-            <div className="flex flex-wrap items-center gap-2">
-              {(["all", "active", "past_due", "canceled"] as const).map((status) => (
-                <Button
-                  key={status}
-                  size="sm"
-                  variant={statusFilter === status ? "secondary" : "outline"}
-                  onClick={() => setStatusFilter(status)}
-                  className="h-8 px-2.5 text-xs"
-                >
-                  {status === "all"
-                    ? t("portalSite.admin.workspaces.allStatuses")
-                    : status}
-                </Button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {(
-                ["all", "free", "starter", "team", "scale", "enterprise"] as const
-              ).map((plan) => (
-                <Button
-                  key={plan}
-                  size="sm"
-                  variant={planFilter === plan ? "secondary" : "outline"}
-                  onClick={() => setPlanFilter(plan)}
-                  className="h-8 px-2.5 text-xs"
-                >
-                  {plan === "all"
-                    ? t("portalSite.admin.workspaces.allPlans")
-                    : getUnifiedPlanLabel({ planId: plan })}
-                </Button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={String(pageSize)}
-                onValueChange={(value) => setPageSize(Number(value))}
-              >
-                <SelectTrigger className="h-8 w-[120px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                  <SelectItem value="200">200</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 px-2.5 text-xs"
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={page <= 1 || loading}
-              >
-                {t("portalSite.admin.workspaces.pagination.prev")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 px-2.5 text-xs"
-                onClick={() => setPage((current) => current + 1)}
-                disabled={loading || page * pageSize >= totalRows}
-              >
-                {t("portalSite.admin.workspaces.pagination.next")}
-              </Button>
-              <Badge variant="outline" className="ml-auto">
-                {t("portalSite.admin.workspaces.pagination.page", { page })}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">{summary.total}</Badge>
-              <Badge variant="outline">{summary.visible}</Badge>
-              <Badge variant="outline">{summary.active}</Badge>
-              <Badge variant="secondary">{summary.highRisk}</Badge>
-            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(
+                  value as "all" | "active" | "past_due" | "canceled",
+                );
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {t("portalSite.admin.workspaces.allStatuses")}
+                </SelectItem>
+                <SelectItem value="active">active</SelectItem>
+                <SelectItem value="past_due">past_due</SelectItem>
+                <SelectItem value="canceled">canceled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={planFilter}
+              onValueChange={(value) => {
+                setPlanFilter(
+                  value as
+                    | "all"
+                    | "free"
+                    | "starter"
+                    | "team"
+                    | "scale"
+                    | "enterprise",
+                );
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {t("portalSite.admin.workspaces.allPlans")}
+                </SelectItem>
+                <SelectItem value="free">
+                  {getUnifiedPlanLabel({ planId: "free" })}
+                </SelectItem>
+                <SelectItem value="starter">
+                  {getUnifiedPlanLabel({ planId: "starter" })}
+                </SelectItem>
+                <SelectItem value="team">
+                  {getUnifiedPlanLabel({ planId: "team" })}
+                </SelectItem>
+                <SelectItem value="scale">
+                  {getUnifiedPlanLabel({ planId: "scale" })}
+                </SelectItem>
+                <SelectItem value="enterprise">
+                  {getUnifiedPlanLabel({ planId: "enterprise" })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="200">200</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Separator />
-          <ScrollArea className="h-[700px]">
-            <div className="p-2">
-              {loading ? (
-                <div className="p-3 text-sm text-muted-foreground">
-                  {t("portalSite.admin.loading")}
-                </div>
-              ) : rows.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">
-                  {t("portalSite.account.workspaceEmpty")}
-                </div>
-              ) : (
-                rows.map((workspace) => {
-                  const selected = workspace.workspaceId === selectedWorkspaceId;
-                  return (
-                    <button
-                      key={workspace.workspaceId}
-                      type="button"
-                      onClick={() => setSelectedWorkspaceId(workspace.workspaceId)}
-                      className={[
-                        "w-full rounded-lg border px-3 py-3 text-left transition-colors",
-                        selected
-                          ? "border-border bg-muted"
-                          : "border-transparent bg-background hover:border-border hover:bg-muted/60",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {workspace.workspaceName}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {workspace.workspaceId}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={workspace.riskLevel === "high" ? "destructive" : "outline"}
-                          className="shrink-0 capitalize"
-                        >
-                          {workspace.riskLevel}
-                        </Badge>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="font-normal">
-                          <span
-                            className={getUnifiedPlanToneClass(
-                              resolveUnifiedPlanId({
-                                planId: workspace.planId,
-                                planLabel: workspace.planLabel,
-                              }),
-                            )}
+
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.total", {
+                count: summary.total,
+              })}
+            </Badge>
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.showing", {
+                count: summary.visible,
+              })}
+            </Badge>
+            <Badge variant="outline">
+              {t("portalSite.admin.workspaces.table.active", {
+                count: summary.active,
+              })}
+            </Badge>
+            <Badge variant="secondary">
+              {t("portalSite.admin.workspaces.table.highRisk", {
+                count: summary.highRisk,
+              })}
+            </Badge>
+            <Badge variant="outline" className="ml-auto">
+              {t("portalSite.admin.workspaces.pagination.page", { page })}
+            </Badge>
+          </div>
+
+          <ScrollArea className="h-[560px]">
+            {loading ? (
+              <div className="p-3 text-sm text-muted-foreground">
+                {t("portalSite.admin.loading")}
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="p-3 text-sm text-muted-foreground">
+                {t("portalSite.account.workspaceEmpty")}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow>
+                    <TableHead className="w-[34%]">
+                      {t("portalSite.admin.columns.workspace")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.workspaces.panel.owner")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.workspaces.manage.plan")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.columns.status")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.columns.members")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.workspaces.manage.profileLimit")}
+                    </TableHead>
+                    <TableHead>
+                      {t("portalSite.admin.workspaces.table.risk")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((workspace) => {
+                    const selected =
+                      workspace.workspaceId === selectedWorkspaceId;
+                    const unifiedPlan = resolveUnifiedPlanId({
+                      planId: workspace.planId,
+                      planLabel: workspace.planLabel,
+                    });
+                    return (
+                      <TableRow
+                        key={workspace.workspaceId}
+                        className={cn(
+                          "cursor-pointer",
+                          selected
+                            ? "bg-muted/80 hover:bg-muted/80"
+                            : "hover:bg-muted/40",
+                        )}
+                        onClick={() =>
+                          setSelectedWorkspaceId(workspace.workspaceId)
+                        }
+                      >
+                        <TableCell className="align-top">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {workspace.workspaceName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {workspace.workspaceId}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[220px] truncate text-sm">
+                          {workspace.owner?.email ?? "--"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={getUnifiedPlanToneClass(unifiedPlan)}
                           >
                             {getUnifiedPlanLabel({
                               planId: workspace.planId,
                               planLabel: workspace.planLabel,
                             })}
-                          </span>
-                        </Badge>
-                        <span>{workspace.members}</span>
-                        <span>{workspace.profileLimit}</span>
-                        <span>{workspace.memberLimit}</span>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {workspace.subscriptionStatus}
+                        </TableCell>
+                        <TableCell>{workspace.members}</TableCell>
+                        <TableCell>{workspace.profileLimit}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              workspace.riskLevel === "high"
+                                ? "destructive"
+                                : "outline"
+                            }
+                            className="capitalize"
+                          >
+                            {workspace.riskLevel}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </ScrollArea>
+          <div className="flex items-center gap-2 border-t border-border p-4">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1 || loading}
+            >
+              {t("portalSite.admin.workspaces.pagination.prev")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={loading || page * pageSize >= totalRows}
+            >
+              {t("portalSite.admin.workspaces.pagination.next")}
+            </Button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card">
@@ -748,7 +941,11 @@ export default function AdminWorkspacesPage() {
                             value={formPlanId}
                             onValueChange={(value) =>
                               setFormPlanId(
-                                value as "starter" | "team" | "scale" | "enterprise",
+                                value as
+                                  | "starter"
+                                  | "team"
+                                  | "scale"
+                                  | "enterprise",
                               )
                             }
                             disabled={savingWorkspaceConfig}
@@ -775,7 +972,9 @@ export default function AdminWorkspacesPage() {
 
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.billingCycle")}
+                            {t(
+                              "portalSite.admin.workspaces.manage.billingCycle",
+                            )}
                           </p>
                           <Select
                             value={formBillingCycle}
@@ -789,10 +988,14 @@ export default function AdminWorkspacesPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="monthly">
-                                {t("portalSite.admin.subscriptions.cycle.monthly")}
+                                {t(
+                                  "portalSite.admin.subscriptions.cycle.monthly",
+                                )}
                               </SelectItem>
                               <SelectItem value="yearly">
-                                {t("portalSite.admin.subscriptions.cycle.yearly")}
+                                {t(
+                                  "portalSite.admin.subscriptions.cycle.yearly",
+                                )}
                               </SelectItem>
                             </SelectContent>
                           </Select>
@@ -800,11 +1003,15 @@ export default function AdminWorkspacesPage() {
 
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.profileLimit")}
+                            {t(
+                              "portalSite.admin.workspaces.manage.profileLimit",
+                            )}
                           </p>
                           <Input
                             value={formProfileLimit}
-                            onChange={(event) => setFormProfileLimit(event.target.value)}
+                            onChange={(event) =>
+                              setFormProfileLimit(event.target.value)
+                            }
                             type="number"
                             min={1}
                             className="h-9"
@@ -814,11 +1021,15 @@ export default function AdminWorkspacesPage() {
 
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">
-                            {t("portalSite.admin.workspaces.manage.memberLimit")}
+                            {t(
+                              "portalSite.admin.workspaces.manage.memberLimit",
+                            )}
                           </p>
                           <Input
                             value={formMemberLimit}
-                            onChange={(event) => setFormMemberLimit(event.target.value)}
+                            onChange={(event) =>
+                              setFormMemberLimit(event.target.value)
+                            }
                             type="number"
                             min={1}
                             className="h-9"
@@ -840,7 +1051,10 @@ export default function AdminWorkspacesPage() {
                             </SelectTrigger>
                             <SelectContent>
                               {selectedDetail.memberships.map((membership) => (
-                                <SelectItem key={membership.userId} value={membership.userId}>
+                                <SelectItem
+                                  key={membership.userId}
+                                  value={membership.userId}
+                                >
                                   {membership.email}
                                 </SelectItem>
                               ))}
@@ -854,33 +1068,42 @@ export default function AdminWorkspacesPage() {
                           </p>
                           <Input
                             value={formExpiresAt}
-                            onChange={(event) => setFormExpiresAt(event.target.value)}
+                            onChange={(event) =>
+                              setFormExpiresAt(event.target.value)
+                            }
                             type="datetime-local"
                             className="h-9"
                             disabled={savingWorkspaceConfig}
                           />
                         </div>
-
                       </div>
 
                       <Button
                         onClick={() => void handleSaveWorkspace()}
                         disabled={savingWorkspaceConfig}
                       >
-                        {t("portalSite.admin.workspaces.actions.saveSubscription")}
+                        {t(
+                          "portalSite.admin.workspaces.actions.saveSubscription",
+                        )}
                       </Button>
 
                       <Separator />
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-foreground">
-                          {t("portalSite.admin.workspaces.actions.quickAddMember")}
+                          {t(
+                            "portalSite.admin.workspaces.actions.quickAddMember",
+                          )}
                         </p>
                         <Input
                           value={inviteEmail}
-                          onChange={(event) => setInviteEmail(event.target.value)}
+                          onChange={(event) =>
+                            setInviteEmail(event.target.value)
+                          }
                           className="h-9"
                           list="workspace-member-email-suggestions"
-                          placeholder={t("portalSite.admin.workspaces.actions.memberEmail")}
+                          placeholder={t(
+                            "portalSite.admin.workspaces.actions.memberEmail",
+                          )}
                           disabled={invitingMember}
                         />
                         <datalist id="workspace-member-email-suggestions">
@@ -892,7 +1115,9 @@ export default function AdminWorkspacesPage() {
                           <Select
                             value={inviteRole}
                             onValueChange={(value) =>
-                              setInviteRole(value as "admin" | "member" | "viewer")
+                              setInviteRole(
+                                value as "admin" | "member" | "viewer",
+                              )
                             }
                             disabled={invitingMember}
                           >
@@ -936,12 +1161,16 @@ export default function AdminWorkspacesPage() {
                       ) : (
                         selectedDetail.recentAuditLogs.map((log) => (
                           <div key={log.id} className="space-y-1 px-4 py-3">
-                            <p className="text-sm font-medium text-foreground">{log.action}</p>
+                            <p className="text-sm font-medium text-foreground">
+                              {log.action}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {formatLocaleDateTime(log.createdAt)}
                             </p>
                             {log.targetId ? (
-                              <p className="text-xs text-muted-foreground">{log.targetId}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {log.targetId}
+                              </p>
                             ) : null}
                           </div>
                         ))

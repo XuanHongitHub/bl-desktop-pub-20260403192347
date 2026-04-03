@@ -4718,7 +4718,8 @@
           "modePersonal": "Cá nhân",
           "owner": "Owner tuỳ chọn",
           "ownerSearch": "Tìm owner theo email...",
-          "action": "Tạo workspace"
+          "action": "Tạo workspace",
+          "mode": "Loại workspace"
         },
         "pagination": {
           "prev": "Trang trước",
@@ -4768,6 +4769,13 @@
           "memberships": "Thành viên hiện tại",
           "activity": "Nhật ký gần đây",
           "emptyActivity": "Chưa có audit log gần đây."
+        },
+        "table": {
+          "total": "Tổng: {{count}}",
+          "showing": "Đang hiển thị: {{count}}",
+          "active": "Active: {{count}}",
+          "highRisk": "Rủi ro cao: {{count}}",
+          "risk": "Rủi ro"
         }
       },
       "revenue": {
