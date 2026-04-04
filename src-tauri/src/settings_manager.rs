@@ -909,6 +909,10 @@ fn default_local_sync_server_url() -> String {
   "http://127.0.0.1:12342".to_string()
 }
 
+fn default_cloud_sync_server_url() -> String {
+  crate::app_config::get().cloud_api_url.clone()
+}
+
 fn resolve_bootstrap_sync_token(manager: &SettingsManager) -> Option<String> {
   let env_candidates = [
     std::env::var("BUGLOGIN_DEFAULT_SYNC_TOKEN").ok(),
@@ -1101,8 +1105,28 @@ pub async fn get_sync_settings(app_handle: tauri::AppHandle) -> Result<SyncSetti
     .get_sync_settings()
     .map_err(|e| format!("Failed to load sync settings: {e}"))?;
 
+  let local_default_url = default_local_sync_server_url();
+  let running_self_host = is_local_self_host_mode();
+  let cloud_bootstrap_url = resolve_bootstrap_sync_server_url(manager)
+    .or_else(|| Some(default_cloud_sync_server_url()));
+
+  if !running_self_host
+    && sync_settings.sync_server_url.as_deref() == Some(local_default_url.as_str())
+  {
+    if let Some(url) = cloud_bootstrap_url.clone() {
+      manager
+        .save_sync_server_url(Some(url.clone()))
+        .map_err(|e| format!("Failed to migrate sync server URL to cloud default: {e}"))?;
+      sync_settings.sync_server_url = Some(url);
+    }
+  }
+
   if sync_settings.sync_server_url.is_none() {
-    let bootstrap_url = resolve_bootstrap_sync_server_url(manager);
+    let bootstrap_url = if running_self_host {
+      resolve_bootstrap_sync_server_url(manager)
+    } else {
+      cloud_bootstrap_url
+    };
     if let Some(url) = bootstrap_url {
       manager
         .save_sync_server_url(Some(url.clone()))
@@ -1111,8 +1135,8 @@ pub async fn get_sync_settings(app_handle: tauri::AppHandle) -> Result<SyncSetti
     }
   }
 
-  if sync_settings.sync_server_url.is_none() && is_local_self_host_mode() {
-    sync_settings.sync_server_url = Some(default_local_sync_server_url());
+  if sync_settings.sync_server_url.is_none() && running_self_host {
+    sync_settings.sync_server_url = Some(local_default_url);
   }
 
   sync_settings.sync_token = manager
@@ -1131,7 +1155,7 @@ pub async fn get_sync_settings(app_handle: tauri::AppHandle) -> Result<SyncSetti
     }
   }
 
-  if sync_settings.sync_token.is_none() && is_local_self_host_mode() {
+  if sync_settings.sync_token.is_none() && running_self_host {
     sync_settings.sync_token = default_local_sync_token();
   }
 

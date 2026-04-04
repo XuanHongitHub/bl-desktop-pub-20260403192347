@@ -28,10 +28,13 @@ jobs:
     env: &desktop_env
       BUGLOGIN_BROWSER_API_BASE: https://api.buglogin.com
       NEXT_PUBLIC_SYNC_SERVER_URL: https://api.buglogin.com
+      BUGLOGIN_DEFAULT_SYNC_SERVER_URL: https://api.buglogin.com
       NEXT_PUBLIC_WEB_PORTAL_URL: https://buglogin.com
       NEXT_PUBLIC_BILLING_PORTAL_URL: https://buglogin.com
       NEXT_PUBLIC_STRIPE_BILLING_URL: https://buglogin.com
       BUGLOGIN_AUTH_API_URL: https://api.buglogin.com
+      BUGLOGIN_CLOUD_API_URL: https://api.buglogin.com
+      BUGLOGIN_CLOUD_SYNC_URL: https://sync.buglogin.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 403889738022-q2k5otjm1jigt17hrs3oolarlh14759r.apps.googleusercontent.com
       RUSTFLAGS: -C debuginfo=0
       CARGO_INCREMENTAL: 0

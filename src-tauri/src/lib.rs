@@ -3689,6 +3689,7 @@ pub fn run() {
       cloud_auth::cloud_verify_otp,
       cloud_auth::cloud_get_user,
       cloud_auth::cloud_set_self_host_auth_state,
+      cloud_auth::local_control_public_auth,
       cloud_auth::cloud_refresh_profile,
       cloud_auth::cloud_logout,
       cloud_auth::cloud_get_proxy_usage,

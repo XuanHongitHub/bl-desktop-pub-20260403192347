@@ -625,6 +625,24 @@ export function useCloudAuth(): UseCloudAuthReturn {
         idToken?: string;
       },
     ): Promise<PublicAuthResponse> => {
+      if (isTauri()) {
+        try {
+          const response = await invoke<PublicAuthResponse>(
+            "local_control_public_auth",
+            {
+              route,
+              payload,
+            },
+          );
+          if (!response?.user?.id || !response.user.email) {
+            throw new Error("invalid_auth_response");
+          }
+          return response;
+        } catch (error) {
+          throw new Error(extractRootError(error) || "control_auth_unreachable");
+        }
+      }
+
       let syncSettings: SyncSettings | null = null;
       try {
         syncSettings = await invokeCached<SyncSettings>(

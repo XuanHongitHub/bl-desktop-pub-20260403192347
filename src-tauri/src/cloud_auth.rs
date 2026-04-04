@@ -1154,6 +1154,104 @@ impl CloudAuthManager {
 
 // --- Tauri commands ---
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalControlPublicAuthPayload {
+  pub email: String,
+  #[serde(default)]
+  pub password: Option<String>,
+  #[serde(default)]
+  pub name: Option<String>,
+  #[serde(default)]
+  pub avatar: Option<String>,
+  #[serde(default)]
+  pub id_token: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalControlPublicAuthUser {
+  pub id: String,
+  pub email: String,
+  #[serde(default)]
+  pub platform_role: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LocalControlPublicAuthResponse {
+  pub user: LocalControlPublicAuthUser,
+}
+
+fn parse_control_auth_error_message(body: &str) -> Option<String> {
+  let value = serde_json::from_str::<serde_json::Value>(body).ok()?;
+  if let Some(message) = value.get("message") {
+    if let Some(text) = message.as_str() {
+      let trimmed = text.trim();
+      if !trimmed.is_empty() {
+        return Some(trimmed.to_string());
+      }
+    }
+    if let Some(list) = message.as_array() {
+      for item in list {
+        if let Some(text) = item.as_str() {
+          let trimmed = text.trim();
+          if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+          }
+        }
+      }
+    }
+  }
+  if let Some(error) = value.get("error").and_then(|item| item.as_str()) {
+    let trimmed = error.trim();
+    if !trimmed.is_empty() {
+      return Some(trimmed.to_string());
+    }
+  }
+  None
+}
+
+#[tauri::command]
+pub async fn local_control_public_auth(
+  app_handle: tauri::AppHandle,
+  route: String,
+  payload: LocalControlPublicAuthPayload,
+) -> Result<LocalControlPublicAuthResponse, String> {
+  let route_segment = match route.as_str() {
+    "register" | "login" | "google" => route.as_str(),
+    _ => return Err("invalid_auth_route".to_string()),
+  };
+
+  let settings = crate::settings_manager::get_sync_settings(app_handle).await?;
+  let base_url = settings
+    .sync_server_url
+    .map(|value| value.trim().trim_end_matches('/').to_string())
+    .filter(|value| !value.is_empty())
+    .ok_or_else(|| "control_auth_not_configured".to_string())?;
+
+  let url = format!("{base_url}/v1/control/public/auth/{route_segment}");
+  let response = Client::new()
+    .post(url)
+    .json(&payload)
+    .send()
+    .await
+    .map_err(|error| format!("control_auth_unreachable: {error}"))?;
+
+  if !response.status().is_success() {
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if let Some(message) = parse_control_auth_error_message(&body) {
+      return Err(message);
+    }
+    return Err(format!("http_{}", status.as_u16()));
+  }
+
+  response
+    .json::<LocalControlPublicAuthResponse>()
+    .await
+    .map_err(|error| format!("invalid_auth_response: {error}"))
+}
+
 #[tauri::command]
 pub async fn cloud_request_otp(email: String) -> Result<String, String> {
   let _ = email;
