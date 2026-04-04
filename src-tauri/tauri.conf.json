@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
     "devUrl": "http://localhost:12341/desktop",
-    "beforeBuildCommand": "pnpm copy-proxy-binary && (node scripts/ci-skip-build.mjs || pnpm build)",
+    "beforeBuildCommand": "node scripts/tauri-before-build.mjs",
     "frontendDist": "../dist"
   },
   "app": {
