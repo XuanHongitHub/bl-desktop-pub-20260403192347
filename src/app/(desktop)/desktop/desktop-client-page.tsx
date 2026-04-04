@@ -32,6 +32,12 @@ import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useUpdateNotifications } from "@/hooks/use-update-notifications";
 import { useWayfernTerms } from "@/hooks/use-wayfern-terms";
 import { getBrowserDisplayName } from "@/lib/browser-utils";
+import {
+  isSuperAdminSection,
+  isWorkspaceOwnerSection,
+  normalizeLegacyAppSection,
+  parsePersistedAppSection,
+} from "@/lib/desktop-app-sections";
 import { extractRootError } from "@/lib/error-utils";
 import { invokeCached } from "@/lib/ipc-query-cache";
 import { formatLocaleDate } from "@/lib/locale-format";
@@ -47,18 +53,14 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
-import {
-  openWebBillingPortal,
-  resolveWebBillingPortalUrl,
-} from "@/lib/web-billing-desktop";
-import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
+import { openWebBillingPortal } from "@/lib/web-billing-desktop";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import {
   DATA_SCOPE_CHANGED_EVENT,
-  distributeUnscopedEntityIdsForAccount,
   getScopedEntityCountsForWorkspaces,
   migrateDataScopeAccount,
   normalizeDataScopeWorkspacesForAccount,
+  reconcileEntityScopesForAccount,
   setCurrentDataScope,
   toDataScopeKey,
 } from "@/lib/workspace-data-scope";
@@ -71,15 +73,6 @@ import type {
   TeamRole,
   WayfernConfig,
 } from "@/types";
-import {
-  APP_SECTION_SET,
-  APP_SECTION_VALUES,
-  isSuperAdminSection,
-  isWorkspaceOwnerSection,
-  normalizeLegacyAppSection,
-  parsePersistedAppSection,
-  resolveEmbeddedPortalRouteForSection,
-} from "@/lib/desktop-app-sections";
 
 const PortalAuthPage = dynamic(
   () =>
@@ -398,7 +391,6 @@ function markNoticeShownOnce(storageKey: string): void {
     // ignore localStorage failures (private mode / policy restriction)
   }
 }
-
 
 function normalizeBaseUrl(url?: string | null): string | null {
   if (!url) {
@@ -784,7 +776,7 @@ export default function Home() {
     WorkspaceSwitcherSummary[]
   >([]);
   const [, setWorkspaceSwitcherError] = useState<string | null>(null);
-  const [workspaceProfilesUsed, setWorkspaceProfilesUsed] = useState<
+  const [_workspaceProfilesUsed, setWorkspaceProfilesUsed] = useState<
     Record<string, number>
   >({});
   const listProfilesSnapshot = useCallback(async (): Promise<
@@ -882,6 +874,7 @@ export default function Home() {
     cloudUser?.id,
     profiles.length,
     sidebarWorkspaceId,
+    cloudUser,
   ]);
 
   useEffect(() => {
@@ -1114,19 +1107,16 @@ export default function Home() {
       abortController.abort();
     };
   }, [
-    shouldLoadWorkspaceSwitcherData,
     cloudUser?.email,
     cloudUser?.id,
     cloudUser?.workspaceSeeds,
     cloudUser?.platformRole,
     cloudUser?.teamId,
     cloudUser?.teamName,
-    profiles.length,
     refreshProfile,
-    sidebarWorkspaceId,
     teamRole,
-    workspaceProfilesUsed,
     listProfilesSnapshot,
+    cloudUser,
   ]);
 
   const workspaceOptions = useMemo<WorkspaceSwitcherOption[]>(() => {
@@ -1330,12 +1320,6 @@ export default function Home() {
   const canAccessSelectedWorkspaceGovernance =
     Boolean(cloudUser) && canManageSelectedWorkspaceGovernance;
   const [isOpeningWebPortal, setIsOpeningWebPortal] = useState(false);
-  const [embeddedPortalUrl, setEmbeddedPortalUrl] = useState<string | null>(
-    null,
-  );
-  const [isLoadingEmbeddedPortal, setIsLoadingEmbeddedPortal] = useState(false);
-  const embeddedPortalRetryRef = useRef(0);
-  const embeddedPortalRetryTimerRef = useRef<number | null>(null);
 
   const showWebBillingPortalError = useCallback(
     (error: unknown) => {
@@ -1372,87 +1356,6 @@ export default function Home() {
     }
   }, [
     cloudUser,
-    selectedWorkspaceContext?.id,
-    selectedWorkspaceContext?.name,
-    showWebBillingPortalError,
-    sidebarWorkspaceId,
-  ]);
-
-  const embeddedPortalRoute = useMemo(
-    () => resolveEmbeddedPortalRouteForSection(activeSection),
-    [activeSection],
-  );
-
-  useEffect(() => {
-    if (!embeddedPortalRoute || !cloudUser) {
-      setEmbeddedPortalUrl(null);
-      setIsLoadingEmbeddedPortal(false);
-      embeddedPortalRetryRef.current = 0;
-      if (
-        typeof window !== "undefined" &&
-        embeddedPortalRetryTimerRef.current !== null
-      ) {
-        window.clearTimeout(embeddedPortalRetryTimerRef.current);
-        embeddedPortalRetryTimerRef.current = null;
-      }
-      return;
-    }
-
-    const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
-    const workspaceName = selectedWorkspaceContext?.name ?? null;
-    let isCancelled = false;
-
-    const loadPortalUrl = async () => {
-      setIsLoadingEmbeddedPortal(true);
-      try {
-        const url = await resolveWebBillingPortalUrl({
-          route: embeddedPortalRoute,
-          user: cloudUser,
-          workspaceId,
-          workspaceName,
-        });
-        if (!isCancelled) {
-          const hasContextHash = url.includes("#ctx=");
-          if (!hasContextHash && embeddedPortalRetryRef.current < 5) {
-            embeddedPortalRetryRef.current += 1;
-            if (typeof window !== "undefined") {
-              embeddedPortalRetryTimerRef.current = window.setTimeout(() => {
-                if (!isCancelled) {
-                  void loadPortalUrl();
-                }
-              }, 800);
-            }
-            return;
-          }
-          embeddedPortalRetryRef.current = 0;
-          setEmbeddedPortalUrl(url);
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          setEmbeddedPortalUrl(null);
-          showWebBillingPortalError(error);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingEmbeddedPortal(false);
-        }
-      }
-    };
-
-    void loadPortalUrl();
-    return () => {
-      isCancelled = true;
-      if (
-        typeof window !== "undefined" &&
-        embeddedPortalRetryTimerRef.current !== null
-      ) {
-        window.clearTimeout(embeddedPortalRetryTimerRef.current);
-        embeddedPortalRetryTimerRef.current = null;
-      }
-    };
-  }, [
-    cloudUser,
-    embeddedPortalRoute,
     selectedWorkspaceContext?.id,
     selectedWorkspaceContext?.name,
     showWebBillingPortalError,
@@ -1518,13 +1421,12 @@ export default function Home() {
     if (!cloudUser) {
       return;
     }
-    const route = embeddedPortalRoute ?? "adminCommandCenter";
     const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
     const workspaceName = selectedWorkspaceContext?.name ?? null;
     setIsOpeningWebPortal(true);
     try {
       await openWebBillingPortal({
-        route,
+        route: "adminCommandCenter",
         user: cloudUser,
         workspaceId,
         workspaceName,
@@ -1536,7 +1438,6 @@ export default function Home() {
     }
   }, [
     cloudUser,
-    embeddedPortalRoute,
     selectedWorkspaceContext?.id,
     selectedWorkspaceContext?.name,
     showWebBillingPortalError,
@@ -1739,6 +1640,7 @@ export default function Home() {
   }, [normalizedActiveSection, proxyAssignmentDialogOpen]);
 
   useEffect(() => {
+    void activeSectionStorageKey;
     didRestoreActiveSectionRef.current = false;
   }, [activeSectionStorageKey]);
 
@@ -1904,10 +1806,6 @@ export default function Home() {
       return;
     }
     lastScopeSeedRequestKeyRef.current = currentSeedRequestKey;
-    const preferredScopeKey = toDataScopeKey({
-      accountId: cloudUser?.id as string,
-      workspaceId: sidebarWorkspaceId,
-    });
 
     const seedWorkspaceDataScopes = async () => {
       try {
@@ -1937,11 +1835,22 @@ export default function Home() {
           return;
         }
 
-        const didChangeProfiles = distributeUnscopedEntityIdsForAccount(
+        const workspaceTargetCounts = workspaceOptionIds.reduce<
+          Record<string, number>
+        >((accumulator, workspaceId) => {
+          const summary = workspaceSwitcherSummaries.find(
+            (row) => row.id === workspaceId,
+          );
+          accumulator[workspaceId] = Math.max(0, summary?.profilesUsed ?? 0);
+          return accumulator;
+        }, {});
+
+        const didChangeProfiles = reconcileEntityScopesForAccount(
           "profiles",
           profileRows.map((row) => row.id),
-          accountScopeKeys,
-          preferredScopeKey,
+          cloudUser?.id as string,
+          workspaceTargetCounts,
+          sidebarWorkspaceId,
         );
 
         if (didMigrateGuest || didNormalizeScopes || didChangeProfiles) {
@@ -1963,6 +1872,7 @@ export default function Home() {
     isWorkspaceSelectionReady,
     listProfilesSnapshot,
     sidebarWorkspaceId,
+    workspaceSwitcherSummaries,
     workspaceOptionIds,
   ]);
 
@@ -2144,8 +2054,6 @@ export default function Home() {
     activeSection,
     canAccessBugIdeaAdmin,
     canAccessSuperAdminPanel,
-    canAccessSelectedWorkspaceGovernance,
-    canManageSelectedWorkspaceGovernance,
     cloudUser,
     t,
   ]);
@@ -2166,14 +2074,7 @@ export default function Home() {
     showErrorToast(t("adminWorkspace.noAccessTitle"), {
       description: t("adminWorkspace.bugideaDevOnlyDescription"),
     });
-  }, [
-    activeSection,
-    canAccessBugIdeaAdmin,
-    canAccessSelectedWorkspaceGovernance,
-    canManageSelectedWorkspaceGovernance,
-    cloudUser,
-    t,
-  ]);
+  }, [activeSection, canAccessBugIdeaAdmin, cloudUser, t]);
 
   useEffect(() => {
     if (!cloudUser) {
@@ -2194,8 +2095,13 @@ export default function Home() {
         description: t("adminWorkspace.ownerOnlyGovernance"),
       });
     }
-  }, [activeSection, canAccessSelectedWorkspaceGovernance, cloudUser, isWorkspaceSelectionReady, t]);
-
+  }, [
+    activeSection,
+    canAccessSelectedWorkspaceGovernance,
+    cloudUser,
+    isWorkspaceSelectionReady,
+    t,
+  ]);
 
   useEffect(() => {
     didRestoreWorkspaceSelectionRef.current = false;
@@ -2207,7 +2113,7 @@ export default function Home() {
     setWorkspaceSwitcherSummaries([]);
     setWorkspaceSwitcherError(null);
     setWorkspaceProfilesUsed({});
-  }, [workspaceSelectionStorageKey]);
+  }, []);
 
   useEffect(() => {
     if (workspaceOptions.length === 0) {
@@ -2565,13 +2471,7 @@ export default function Home() {
         }
       }
     },
-    [
-      handleWorkspaceChange,
-      loginWithEmail,
-      refreshProfile,
-      sidebarWorkspaceId,
-      t,
-    ],
+    [loginWithEmail, refreshProfile, t],
   );
 
   useEffect(() => {
@@ -3954,21 +3854,10 @@ export default function Home() {
             description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
-              {embeddedPortalUrl ? (
-                <iframe
-                  key={embeddedPortalUrl}
-                  src={embeddedPortalUrl}
-                  className="h-full min-h-[640px] w-full border-0"
-                  title="Workspace Management Portal"
-                />
-              ) : (
-                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
-                  {isLoadingEmbeddedPortal
-                    ? t("shell.webPortal.opening")
-                    : t("shell.webPortal.opening")}
-                </div>
-              )}
+            <div className="rounded-md border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">
+                {t("shell.webPortal.movedDescription")}
+              </p>
             </div>
             <div className="flex justify-end">
               <Button
@@ -4144,21 +4033,10 @@ export default function Home() {
             description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
-              {embeddedPortalUrl ? (
-                <iframe
-                  key={embeddedPortalUrl}
-                  src={embeddedPortalUrl}
-                  className="h-full min-h-[640px] w-full border-0"
-                  title="Super Admin Portal"
-                />
-              ) : (
-                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
-                  {isLoadingEmbeddedPortal
-                    ? t("shell.webPortal.opening")
-                    : t("shell.webPortal.opening")}
-                </div>
-              )}
+            <div className="rounded-md border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">
+                {t("shell.webPortal.movedDescription")}
+              </p>
             </div>
             <div className="flex justify-end">
               <Button
@@ -4326,7 +4204,11 @@ export default function Home() {
       />
       {/* Section switch — suppressed during post-login / workspace switch to avoid double-spinner */}
       <PageLoaderOverlay
-        open={isSectionSwitching && !workspaceSwitchState && !isPostLoginTransitioning}
+        open={
+          isSectionSwitching &&
+          !workspaceSwitchState &&
+          !isPostLoginTransitioning
+        }
         overlayClassName="bg-background/30"
       />
       {importProfileDialogOpen && (

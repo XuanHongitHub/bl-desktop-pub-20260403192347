@@ -1,19 +1,27 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
 import {
-  Users,
-  Search,
-  MonitorSmartphone,
   LayoutGrid,
+  MonitorSmartphone,
+  Search,
   Settings2,
   ShieldAlert,
+  Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -22,15 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { ControlMembership, ControlShareGrant } from "@/types";
 
@@ -47,7 +47,7 @@ export interface MemberPermissionsMatrixProps {
   onBulkManage: (
     userIds: string[],
     resources: { id: string; type: "profile" | "group" }[],
-    action: "grant" | "revoke"
+    action: "grant" | "revoke",
   ) => void;
   isPlatformAdmin?: boolean;
 }
@@ -59,13 +59,17 @@ export function MemberPermissionsMatrix({
   onBulkManage,
 }: MemberPermissionsMatrixProps) {
   const [searchMember, setSearchMember] = useState("");
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Sheet states
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sheetSearch, setSheetSearch] = useState("");
   const [sheetTab, setSheetTab] = useState<"all" | "profile" | "group">("all");
-  const [sheetSelectedResources, setSheetSelectedResources] = useState<Set<string>>(new Set());
+  const [sheetSelectedResources, setSheetSelectedResources] = useState<
+    Set<string>
+  >(new Set());
   const [sheetMode, setSheetMode] = useState<"grant" | "revoke">("grant");
 
   // Handle member table
@@ -93,7 +97,10 @@ export function MemberPermissionsMatrix({
 
   const getResourceCount = (memberEmail: string, type: "profile" | "group") => {
     return shareGrants.filter(
-      (g) => g.recipientEmail === memberEmail && g.resourceType === type && !g.revokedAt
+      (g) =>
+        g.recipientEmail === memberEmail &&
+        g.resourceType === type &&
+        !g.revokedAt,
     ).length;
   };
 
@@ -122,33 +129,50 @@ export function MemberPermissionsMatrix({
     setSheetSelectedResources(next);
   };
 
-  const activeFilteredCount = filteredResources.filter(r => sheetSelectedResources.has(r.id)).length;
-  const isAllFilteredSelected = filteredResources.length > 0 && activeFilteredCount === filteredResources.length;
-  const isIndeterminate = activeFilteredCount > 0 && activeFilteredCount < filteredResources.length;
+  const activeFilteredCount = filteredResources.filter((r) =>
+    sheetSelectedResources.has(r.id),
+  ).length;
+  const isAllFilteredSelected =
+    filteredResources.length > 0 &&
+    activeFilteredCount === filteredResources.length;
+  const isIndeterminate =
+    activeFilteredCount > 0 && activeFilteredCount < filteredResources.length;
 
   const toggleAllResources = () => {
     const next = new Set(sheetSelectedResources);
     if (isAllFilteredSelected) {
       // Bỏ chọn tất cả trong tab hiện tại
-      filteredResources.forEach(r => next.delete(r.id));
+      filteredResources.forEach((r) => next.delete(r.id));
     } else {
       // Chọn tất cả trong tab hiện tại
-      filteredResources.forEach(r => next.add(r.id));
+      filteredResources.forEach((r) => next.add(r.id));
     }
     setSheetSelectedResources(next);
   };
 
   const handleApplyBulk = () => {
     const userIds = Array.from(selectedUserIds);
-    const resources = Array.from(sheetSelectedResources).map((id) => {
-      const res = availableResources.find((r) => r.id === id);
-      return { id, type: res!.type };
-    });
-    
+    const resources = Array.from(sheetSelectedResources)
+      .map((id) => {
+        const res = availableResources.find((r) => r.id === id);
+        if (!res) {
+          return null;
+        }
+        return { id, type: res.type };
+      })
+      .filter(
+        (
+          resource,
+        ): resource is {
+          id: string;
+          type: "profile" | "group";
+        } => resource !== null,
+      );
+
     if (userIds.length > 0 && resources.length > 0) {
       onBulkManage(userIds, resources, sheetMode);
     }
-    
+
     setIsSheetOpen(false);
     setSelectedUserIds(new Set());
   };
@@ -231,12 +255,18 @@ export function MemberPermissionsMatrix({
                 manageableMembers.map((member) => (
                   <TableRow
                     key={member.userId}
-                    data-state={selectedUserIds.has(member.userId) ? "selected" : undefined}
+                    data-state={
+                      selectedUserIds.has(member.userId)
+                        ? "selected"
+                        : undefined
+                    }
                   >
                     <TableCell className="text-center">
                       <Checkbox
                         checked={selectedUserIds.has(member.userId)}
-                        onCheckedChange={() => toggleUserSelection(member.userId)}
+                        onCheckedChange={() =>
+                          toggleUserSelection(member.userId)
+                        }
                       />
                     </TableCell>
                     <TableCell className="font-medium text-foreground">
@@ -246,7 +276,10 @@ export function MemberPermissionsMatrix({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px] uppercase">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] uppercase"
+                      >
                         {member.role}
                       </Badge>
                     </TableCell>
@@ -256,7 +289,10 @@ export function MemberPermissionsMatrix({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="secondary" className="px-2 font-mono text-blue-500">
+                      <Badge
+                        variant="secondary"
+                        className="px-2 font-mono text-blue-500"
+                      >
                         {getResourceCount(member.email, "group")}
                       </Badge>
                     </TableCell>
@@ -280,20 +316,35 @@ export function MemberPermissionsMatrix({
 
       {/* Sheet / Drawer for choosing multiple resources */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="w-[480px] sm:max-w-md flex flex-col p-0 h-full">
+        <SheetContent
+          side="right"
+          className="w-[480px] sm:max-w-md flex flex-col p-0 h-full"
+        >
           <SheetHeader className="p-6 pb-4 border-b border-border/70">
             <SheetTitle className="flex items-center gap-2">
-              {sheetMode === "grant" ? "Cấp quyền truy cập" : "Gỡ quyền truy cập"}
-              {sheetMode === "revoke" && <ShieldAlert className="h-4 w-4 text-destructive" />}
+              {sheetMode === "grant"
+                ? "Cấp quyền truy cập"
+                : "Gỡ quyền truy cập"}
+              {sheetMode === "revoke" && (
+                <ShieldAlert className="h-4 w-4 text-destructive" />
+              )}
             </SheetTitle>
             <SheetDescription>
-              {(sheetMode === "grant" ? "Chỉ định" : "Thu hồi")} quyền trên các Profile/Group dưới đây cho{" "}
-              <strong className="text-foreground">{selectedUserIds.size} thành viên</strong>.
+              {sheetMode === "grant" ? "Chỉ định" : "Thu hồi"} quyền trên các
+              Profile/Group dưới đây cho{" "}
+              <strong className="text-foreground">
+                {selectedUserIds.size} thành viên
+              </strong>
+              .
             </SheetDescription>
           </SheetHeader>
 
           <div className="px-6 py-3 border-b border-border/70">
-            <Tabs value={sheetTab} onValueChange={(v) => setSheetTab(v as any)} className="w-full mb-3">
+            <Tabs
+              value={sheetTab}
+              onValueChange={(v) => setSheetTab(v as any)}
+              className="w-full mb-3"
+            >
               <TabsList className="w-full grid grid-cols-3">
                 <TabsTrigger value="all">Tất cả</TabsTrigger>
                 <TabsTrigger value="profile">Profiles</TabsTrigger>
@@ -318,11 +369,19 @@ export function MemberPermissionsMatrix({
                 onClick={toggleAllResources}
               >
                 <Checkbox
-                  checked={isAllFilteredSelected ? true : isIndeterminate ? "indeterminate" : false}
+                  checked={
+                    isAllFilteredSelected
+                      ? true
+                      : isIndeterminate
+                        ? "indeterminate"
+                        : false
+                  }
                 />
-                <span className="text-sm font-semibold">Chọn tất cả hiện thị ({filteredResources.length})</span>
+                <span className="text-sm font-semibold">
+                  Chọn tất cả hiện thị ({filteredResources.length})
+                </span>
               </div>
-              
+
               {filteredResources.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-md mt-4">
                   Trống.
@@ -343,7 +402,7 @@ export function MemberPermissionsMatrix({
                           "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
                           res.type === "group"
                             ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
-                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
                         )}
                       >
                         {res.type === "group" ? (

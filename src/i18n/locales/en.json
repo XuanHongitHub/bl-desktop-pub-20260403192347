@@ -2105,8 +2105,8 @@
     "googleErrorAuthCodeUnsupported": "Authorization code OAuth flow is not supported in this app yet.",
     "googleErrorMissingTokens": "Google callback did not include required auth tokens.",
     "googleErrorAccessDenied": "Google access was denied by the user.",
-    "invalidCredentialsTitle": "Email or password is incorrect.",
-    "invalidCredentialsDescription": "Use the password you registered for this local account. `Password123!` is only a test value in specs, not a runtime default.",
+    "invalidCredentialsTitle": "Login failed",
+    "invalidCredentialsDescription": "The email or password you entered is incorrect. Please check and try again.",
     "emailAlreadyRegisteredTitle": "This email is already registered.",
     "emailAlreadyRegisteredDescription": "Sign in with the existing password, or use Forgot Password if you need to recover access.",
     "controlAuthUnavailableTitle": "Authentication service unreachable",
@@ -5644,7 +5644,7 @@
       },
       "registry": {
         "title": "Registry Component Inventory",
-        "description": "Component set cloned into src/frontend-shadcn/ui.",
+        "description": "Component set is integrated into the shared UI system.",
         "footer": "Total cloned components: {{value}}."
       },
       "navigation": {

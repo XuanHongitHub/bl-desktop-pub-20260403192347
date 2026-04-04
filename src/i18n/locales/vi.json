@@ -2105,8 +2105,8 @@
     "googleErrorAuthCodeUnsupported": "App hiện chưa hỗ trợ OAuth authorization code flow.",
     "googleErrorMissingTokens": "Google callback không có token xác thực cần thiết.",
     "googleErrorAccessDenied": "Bạn đã từ chối quyền truy cập Google.",
-    "invalidCredentialsTitle": "Email hoặc mật khẩu không đúng.",
-    "invalidCredentialsDescription": "Hãy dùng đúng mật khẩu bạn đã đăng ký cho tài khoản local này. `Password123!` chỉ là giá trị test trong spec, không phải mật khẩu mặc định khi chạy app.",
+    "invalidCredentialsTitle": "Đăng nhập không thành công",
+    "invalidCredentialsDescription": "Email hoặc mật khẩu bạn nhập không chính xác. Vui lòng kiểm tra và thử lại.",
     "emailAlreadyRegisteredTitle": "Email này đã được đăng ký.",
     "emailAlreadyRegisteredDescription": "Hãy đăng nhập bằng mật khẩu hiện có, hoặc dùng Quên mật khẩu nếu cần khôi phục quyền truy cập.",
     "controlAuthUnavailableTitle": "Không kết nối được dịch vụ đăng nhập",
@@ -5644,7 +5644,7 @@
       },
       "registry": {
         "title": "Registry Component Inventory",
-        "description": "Bộ component đã clone vào src/frontend-shadcn/ui.",
+        "description": "Bộ component đã được tích hợp vào hệ UI dùng chung.",
         "footer": "Tổng số component đã clone: {{value}}."
       },
       "navigation": {
