@@ -1,0 +1,241 @@
+name: Release Packaging Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag for target repo (for example v1.0.0)"
+        required: true
+      target_repo:
+        description: "Target repository (owner/name)"
+        required: true
+        default: "keyduc91/Malvanut-Login"
+  push:
+    tags:
+      - "v*-desktop*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    timeout-minutes: 90
+    env: &desktop_env
+      BUGLOGIN_BROWSER_API_BASE: ${{ vars.BUGLOGIN_BROWSER_API_BASE || 'https://api.buglogin.com' }}
+      NEXT_PUBLIC_SYNC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_DEFAULT_SYNC_SERVER_URL: ${{ vars.BUGLOGIN_DEFAULT_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
+      NEXT_PUBLIC_WEB_PORTAL_URL: ${{ vars.NEXT_PUBLIC_WEB_PORTAL_URL || 'https://buglogin.com' }}
+      NEXT_PUBLIC_BILLING_PORTAL_URL: ${{ vars.NEXT_PUBLIC_BILLING_PORTAL_URL || 'https://buglogin.com' }}
+      NEXT_PUBLIC_STRIPE_BILLING_URL: ${{ vars.NEXT_PUBLIC_STRIPE_BILLING_URL || 'https://buglogin.com' }}
+      BUGLOGIN_AUTH_API_URL: ${{ vars.BUGLOGIN_AUTH_API_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_CLOUD_API_URL: ${{ vars.BUGLOGIN_CLOUD_API_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_CLOUD_SYNC_URL: ${{ vars.BUGLOGIN_CLOUD_SYNC_URL || 'https://sync.buglogin.com' }}
+      BUGLOGIN_RELEASE_API_URL: ${{ vars.BUGLOGIN_RELEASE_API_URL || 'https://api.buglogin.com/v1/browser/release' }}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: 403889738022-q2k5otjm1jigt17hrs3oolarlh14759r.apps.googleusercontent.com
+      RUSTFLAGS: -C debuginfo=0
+      CARGO_INCREMENTAL: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: buglogin-desktop-public-release-win
+
+      - name: Preflight Browser Endpoint Config
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $blockedHosts = @("gnohh.com", "api.gnohh.com")
+          $varsToCheck = @(
+            "BUGLOGIN_BROWSER_API_BASE",
+            "NEXT_PUBLIC_SYNC_SERVER_URL",
+            "BUGLOGIN_DEFAULT_SYNC_SERVER_URL",
+            "BUGLOGIN_AUTH_API_URL",
+            "BUGLOGIN_CLOUD_API_URL",
+            "BUGLOGIN_RELEASE_API_URL"
+          )
+
+          foreach ($name in $varsToCheck) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw "Missing required env: $name"
+            }
+            foreach ($blocked in $blockedHosts) {
+              if ($value.ToLowerInvariant().Contains($blocked)) {
+                throw "Blocked legacy host '$blocked' found in $name=$value"
+              }
+            }
+          }
+
+          $browserBase = $env:BUGLOGIN_BROWSER_API_BASE.TrimEnd("/")
+          foreach ($slug in @("bugox", "bugium")) {
+            $url = "$browserBase/v1/browser/$slug.json"
+            Write-Host "Preflight GET $url"
+            $resp = Invoke-WebRequest -Uri $url -Method GET -TimeoutSec 20
+            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 300) {
+              throw "Non-success status for $url : $($resp.StatusCode)"
+            }
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows installer (NSIS)
+        run: pnpm tauri build --bundles nsis
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          Get-ChildItem -Recurse src-tauri/target/release/bundle/nsis | ForEach-Object {
+            Copy-Item $_.FullName -Destination dist-release -Force
+          }
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: buglogin-desktop-windows-nsis
+          path: dist-release/*
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    timeout-minutes: 90
+    env: *desktop_env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: buglogin-desktop-public-release-macos
+
+      - name: Preflight Browser Endpoint Config
+        shell: bash
+        run: |
+          set -euo pipefail
+          vars=(
+            BUGLOGIN_BROWSER_API_BASE
+            NEXT_PUBLIC_SYNC_SERVER_URL
+            BUGLOGIN_DEFAULT_SYNC_SERVER_URL
+            BUGLOGIN_AUTH_API_URL
+            BUGLOGIN_CLOUD_API_URL
+            BUGLOGIN_RELEASE_API_URL
+          )
+          for name in "${vars[@]}"; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required env: $name" >&2
+              exit 1
+            fi
+            if [[ "$value" == *"gnohh.com"* ]]; then
+              echo "Blocked legacy host in $name=$value" >&2
+              exit 1
+            fi
+          done
+
+          base="${BUGLOGIN_BROWSER_API_BASE%/}"
+          for slug in bugox bugium; do
+            url="$base/v1/browser/$slug.json"
+            echo "Preflight GET $url"
+            curl -fsS --max-time 20 "$url" >/dev/null
+          done
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build macOS installer (DMG)
+        run: pnpm tauri build --bundles dmg
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist-release
+          cp -f src-tauri/target/release/bundle/dmg/* dist-release/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: buglogin-desktop-macos-dmg
+          path: dist-release/*
+          if-no-files-found: error
+
+  publish-to-target:
+    needs:
+      - build-windows
+      - build-macos
+    runs-on: ubuntu-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          merge-multiple: true
+
+      - name: Publish release in target repository
+        env:
+          GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
+          TARGET_REPO: ${{ inputs.target_repo || 'keyduc91/Malvanut-Login' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "TARGET_REPO_TOKEN secret is not configured."
+            exit 1
+          fi
+          if [ -z "${TARGET_REPO:-}" ]; then
+            echo "target_repo input is required."
+            exit 1
+          fi
+          if [ -z "${RELEASE_TAG:-}" ]; then
+            echo "release_tag input is required."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --clobber
+          else
+            gh release create "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --title "$RELEASE_TAG" --notes "Automated desktop package release."
+          fi
