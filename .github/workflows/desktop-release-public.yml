@@ -71,25 +71,23 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $blockedHosts = @("gnohh.com", "api.gnohh.com")
-          $varsToCheck = @(
-            "BUGLOGIN_BROWSER_API_BASE",
-            "NEXT_PUBLIC_SYNC_SERVER_URL",
-            "BUGLOGIN_DEFAULT_SYNC_SERVER_URL",
-            "BUGLOGIN_AUTH_API_URL",
-            "BUGLOGIN_CLOUD_API_URL",
-            "BUGLOGIN_RELEASE_API_URL"
-          )
+          $expectedHosts = @{
+            "BUGLOGIN_BROWSER_API_BASE" = "api.buglogin.com"
+            "NEXT_PUBLIC_SYNC_SERVER_URL" = "api.buglogin.com"
+            "BUGLOGIN_DEFAULT_SYNC_SERVER_URL" = "api.buglogin.com"
+            "BUGLOGIN_AUTH_API_URL" = "api.buglogin.com"
+            "BUGLOGIN_CLOUD_API_URL" = "api.buglogin.com"
+            "BUGLOGIN_RELEASE_API_URL" = "api.buglogin.com"
+          }
 
-          foreach ($name in $varsToCheck) {
+          foreach ($name in $expectedHosts.Keys) {
             $value = [Environment]::GetEnvironmentVariable($name)
             if ([string]::IsNullOrWhiteSpace($value)) {
               throw "Missing required env: $name"
             }
-            foreach ($blocked in $blockedHosts) {
-              if ($value.ToLowerInvariant().Contains($blocked)) {
-                throw "Blocked legacy host '$blocked' found in $name=$value"
-              }
+            $expected = $expectedHosts[$name]
+            if (-not $value.ToLowerInvariant().Contains($expected)) {
+              throw "Unexpected host in $name=$value (expected host contains '$expected')"
             }
           }
 
@@ -171,8 +169,9 @@ jobs:
               echo "Missing required env: $name" >&2
               exit 1
             fi
-            if [[ "$value" == *"gnohh.com"* ]]; then
-              echo "Blocked legacy host in $name=$value" >&2
+            expected_host="api.buglogin.com"
+            if [[ "$value" != *"$expected_host"* ]]; then
+              echo "Unexpected host in $name=$value (expected contains $expected_host)" >&2
               exit 1
             fi
           done
