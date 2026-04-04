@@ -52,7 +52,7 @@ const require = createRequire(import.meta.url);
 const baseUrl = (
   process.env.SMOKE_BASE_URL ||
   process.env.BASE_URL ||
-  "https://api.bugdev.site"
+  "https://api.buglogin.com"
 ).replace(/\/+$/, "");
 const controlToken =
   process.env.CONTROL_API_TOKEN ||
