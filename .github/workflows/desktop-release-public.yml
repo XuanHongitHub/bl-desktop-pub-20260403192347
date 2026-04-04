@@ -145,6 +145,40 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Validate macOS signing/notarization config (publish mode)
+        if: inputs.publish_release == true
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          required=(
+            APPLE_CERTIFICATE
+            APPLE_CERTIFICATE_PASSWORD
+            APPLE_SIGNING_IDENTITY
+            APPLE_ID
+            APPLE_PASSWORD
+            APPLE_TEAM_ID
+          )
+          for key in "${required[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required macOS signing secret in publish mode: $key" >&2
+              exit 1
+            fi
+          done
+
+      - name: Import Apple signing certificate
+        if: secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != ''
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -187,12 +221,20 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build macOS installer (DMG)
-        run: pnpm tauri build --bundles dmg
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm tauri build --bundles app,dmg
 
       - name: Collect artifacts
         run: |
           mkdir -p dist-release
           cp -f src-tauri/target/release/bundle/dmg/* dist-release/
+          if [ -d "src-tauri/target/release/bundle/macos/BugLogin.app" ]; then
+            ditto -c -k --keepParent "src-tauri/target/release/bundle/macos/BugLogin.app" "dist-release/BugLogin-macos-app.zip"
+          fi
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
