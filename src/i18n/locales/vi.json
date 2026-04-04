@@ -5303,6 +5303,20 @@
       "badge": "Tải xuống",
       "title": "Tải BugLogin desktop app.",
       "description": "Nhận runtime app và đồng bộ entitlement từ web portal.",
+      "installers": {
+        "title": "Bộ cài desktop",
+        "description": "Tự động lấy từ release mới nhất của repository deploy.",
+        "latest": "Release mới nhất: {{tag}}",
+        "loading": "Đang tải danh sách bộ cài...",
+        "error": "Không thể tải link cài đặt lúc này.",
+        "downloadForCurrentOs": "Tải cho thiết bị hiện tại",
+        "download": "Tải xuống",
+        "windows": "Windows",
+        "macIntel": "macOS (Intel)",
+        "macApple": "macOS (Apple Silicon)",
+        "linux": "Linux",
+        "empty": "Chưa có bộ cài phù hợp."
+      },
       "cards": {
         "windows": {
           "title": "Bản Windows sẵn sàng",
