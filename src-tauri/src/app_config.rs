@@ -66,7 +66,7 @@ impl Default for AppEndpoints {
       cloud_sync_url: "https://sync.buglogin.com".to_string(),
       update_check_url: "https://api.buglogin.com/v1/app/check-update".to_string(),
       browser_manifest_url: "https://api.buglogin.com/v1/browsers/manifest".to_string(),
-      auth_api_url: None,
+      auth_api_url: Some("https://api.buglogin.com".to_string()),
       stripe_publishable_key: None,
       stripe_billing_url: None,
     }
