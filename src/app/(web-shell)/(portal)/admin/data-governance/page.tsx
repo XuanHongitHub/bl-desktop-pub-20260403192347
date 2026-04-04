@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -138,9 +139,10 @@ export default function AdminDataGovernancePage() {
                       <p className="truncate text-sm font-medium text-foreground">
                         {row.workspaceName}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.planLabel} · {row.members} members
-                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <AdminPlanBadge planId={row.planLabel.toLowerCase()} />
+                        <span>· {row.members} members</span>
+                      </div>
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <p>{row.activeInvites} invites</p>

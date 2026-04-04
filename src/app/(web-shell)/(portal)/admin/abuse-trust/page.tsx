@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -208,18 +209,10 @@ export default function AdminAbuseTrustOverviewPage() {
                           </div>
                         </TableCell>
                         <TableCell className="capitalize">
-                          {row.subscriptionStatus}
+                          <AdminStatusBadge status={row.subscriptionStatus} />
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              row.riskLevel === "high"
-                                ? "destructive"
-                                : "outline"
-                            }
-                          >
-                            {row.riskLevel}
-                          </Badge>
+                          <AdminStatusBadge status={row.riskLevel} />
                         </TableCell>
                         <TableCell>{row.members}</TableCell>
                         <TableCell>{Math.round(row.storagePercent)}%</TableCell>

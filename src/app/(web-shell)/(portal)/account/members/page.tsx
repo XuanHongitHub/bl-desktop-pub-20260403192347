@@ -173,11 +173,11 @@ export default function AccountMembersPage() {
     <div className="mx-auto w-full max-w-[1120px] p-4 lg:p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("adminWorkspace.ui.memberList")}
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            {t("adminWorkspace.ui.memberList", "Thành viên")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("adminWorkspace.ui.memberRoleDesc")}
+            {t("adminWorkspace.ui.memberRoleDesc", "Quản lý và cấp quyền phân bổ tài nguyên Profile/Group cho các thành viên.")}
           </p>
         </div>
       </div>
@@ -188,8 +188,8 @@ export default function AccountMembersPage() {
         className="w-full"
       >
         <TabsList className="mb-6 grid w-full max-w-[400px] grid-cols-2">
-          <TabsTrigger value="directory">{t("shell.auth.roles.member")}</TabsTrigger>
-          <TabsTrigger value="permissions">{t("shell.nav.permissions")}</TabsTrigger>
+          <TabsTrigger value="directory" className="text-sm font-medium">{t("shell.auth.roles.member", "Thành viên")}</TabsTrigger>
+          <TabsTrigger value="permissions" className="text-sm font-medium">{t("shell.nav.permissions", "Phân quyền")}</TabsTrigger>
         </TabsList>
 
         <AdminWorkspaceTab

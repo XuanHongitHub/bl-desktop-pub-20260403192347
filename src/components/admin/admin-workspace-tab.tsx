@@ -68,6 +68,7 @@ interface AdminWorkspaceTabProps {
   memberships: ControlMembership[];
   invites: ControlInvite[];
   shareGrants: ControlShareGrant[];
+  availableResources?: { id: string; name: string; type: "profile" | "group" }[];
   workspaceName: string;
   setWorkspaceName: (name: string) => void;
   workspaceMode: "personal" | "team";
@@ -1327,13 +1328,6 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
   };
 
   const renderPermissionsFlow = () => {
-    // MOCK Resource Data for Phase 1 testing
-    const availableResources = [
-      { id: "g1", name: "Facebook Ads Group", type: "group" as const },
-      { id: "g2", name: "TikTok Agency", type: "group" as const },
-      { id: "p1", name: "Profile Via 1", type: "profile" as const },
-    ];
-
     return (
       <div className="space-y-4">
         {!canManageUserPermissions && (
@@ -1344,7 +1338,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
         <MemberPermissionsMatrix
           memberships={props.memberships}
           shareGrants={props.shareGrants}
-          availableResources={availableResources}
+          availableResources={props.availableResources ?? []}
           onBulkManage={(u, r, action) => { console.log(u, r, action); }}
           isPlatformAdmin={props.isPlatformAdmin}
         />
@@ -1438,12 +1432,6 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
   return (
     <div className="space-y-4">
-      {isLocalMode && (
-        <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-          {t("adminWorkspace.ui.localModeEnabled")}
-        </div>
-      )}
-
       {workspaceScopedOnly ? (
         <div className="space-y-4">
           {renderFlowContent()}

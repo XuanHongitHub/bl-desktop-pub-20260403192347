@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useMemo } from "react";
 import {
@@ -30,6 +30,7 @@ import {
   SheetTitle,
   SheetFooter,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { ControlMembership, ControlShareGrant } from "@/types";
 
@@ -63,6 +64,7 @@ export function MemberPermissionsMatrix({
   // Sheet states
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sheetSearch, setSheetSearch] = useState("");
+  const [sheetTab, setSheetTab] = useState<"all" | "profile" | "group">("all");
   const [sheetSelectedResources, setSheetSelectedResources] = useState<Set<string>>(new Set());
   const [sheetMode, setSheetMode] = useState<"grant" | "revoke">("grant");
 
@@ -107,10 +109,11 @@ export function MemberPermissionsMatrix({
 
   const filteredResources = useMemo(() => {
     return availableResources.filter((r) => {
+      if (sheetTab !== "all" && r.type !== sheetTab) return false;
       if (!sheetSearch) return true;
       return r.name.toLowerCase().includes(sheetSearch.toLowerCase());
     });
-  }, [availableResources, sheetSearch]);
+  }, [availableResources, sheetSearch, sheetTab]);
 
   const toggleResourceSelection = (resId: string) => {
     const next = new Set(sheetSelectedResources);
@@ -119,12 +122,20 @@ export function MemberPermissionsMatrix({
     setSheetSelectedResources(next);
   };
 
+  const activeFilteredCount = filteredResources.filter(r => sheetSelectedResources.has(r.id)).length;
+  const isAllFilteredSelected = filteredResources.length > 0 && activeFilteredCount === filteredResources.length;
+  const isIndeterminate = activeFilteredCount > 0 && activeFilteredCount < filteredResources.length;
+
   const toggleAllResources = () => {
-    if (sheetSelectedResources.size === filteredResources.length) {
-      setSheetSelectedResources(new Set());
+    const next = new Set(sheetSelectedResources);
+    if (isAllFilteredSelected) {
+      // Bỏ chọn tất cả trong tab hiện tại
+      filteredResources.forEach(r => next.delete(r.id));
     } else {
-      setSheetSelectedResources(new Set(filteredResources.map((r) => r.id)));
+      // Chọn tất cả trong tab hiện tại
+      filteredResources.forEach(r => next.add(r.id));
     }
+    setSheetSelectedResources(next);
   };
 
   const handleApplyBulk = () => {
@@ -282,11 +293,18 @@ export function MemberPermissionsMatrix({
           </SheetHeader>
 
           <div className="px-6 py-3 border-b border-border/70">
+            <Tabs value={sheetTab} onValueChange={(v) => setSheetTab(v as any)} className="w-full mb-3">
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="all">Tất cả</TabsTrigger>
+                <TabsTrigger value="profile">Profiles</TabsTrigger>
+                <TabsTrigger value="group">Groups</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Tìm Profile hoặc Group..."
-                className="pl-8"
+                className="pl-8 h-9"
                 value={sheetSearch}
                 onChange={(e) => setSheetSearch(e.target.value)}
               />
@@ -300,10 +318,7 @@ export function MemberPermissionsMatrix({
                 onClick={toggleAllResources}
               >
                 <Checkbox
-                  checked={
-                    filteredResources.length > 0 &&
-                    sheetSelectedResources.size === filteredResources.length
-                  }
+                  checked={isAllFilteredSelected ? true : isIndeterminate ? "indeterminate" : false}
                 />
                 <span className="text-sm font-semibold">Chọn tất cả hiện thị ({filteredResources.length})</span>
               </div>

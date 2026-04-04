@@ -23,6 +23,8 @@ import {
 } from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -284,9 +286,12 @@ export function AdminCommercePlansPage() {
                 filtered.map((item) => (
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
-                      <p className="font-medium text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.code} · v{item.version}</p>
-                    </td>
+                       <p className="font-medium text-foreground">{item.name}</p>
+                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                         <AdminPlanBadge planId={item.code} />
+                         <span>· v{item.version}</span>
+                       </p>
+                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       ${item.monthlyPriceUsd} / ${item.yearlyPriceUsd}
                     </td>
@@ -294,8 +299,8 @@ export function AdminCommercePlansPage() {
                       {item.profiles} {t("portalSite.commerce.columns.profiles")} · {item.members} {t("portalSite.commerce.columns.members")}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{item.status}</Badge>
-                    </td>
+                       <AdminStatusBadge status={item.status} />
+                     </td>
                     <td className="px-3 py-2">
                       <Button size="sm" variant="outline" onClick={() => void handlePublish(item.id)}>
                         {t("portalSite.commerce.actions.publish")}
@@ -479,8 +484,8 @@ export function AdminCommerceCampaignsPage() {
                       {formatLocaleDateTime(item.startsAt)} → {formatLocaleDateTime(item.endsAt)}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{item.status}</Badge>
-                    </td>
+                       <AdminStatusBadge status={item.status} />
+                     </td>
                     <td className="px-3 py-2">
                       <Button size="sm" variant="outline" onClick={() => void handleToggle(item)}>
                         {item.status === "running"
@@ -625,8 +630,8 @@ export function AdminCommerceCouponsPage() {
                       {item.redeemedCount} / {item.maxRedemptions}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{item.status}</Badge>
-                    </td>
+                       <AdminStatusBadge status={item.status} />
+                     </td>
                     <td className="px-3 py-2">
                       <Button size="sm" variant="outline" onClick={() => void handleDisable(item.id)}>
                         {t("portalSite.commerce.actions.disable")}
@@ -758,15 +763,18 @@ export function AdminCommerceLicensesPage() {
                 licenses.map((item) => (
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
-                      <p className="font-medium text-foreground">{item.keyMasked}</p>
-                      <p className="text-xs text-muted-foreground">{item.planCode} · {item.seats}</p>
-                    </td>
+                       <p className="font-medium text-foreground">{item.keyMasked}</p>
+                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                         <AdminPlanBadge planId={item.planCode} />
+                         <span>· {item.seats} seats</span>
+                       </p>
+                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {item.workspaceId ?? "--"} / {item.userId ?? "--"}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{item.status}</Badge>
-                    </td>
+                       <AdminStatusBadge status={item.status} />
+                     </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="outline" onClick={() => void handleAction(item, "rotate")}>

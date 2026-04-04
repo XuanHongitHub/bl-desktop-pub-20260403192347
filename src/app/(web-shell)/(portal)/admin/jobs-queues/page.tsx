@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -150,9 +151,7 @@ export default function AdminJobsQueuesPage() {
                         <p className="truncate text-sm font-medium text-foreground">
                           {row.workspaceName}
                         </p>
-                        <Badge variant={statusVariant(row.status)}>
-                          {row.status}
-                        </Badge>
+                        <AdminStatusBadge status={row.status} />
                       </div>
                       <p className="truncate text-xs text-muted-foreground">
                         {row.flowType} · {row.mode} · {row.createdBy}
