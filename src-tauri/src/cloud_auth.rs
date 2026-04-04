@@ -1180,6 +1180,36 @@ pub struct LocalControlPublicAuthUser {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LocalControlPublicAuthResponse {
   pub user: LocalControlPublicAuthUser,
+  #[serde(default, rename = "syncToken", alias = "sync_token")]
+  pub sync_token: Option<String>,
+  #[serde(default)]
+  pub token: Option<String>,
+  #[serde(default, rename = "controlToken", alias = "control_token")]
+  pub control_token: Option<String>,
+  #[serde(default, rename = "accessToken", alias = "access_token")]
+  pub access_token: Option<String>,
+}
+
+fn normalize_optional_token(token: Option<String>) -> Option<String> {
+  token.and_then(|value| {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+      None
+    } else {
+      Some(trimmed.to_string())
+    }
+  })
+}
+
+fn resolve_auth_response_sync_token(
+  response: &LocalControlPublicAuthResponse,
+  fallback: Option<String>,
+) -> Option<String> {
+  normalize_optional_token(response.sync_token.clone())
+    .or_else(|| normalize_optional_token(response.control_token.clone()))
+    .or_else(|| normalize_optional_token(response.token.clone()))
+    .or_else(|| normalize_optional_token(response.access_token.clone()))
+    .or_else(|| normalize_optional_token(fallback))
 }
 
 fn parse_control_auth_error_message(body: &str) -> Option<String> {
@@ -1223,6 +1253,7 @@ pub async fn local_control_public_auth(
   };
 
   let settings = crate::settings_manager::get_sync_settings(app_handle).await?;
+  let existing_sync_token = normalize_optional_token(settings.sync_token.clone());
   let base_url = settings
     .sync_server_url
     .map(|value| value.trim().trim_end_matches('/').to_string())
@@ -1246,10 +1277,23 @@ pub async fn local_control_public_auth(
     return Err(format!("http_{}", status.as_u16()));
   }
 
-  response
+  let parsed = response
     .json::<LocalControlPublicAuthResponse>()
     .await
-    .map_err(|error| format!("invalid_auth_response: {error}"))
+    .map_err(|error| format!("invalid_auth_response: {error}"))?;
+
+  let resolved_sync_token = resolve_auth_response_sync_token(&parsed, existing_sync_token);
+  if let Some(sync_token) = resolved_sync_token {
+    let manager = crate::settings_manager::SettingsManager::instance();
+    manager
+      .store_sync_token(&app_handle, &sync_token)
+      .await
+      .map_err(|error| format!("failed_to_store_sync_token: {error}"))?;
+  } else {
+    return Err("missing_control_sync_token".to_string());
+  }
+
+  Ok(parsed)
 }
 
 #[tauri::command]
