@@ -1,4 +1,4 @@
-name: Mirror Release Assets From Public Repo
+name: Release Asset Sync
 
 on:
   repository_dispatch:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       source_repo:
-        description: "Source public repo (owner/name)"
+        description: "Source repository (owner/name)"
         required: true
         default: "XuanHongitHub/ops-snapshot-labs"
       source_tag:

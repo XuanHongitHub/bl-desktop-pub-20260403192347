@@ -1,4 +1,4 @@
-name: Desktop Release (Public Repo)
+name: Desktop Release Pipeline
 
 on:
   workflow_dispatch:
@@ -154,14 +154,14 @@ jobs:
       SOURCE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
       TARGET_REPO: keyduc91/Malvanut-Login
     steps:
-      - name: Trigger private mirror workflow
+      - name: Trigger downstream asset sync workflow
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.PRIVATE_REPO_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "Missing secret PRIVATE_REPO_DISPATCH_TOKEN in public repo." >&2
+            echo "Missing secret PRIVATE_REPO_DISPATCH_TOKEN." >&2
             exit 1
           fi
 
