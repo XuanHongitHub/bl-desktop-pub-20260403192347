@@ -105,9 +105,11 @@ export function WindowDragArea() {
     e.preventDefault();
     e.stopPropagation();
 
-    void getCurrentWindow().startDragging().catch(() => {
-      // Best effort only.
-    });
+    void getCurrentWindow()
+      .startDragging()
+      .catch(() => {
+        // Best effort only.
+      });
   };
 
   // Linux: system decorations handle everything

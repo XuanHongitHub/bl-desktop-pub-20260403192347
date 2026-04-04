@@ -28,12 +28,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WayfernConfigForm } from "@/components/wayfern-config-form";
 import { useBrowserDownload } from "@/hooks/use-browser-download";
 import { getBrowserIcon } from "@/lib/browser-utils";
-import { cn } from "@/lib/utils";
 import {
   classifyProxyCheckError,
   type ProxyCheckFailureMeta,
 } from "@/lib/proxy-check-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import { cn } from "@/lib/utils";
 import {
   DATA_SCOPE_CHANGED_EVENT,
   getCurrentDataScope,
@@ -1075,7 +1075,8 @@ export function CreateProfileDialog({
             <SelectTrigger className="h-10 w-[260px]">
               <div className="flex min-w-0 flex-1 items-center gap-2 truncate">
                 {(() => {
-                  const iconKey = selectedBrowser === "camoufox" ? "camoufox" : "wayfern";
+                  const iconKey =
+                    selectedBrowser === "camoufox" ? "camoufox" : "wayfern";
                   const IconComponent = getBrowserIcon(iconKey);
                   return IconComponent ? (
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center">
@@ -1095,7 +1096,9 @@ export function CreateProfileDialog({
                 <div className="flex items-center gap-2">
                   {(() => {
                     const IconComponent = getBrowserIcon("wayfern");
-                    return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                    return IconComponent ? (
+                      <IconComponent className="h-4 w-4" />
+                    ) : null;
                   })()}
                   <span>{t("createProfile.antiDetect.chromium")}</span>
                 </div>
@@ -1104,7 +1107,9 @@ export function CreateProfileDialog({
                 <div className="flex items-center gap-2">
                   {(() => {
                     const IconComponent = getBrowserIcon("camoufox");
-                    return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                    return IconComponent ? (
+                      <IconComponent className="h-4 w-4" />
+                    ) : null;
                   })()}
                   <span>{t("createProfile.antiDetect.firefox")}</span>
                 </div>
@@ -1642,38 +1647,38 @@ export function CreateProfileDialog({
 
   const shellContent = (
     <>
-        <DialogHeader className="shrink-0 px-6 pt-6">
-          <h1 className="text-lg font-semibold leading-tight text-foreground">
-            {currentStep === "browser-selection"
-              ? "Create New Profile"
-              : "Configure Profile"}
-          </h1>
-        </DialogHeader>
+      <DialogHeader className="shrink-0 px-6 pt-6">
+        <h1 className="text-lg font-semibold leading-tight text-foreground">
+          {currentStep === "browser-selection"
+            ? "Create New Profile"
+            : "Configure Profile"}
+        </h1>
+      </DialogHeader>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={handleTabChange}
-          className="flex min-h-0 w-full flex-1 flex-col"
-        >
-          {/* Tab list hidden - only anti-detect browsers are supported */}
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="flex min-h-0 w-full flex-1 flex-col"
+      >
+        {/* Tab list hidden - only anti-detect browsers are supported */}
 
-          <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1">
+          <div
+            className={cn(
+              "mx-auto w-full px-6 py-4",
+              mode === "page" && currentStep === "browser-config"
+                ? "max-w-[1180px] lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-5"
+                : "max-w-3xl",
+            )}
+          >
             <div
               className={cn(
-                "mx-auto w-full px-6 py-4",
+                "min-w-0 space-y-6",
                 mode === "page" && currentStep === "browser-config"
-                  ? "max-w-[1180px] lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-5"
-                  : "max-w-3xl",
+                  ? "lg:max-w-[700px]"
+                  : "",
               )}
             >
-              <div
-                className={cn(
-                  "min-w-0 space-y-6",
-                  mode === "page" && currentStep === "browser-config"
-                    ? "lg:max-w-[700px]"
-                    : "",
-                )}
-              >
               {currentStep === "browser-config" && (
                 <div className="max-w-[640px] space-y-2">
                   <Tabs
@@ -1961,8 +1966,7 @@ export function CreateProfileDialog({
                               !getBestAvailableVersion("camoufox") && (
                                 <div className="flex gap-3 items-center p-3 rounded-md border border-yellow-500/50 bg-yellow-500/10">
                                   <p className="text-sm text-yellow-500">
-                                    Bugox is not available on your platform
-                                    yet.
+                                    Bugox is not available on your platform yet.
                                   </p>
                                 </div>
                               )}
@@ -2128,11 +2132,15 @@ export function CreateProfileDialog({
                         ))}
 
                       {configSection === "proxy" && (
-                        <div className="max-w-[640px]">{proxyComposerSection}</div>
+                        <div className="max-w-[640px]">
+                          {proxyComposerSection}
+                        </div>
                       )}
 
                       {configSection === "advanced" && (
-                        <div className="max-w-[640px]">{extensionGroupSection}</div>
+                        <div className="max-w-[640px]">
+                          {extensionGroupSection}
+                        </div>
                       )}
                     </div>
                   </TabsContent>
@@ -2239,102 +2247,106 @@ export function CreateProfileDialog({
                       )}
 
                       {configSection === "proxy" && (
-                        <div className="max-w-[640px]">{proxyComposerSection}</div>
+                        <div className="max-w-[640px]">
+                          {proxyComposerSection}
+                        </div>
                       )}
                       {configSection === "advanced" && ephemeralSection}
                       {configSection === "advanced" && (
-                        <div className="max-w-[640px]">{extensionGroupSection}</div>
+                        <div className="max-w-[640px]">
+                          {extensionGroupSection}
+                        </div>
                       )}
                     </div>
                   </TabsContent>
                 </>
               )}
-              </div>
-              {mode === "page" && currentStep === "browser-config" ? (
-                <aside className="mt-6 h-fit border-l border-border/70 pl-4 lg:mt-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {t("createProfile.workspace.previewTitle")}
-                  </p>
-                  <dl className="mt-3 space-y-2 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">
-                        {t("createProfile.workspace.previewBrowser")}
-                      </dt>
-                      <dd className="font-medium text-foreground">
-                        {selectedBrowser ? selectedBrowser : "--"}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">
-                        {t("createProfile.workspace.previewName")}
-                      </dt>
-                      <dd className="max-w-[11rem] truncate font-medium text-foreground">
-                        {profileName.trim() || "--"}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">
-                        {t("createProfile.workspace.previewProxy")}
-                      </dt>
-                      <dd className="font-medium text-foreground">
-                        {proxyInputMode === "existing"
-                          ? selectedExistingProxyId !== "none"
-                            ? t("createProfile.workspace.previewProxyExisting")
-                            : t("createProfile.workspace.previewProxyNone")
-                          : proxyForm.host.trim()
-                            ? `${proxyForm.proxy_type}://${proxyForm.host}:${proxyForm.port}`
-                            : t("createProfile.workspace.previewProxyNone")}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">
-                        {t("createProfile.workspace.previewLaunch")}
-                      </dt>
-                      <dd className="font-medium text-foreground">
-                        {launchAfterCreate
-                          ? t("createProfile.workspace.previewLaunchYes")
-                          : t("createProfile.workspace.previewLaunchNo")}
-                      </dd>
-                    </div>
-                  </dl>
-                </aside>
-              ) : null}
             </div>
-          </ScrollArea>
-        </Tabs>
+            {mode === "page" && currentStep === "browser-config" ? (
+              <aside className="mt-6 h-fit border-l border-border/70 pl-4 lg:mt-0">
+                <p className="text-sm font-semibold text-foreground">
+                  {t("createProfile.workspace.previewTitle")}
+                </p>
+                <dl className="mt-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      {t("createProfile.workspace.previewBrowser")}
+                    </dt>
+                    <dd className="font-medium text-foreground">
+                      {selectedBrowser ? selectedBrowser : "--"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      {t("createProfile.workspace.previewName")}
+                    </dt>
+                    <dd className="max-w-[11rem] truncate font-medium text-foreground">
+                      {profileName.trim() || "--"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      {t("createProfile.workspace.previewProxy")}
+                    </dt>
+                    <dd className="font-medium text-foreground">
+                      {proxyInputMode === "existing"
+                        ? selectedExistingProxyId !== "none"
+                          ? t("createProfile.workspace.previewProxyExisting")
+                          : t("createProfile.workspace.previewProxyNone")
+                        : proxyForm.host.trim()
+                          ? `${proxyForm.proxy_type}://${proxyForm.host}:${proxyForm.port}`
+                          : t("createProfile.workspace.previewProxyNone")}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      {t("createProfile.workspace.previewLaunch")}
+                    </dt>
+                    <dd className="font-medium text-foreground">
+                      {launchAfterCreate
+                        ? t("createProfile.workspace.previewLaunchYes")
+                        : t("createProfile.workspace.previewLaunchNo")}
+                    </dd>
+                  </div>
+                </dl>
+              </aside>
+            ) : null}
+          </div>
+        </ScrollArea>
+      </Tabs>
 
-        <DialogFooter className="shrink-0 border-t px-6 py-4">
-          {currentStep === "browser-config" ? (
-            <>
-              <div className="flex items-center gap-2 mr-auto">
-                <Checkbox
-                  id="launch-after-create"
-                  checked={launchAfterCreate}
-                  onCheckedChange={(checked) =>
-                    setLaunchAfterCreate(checked === true)
-                  }
-                />
-                <Label htmlFor="launch-after-create" className="text-sm">
-                  {t("createProfile.launchAfterCreate")}
-                </Label>
-              </div>
-              <RippleButton variant="outline" onClick={handleClose}>
-                {t("common.buttons.cancel")}
-              </RippleButton>
-              <LoadingButton
-                onClick={handleCreate}
-                isLoading={isCreating}
-                disabled={isCreateDisabled}
-              >
-                {t("common.buttons.create")}
-              </LoadingButton>
-            </>
-          ) : (
+      <DialogFooter className="shrink-0 border-t px-6 py-4">
+        {currentStep === "browser-config" ? (
+          <>
+            <div className="flex items-center gap-2 mr-auto">
+              <Checkbox
+                id="launch-after-create"
+                checked={launchAfterCreate}
+                onCheckedChange={(checked) =>
+                  setLaunchAfterCreate(checked === true)
+                }
+              />
+              <Label htmlFor="launch-after-create" className="text-sm">
+                {t("createProfile.launchAfterCreate")}
+              </Label>
+            </div>
             <RippleButton variant="outline" onClick={handleClose}>
               {t("common.buttons.cancel")}
             </RippleButton>
-          )}
-        </DialogFooter>
+            <LoadingButton
+              onClick={handleCreate}
+              isLoading={isCreating}
+              disabled={isCreateDisabled}
+            >
+              {t("common.buttons.create")}
+            </LoadingButton>
+          </>
+        ) : (
+          <RippleButton variant="outline" onClick={handleClose}>
+            {t("common.buttons.cancel")}
+          </RippleButton>
+        )}
+      </DialogFooter>
     </>
   );
 

@@ -62,7 +62,9 @@ export function TablePaginationControls({
       <p className="text-xs text-muted-foreground">{summaryLabel}</p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{rowsPerPageLabel}</span>
+          <span className="text-xs text-muted-foreground">
+            {rowsPerPageLabel}
+          </span>
           <Select
             value={String(pageSize)}
             onValueChange={(value) => {

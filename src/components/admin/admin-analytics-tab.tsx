@@ -224,13 +224,27 @@ export function AdminAnalyticsTab({
                   <TableHead>
                     {t("adminWorkspace.analytics.columns.workspace")}
                   </TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.plan")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.access")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.members")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.storage")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.proxy")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.risk")}</TableHead>
-                  <TableHead>{t("adminWorkspace.analytics.columns.updatedAt")}</TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.plan")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.access")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.members")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.storage")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.proxy")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.risk")}
+                  </TableHead>
+                  <TableHead>
+                    {t("adminWorkspace.analytics.columns.updatedAt")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -249,7 +263,9 @@ export function AdminAnalyticsTab({
                       </TableCell>
                       <TableCell className="align-top">
                         <div className="space-y-1">
-                          <p className="text-sm text-foreground">{row.planLabel}</p>
+                          <p className="text-sm text-foreground">
+                            {row.planLabel}
+                          </p>
                           <Badge
                             variant={getSubscriptionBadgeVariant(
                               row.subscriptionStatus,

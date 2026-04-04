@@ -25,11 +25,13 @@ export interface SelfHostedInvoice {
 }
 
 function toWorkspaceSlug(workspaceId: string): string {
-  return workspaceId
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "WORKSPACE";
+  return (
+    workspaceId
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "WORKSPACE"
+  );
 }
 
 export function buildSelfHostedLicenseCode(

@@ -43,11 +43,16 @@ export function OperationProgressCard(props: OperationProgressCardProps) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className={cn("text-[10px] font-medium", getStatusTone(progress.status))}
+              className={cn(
+                "text-[10px] font-medium",
+                getStatusTone(progress.status),
+              )}
             >
               {props.statusLabel}
             </Badge>
-            <span className="text-[11px] text-muted-foreground">{props.summaryLabel}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {props.summaryLabel}
+            </span>
           </div>
         </div>
         {props.onClear ? (
@@ -64,7 +69,9 @@ export function OperationProgressCard(props: OperationProgressCardProps) {
       <div className="mt-2 space-y-1">
         <Progress value={props.percent} className="h-2" />
         {props.messageLabel ? (
-          <p className="line-clamp-1 text-[11px] text-muted-foreground">{props.messageLabel}</p>
+          <p className="line-clamp-1 text-[11px] text-muted-foreground">
+            {props.messageLabel}
+          </p>
         ) : null}
       </div>
     </div>

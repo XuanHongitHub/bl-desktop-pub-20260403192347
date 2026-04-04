@@ -1,25 +1,31 @@
 "use client";
 
-import { useTranslation } from "react-i18next";
-import { useParams, usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
-import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getAdminWorkspaceDetail } from "@/components/web-billing/control-api";
-import type { ControlAdminWorkspaceDetail } from "@/types";
+import { useTranslation } from "react-i18next";
+import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
+import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/page-loader";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAdminWorkspaceDetail } from "@/components/web-billing/control-api";
+import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
+import type { ControlAdminWorkspaceDetail } from "@/types";
 
-export default function AdminWorkspaceDetailLayout({ children }: { children: React.ReactNode }) {
+export default function AdminWorkspaceDetailLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const params = useParams();
   const pathname = usePathname();
   const workspaceId = decodeURIComponent(params.workspaceId as string);
   const { connection } = usePortalBillingData();
-  const [detail, setDetail] = useState<ControlAdminWorkspaceDetail | null>(null);
+  const [detail, setDetail] = useState<ControlAdminWorkspaceDetail | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +46,11 @@ export default function AdminWorkspaceDetailLayout({ children }: { children: Rea
   return (
     <PortalSettingsPage
       eyebrow={t("portalSite.admin.eyebrow")}
-      title={detail ? `Chi tiết: ${detail.workspaceName}` : `Workspace ID: ${workspaceId}`}
+      title={
+        detail
+          ? `Chi tiết: ${detail.workspaceName}`
+          : `Workspace ID: ${workspaceId}`
+      }
       description="Quản trị cấu hình, thành viên và phân quyền Workspace."
       actions={
         <Button asChild variant="outline" size="sm">
@@ -55,17 +65,29 @@ export default function AdminWorkspaceDetailLayout({ children }: { children: Rea
         <Tabs value={getTabValue()} className="w-full max-w-[1120px] mx-auto">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview" asChild>
-              <Link href={`/admin/workspaces/${encodeURIComponent(workspaceId)}`}>Tổng quan</Link>
+              <Link
+                href={`/admin/workspaces/${encodeURIComponent(workspaceId)}`}
+              >
+                Tổng quan
+              </Link>
             </TabsTrigger>
             <TabsTrigger value="members" asChild>
-              <Link href={`/admin/workspaces/${encodeURIComponent(workspaceId)}/members`}>Thành viên</Link>
+              <Link
+                href={`/admin/workspaces/${encodeURIComponent(workspaceId)}/members`}
+              >
+                Thành viên
+              </Link>
             </TabsTrigger>
             <TabsTrigger value="billing" asChild>
-              <Link href={`/admin/workspaces/${encodeURIComponent(workspaceId)}/billing`}>Gói & Cước phí</Link>
+              <Link
+                href={`/admin/workspaces/${encodeURIComponent(workspaceId)}/billing`}
+              >
+                Gói & Cước phí
+              </Link>
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        
+
         <div className="w-full max-w-[1120px] mx-auto">
           {loading ? <PageLoader /> : children}
         </div>

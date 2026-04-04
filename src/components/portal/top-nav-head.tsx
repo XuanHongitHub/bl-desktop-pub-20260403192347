@@ -91,7 +91,9 @@ export function TopNavHead({
         </button>
       ) : null}
 
-      {rightSlot ? <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-border" /> : null}
+      {rightSlot ? (
+        <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-border" />
+      ) : null}
       {rightSlot}
     </div>
   );

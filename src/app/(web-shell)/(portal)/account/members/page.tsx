@@ -19,16 +19,16 @@ import type { ControlInvite, ControlMembership, TeamRole } from "@/types";
 
 export default function AccountMembersPage() {
   const { t } = useTranslation();
-  const {
-    connection,
-    selectedWorkspaceId,
-    selectedWorkspace,
-  } = usePortalBillingData();
+  const { connection, selectedWorkspaceId, selectedWorkspace } =
+    usePortalBillingData();
 
   const activeWorkspaceRole = selectedWorkspace?.actorRole ?? "viewer";
-  const isTeamOperator = activeWorkspaceRole === "owner" || activeWorkspaceRole === "admin";
+  const isTeamOperator =
+    activeWorkspaceRole === "owner" || activeWorkspaceRole === "admin";
 
-  const [activeTab, setActiveTab] = useState<"directory" | "permissions">("directory");
+  const [activeTab, setActiveTab] = useState<"directory" | "permissions">(
+    "directory",
+  );
   const [isBusy, setIsBusy] = useState(false);
   const [memberships, setMemberships] = useState<ControlMembership[]>([]);
   const [invites, setInvites] = useState<ControlInvite[]>([]);
@@ -83,7 +83,8 @@ export default function AccountMembersPage() {
       await reloadData();
     } catch (error) {
       showErrorToast(t("adminWorkspace.api.inviteFailed"), {
-         description: error instanceof Error ? error.message : "Failed to invite",
+        description:
+          error instanceof Error ? error.message : "Failed to invite",
       });
     } finally {
       setIsBusy(false);
@@ -99,7 +100,8 @@ export default function AccountMembersPage() {
       await reloadData();
     } catch (error) {
       showErrorToast(t("portalSite.commerce.errors.actionFailed"), {
-         description: error instanceof Error ? error.message : "Failed to revoke",
+        description:
+          error instanceof Error ? error.message : "Failed to revoke",
       });
     } finally {
       setIsBusy(false);
@@ -122,7 +124,8 @@ export default function AccountMembersPage() {
       await reloadData();
     } catch (error) {
       showErrorToast(t("portalSite.commerce.errors.actionFailed"), {
-         description: error instanceof Error ? error.message : "Failed to update role",
+        description:
+          error instanceof Error ? error.message : "Failed to update role",
       });
     } finally {
       setIsBusy(false);
@@ -142,26 +145,32 @@ export default function AccountMembersPage() {
             Authorization: `Bearer ${connection.controlToken}`,
             "x-user-id": connection.userId,
             "x-user-email": connection.userEmail,
-            ...(connection.platformRole ? { "x-platform-role": connection.platformRole } : {}),
+            ...(connection.platformRole
+              ? { "x-platform-role": connection.platformRole }
+              : {}),
           },
           body: JSON.stringify({ reason: "removed_from_portal" }),
-        }
+        },
       );
-      
+
       if (!response.ok) {
         let msg = response.statusText;
         try {
           const body = await response.json();
-          if (body.message) msg = Array.isArray(body.message) ? body.message.join(", ") : body.message;
+          if (body.message)
+            msg = Array.isArray(body.message)
+              ? body.message.join(", ")
+              : body.message;
         } catch (_) {}
         throw new Error(msg);
       }
-      
+
       showSuccessToast(t("adminWorkspace.api.memberRemoved"));
       await reloadData();
     } catch (error) {
       showErrorToast(t("portalSite.commerce.errors.actionFailed"), {
-         description: error instanceof Error ? error.message : "Failed to remove member",
+        description:
+          error instanceof Error ? error.message : "Failed to remove member",
       });
     } finally {
       setIsBusy(false);
@@ -182,77 +191,86 @@ export default function AccountMembersPage() {
         </section>
       ) : null}
       {isTeamOperator ? (
-      <>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">
-            {t("adminWorkspace.ui.memberList", "Thành viên")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("adminWorkspace.ui.memberRoleDesc", "Quản lý và cấp quyền phân bổ tài nguyên Profile/Group cho các thành viên.")}
-          </p>
-        </div>
-      </div>
+        <>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                {t("adminWorkspace.ui.memberList", "Thành viên")}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t(
+                  "adminWorkspace.ui.memberRoleDesc",
+                  "Quản lý và cấp quyền phân bổ tài nguyên Profile/Group cho các thành viên.",
+                )}
+              </p>
+            </div>
+          </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => setActiveTab(val as "directory" | "permissions")}
-        className="w-full"
-      >
-        <TabsList className="mb-6 grid w-full max-w-[400px] grid-cols-2">
-          <TabsTrigger value="directory" className="text-sm font-medium">{t("shell.auth.roles.member", "Thành viên")}</TabsTrigger>
-          <TabsTrigger value="permissions" className="text-sm font-medium">{t("shell.nav.permissions", "Phân quyền")}</TabsTrigger>
-        </TabsList>
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) =>
+              setActiveTab(val as "directory" | "permissions")
+            }
+            className="w-full"
+          >
+            <TabsList className="mb-6 grid w-full max-w-[400px] grid-cols-2">
+              <TabsTrigger value="directory" className="text-sm font-medium">
+                {t("shell.auth.roles.member", "Thành viên")}
+              </TabsTrigger>
+              <TabsTrigger value="permissions" className="text-sm font-medium">
+                {t("shell.nav.permissions", "Phân quyền")}
+              </TabsTrigger>
+            </TabsList>
 
-        <AdminWorkspaceTab
-          isBusy={isBusy}
-          runtimeBaseUrl={null}
-          isPlatformAdmin={false}
-          isTeamOperator={isTeamOperator}
-          workspaceRole={activeWorkspaceRole}
-          workspaces={[]}
-          selectedWorkspaceId={selectedWorkspaceId}
-          selectedWorkspace={null}
-          overview={null}
-          memberships={memberships}
-          invites={invites}
-          shareGrants={[]}
-          workspaceName=""
-          setWorkspaceName={() => {}}
-          workspaceMode="team"
-          setWorkspaceMode={() => {}}
-          workspacePlanId="starter"
-          setWorkspacePlanId={() => {}}
-          workspaceBillingCycle="monthly"
-          setWorkspaceBillingCycle={() => {}}
-          inviteEmail={inviteEmail}
-          setInviteEmail={setInviteEmail}
-          inviteRole={inviteRole}
-          setInviteRole={setInviteRole}
-          shareResourceType="profile"
-          setShareResourceType={() => {}}
-          shareResourceId=""
-          setShareResourceId={() => {}}
-          shareRecipientEmail=""
-          setShareRecipientEmail={() => {}}
-          handleCreateWorkspace={() => {}}
-          setSelectedWorkspaceId={() => {}}
-          handleCreateInvite={handleCreateInvite}
-          handleRevokeInvite={handleRevokeInvite}
-          membershipRoleDrafts={membershipRoleDrafts}
-          setMembershipRoleDrafts={setMembershipRoleDrafts}
-          handleUpdateRole={handleUpdateRole}
-          handleRemoveMember={handleRemoveMember}
-          handleCreateShare={() => {}}
-          handleRevokeShare={() => {}}
-          currentUserEmail={connection?.userEmail ?? null}
-          currentUserId={connection?.userId ?? null}
-          workspaceScopedOnly={true}
-          forcedFlow={activeTab}
-          showFlowTabs={false}
-        />
-      </Tabs>
-      </>
+            <AdminWorkspaceTab
+              isBusy={isBusy}
+              runtimeBaseUrl={null}
+              isPlatformAdmin={false}
+              isTeamOperator={isTeamOperator}
+              workspaceRole={activeWorkspaceRole}
+              workspaces={[]}
+              selectedWorkspaceId={selectedWorkspaceId}
+              selectedWorkspace={null}
+              overview={null}
+              memberships={memberships}
+              invites={invites}
+              shareGrants={[]}
+              workspaceName=""
+              setWorkspaceName={() => {}}
+              workspaceMode="team"
+              setWorkspaceMode={() => {}}
+              workspacePlanId="starter"
+              setWorkspacePlanId={() => {}}
+              workspaceBillingCycle="monthly"
+              setWorkspaceBillingCycle={() => {}}
+              inviteEmail={inviteEmail}
+              setInviteEmail={setInviteEmail}
+              inviteRole={inviteRole}
+              setInviteRole={setInviteRole}
+              shareResourceType="profile"
+              setShareResourceType={() => {}}
+              shareResourceId=""
+              setShareResourceId={() => {}}
+              shareRecipientEmail=""
+              setShareRecipientEmail={() => {}}
+              handleCreateWorkspace={() => {}}
+              setSelectedWorkspaceId={() => {}}
+              handleCreateInvite={handleCreateInvite}
+              handleRevokeInvite={handleRevokeInvite}
+              membershipRoleDrafts={membershipRoleDrafts}
+              setMembershipRoleDrafts={setMembershipRoleDrafts}
+              handleUpdateRole={handleUpdateRole}
+              handleRemoveMember={handleRemoveMember}
+              handleCreateShare={() => {}}
+              handleRevokeShare={() => {}}
+              currentUserEmail={connection?.userEmail ?? null}
+              currentUserId={connection?.userId ?? null}
+              workspaceScopedOnly={true}
+              forcedFlow={activeTab}
+              showFlowTabs={false}
+            />
+          </Tabs>
+        </>
       ) : null}
     </div>
   );

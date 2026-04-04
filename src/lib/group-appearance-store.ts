@@ -10,7 +10,8 @@ export type GroupAppearanceRecord = {
 export type GroupAppearanceMap = Record<string, GroupAppearanceRecord>;
 
 export const GROUP_APPEARANCE_STORAGE_KEY = "buglogin.groupAppearance.v1";
-export const GROUP_APPEARANCE_UPDATED_EVENT = "buglogin:group-appearance-updated";
+export const GROUP_APPEARANCE_UPDATED_EVENT =
+  "buglogin:group-appearance-updated";
 export const DEFAULT_GROUP_COLOR = "#9ca3af";
 
 export function sanitizeGroupColor(value: string | undefined): string {
@@ -48,8 +49,13 @@ export function writeGroupAppearanceMap(next: GroupAppearanceMap) {
     return;
   }
   try {
-    window.localStorage.setItem(GROUP_APPEARANCE_STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent(GROUP_APPEARANCE_UPDATED_EVENT, { detail: next }));
+    window.localStorage.setItem(
+      GROUP_APPEARANCE_STORAGE_KEY,
+      JSON.stringify(next),
+    );
+    window.dispatchEvent(
+      new CustomEvent(GROUP_APPEARANCE_UPDATED_EVENT, { detail: next }),
+    );
   } catch {
     // Ignore localStorage write failures.
   }

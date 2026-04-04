@@ -7,9 +7,24 @@ import {
 
 test("selectWorkflowCookieProfilesForHydration skips hydrated and cached rows", () => {
   const rows = [
-    { profileId: "a", localCookieSnapshot: null, cookiePreview: null, status: "created" },
-    { profileId: "b", localCookieSnapshot: null, cookiePreview: null, status: "created" },
-    { profileId: "c", localCookieSnapshot: null, cookiePreview: null, status: "created" },
+    {
+      profileId: "a",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
+    {
+      profileId: "b",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
+    {
+      profileId: "c",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
   ];
 
   const next = selectWorkflowCookieProfilesForHydration(rows, {
@@ -23,9 +38,24 @@ test("selectWorkflowCookieProfilesForHydration skips hydrated and cached rows", 
 
 test("selectWorkflowCookieProfilesForHydration respects the batch limit", () => {
   const rows = [
-    { profileId: "a", localCookieSnapshot: null, cookiePreview: null, status: "created" },
-    { profileId: "b", localCookieSnapshot: null, cookiePreview: null, status: "created" },
-    { profileId: "c", localCookieSnapshot: null, cookiePreview: null, status: "created" },
+    {
+      profileId: "a",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
+    {
+      profileId: "b",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
+    {
+      profileId: "c",
+      localCookieSnapshot: null,
+      cookiePreview: null,
+      status: "created",
+    },
   ];
 
   const next = selectWorkflowCookieProfilesForHydration(rows, {
@@ -39,17 +69,35 @@ test("selectWorkflowCookieProfilesForHydration respects the batch limit", () => 
 
 test("applyWorkflowCookiePreviewRecords only updates rows with new cookie data", () => {
   const rows = [
-    { profileId: "a", cookiePreview: null, localCookieSnapshot: null, status: "created" },
-    { profileId: "b", cookiePreview: "old", localCookieSnapshot: "old", status: "created" },
+    {
+      profileId: "a",
+      cookiePreview: null,
+      localCookieSnapshot: null,
+      status: "created",
+    },
+    {
+      profileId: "b",
+      cookiePreview: "old",
+      localCookieSnapshot: "old",
+      status: "created",
+    },
   ];
-  const records = new Map([
-    ["a", { preview: "sid=1", snapshot: "sid=1" }],
-  ]);
+  const records = new Map([["a", { preview: "sid=1", snapshot: "sid=1" }]]);
 
   const next = applyWorkflowCookiePreviewRecords(rows, records);
 
   assert.deepEqual(next, [
-    { profileId: "a", cookiePreview: "sid=1", localCookieSnapshot: "sid=1", status: "created" },
-    { profileId: "b", cookiePreview: "old", localCookieSnapshot: "old", status: "created" },
+    {
+      profileId: "a",
+      cookiePreview: "sid=1",
+      localCookieSnapshot: "sid=1",
+      status: "created",
+    },
+    {
+      profileId: "b",
+      cookiePreview: "old",
+      localCookieSnapshot: "old",
+      status: "created",
+    },
   ]);
 });

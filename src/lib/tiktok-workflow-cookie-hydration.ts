@@ -55,10 +55,7 @@ export function selectWorkflowCookieProfilesForHydration(
 
 export function applyWorkflowCookiePreviewRecords<
   T extends WorkflowCookieHydrationRow,
->(
-  rows: T[],
-  records: Map<string, WorkflowCookiePreviewRecord>,
-): T[] {
+>(rows: T[], records: Map<string, WorkflowCookiePreviewRecord>): T[] {
   let changed = false;
   const nextRows = rows.map((row) => {
     const nextCookieData = records.get(row.profileId);

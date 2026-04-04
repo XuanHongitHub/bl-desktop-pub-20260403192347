@@ -80,21 +80,27 @@ export function usePersistentOperationProgress(
 ) {
   const staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
 
-  const [progress, setProgress] = useState<PersistentOperationProgress | null>(() => {
-    if (options.initialProgress) {
-      return options.initialProgress;
-    }
-    if (typeof window === "undefined" || !options.storageKey?.trim()) {
-      return null;
-    }
-    return parseStoredProgress(window.localStorage.getItem(options.storageKey));
-  });
+  const [progress, setProgress] = useState<PersistentOperationProgress | null>(
+    () => {
+      if (options.initialProgress) {
+        return options.initialProgress;
+      }
+      if (typeof window === "undefined" || !options.storageKey?.trim()) {
+        return null;
+      }
+      return parseStoredProgress(
+        window.localStorage.getItem(options.storageKey),
+      );
+    },
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !options.storageKey?.trim()) {
       return;
     }
-    const next = parseStoredProgress(window.localStorage.getItem(options.storageKey));
+    const next = parseStoredProgress(
+      window.localStorage.getItem(options.storageKey),
+    );
     setProgress(next);
   }, [options.storageKey]);
 
@@ -107,7 +113,9 @@ export function usePersistentOperationProgress(
         return options.initialProgress ?? null;
       }
       const currentUpdatedAt = Date.parse(current.updatedAt);
-      const incomingUpdatedAt = Date.parse(options.initialProgress?.updatedAt ?? "");
+      const incomingUpdatedAt = Date.parse(
+        options.initialProgress?.updatedAt ?? "",
+      );
       if (
         Number.isFinite(currentUpdatedAt) &&
         Number.isFinite(incomingUpdatedAt) &&
@@ -153,22 +161,25 @@ export function usePersistentOperationProgress(
     );
   }, [progress, staleAfterMs]);
 
-  const begin = useCallback((input: { label: string; total: number; message?: string }) => {
-    const timestamp = nowIso();
-    setProgress({
-      operationId: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      label: input.label,
-      status: "running",
-      total: Math.max(0, Math.round(input.total)),
-      processed: 0,
-      success: 0,
-      failed: 0,
-      skipped: 0,
-      message: input.message,
-      startedAt: timestamp,
-      updatedAt: timestamp,
-    });
-  }, []);
+  const begin = useCallback(
+    (input: { label: string; total: number; message?: string }) => {
+      const timestamp = nowIso();
+      setProgress({
+        operationId: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        label: input.label,
+        status: "running",
+        total: Math.max(0, Math.round(input.total)),
+        processed: 0,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+        message: input.message,
+        startedAt: timestamp,
+        updatedAt: timestamp,
+      });
+    },
+    [],
+  );
 
   const patch = useCallback(
     (input: {
@@ -184,16 +195,26 @@ export function usePersistentOperationProgress(
           return current;
         }
         const processed = clamp(
-          current.processed + Math.max(0, Math.round(input.processedDelta ?? 0)),
+          current.processed +
+            Math.max(0, Math.round(input.processedDelta ?? 0)),
           0,
           current.total,
         );
         return {
           ...current,
           processed,
-          success: Math.max(0, current.success + Math.round(input.successDelta ?? 0)),
-          failed: Math.max(0, current.failed + Math.round(input.failedDelta ?? 0)),
-          skipped: Math.max(0, current.skipped + Math.round(input.skippedDelta ?? 0)),
+          success: Math.max(
+            0,
+            current.success + Math.round(input.successDelta ?? 0),
+          ),
+          failed: Math.max(
+            0,
+            current.failed + Math.round(input.failedDelta ?? 0),
+          ),
+          skipped: Math.max(
+            0,
+            current.skipped + Math.round(input.skippedDelta ?? 0),
+          ),
           message: input.message ?? current.message,
           status: input.status ?? current.status,
           updatedAt: nowIso(),

@@ -7,7 +7,7 @@ function readFixture(fileName: string): string {
   const filePath = path.join(
     process.cwd(),
     "src/features/web/portal-home/fixtures",
-    fileName
+    fileName,
   );
   return fs.readFileSync(filePath, "utf8");
 }
@@ -99,7 +99,10 @@ function transformContentHtml(rawContentHtml: string): string {
       "Right now we show a spinner forever, which makes it look the car disappeared…",
       "Proxy auth can fail and keep a profile in opening state, which makes it look like the session disappeared…",
     ],
-    ["@Codex can you take a stab at this?", "@Runner can recheck this profile route?"],
+    [
+      "@Codex can you take a stab at this?",
+      "@Runner can recheck this profile route?",
+    ],
     ["jori connected Codex · just now", "user connected Runner · just now"],
     ["Examining issue ENG-2703", "Examining profile PF-2703"],
     [
@@ -139,12 +142,18 @@ function transformContentHtml(rawContentHtml: string): string {
       "synced profile D-0318 from cloud workspace · 2min ago",
     ],
     ["Triage Intelligence", "Sync Engine"],
-    ["added the label Performance and runtime", "validated cookie + proxy integrity"],
+    [
+      "added the label Performance and runtime",
+      "validated cookie + proxy integrity",
+    ],
     [
       "Sync Engine validated cookie + proxy integrity · 2min ago",
       "Sync engine validated proxy + cookie integrity · 2min ago",
     ],
-    ["@ Runner can you take a stab at this?", "@ Runner can validate this profile route?"],
+    [
+      "@ Runner can you take a stab at this?",
+      "@ Runner can validate this profile route?",
+    ],
     ["Examining issue PF-2703", "Examining profile PF-2703"],
     ["Examining issue", "Examining profile"],
     ["Todo to Ready", "Checking to Ready"],
@@ -161,8 +170,14 @@ function transformContentHtml(rawContentHtml: string): string {
       "Locating launch bootstrap logic for profile_state",
     ],
     ["Thinking ...", "Reviewing launch state ..."],
-    ["planning and building products.", "launching and managing browser profiles."],
-    ["A new species of browser tool.", "A new species of antidetect browser tool."],
+    [
+      "planning and building products.",
+      "launching and managing browser profiles.",
+    ],
+    [
+      "A new species of browser tool.",
+      "A new species of antidetect browser tool.",
+    ],
     [
       "A screenshot of the Linear app showing the issue that's currently in progress",
       "A screenshot of the BugLogin app showing a user profile workspace currently in progress",
@@ -209,27 +224,45 @@ function transformContentHtml(rawContentHtml: string): string {
     .replace(/\biOS\b/g, "runtime")
     .replace(/vehicle_state/g, "fingerprint_state")
     .replace(/0?2\s*\/\s*145/g, "56 / 2000")
-    .replace(/A screenshot of the BugLogin app showing the issue that&#x27;s currently in progress/g, "A screenshot of the BugLogin app showing a user profile workspace currently in progress")
+    .replace(
+      /A screenshot of the BugLogin app showing the issue that&#x27;s currently in progress/g,
+      "A screenshot of the BugLogin app showing a user profile workspace currently in progress",
+    )
     .replace(/created the issue via/g, "synced profile D-0318 via")
     .replace(/added the label/g, "validated")
-    .replace(/can you take a stab at this\?/g, "can you validate this profile route?")
+    .replace(
+      /can you take a stab at this\?/g,
+      "can you validate this profile route?",
+    )
     .replace(/Kicked off a task in/g, "Started a task in")
-    .replace(/Locating initialization logic for/g, "Locating launch bootstrap logic for")
+    .replace(
+      /Locating initialization logic for/g,
+      "Locating launch bootstrap logic for",
+    )
     .replace(/Thinking/g, "Reviewing launch state")
-    .replace(/A new species of browser tool\./g, "A new species of antidetect browser tool.")
+    .replace(
+      /A new species of browser tool\./g,
+      "A new species of antidetect browser tool.",
+    )
     .replace(/Todo to Ready/g, "Checking to Ready")
     .replace(/\bNew issue\b/g, "New profile")
-    .replace(/showing the issue that&#x27;s currently in progress/g, "showing a user profile workspace currently active")
-    .replace(/On it! I&#x27;ve received your request\./g, "Received. Preparing profile launch diagnostics.")
+    .replace(
+      /showing the issue that&#x27;s currently in progress/g,
+      "showing a user profile workspace currently active",
+    )
+    .replace(
+      /On it! I&#x27;ve received your request\./g,
+      "Received. Preparing profile launch diagnostics.",
+    )
     .replace(/kinetic\/kinetic-runtime/g, "browser-runtime/windows-x64")
     .replace(/fingerprint_state/g, "profile_state")
     .replaceAll(
       '<span class="sc-d5151d0-0 emXsJC">02</span><span>/</span><span>145</span>',
-      '<span class="sc-d5151d0-0 emXsJC">56</span><span>/</span><span>2000</span>'
+      '<span class="sc-d5151d0-0 emXsJC">56</span><span>/</span><span>2000</span>',
     )
     .replaceAll(
       'validated<!-- --> <span class="sc-d5151d0-0 fURFqh">Performance</span> and <span class="sc-d5151d0-0 fURFqh">runtime</span>',
-      'validated<!-- --> <span class="sc-d5151d0-0 fURFqh">Proxy</span> + <span class="sc-d5151d0-0 fURFqh">Cookie integrity</span>'
+      'validated<!-- --> <span class="sc-d5151d0-0 fURFqh">Proxy</span> + <span class="sc-d5151d0-0 fURFqh">Cookie integrity</span>',
     );
 
   const heroPreviewReplacements: Array<[string, string]> = [
@@ -281,15 +314,24 @@ function transformContentHtml(rawContentHtml: string): string {
     [/aria-label="Copy issue URL"/g, 'aria-label="Copy profile URL"'],
     [/aria-label="Copy issue ID"/g, 'aria-label="Copy profile ID"'],
     [/aria-label="Add issue"/g, 'aria-label="Add profile"'],
-    [/browser-runtime\/windows-x64\$ \/bin\/bash -lc rg --files -g &#x27;operators\.md&#x27; operators\.md/g, "browser-runtime/windows-x64$ verify --profiles --cookies --proxy --launch"],
+    [
+      /browser-runtime\/windows-x64\$ \/bin\/bash -lc rg --files -g &#x27;operators\.md&#x27; operators\.md/g,
+      "browser-runtime/windows-x64$ verify --profiles --cookies --proxy --launch",
+    ],
     [
       /Started a task in(?:<!-- -->\s*)?<span[^>]*>browser-runtime\/windows-x64<\/span>(?:\s*<!-- -->)?\s*environment\./g,
       'Started a task in<!-- --> <span class="sc-d5151d0-0 dRSbPB">browser-runtime/windows-x64</span> <!-- -->profile sandbox.',
     ],
-    [/synced profile D-0318 via\s*<span[^>]*>Slack<\/span>\s*on behalf of\s*<span[^>]*>ops<\/span>/g, 'synced profile D-0318 from <span class="sc-d5151d0-0 fURFqh">workspace queue</span>'],
+    [
+      /synced profile D-0318 via\s*<span[^>]*>Slack<\/span>\s*on behalf of\s*<span[^>]*>ops<\/span>/g,
+      'synced profile D-0318 from <span class="sc-d5151d0-0 fURFqh">workspace queue</span>',
+    ],
     [/\bTodo\b/g, "Checking"],
     [/\bTriage\b/g, "Routing"],
-    [/Performance<\/span> and <span class="sc-d5151d0-0 fURFqh">runtime/g, 'Proxy + Cookie integrity</span>'],
+    [
+      /Performance<\/span> and <span class="sc-d5151d0-0 fURFqh">runtime/g,
+      "Proxy + Cookie integrity</span>",
+    ],
   ];
 
   for (const [pattern, replacement] of heroPreviewRegexFallbacks) {

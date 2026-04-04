@@ -7,10 +7,11 @@ import {
   LuFolder,
   LuFolderOpen,
   LuPencil,
-  LuShare2,
   LuSettings2,
+  LuShare2,
   LuTrash2,
 } from "react-icons/lu";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,11 +19,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
+import { cn } from "@/lib/utils";
 import type { GroupWithCount } from "@/types";
 
 interface GroupBadgesProps {

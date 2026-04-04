@@ -31,7 +31,9 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const loadProxyUsageInFlightRef = useRef<Promise<void> | null>(null);
   const loadProxiesInFlightRef = useRef<Promise<void> | null>(null);
-  const proxyReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const proxyReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Load proxy usage (how many profiles are using each proxy)
   const loadProxyUsage = useCallback(async () => {
@@ -46,14 +48,10 @@ export function useProxyEvents(options: UseProxyEventsOptions = {}) {
       try {
         const profiles = await invokeCached<
           Array<{ id: string; proxy_id?: string }>
-        >(
-          "list_browser_profiles_light",
-          undefined,
-          {
-            key: LIST_BROWSER_PROFILES_CACHE_KEY,
-            ttlMs: PROXY_CACHE_TTL_MS,
-          },
-        );
+        >("list_browser_profiles_light", undefined, {
+          key: LIST_BROWSER_PROFILES_CACHE_KEY,
+          ttlMs: PROXY_CACHE_TTL_MS,
+        });
         const scope = getCurrentDataScope();
         const scopedProfiles = scopeEntitiesForContext(
           "profiles",

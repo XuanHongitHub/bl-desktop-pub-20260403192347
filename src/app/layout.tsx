@@ -1,5 +1,5 @@
-import localFont from "next/font/local";
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import "@/app/globals.css";
 import "flag-icons/css/flag-icons.min.css";

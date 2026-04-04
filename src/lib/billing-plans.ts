@@ -1,7 +1,7 @@
 import {
   PAID_PLAN_IDS,
-  PLAN_CATALOG,
   type PaidPlanId,
+  PLAN_CATALOG,
   type PlanSupportTier,
 } from "@/lib/plan-catalog";
 
@@ -30,8 +30,8 @@ export type CustomPlanOverride = {
   recommended: boolean;
 };
 
-export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] = PAID_PLAN_IDS.map(
-  (id) => {
+export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] =
+  PAID_PLAN_IDS.map((id) => {
     const item = PLAN_CATALOG[id];
     return {
       id,
@@ -43,8 +43,7 @@ export const BILLING_PLAN_DEFINITIONS: readonly BillingPlan[] = PAID_PLAN_IDS.ma
       support: item.support,
       recommended: item.recommended,
     } satisfies BillingPlan;
-  },
-);
+  });
 
 export function getBillingPlanPrice(
   plan: BillingPlan,

@@ -1,8 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Activity,
   BadgeDollarSign,
@@ -11,6 +8,9 @@ import {
   ReceiptText,
   Shield,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,11 @@ const ADMIN_NAV = [
 
 function isAdminActive(pathname: string, href: string): boolean {
   if (href === "/admin/dashboard") {
-    return pathname === "/admin" || pathname === href || pathname === "/admin/command-center";
+    return (
+      pathname === "/admin" ||
+      pathname === href ||
+      pathname === "/admin/command-center"
+    );
   }
   return pathname === href;
 }

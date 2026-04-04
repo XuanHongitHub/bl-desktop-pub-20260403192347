@@ -21,12 +21,20 @@ export default function HelpPage() {
   const { t } = useTranslation();
 
   return (
-    <section className={cn("space-y-8 py-16 sm:py-20", MARKETING_RAIL_WIDTH_CLASS, MARKETING_CONTENT_WIDTH_CLASS)}>
+    <section
+      className={cn(
+        "space-y-8 py-16 sm:py-20",
+        MARKETING_RAIL_WIDTH_CLASS,
+        MARKETING_CONTENT_WIDTH_CLASS,
+      )}
+    >
       <div className="space-y-3">
         <Badge variant="secondary" className="w-fit">
           {t("portalSite.nav.help")}
         </Badge>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t("portalSite.help.title")}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          {t("portalSite.help.title")}
+        </h1>
         <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
           {t("portalSite.help.description")}
         </p>
@@ -41,7 +49,9 @@ export default function HelpPage() {
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background">
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </span>
-                <CardTitle className="text-base">{t(`portalSite.help.items.${item.key}.title`)}</CardTitle>
+                <CardTitle className="text-base">
+                  {t(`portalSite.help.items.${item.key}.title`)}
+                </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 text-sm leading-7 text-muted-foreground">
                 {t(`portalSite.help.items.${item.key}.description`)}

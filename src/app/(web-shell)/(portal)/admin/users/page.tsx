@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -319,11 +319,16 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell>
                         {user.platformRole === "platform_admin" ? (
-                          <Badge className="bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20" variant="outline">
+                          <Badge
+                            className="bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20"
+                            variant="outline"
+                          >
                             Platform VIP
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs">User</span>
+                          <span className="text-muted-foreground text-xs">
+                            User
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>{user.workspaceCount}</TableCell>

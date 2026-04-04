@@ -70,7 +70,8 @@ function CheckoutReturnPageContent({ status }: CheckoutReturnPageProps) {
     };
 
     const sessionId = searchParams.get("session_id")?.trim();
-    const target = searchParams.get("target") === "portal" ? "portal" : "desktop";
+    const target =
+      searchParams.get("target") === "portal" ? "portal" : "desktop";
     const workspaceId = searchParams.get("workspaceId")?.trim();
 
     if (target === "portal") {

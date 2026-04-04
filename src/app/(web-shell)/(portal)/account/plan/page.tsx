@@ -4,15 +4,15 @@ import { ArrowRight, KeyRound, TicketPercent } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  redeemWorkspaceCoupon,
-  redeemWorkspaceLicense,
-} from "@/components/web-billing/control-api";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  redeemWorkspaceCoupon,
+  redeemWorkspaceLicense,
+} from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import {
@@ -52,7 +52,10 @@ export default function AccountPlanPage() {
   );
   const storagePercentLabel = useMemo(
     () =>
-      formatStorageUsagePercentLabel(storagePercent, usage?.storageUsedBytes ?? 0),
+      formatStorageUsagePercentLabel(
+        storagePercent,
+        usage?.storageUsedBytes ?? 0,
+      ),
     [storagePercent, usage?.storageUsedBytes],
   );
 
@@ -133,25 +136,34 @@ export default function AccountPlanPage() {
       <section className="rounded-xl border border-border bg-card/70 p-4">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.plan")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.plan")}
+            </p>
             <p className="mt-1 text-base font-semibold text-foreground">
               {subscription?.planLabel ?? t("portalSite.account.noPlan")}
             </p>
           </div>
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.status")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.status")}
+            </p>
             <p className="mt-1 text-base font-semibold text-foreground">
               {subscription?.status ?? t("portalSite.account.notAvailable")}
             </p>
           </div>
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.cycle")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.cycle")}
+            </p>
             <p className="mt-1 text-base font-semibold text-foreground">
-              {subscription?.billingCycle ?? t("portalSite.account.notAvailable")}
+              {subscription?.billingCycle ??
+                t("portalSite.account.notAvailable")}
             </p>
           </div>
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.renewal")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.renewal")}
+            </p>
             <p className="mt-1 text-base font-semibold text-foreground">
               {subscription?.expiresAt
                 ? formatLocaleDateTime(subscription.expiresAt)
@@ -161,7 +173,9 @@ export default function AccountPlanPage() {
         </div>
         <div className="mt-4 rounded-lg border border-border/70 bg-background/70 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.storageUsage")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.storageUsage")}
+            </p>
             <Badge variant="outline">{storagePercentLabel}</Badge>
           </div>
           <Progress value={storagePercent} />

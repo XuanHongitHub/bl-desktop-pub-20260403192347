@@ -1,5 +1,5 @@
-import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
+import { type ReactNode, Suspense } from "react";
 import { PortalAccountSidebarShell } from "@/components/portal/portal-sidebar-shell";
 
 export const metadata: Metadata = {

@@ -146,7 +146,10 @@ function OAuthCallbackContent() {
         return;
       }
       window.location.assign(target);
-      if (nextMode === "desktop" && target.includes("buglogin://oauth-callback?email=")) {
+      if (
+        nextMode === "desktop" &&
+        target.includes("buglogin://oauth-callback?email=")
+      ) {
         closeTimers.push(
           setTimeout(() => {
             window.close();
@@ -227,8 +230,10 @@ function OAuthCallbackContent() {
 
       if (idToken) {
         const payload = decodeJwtPayload(idToken);
-        const email = payload && typeof payload.email === "string" ? payload.email : null;
-        const name = payload && typeof payload.name === "string" ? payload.name : "";
+        const email =
+          payload && typeof payload.email === "string" ? payload.email : null;
+        const name =
+          payload && typeof payload.name === "string" ? payload.name : "";
         const avatar =
           payload && typeof payload.picture === "string" ? payload.picture : "";
         if (!email) {
@@ -242,7 +247,10 @@ function OAuthCallbackContent() {
             );
             return;
           }
-          finish("buglogin://oauth-callback?error=invalid_token_payload", "desktop");
+          finish(
+            "buglogin://oauth-callback?error=invalid_token_payload",
+            "desktop",
+          );
           return;
         }
         if (targetMode === "portal") {
@@ -267,7 +275,10 @@ function OAuthCallbackContent() {
           );
           return;
         }
-        finish("buglogin://oauth-callback?error=missing_oauth_tokens", "desktop");
+        finish(
+          "buglogin://oauth-callback?error=missing_oauth_tokens",
+          "desktop",
+        );
         return;
       }
 
@@ -280,7 +291,10 @@ function OAuthCallbackContent() {
           );
           return;
         }
-        finish(`buglogin://oauth-callback?error=${encodeURIComponent(error)}`, "desktop");
+        finish(
+          `buglogin://oauth-callback?error=${encodeURIComponent(error)}`,
+          "desktop",
+        );
         return;
       }
 
@@ -305,7 +319,9 @@ function OAuthCallbackContent() {
       if (targetMode === "portal") {
         window.sessionStorage.removeItem(PORTAL_OAUTH_INTENT_STORAGE_KEY);
         finish(
-          resolveTargetUrl(nextPath, inviteToken, { oauthError: "missing_oauth_tokens" }),
+          resolveTargetUrl(nextPath, inviteToken, {
+            oauthError: "missing_oauth_tokens",
+          }),
           "portal",
         );
         return;
@@ -355,14 +371,8 @@ function OAuthCallbackContent() {
 }
 
 export default function OAuthCallbackPage() {
-  const { t } = useTranslation();
-
   return (
-    <Suspense
-      fallback={
-        <PageLoader mode="fullscreen" />
-      }
-    >
+    <Suspense fallback={<PageLoader mode="fullscreen" />}>
       <OAuthCallbackContent />
     </Suspense>
   );

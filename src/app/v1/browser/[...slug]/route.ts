@@ -43,8 +43,10 @@ function readBoolEnv(name: string): boolean | undefined {
   const raw = readEnv(name);
   if (!raw) return undefined;
   const normalized = raw.toLowerCase();
-  if (normalized === "1" || normalized === "true" || normalized === "yes") return true;
-  if (normalized === "0" || normalized === "false" || normalized === "no") return false;
+  if (normalized === "1" || normalized === "true" || normalized === "yes")
+    return true;
+  if (normalized === "0" || normalized === "false" || normalized === "no")
+    return false;
   return undefined;
 }
 
@@ -104,7 +106,10 @@ export async function GET(
   const params = await context.params;
   const browserSlug = extractBrowserSlug(params.slug);
   if (!browserSlug) {
-    return NextResponse.json({ message: "Browser slug not found" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Browser slug not found" },
+      { status: 404 },
+    );
   }
 
   const payload = buildMetadata(browserSlug);

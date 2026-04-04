@@ -496,12 +496,10 @@ function AppSidebarComponent({
     effectiveWorkspaceRole === "owner" || effectiveWorkspaceRole === "admin";
   const allowPlatformAdminWorkspaceBypass = navigationMode !== "portal-account";
   const canManageWorkspaceBilling =
-    isTeamOperator ||
-    (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
+    isTeamOperator || (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
   const canManageWorkspaceGovernance = canManageWorkspaceBilling;
   const canAccessWorkspaceGovernance =
-    isTeamOperator ||
-    (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
+    isTeamOperator || (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
   const inSuperAdminPanel = isSuperAdminPanelSection(activeSection);
   const inWorkspaceOwnerPanel =
     activeSection.startsWith("workspace-owner-") ||

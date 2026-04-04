@@ -15,11 +15,7 @@ interface InvokeCachedOptions {
 const DEFAULT_TTL_MS = 2_500;
 const queryCache = new Map<string, CacheEntry<unknown>>();
 
-function resolveCacheKey(
-  command: string,
-  args: unknown,
-  key?: string,
-): string {
+function resolveCacheKey(command: string, args: unknown, key?: string): string {
   if (key && key.trim().length > 0) {
     return key;
   }

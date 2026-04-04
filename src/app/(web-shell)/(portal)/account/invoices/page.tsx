@@ -27,7 +27,10 @@ export default function AccountInvoicesPage() {
         .includes(keyword),
     );
   }, [invoices, query]);
-  const totalPaid = invoices.reduce((acc, invoice) => acc + invoice.amountUsd, 0);
+  const totalPaid = invoices.reduce(
+    (acc, invoice) => acc + invoice.amountUsd,
+    0,
+  );
   const latestPaidAt = invoices[0]?.paidAt || invoices[0]?.createdAt || null;
 
   return (
@@ -38,7 +41,9 @@ export default function AccountInvoicesPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" variant="outline">
-            <Link href="/account/billing">{t("portalSite.account.nav.billing")}</Link>
+            <Link href="/account/billing">
+              {t("portalSite.account.nav.billing")}
+            </Link>
           </Button>
           <Button asChild size="sm">
             <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
@@ -49,11 +54,17 @@ export default function AccountInvoicesPage() {
       <section className="rounded-xl border border-border bg-card/70">
         <div className="grid gap-0 sm:grid-cols-3">
           <div className="border-b border-border/70 p-4 sm:border-b-0 sm:border-r">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.invoicesCount")}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{invoices.length}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.invoicesCount")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">
+              {invoices.length}
+            </p>
           </div>
           <div className="border-b border-border/70 p-4 sm:border-b-0 sm:border-r">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.totalPaid")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.totalPaid")}
+            </p>
             <p className="mt-1 text-2xl font-semibold text-foreground">
               $
               {formatLocaleNumber(totalPaid, {
@@ -63,7 +74,9 @@ export default function AccountInvoicesPage() {
             </p>
           </div>
           <div className="p-4">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.lastInvoiceAt")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.lastInvoiceAt")}
+            </p>
             <p className="mt-1 text-sm font-semibold text-foreground">
               {latestPaidAt
                 ? formatLocaleDateTime(latestPaidAt)
@@ -101,20 +114,34 @@ export default function AccountInvoicesPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceDate")}</th>
-                  <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoicePlan")}</th>
-                  <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceAmount")}</th>
-                  <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceMethod")}</th>
-                  <th className="px-3 py-2 text-left font-medium">{t("portalSite.account.invoiceStatus")}</th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.invoiceDate")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.invoicePlan")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.invoiceAmount")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.invoiceMethod")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.invoiceStatus")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredInvoices.slice(0, 20).map((invoice) => (
                   <tr key={invoice.id} className="border-t border-border/70">
                     <td className="px-3 py-2 text-foreground">
-                      {formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}
+                      {formatLocaleDateTime(
+                        invoice.paidAt || invoice.createdAt,
+                      )}
                     </td>
-                    <td className="px-3 py-2 text-foreground">{invoice.planLabel}</td>
+                    <td className="px-3 py-2 text-foreground">
+                      {invoice.planLabel}
+                    </td>
                     <td className="px-3 py-2 text-foreground">
                       $
                       {formatLocaleNumber(invoice.amountUsd, {
@@ -122,7 +149,9 @@ export default function AccountInvoicesPage() {
                         maximumFractionDigits: 2,
                       })}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{invoice.method}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {invoice.method}
+                    </td>
                     <td className="px-3 py-2">
                       <Badge variant="secondary">{invoice.status}</Badge>
                     </td>
@@ -133,7 +162,9 @@ export default function AccountInvoicesPage() {
           </div>
         )}
         {selectedWorkspace ? (
-          <p className="mt-3 text-xs text-muted-foreground">{selectedWorkspace.name}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {selectedWorkspace.name}
+          </p>
         ) : null}
       </section>
     </PortalSettingsPage>

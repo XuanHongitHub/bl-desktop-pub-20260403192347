@@ -1,8 +1,8 @@
 "use client";
 
-import { AnimatePresence, type HTMLMotionProps, motion } from "motion/react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { AnimatePresence, type HTMLMotionProps, motion } from "motion/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { RxCross2 } from "react-icons/rx";
@@ -30,18 +30,21 @@ function DialogWindowDragSurface() {
     setEnabled(platform === "windows" || platform === "macos");
   }, []);
 
-  const handlePointerDown = React.useCallback((event: React.PointerEvent) => {
-    if (!enabled || event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    void getCurrentWindow()
-      .startDragging()
-      .catch(() => {
-        // Best effort only for dialog overlay drag surface.
-      });
-  }, [enabled]);
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent) => {
+      if (!enabled || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      void getCurrentWindow()
+        .startDragging()
+        .catch(() => {
+          // Best effort only for dialog overlay drag surface.
+        });
+    },
+    [enabled],
+  );
 
   if (!enabled) {
     return null;

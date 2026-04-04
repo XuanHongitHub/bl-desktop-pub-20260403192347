@@ -207,7 +207,8 @@ interface UsePermissionsReturn {
 }
 
 export function usePermissions(): UsePermissionsReturn {
-  const [snapshot, setSnapshot] = useState<PermissionSnapshot>(permissionSnapshot);
+  const [snapshot, setSnapshot] =
+    useState<PermissionSnapshot>(permissionSnapshot);
 
   useEffect(() => {
     const handleSnapshotChange = (nextSnapshot: PermissionSnapshot) => {
@@ -251,7 +252,11 @@ export function usePermissions(): UsePermissionsReturn {
           await permissions.requestCameraPermission();
         }
 
-        for (let attempt = 0; attempt < REQUEST_STATUS_MAX_ATTEMPTS; attempt += 1) {
+        for (
+          let attempt = 0;
+          attempt < REQUEST_STATUS_MAX_ATTEMPTS;
+          attempt += 1
+        ) {
           await refreshPermissions();
           const isGranted =
             type === "microphone"

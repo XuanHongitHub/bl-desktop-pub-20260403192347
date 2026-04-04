@@ -1,7 +1,12 @@
 "use client";
 
+import {
+  CheckCircle2,
+  CircleAlert,
+  CreditCard,
+  ReceiptText,
+} from "lucide-react";
 import Link from "next/link";
-import { CheckCircle2, CircleAlert, CreditCard, ReceiptText } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,7 +58,12 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
   const targetWorkspaceId = workspaceIdFromQuery || selectedWorkspaceId || "";
 
   useEffect(() => {
-    if (!isSuccess || !connection || !targetWorkspaceId || confirmStartedRef.current) {
+    if (
+      !isSuccess ||
+      !connection ||
+      !targetWorkspaceId ||
+      confirmStartedRef.current
+    ) {
       return;
     }
     confirmStartedRef.current = true;
@@ -88,7 +98,10 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
               return;
             }
           } else {
-            const snapshot = await getWorkspaceBillingState(connection, targetWorkspaceId);
+            const snapshot = await getWorkspaceBillingState(
+              connection,
+              targetWorkspaceId,
+            );
             if (snapshot.recentInvoices.length > 0) {
               await refreshBilling();
               await refreshWorkspaces();
@@ -116,7 +129,15 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [checkoutSessionId, connection, isSuccess, refreshBilling, refreshWorkspaces, t, targetWorkspaceId]);
+  }, [
+    checkoutSessionId,
+    connection,
+    isSuccess,
+    refreshBilling,
+    refreshWorkspaces,
+    t,
+    targetWorkspaceId,
+  ]);
 
   const latestInvoice = billingState?.recentInvoices?.[0] ?? null;
   const subscription = billingState?.subscription ?? null;
@@ -124,7 +145,9 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
     subscription?.planLabel ||
     selectedWorkspace?.planLabel ||
     (planFromQuery
-      ? t(`portalSite.pricing.plans.${planFromQuery}.name`, { defaultValue: planFromQuery })
+      ? t(`portalSite.pricing.plans.${planFromQuery}.name`, {
+          defaultValue: planFromQuery,
+        })
       : "--");
   const resolvedCycle =
     subscription?.billingCycle ||
@@ -133,8 +156,12 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
       : null);
 
   const title = isSuccess
-    ? t("portalSite.checkout.successTitle", { defaultValue: "Payment completed" })
-    : t("portalSite.checkout.cancelTitle", { defaultValue: "Checkout cancelled" });
+    ? t("portalSite.checkout.successTitle", {
+        defaultValue: "Payment completed",
+      })
+    : t("portalSite.checkout.cancelTitle", {
+        defaultValue: "Checkout cancelled",
+      });
   const bodyText = useMemo(() => {
     if (!isSuccess) {
       return t("portalSite.checkout.cancelDescription", {
@@ -148,7 +175,8 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
         });
       case "paid":
         return t("portalSite.checkout.syncComplete", {
-          defaultValue: "Payment confirmed. Subscription and invoice are now updated.",
+          defaultValue:
+            "Payment confirmed. Subscription and invoice are now updated.",
         });
       case "pending":
         return t("portalSite.checkout.syncPending", {
@@ -156,7 +184,8 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
         });
       case "failed":
         return t("portalSite.checkout.syncFailed", {
-          defaultValue: "Unable to verify payment automatically. Open Billing to retry.",
+          defaultValue:
+            "Unable to verify payment automatically. Open Billing to retry.",
         });
       default:
         return t("portalSite.checkout.returning", {
@@ -181,7 +210,9 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
             <CardTitle className="text-4xl font-semibold tracking-[-0.045em] text-foreground sm:text-5xl">
               {title}
             </CardTitle>
-            <p className="max-w-[62ch] text-base text-muted-foreground">{bodyText}</p>
+            <p className="max-w-[62ch] text-base text-muted-foreground">
+              {bodyText}
+            </p>
           </CardHeader>
 
           <CardContent className="space-y-4 pt-5">
@@ -190,7 +221,9 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
                 <p className="text-xs text-muted-foreground">
                   {t("portalSite.account.plan", { defaultValue: "Plan" })}
                 </p>
-                <p className="mt-1 text-sm font-medium text-foreground">{resolvedPlan}</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {resolvedPlan}
+                </p>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/60 px-3 py-2.5">
                 <p className="text-xs text-muted-foreground">
@@ -199,8 +232,12 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
                 <p className="mt-1 text-sm font-medium text-foreground">
                   {resolvedCycle
                     ? resolvedCycle === "yearly"
-                      ? t("portalSite.checkout.cycleYearly", { defaultValue: "Yearly" })
-                      : t("portalSite.checkout.cycleMonthly", { defaultValue: "Monthly" })
+                      ? t("portalSite.checkout.cycleYearly", {
+                          defaultValue: "Yearly",
+                        })
+                      : t("portalSite.checkout.cycleMonthly", {
+                          defaultValue: "Monthly",
+                        })
                     : "--"}
                 </p>
               </div>
@@ -234,11 +271,19 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
               {latestInvoice ? (
                 <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                   <p>
-                    {t("portalSite.account.invoiceId", { defaultValue: "Invoice ID" })}:{" "}
-                    <span className="font-medium text-foreground">{latestInvoice.id}</span>
+                    {t("portalSite.account.invoiceId", {
+                      defaultValue: "Invoice ID",
+                    })}
+                    :{" "}
+                    <span className="font-medium text-foreground">
+                      {latestInvoice.id}
+                    </span>
                   </p>
                   <p>
-                    {t("portalSite.account.invoiceAmount", { defaultValue: "Amount" })}:{" "}
+                    {t("portalSite.account.invoiceAmount", {
+                      defaultValue: "Amount",
+                    })}
+                    :{" "}
                     <span className="font-medium text-foreground">
                       $
                       {formatLocaleNumber(latestInvoice.amountUsd, {
@@ -248,9 +293,14 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
                     </span>
                   </p>
                   <p>
-                    {t("portalSite.account.invoiceDate", { defaultValue: "Date" })}:{" "}
+                    {t("portalSite.account.invoiceDate", {
+                      defaultValue: "Date",
+                    })}
+                    :{" "}
                     <span className="font-medium text-foreground">
-                      {formatLocaleDateTime(latestInvoice.paidAt || latestInvoice.createdAt)}
+                      {formatLocaleDateTime(
+                        latestInvoice.paidAt || latestInvoice.createdAt,
+                      )}
                     </span>
                   </p>
                 </div>
@@ -262,7 +312,8 @@ export function CheckoutStatusPage({ status }: CheckoutStatusPageProps) {
                           "Invoice is still being synchronized. Please check again shortly.",
                       })
                     : t("portalSite.account.checkoutCancelDescription", {
-                        defaultValue: "Current plan is unchanged after cancellation.",
+                        defaultValue:
+                          "Current plan is unchanged after cancellation.",
                       })}
                 </p>
               )}

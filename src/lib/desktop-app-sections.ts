@@ -1,5 +1,5 @@
-import type { AppSection } from "@/types";
 import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
+import type { AppSection } from "@/types";
 
 export const APP_SECTION_VALUES: AppSection[] = [
   "profiles",
@@ -76,7 +76,9 @@ export const WORKSPACE_OWNER_SECTIONS: AppSection[] = [
   "workspace-governance",
 ];
 
-export const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppSection>> = {
+export const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<
+  Record<AppSection, AppSection>
+> = {
   "workspace-governance": "workspace-owner-overview",
   "workspace-admin-overview": "workspace-owner-overview",
   "workspace-owner-directory": "workspace-admin-members",
@@ -87,7 +89,9 @@ export const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppS
   "workspace-admin-analytics": "workspace-owner-overview",
 };
 
-export const SUPER_ADMIN_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppSection>> = {
+export const SUPER_ADMIN_LEGACY_SECTION_MAP: Partial<
+  Record<AppSection, AppSection>
+> = {
   "admin-overview": "super-admin-overview",
   "admin-workspace": "super-admin-workspace",
   "admin-billing": "super-admin-billing",
@@ -127,7 +131,9 @@ export function isSuperAdminSection(section: AppSection): boolean {
   return section.startsWith("super-admin-") || section.startsWith("admin-");
 }
 
-export function resolveEmbeddedPortalRouteForSection(section: AppSection): WebBillingPortalRoute | null {
+export function resolveEmbeddedPortalRouteForSection(
+  section: AppSection,
+): WebBillingPortalRoute | null {
   if (
     section === "workspace-owner-overview" ||
     section === "workspace-owner-directory" ||
@@ -234,7 +240,9 @@ export function resolveEmbeddedPortalRouteForSection(section: AppSection): WebBi
   return null;
 }
 
-export function parsePersistedAppSection(value: string | null | undefined): AppSection | null {
+export function parsePersistedAppSection(
+  value: string | null | undefined,
+): AppSection | null {
   if (!value) {
     return null;
   }

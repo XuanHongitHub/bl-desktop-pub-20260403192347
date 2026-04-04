@@ -23,12 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import {
   DATA_SCOPE_CHANGED_EVENT,
   getCurrentDataScope,
   scopeEntitiesForContext,
 } from "@/lib/workspace-data-scope";
-import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, ProfileGroup } from "@/types";
 import { RippleButton } from "./ui/ripple";
 

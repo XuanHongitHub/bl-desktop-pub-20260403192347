@@ -4,11 +4,11 @@ import { CreditCard, Eye, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
 import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
 import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
+import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -326,14 +326,18 @@ export default function AdminWorkspacesOverviewPage() {
                                   </AvatarFallback>
                                 </Avatar>
                               )}
-                              <span className="truncate">{workspace.owner?.email ?? "--"}</span>
+                              <span className="truncate">
+                                {workspace.owner?.email ?? "--"}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <AdminPlanBadge planId={unifiedPlan} />
                           </TableCell>
                           <TableCell>
-                            <AdminStatusBadge status={workspace.subscriptionStatus} />
+                            <AdminStatusBadge
+                              status={workspace.subscriptionStatus}
+                            />
                           </TableCell>
                           <TableCell>{workspace.members}</TableCell>
                           <TableCell>

@@ -4,10 +4,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SharedCamoufoxConfigForm } from "@/components/shared-camoufox-config-form";
 import {
-  validateCamoufoxFingerprintConsistency,
-  validateWayfernFingerprintConsistency,
-} from "@/lib/fingerprint-consistency";
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -16,13 +12,17 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WayfernConfigForm } from "@/components/wayfern-config-form";
+import {
+  validateCamoufoxFingerprintConsistency,
+  validateWayfernFingerprintConsistency,
+} from "@/lib/fingerprint-consistency";
 import type {
   BrowserProfile,
   CamoufoxConfig,
   CamoufoxFingerprintConfig,
   CamoufoxOS,
-  WayfernFingerprintConfig,
   WayfernConfig,
+  WayfernFingerprintConfig,
 } from "@/types";
 
 const getCurrentOS = (): CamoufoxOS => {
@@ -97,8 +97,10 @@ export function CamoufoxConfigDialog({
 
     // Validate fingerprint JSON if it exists
     if (config.fingerprint) {
-      let parsedFingerprint: CamoufoxFingerprintConfig | WayfernFingerprintConfig | null =
-        null;
+      let parsedFingerprint:
+        | CamoufoxFingerprintConfig
+        | WayfernFingerprintConfig
+        | null = null;
       try {
         parsedFingerprint = JSON.parse(config.fingerprint) as
           | CamoufoxFingerprintConfig

@@ -45,17 +45,14 @@ export function useBrowserState(
     [],
   );
 
-  const isAnyInstanceRunning = useCallback(
-    (browserType: string): boolean => {
-      if (!isClientRef.current) return false;
-      return profilesRef.current.some(
-        (p) =>
-          p.browser === browserType &&
-          (runningRef.current.has(p.id) || p.runtime_state === "Running"),
-      );
-    },
-    [],
-  );
+  const isAnyInstanceRunning = useCallback((browserType: string): boolean => {
+    if (!isClientRef.current) return false;
+    return profilesRef.current.some(
+      (p) =>
+        p.browser === browserType &&
+        (runningRef.current.has(p.id) || p.runtime_state === "Running"),
+    );
+  }, []);
 
   const canLaunchProfile = useCallback(
     (profile: BrowserProfile): boolean => {
@@ -63,7 +60,8 @@ export function useBrowserState(
       if (isCrossOsProfile(profile)) return false;
 
       const isRunning =
-        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
+        runningRef.current.has(profile.id) ||
+        profile.runtime_state === "Running";
       const isLaunching = launchingRef.current.has(profile.id);
       const isStopping = stoppingRef.current.has(profile.id);
 
@@ -103,21 +101,18 @@ export function useBrowserState(
     [isSingleInstanceBrowser],
   );
 
-  const canSelectProfile = useCallback(
-    (profile: BrowserProfile): boolean => {
-      if (!isClientRef.current) return false;
+  const canSelectProfile = useCallback((profile: BrowserProfile): boolean => {
+    if (!isClientRef.current) return false;
 
-      const isRunning =
-        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
-      const isParked = profile.runtime_state === "Parked";
-      const isLaunching = launchingRef.current.has(profile.id);
-      const isStopping = stoppingRef.current.has(profile.id);
+    const isRunning =
+      runningRef.current.has(profile.id) || profile.runtime_state === "Running";
+    const isParked = profile.runtime_state === "Parked";
+    const isLaunching = launchingRef.current.has(profile.id);
+    const isStopping = stoppingRef.current.has(profile.id);
 
-      if (isRunning || isParked || isLaunching || isStopping) return false;
-      return true;
-    },
-    [],
-  );
+    if (isRunning || isParked || isLaunching || isStopping) return false;
+    return true;
+  }, []);
 
   const getLaunchTooltipContent = useCallback(
     (profile: BrowserProfile): string => {
@@ -129,7 +124,8 @@ export function useBrowserState(
       }
 
       const isRunning =
-        runningRef.current.has(profile.id) || profile.runtime_state === "Running";
+        runningRef.current.has(profile.id) ||
+        profile.runtime_state === "Running";
       const isLaunching = launchingRef.current.has(profile.id);
       const isStopping = stoppingRef.current.has(profile.id);
 

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -241,7 +241,9 @@ export default function AdminPermissionsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="truncate font-medium">{user.email}</p>
+                              <p className="truncate font-medium">
+                                {user.email}
+                              </p>
                               <p className="truncate text-[10px] text-muted-foreground font-mono">
                                 {user.userId}
                               </p>
@@ -362,7 +364,9 @@ export default function AdminPermissionsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="truncate font-medium">{row.email}</p>
+                              <p className="truncate font-medium">
+                                {row.email}
+                              </p>
                               <p className="truncate text-[10px] text-muted-foreground font-mono">
                                 {row.userId}
                               </p>

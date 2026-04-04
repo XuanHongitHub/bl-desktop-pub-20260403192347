@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import * as RechartsPrimitive from "recharts";
 import type { TooltipProps } from "recharts";
+import * as RechartsPrimitive from "recharts";
 import type {
   Props as DefaultLegendContentProps,
   Payload as LegendPayload,
@@ -196,7 +196,9 @@ const ChartTooltipContent = React.forwardRef<
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {payload
-            .filter((item: TooltipPayload<number, string>) => item.type !== "none")
+            .filter(
+              (item: TooltipPayload<number, string>) => item.type !== "none",
+            )
             .map((item: TooltipPayload<number, string>, index: number) => {
               const key = `${nameKey || item.name || item.dataKey || "value"}`;
               const itemConfig = getPayloadConfigFromPayload(config, item, key);

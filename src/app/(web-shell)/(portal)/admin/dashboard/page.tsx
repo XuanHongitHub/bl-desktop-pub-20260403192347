@@ -365,7 +365,8 @@ export default function AdminDashboardPage() {
 
     setLoadingRevenue(true);
     try {
-      const targets = workspacesRef.current.length > 0 ? workspacesRef.current : [];
+      const targets =
+        workspacesRef.current.length > 0 ? workspacesRef.current : [];
       if (targets.length === 0) {
         setAllInvoices([]);
         setRevenueError(null);

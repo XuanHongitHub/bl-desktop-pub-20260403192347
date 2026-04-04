@@ -29,7 +29,9 @@ export default function AccountSettingsPage() {
         </h2>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.profileTitle")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.profileTitle")}
+            </p>
             <p className="mt-1 text-sm font-semibold text-foreground">
               {session?.user.name || "BugLogin"}
             </p>
@@ -38,7 +40,9 @@ export default function AccountSettingsPage() {
             </p>
           </div>
           <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.accountRole")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.accountRole")}
+            </p>
             <div className="mt-1">
               <Badge variant="secondary">
                 {session?.user.platformRole === "platform_admin"
@@ -48,14 +52,18 @@ export default function AccountSettingsPage() {
             </div>
           </div>
           <div className="rounded-lg border border-border/70 bg-background/70 p-3 md:col-span-2">
-            <p className="text-xs text-muted-foreground">{t("portalSite.account.currentWorkspace")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.currentWorkspace")}
+            </p>
             <p className="mt-1 text-sm font-semibold text-foreground">
-              {selectedWorkspace?.name || t("portalSite.account.workspaceEmpty")}
+              {selectedWorkspace?.name ||
+                t("portalSite.account.workspaceEmpty")}
             </p>
             <p className="text-xs text-muted-foreground">
               {t("portalSite.account.status")}:{" "}
               <span className="text-foreground">
-                {billingState?.subscription.status || t("portalSite.account.notAvailable")}
+                {billingState?.subscription.status ||
+                  t("portalSite.account.notAvailable")}
               </span>
             </p>
           </div>
@@ -66,24 +74,34 @@ export default function AccountSettingsPage() {
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           {t("portalSite.account.preferencesTitle")}
         </h2>
-        <p className="mb-3 text-sm text-muted-foreground">{t("portalSite.account.languageDescription")}</p>
+        <p className="mb-3 text-sm text-muted-foreground">
+          {t("portalSite.account.languageDescription")}
+        </p>
         <PortalHeaderControls showAccount={false} />
         <div className="mt-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2.5 text-sm text-muted-foreground">
           {t("portalSite.account.notificationsDescription")}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline">
-            <Link href="/account/billing">{t("portalSite.account.nav.billing")}</Link>
+            <Link href="/account/billing">
+              {t("portalSite.account.nav.billing")}
+            </Link>
           </Button>
           <Button asChild size="sm" variant="ghost">
-            <Link href="/account/invoices">{t("portalSite.account.nav.invoices")}</Link>
+            <Link href="/account/invoices">
+              {t("portalSite.account.nav.invoices")}
+            </Link>
           </Button>
         </div>
       </section>
 
       <section className="rounded-xl border border-border bg-background/70 p-4">
-        <h2 className="text-sm font-semibold text-foreground">{t("portalSite.account.securityTitle")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{t("portalSite.account.securityDescription")}</p>
+        <h2 className="text-sm font-semibold text-foreground">
+          {t("portalSite.account.securityTitle")}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("portalSite.account.securityDescription")}
+        </p>
       </section>
     </PortalSettingsPage>
   );

@@ -186,7 +186,10 @@ export function DeleteGroupDialog({
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="delete" id="delete" />
-                        <Label htmlFor="delete" className="text-sm text-destructive">
+                        <Label
+                          htmlFor="delete"
+                          className="text-sm text-destructive"
+                        >
                           {t("groupDialogs.delete.deleteWithProfiles")}
                         </Label>
                       </div>

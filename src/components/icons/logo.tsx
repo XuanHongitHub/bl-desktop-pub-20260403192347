@@ -32,7 +32,10 @@ export const Logo = ({
         height={BUGLOGIN_LOGO_ICON_SIZE}
         decoding="async"
         draggable={false}
-        className={cn("block aspect-square object-cover object-left", className)}
+        className={cn(
+          "block aspect-square object-cover object-left",
+          className,
+        )}
       />
     );
   }

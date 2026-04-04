@@ -43,14 +43,10 @@ export function useVpnEvents(options: UseVpnEventsOptions = {}) {
       try {
         const profiles = await invokeCached<
           Array<{ id: string; vpn_id?: string }>
-        >(
-          "list_browser_profiles_light",
-          undefined,
-          {
-            key: LIST_BROWSER_PROFILES_CACHE_KEY,
-            ttlMs: VPN_CACHE_TTL_MS,
-          },
-        );
+        >("list_browser_profiles_light", undefined, {
+          key: LIST_BROWSER_PROFILES_CACHE_KEY,
+          ttlMs: VPN_CACHE_TTL_MS,
+        });
         const scope = getCurrentDataScope();
         const scopedProfiles = scopeEntitiesForContext(
           "profiles",

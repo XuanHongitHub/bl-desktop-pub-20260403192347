@@ -272,37 +272,82 @@
   }
 
   .plan-badge-tier-starter {
-    border-color: color-mix(in oklab, var(--chart-1) 82%, var(--background) 18%);
-    background-color: color-mix(in oklab, var(--chart-1) 72%, var(--background) 28%);
+    border-color: color-mix(
+      in oklab,
+      var(--chart-1) 82%,
+      var(--background) 18%
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--chart-1) 72%,
+      var(--background) 28%
+    );
     color: var(--primary-foreground);
-    box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--chart-1) 70%, transparent);
+    box-shadow: inset 0 0 0 0.5px
+      color-mix(in oklab, var(--chart-1) 70%, transparent);
   }
 
   .plan-badge-tier-team {
-    border-color: color-mix(in oklab, var(--chart-2) 82%, var(--background) 18%);
-    background-color: color-mix(in oklab, var(--chart-2) 72%, var(--background) 28%);
+    border-color: color-mix(
+      in oklab,
+      var(--chart-2) 82%,
+      var(--background) 18%
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--chart-2) 72%,
+      var(--background) 28%
+    );
     color: var(--primary-foreground);
-    box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--chart-2) 70%, transparent);
+    box-shadow: inset 0 0 0 0.5px
+      color-mix(in oklab, var(--chart-2) 70%, transparent);
   }
 
   .plan-badge-tier-scale {
-    border-color: color-mix(in oklab, var(--chart-3) 82%, var(--background) 18%);
-    background-color: color-mix(in oklab, var(--chart-3) 72%, var(--background) 28%);
+    border-color: color-mix(
+      in oklab,
+      var(--chart-3) 82%,
+      var(--background) 18%
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--chart-3) 72%,
+      var(--background) 28%
+    );
     color: var(--primary-foreground);
-    box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--chart-3) 70%, transparent);
+    box-shadow: inset 0 0 0 0.5px
+      color-mix(in oklab, var(--chart-3) 70%, transparent);
   }
 
   .plan-badge-tier-free {
-    border-color: color-mix(in oklab, var(--chart-4) 78%, var(--background) 22%);
-    background-color: color-mix(in oklab, var(--chart-4) 62%, var(--background) 38%);
+    border-color: color-mix(
+      in oklab,
+      var(--chart-4) 78%,
+      var(--background) 22%
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--chart-4) 62%,
+      var(--background) 38%
+    );
     color: var(--foreground);
-    box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--chart-4) 65%, transparent);
+    box-shadow: inset 0 0 0 0.5px
+      color-mix(in oklab, var(--chart-4) 65%, transparent);
   }
 
   .plan-badge-tier-enterprise {
-    border-color: color-mix(in oklab, var(--chart-5) 84%, var(--background) 16%);
-    background-color: color-mix(in oklab, var(--chart-5) 74%, var(--background) 26%);
+    border-color: color-mix(
+      in oklab,
+      var(--chart-5) 84%,
+      var(--background) 16%
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--chart-5) 74%,
+      var(--background) 26%
+    );
     color: var(--primary-foreground);
-    box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--chart-5) 72%, transparent);
+    box-shadow: inset 0 0 0 0.5px
+      color-mix(in oklab, var(--chart-5) 72%, transparent);
   }
 }

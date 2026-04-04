@@ -7,4 +7,3 @@ export function writeLanguageCookie(language: string): void {
   }
   document.cookie = `${LANGUAGE_COOKIE_KEY}=${encodeURIComponent(language)}; Max-Age=${LANGUAGE_COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax`;
 }
-

@@ -1,8 +1,8 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
 
 export function ThemeSwitchButton() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -13,9 +13,7 @@ export function ThemeSwitchButton() {
     <button
       type="button"
       aria-label={
-        isLight
-          ? t("settings.appearance.dark")
-          : t("settings.appearance.light")
+        isLight ? t("settings.appearance.dark") : t("settings.appearance.light")
       }
       onClick={() => setTheme(isLight ? "dark" : "light")}
       className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

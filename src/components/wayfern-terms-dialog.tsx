@@ -56,8 +56,8 @@ export function WayfernTermsDialog({
         <DialogHeader>
           <DialogTitle>{t("wayfernTerms.title")}</DialogTitle>
           <DialogDescription>
-            Before using BugLogin, you must read and agree to Bugium's Terms
-            and Conditions.
+            Before using BugLogin, you must read and agree to Bugium's Terms and
+            Conditions.
           </DialogDescription>
         </DialogHeader>
 

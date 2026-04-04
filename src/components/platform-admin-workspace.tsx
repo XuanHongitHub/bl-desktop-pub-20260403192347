@@ -17,7 +17,6 @@ import type {
   TeamRole,
 } from "@/types";
 import type { WorkspaceAdminFlow } from "./admin/admin-workspace-tab";
-import { PageLoader } from "./ui/page-loader";
 import {
   Card,
   CardContent,
@@ -25,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import { PageLoader } from "./ui/page-loader";
 
 function AdminPanelLoadingCard() {
   return (
@@ -104,12 +104,7 @@ interface PlatformAdminWorkspaceProps {
   initialPanelPage?: string | null;
 }
 
-type AdminTab =
-  | "overview"
-  | "workspace"
-  | "billing"
-  | "cookies"
-  | "audit";
+type AdminTab = "overview" | "workspace" | "billing" | "cookies" | "audit";
 
 type PanelScope = "super_admin" | "workspace_owner";
 
@@ -440,14 +435,15 @@ export function PlatformAdminWorkspace({
   const activePageId = sidebarDrivenPageId ?? initialPanelPage ?? null;
   const activePanelPage = useMemo(() => {
     return (
-      panelPages.find((page) => page.id === activePageId) ?? panelPages[0] ?? null
+      panelPages.find((page) => page.id === activePageId) ??
+      panelPages[0] ??
+      null
     );
   }, [activePageId, panelPages]);
 
-  const activeTab = useMemo<AdminTab | "workspace_profiles" | "workspace_billing">(
-    () => activePanelPage?.tab ?? "overview",
-    [activePanelPage],
-  );
+  const activeTab = useMemo<
+    AdminTab | "workspace_profiles" | "workspace_billing"
+  >(() => activePanelPage?.tab ?? "overview", [activePanelPage]);
 
   const resolvedWorkspaceFlow =
     activePanelPage?.flow ?? workspaceFlow ?? undefined;
@@ -1037,7 +1033,8 @@ export function PlatformAdminWorkspace({
                   {t("adminWorkspace.ui.planLabel")}
                 </p>
                 <p className="mt-1 text-[13px] font-semibold text-foreground">
-                  {selectedWorkspace?.planLabel ?? t("adminWorkspace.ui.noPlanLabel")}
+                  {selectedWorkspace?.planLabel ??
+                    t("adminWorkspace.ui.noPlanLabel")}
                 </p>
               </div>
               <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">

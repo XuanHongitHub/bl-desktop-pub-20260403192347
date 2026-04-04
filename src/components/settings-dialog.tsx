@@ -278,7 +278,7 @@ export function SettingsDialog({
     colors: {},
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>("idle");
+  const [_autoSaveState, setAutoSaveState] = useState<AutoSaveState>("idle");
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [permissions, setPermissions] = useState<PermissionInfo[]>([]);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);

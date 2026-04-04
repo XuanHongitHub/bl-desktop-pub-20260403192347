@@ -39,13 +39,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocaleDate } from "@/lib/locale-format";
 import { getUnifiedPlanLabel } from "@/lib/plan-display";
 import { cn } from "@/lib/utils";
-import { CustomRolesManager, type CustomRoleDefinition } from "./custom-roles-manager";
-import { MemberPermissionsMatrix } from "./member-permissions-matrix";
 import type {
   ControlInvite,
   ControlMembership,
@@ -54,6 +52,11 @@ import type {
   ControlWorkspaceOverview,
   TeamRole,
 } from "@/types";
+import {
+  type CustomRoleDefinition,
+  CustomRolesManager,
+} from "./custom-roles-manager";
+import { MemberPermissionsMatrix } from "./member-permissions-matrix";
 
 interface AdminWorkspaceTabProps {
   isBusy: boolean;
@@ -68,7 +71,11 @@ interface AdminWorkspaceTabProps {
   memberships: ControlMembership[];
   invites: ControlInvite[];
   shareGrants: ControlShareGrant[];
-  availableResources?: { id: string; name: string; type: "profile" | "group" }[];
+  availableResources?: {
+    id: string;
+    name: string;
+    type: "profile" | "group";
+  }[];
   workspaceName: string;
   setWorkspaceName: (name: string) => void;
   workspaceMode: "personal" | "team";
@@ -169,10 +176,12 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     props.forcedFlow ?? "directory",
   );
 
-  const [inviteRoleOption, setInviteRoleOption] =
-    useState<WorkspaceRoleOption>(TEAM_ROLE_TO_OPTION[props.inviteRole]);
-  const [membershipRoleOptionDrafts, setMembershipRoleOptionDrafts] =
-    useState<Record<string, WorkspaceRoleOption>>({});
+  const [inviteRoleOption, setInviteRoleOption] = useState<WorkspaceRoleOption>(
+    TEAM_ROLE_TO_OPTION[props.inviteRole],
+  );
+  const [membershipRoleOptionDrafts, setMembershipRoleOptionDrafts] = useState<
+    Record<string, WorkspaceRoleOption>
+  >({});
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
   const [memberQuery, setMemberQuery] = useState("");
@@ -201,11 +210,13 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     showGovernanceFlows &&
     (props.showFlowTabs ?? true) &&
     props.forcedFlow == null;
-  const normalizedCurrentUserEmail = props.currentUserEmail?.trim().toLowerCase() ?? "";
+  const normalizedCurrentUserEmail =
+    props.currentUserEmail?.trim().toLowerCase() ?? "";
   const normalizedCurrentUserId = props.currentUserId?.trim() ?? "";
 
   const _isLocalMode = !props.runtimeBaseUrl;
-  const canManageAsPlatformAdmin = props.isPlatformAdmin && !workspaceScopedOnly;
+  const canManageAsPlatformAdmin =
+    props.isPlatformAdmin && !workspaceScopedOnly;
   const canManageWorkspace = canManageAsPlatformAdmin || props.isTeamOperator;
   const isWorkspaceOwner = props.workspaceRole === "owner";
   const isWorkspaceAdmin = props.workspaceRole === "admin";
@@ -217,7 +228,8 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
   const isMemberActionDisabled = props.isBusy || !canManageMembers;
   const isPermissionActionDisabled = props.isBusy || !canManageUserPermissions;
   const isActionDisabled = props.isBusy || !canManageWorkspace;
-  const canSwitchWorkspaceContext = props.isPlatformAdmin && !workspaceScopedOnly;
+  const canSwitchWorkspaceContext =
+    props.isPlatformAdmin && !workspaceScopedOnly;
   const canProvisionWorkspace = canManageWorkspace && !workspaceScopedOnly;
 
   useEffect(() => {
@@ -237,12 +249,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
   );
 
   const activeShares = useMemo(
-    () => props.shareGrants.filter((shareGrant) => !shareGrant.revokedAt).length,
+    () =>
+      props.shareGrants.filter((shareGrant) => !shareGrant.revokedAt).length,
     [props.shareGrants],
   );
 
   const ownerCount = useMemo(
-    () => props.memberships.filter((membership) => membership.role === "owner").length,
+    () =>
+      props.memberships.filter((membership) => membership.role === "owner")
+        .length,
     [props.memberships],
   );
 
@@ -308,7 +323,10 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
         return true;
       }
       const identity = resolveMembershipIdentity(membership).toLowerCase();
-      return identity.includes(keyword) || membership.userId.toLowerCase().includes(keyword);
+      return (
+        identity.includes(keyword) ||
+        membership.userId.toLowerCase().includes(keyword)
+      );
     });
   }, [memberQuery, memberRoleFilter, sortedMemberships]);
 
@@ -329,7 +347,8 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     const keyword = inviteQuery.trim().toLowerCase();
     return sortedInvites.filter((invite) => {
       const status = invite.consumedAt === null ? "pending" : "used";
-      const matchesStatus = inviteStatusFilter === "all" || inviteStatusFilter === status;
+      const matchesStatus =
+        inviteStatusFilter === "all" || inviteStatusFilter === status;
       if (!matchesStatus) {
         return false;
       }
@@ -357,7 +376,8 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     const keyword = shareQuery.trim().toLowerCase();
     return sortedShareGrants.filter((shareGrant) => {
       const status = shareGrant.revokedAt ? "revoked" : "active";
-      const matchesStatus = shareStatusFilter === "all" || shareStatusFilter === status;
+      const matchesStatus =
+        shareStatusFilter === "all" || shareStatusFilter === status;
       if (!matchesStatus) {
         return false;
       }
@@ -373,15 +393,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
   useEffect(() => {
     setMemberPageIndex(0);
-  }, [memberQuery, memberRoleFilter]);
+  }, []);
 
   useEffect(() => {
     setInvitePageIndex(0);
-  }, [inviteQuery, inviteStatusFilter]);
+  }, []);
 
   useEffect(() => {
     setSharePageIndex(0);
-  }, [shareQuery, shareStatusFilter]);
+  }, []);
 
   const memberPageCount = Math.max(
     1,
@@ -393,14 +413,20 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     safeMemberPageIndex * memberPageSize + memberPageSize,
   );
 
-  const invitePageCount = Math.max(1, Math.ceil(filteredInvites.length / invitePageSize));
+  const invitePageCount = Math.max(
+    1,
+    Math.ceil(filteredInvites.length / invitePageSize),
+  );
   const safeInvitePageIndex = Math.min(invitePageIndex, invitePageCount - 1);
   const paginatedInvites = filteredInvites.slice(
     safeInvitePageIndex * invitePageSize,
     safeInvitePageIndex * invitePageSize + invitePageSize,
   );
 
-  const sharePageCount = Math.max(1, Math.ceil(filteredShareGrants.length / sharePageSize));
+  const sharePageCount = Math.max(
+    1,
+    Math.ceil(filteredShareGrants.length / sharePageSize),
+  );
   const safeSharePageIndex = Math.min(sharePageIndex, sharePageCount - 1);
   const paginatedShareGrants = filteredShareGrants.slice(
     safeSharePageIndex * sharePageSize,
@@ -444,7 +470,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             {t("adminWorkspace.ui.createdAt")}
           </p>
           <p className="mt-0.5 text-[13px] font-medium text-foreground">
-            {props.selectedWorkspace ? formatDate(props.selectedWorkspace.createdAt) : "-"}
+            {props.selectedWorkspace
+              ? formatDate(props.selectedWorkspace.createdAt)
+              : "-"}
           </p>
         </div>
         <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
@@ -589,7 +617,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           <Input
             value={props.workspaceName}
             onChange={(event) => props.setWorkspaceName(event.target.value)}
-            placeholder={t("adminWorkspace.controlPlane.workspaceNamePlaceholder")}
+            placeholder={t(
+              "adminWorkspace.controlPlane.workspaceNamePlaceholder",
+            )}
             disabled={isActionDisabled || !canProvisionWorkspace}
             className="h-9 bg-background"
           />
@@ -658,8 +688,12 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthly">{t("authLanding.monthly")}</SelectItem>
-                <SelectItem value="yearly">{t("authLanding.yearly")}</SelectItem>
+                <SelectItem value="monthly">
+                  {t("authLanding.monthly")}
+                </SelectItem>
+                <SelectItem value="yearly">
+                  {t("authLanding.yearly")}
+                </SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -705,17 +739,29 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           />
           <Select
             value={memberRoleFilter}
-            onValueChange={(value) => setMemberRoleFilter(value as "all" | TeamRole)}
+            onValueChange={(value) =>
+              setMemberRoleFilter(value as "all" | TeamRole)
+            }
           >
             <SelectTrigger className="h-8 bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("adminWorkspace.ui.filterAllRoles")}</SelectItem>
-              <SelectItem value="owner">{t("adminWorkspace.roles.owner")}</SelectItem>
-              <SelectItem value="admin">{t("adminWorkspace.roles.admin")}</SelectItem>
-              <SelectItem value="member">{t("adminWorkspace.roles.member")}</SelectItem>
-              <SelectItem value="viewer">{t("adminWorkspace.roles.viewer")}</SelectItem>
+              <SelectItem value="all">
+                {t("adminWorkspace.ui.filterAllRoles")}
+              </SelectItem>
+              <SelectItem value="owner">
+                {t("adminWorkspace.roles.owner")}
+              </SelectItem>
+              <SelectItem value="admin">
+                {t("adminWorkspace.roles.admin")}
+              </SelectItem>
+              <SelectItem value="member">
+                {t("adminWorkspace.roles.member")}
+              </SelectItem>
+              <SelectItem value="viewer">
+                {t("adminWorkspace.roles.viewer")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -728,13 +774,18 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
               <TableHead>{t("adminWorkspace.columns.email")}</TableHead>
               <TableHead>{t("adminWorkspace.columns.role")}</TableHead>
               <TableHead>{t("adminWorkspace.columns.status")}</TableHead>
-              <TableHead className="text-right">{t("adminWorkspace.columns.action")}</TableHead>
+              <TableHead className="text-right">
+                {t("adminWorkspace.columns.action")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedMemberships.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={4}
+                  className="py-6 text-center text-muted-foreground"
+                >
                   {filteredMemberships.length === 0
                     ? t("adminWorkspace.controlPlane.noMembers")
                     : t("adminWorkspace.ui.noRowsInPage")}
@@ -743,10 +794,14 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             ) : (
               paginatedMemberships.map((membership) => (
                 <TableRow key={membership.userId}>
-                  <TableCell className="font-medium">{resolveMembershipIdentity(membership)}</TableCell>
+                  <TableCell className="font-medium">
+                    {resolveMembershipIdentity(membership)}
+                  </TableCell>
                   <TableCell>
                     {(() => {
-                      const membershipEmail = membership.email.trim().toLowerCase();
+                      const membershipEmail = membership.email
+                        .trim()
+                        .toLowerCase();
                       const isSelfMembership =
                         (normalizedCurrentUserEmail.length > 0 &&
                           membershipEmail === normalizedCurrentUserEmail) ||
@@ -755,59 +810,70 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
                       const canEditThisMember = (() => {
                         if (isSelfMembership) return false;
-                        if (workspaceScopedOnly && membership.role === "owner") {
+                        if (
+                          workspaceScopedOnly &&
+                          membership.role === "owner"
+                        ) {
                           return false;
                         }
                         if (canManageAsPlatformAdmin) return true;
                         if (props.workspaceRole === "owner") return true;
                         if (props.workspaceRole === "admin") {
-                          return membership.role === "member" || membership.role === "viewer";
+                          return (
+                            membership.role === "member" ||
+                            membership.role === "viewer"
+                          );
                         }
                         return false;
                       })();
 
-                      const allowedRoleOptions = MEMBER_ROLE_OPTIONS.filter((option) => {
-                        if (canManageAsPlatformAdmin) return true;
-                        if (props.workspaceRole === "owner") return true;
-                        if (props.workspaceRole === "admin") {
-                          return option !== "owner" && option !== "admin";
-                        }
-                        return false;
-                      });
+                      const allowedRoleOptions = MEMBER_ROLE_OPTIONS.filter(
+                        (option) => {
+                          if (canManageAsPlatformAdmin) return true;
+                          if (props.workspaceRole === "owner") return true;
+                          if (props.workspaceRole === "admin") {
+                            return option !== "owner" && option !== "admin";
+                          }
+                          return false;
+                        },
+                      );
 
-                      const rowActionDisabled = isMemberActionDisabled || !canEditThisMember;
+                      const rowActionDisabled =
+                        isMemberActionDisabled || !canEditThisMember;
                       return (
-                    <Select
-                      value={
-                        membershipRoleOptionDrafts[membership.userId] ??
-                        TEAM_ROLE_TO_OPTION[
-                          props.membershipRoleDrafts[membership.userId] ?? membership.role
-                        ]
-                      }
-                      onValueChange={(value) => {
-                        const nextRoleOption = value as WorkspaceRoleOption;
-                        setMembershipRoleOptionDrafts((prev) => ({
-                          ...prev,
-                          [membership.userId]: nextRoleOption,
-                        }));
-                        props.setMembershipRoleDrafts((prev) => ({
-                          ...prev,
-                          [membership.userId]: ROLE_OPTION_TO_TEAM_ROLE[nextRoleOption],
-                        }));
-                      }}
-                      disabled={rowActionDisabled}
-                    >
-                      <SelectTrigger className="h-8 w-[132px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allowedRoleOptions.map((roleOption) => (
-                          <SelectItem key={roleOption} value={roleOption}>
-                            {t(`adminWorkspace.roles.${roleOption}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        <Select
+                          value={
+                            membershipRoleOptionDrafts[membership.userId] ??
+                            TEAM_ROLE_TO_OPTION[
+                              props.membershipRoleDrafts[membership.userId] ??
+                                membership.role
+                            ]
+                          }
+                          onValueChange={(value) => {
+                            const nextRoleOption = value as WorkspaceRoleOption;
+                            setMembershipRoleOptionDrafts((prev) => ({
+                              ...prev,
+                              [membership.userId]: nextRoleOption,
+                            }));
+                            props.setMembershipRoleDrafts((prev) => ({
+                              ...prev,
+                              [membership.userId]:
+                                ROLE_OPTION_TO_TEAM_ROLE[nextRoleOption],
+                            }));
+                          }}
+                          disabled={rowActionDisabled}
+                        >
+                          <SelectTrigger className="h-8 w-[132px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allowedRoleOptions.map((roleOption) => (
+                              <SelectItem key={roleOption} value={roleOption}>
+                                {t(`adminWorkspace.roles.${roleOption}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       );
                     })()}
                   </TableCell>
@@ -818,7 +884,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                   </TableCell>
                   <TableCell>
                     {(() => {
-                      const membershipEmail = membership.email.trim().toLowerCase();
+                      const membershipEmail = membership.email
+                        .trim()
+                        .toLowerCase();
                       const isSelfMembership =
                         (normalizedCurrentUserEmail.length > 0 &&
                           membershipEmail === normalizedCurrentUserEmail) ||
@@ -827,42 +895,54 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
                       const canEditThisMember = (() => {
                         if (isSelfMembership) return false;
-                        if (workspaceScopedOnly && membership.role === "owner") {
+                        if (
+                          workspaceScopedOnly &&
+                          membership.role === "owner"
+                        ) {
                           return false;
                         }
                         if (canManageAsPlatformAdmin) return true;
                         if (props.workspaceRole === "owner") return true;
                         if (props.workspaceRole === "admin") {
-                          return membership.role === "member" || membership.role === "viewer";
+                          return (
+                            membership.role === "member" ||
+                            membership.role === "viewer"
+                          );
                         }
                         return false;
                       })();
 
-                      const rowActionDisabled = isMemberActionDisabled || !canEditThisMember;
+                      const rowActionDisabled =
+                        isMemberActionDisabled || !canEditThisMember;
                       return (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => props.handleUpdateRole(membership.userId)}
-                        disabled={
-                          rowActionDisabled ||
-                          props.membershipRoleDrafts[membership.userId] === membership.role ||
-                          !props.membershipRoleDrafts[membership.userId]
-                        }
-                      >
-                        <UserRoundCog className="h-3.5 w-3.5" />
-                        {t("common.buttons.edit")}
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => props.handleRemoveMember(membership.userId)}
-                        disabled={rowActionDisabled}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              props.handleUpdateRole(membership.userId)
+                            }
+                            disabled={
+                              rowActionDisabled ||
+                              props.membershipRoleDrafts[membership.userId] ===
+                                membership.role ||
+                              !props.membershipRoleDrafts[membership.userId]
+                            }
+                          >
+                            <UserRoundCog className="h-3.5 w-3.5" />
+                            {t("common.buttons.edit")}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() =>
+                              props.handleRemoveMember(membership.userId)
+                            }
+                            disabled={rowActionDisabled}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       );
                     })()}
                   </TableCell>
@@ -885,7 +965,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             setMemberPageIndex((current) => Math.max(0, current - 1))
           }
           onNextPage={() =>
-            setMemberPageIndex((current) => Math.min(memberPageCount - 1, current + 1))
+            setMemberPageIndex((current) =>
+              Math.min(memberPageCount - 1, current + 1),
+            )
           }
           onPageSizeChange={(next) => {
             setMemberPageSize(next);
@@ -920,15 +1002,23 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           />
           <Select
             value={inviteStatusFilter}
-            onValueChange={(value) => setInviteStatusFilter(value as InviteFilterStatus)}
+            onValueChange={(value) =>
+              setInviteStatusFilter(value as InviteFilterStatus)
+            }
           >
             <SelectTrigger className="h-8 bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("adminWorkspace.ui.filterAllStatuses")}</SelectItem>
-              <SelectItem value="pending">{t("adminWorkspace.ui.filterPending")}</SelectItem>
-              <SelectItem value="used">{t("adminWorkspace.ui.filterUsed")}</SelectItem>
+              <SelectItem value="all">
+                {t("adminWorkspace.ui.filterAllStatuses")}
+              </SelectItem>
+              <SelectItem value="pending">
+                {t("adminWorkspace.ui.filterPending")}
+              </SelectItem>
+              <SelectItem value="used">
+                {t("adminWorkspace.ui.filterUsed")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -942,13 +1032,18 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
               <TableHead>{t("adminWorkspace.columns.role")}</TableHead>
               <TableHead>{t("adminWorkspace.columns.time")}</TableHead>
               <TableHead>{t("adminWorkspace.columns.status")}</TableHead>
-              <TableHead className="text-right">{t("adminWorkspace.columns.action")}</TableHead>
+              <TableHead className="text-right">
+                {t("adminWorkspace.columns.action")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedInvites.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={5}
+                  className="py-6 text-center text-muted-foreground"
+                >
                   {filteredInvites.length === 0
                     ? t("adminWorkspace.controlPlane.noInvites")
                     : t("adminWorkspace.ui.noRowsInPage")}
@@ -958,11 +1053,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
               paginatedInvites.map((invite) => (
                 <TableRow key={invite.id}>
                   <TableCell className="font-medium">{invite.email}</TableCell>
-                  <TableCell>{t(`adminWorkspace.roles.${invite.role}`)}</TableCell>
+                  <TableCell>
+                    {t(`adminWorkspace.roles.${invite.role}`)}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      <span className="text-[12px]">{formatDate(invite.expiresAt)}</span>
+                      <span className="text-[12px]">
+                        {formatDate(invite.expiresAt)}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -1002,9 +1101,13 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           pageSize={invitePageSize}
           canPreviousPage={safeInvitePageIndex > 0}
           canNextPage={safeInvitePageIndex < invitePageCount - 1}
-          onPreviousPage={() => setInvitePageIndex((current) => Math.max(0, current - 1))}
+          onPreviousPage={() =>
+            setInvitePageIndex((current) => Math.max(0, current - 1))
+          }
           onNextPage={() =>
-            setInvitePageIndex((current) => Math.min(invitePageCount - 1, current + 1))
+            setInvitePageIndex((current) =>
+              Math.min(invitePageCount - 1, current + 1),
+            )
           }
           onPageSizeChange={(next) => {
             setInvitePageSize(next);
@@ -1119,7 +1222,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     </Dialog>
   );
 
-  const renderShareCard = () => (
+  const _renderShareCard = () => (
     <div className="rounded-lg border border-border/70 bg-background">
       <div className="flex items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
         <div>
@@ -1139,7 +1242,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
         <div className="grid gap-2 md:grid-cols-[132px_minmax(0,1fr)_minmax(0,1fr)_140px]">
           <Select
             value={props.shareResourceType}
-            onValueChange={(value) => props.setShareResourceType(value as "profile" | "group")}
+            onValueChange={(value) =>
+              props.setShareResourceType(value as "profile" | "group")
+            }
             disabled={isPermissionActionDisabled}
           >
             <SelectTrigger className="h-9">
@@ -1163,7 +1268,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           />
           <Input
             value={props.shareRecipientEmail}
-            onChange={(event) => props.setShareRecipientEmail(event.target.value)}
+            onChange={(event) =>
+              props.setShareRecipientEmail(event.target.value)
+            }
             placeholder={t("adminWorkspace.share.recipientPlaceholder")}
             disabled={isPermissionActionDisabled}
             className="h-9"
@@ -1192,15 +1299,23 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             />
             <Select
               value={shareStatusFilter}
-              onValueChange={(value) => setShareStatusFilter(value as ShareFilterStatus)}
+              onValueChange={(value) =>
+                setShareStatusFilter(value as ShareFilterStatus)
+              }
             >
               <SelectTrigger className="h-8 bg-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("adminWorkspace.ui.filterAllStatuses")}</SelectItem>
-                <SelectItem value="active">{t("adminWorkspace.ui.filterActive")}</SelectItem>
-                <SelectItem value="revoked">{t("adminWorkspace.ui.filterRevoked")}</SelectItem>
+                <SelectItem value="all">
+                  {t("adminWorkspace.ui.filterAllStatuses")}
+                </SelectItem>
+                <SelectItem value="active">
+                  {t("adminWorkspace.ui.filterActive")}
+                </SelectItem>
+                <SelectItem value="revoked">
+                  {t("adminWorkspace.ui.filterRevoked")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1213,13 +1328,18 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                   <TableHead>{t("adminWorkspace.columns.recipient")}</TableHead>
                   <TableHead>{t("adminWorkspace.columns.access")}</TableHead>
                   <TableHead>{t("adminWorkspace.columns.status")}</TableHead>
-                  <TableHead className="text-right">{t("adminWorkspace.columns.action")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("adminWorkspace.columns.action")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedShareGrants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={5}
+                      className="py-6 text-center text-muted-foreground"
+                    >
                       {filteredShareGrants.length === 0
                         ? t("adminWorkspace.share.none")
                         : t("adminWorkspace.ui.noRowsInPage")}
@@ -1236,11 +1356,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                       </TableCell>
                       <TableCell>{shareGrant.recipientEmail}</TableCell>
                       <TableCell>
-                        {t(`adminWorkspace.share.accessMode.${shareGrant.accessMode}`)}
+                        {t(
+                          `adminWorkspace.share.accessMode.${shareGrant.accessMode}`,
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={shareGrant.revokedAt ? "outline" : "secondary"}
+                          variant={
+                            shareGrant.revokedAt ? "outline" : "secondary"
+                          }
                           className="text-[11px]"
                         >
                           {shareGrant.revokedAt
@@ -1253,7 +1377,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => props.handleRevokeShare(shareGrant.id)}
+                            onClick={() =>
+                              props.handleRevokeShare(shareGrant.id)
+                            }
                             disabled={isPermissionActionDisabled}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1275,9 +1401,13 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
               pageSize={sharePageSize}
               canPreviousPage={safeSharePageIndex > 0}
               canNextPage={safeSharePageIndex < sharePageCount - 1}
-              onPreviousPage={() => setSharePageIndex((current) => Math.max(0, current - 1))}
+              onPreviousPage={() =>
+                setSharePageIndex((current) => Math.max(0, current - 1))
+              }
               onNextPage={() =>
-                setSharePageIndex((current) => Math.min(sharePageCount - 1, current + 1))
+                setSharePageIndex((current) =>
+                  Math.min(sharePageCount - 1, current + 1),
+                )
               }
               onPageSizeChange={(next) => {
                 setSharePageSize(next);
@@ -1313,7 +1443,11 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
       { id: "owner", name: "Owner", isSystem: true, capabilities: [] },
       { id: "admin", name: "Admin", isSystem: true, capabilities: [] },
       { id: "member", name: "Member", isSystem: true, capabilities: [] },
-      { id: "r_1", name: "Marketing Team", capabilities: ["create_profile", "edit_profile"] }
+      {
+        id: "r_1",
+        name: "Marketing Team",
+        capabilities: ["create_profile", "edit_profile"],
+      },
     ];
 
     return (
@@ -1346,7 +1480,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           memberships={props.memberships}
           shareGrants={props.shareGrants}
           availableResources={props.availableResources ?? []}
-          onBulkManage={(u, r, action) => { console.log(u, r, action); }}
+          onBulkManage={(u, r, action) => {
+            console.log(u, r, action);
+          }}
           isPlatformAdmin={props.isPlatformAdmin}
         />
       </div>
@@ -1449,17 +1585,24 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           <section className="rounded-xl border border-border/70 bg-card">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
               <div>
-                <h3 className="text-[14px] font-semibold text-foreground">{workspaceOpsTitle}</h3>
-                <p className="mt-1 text-[12px] text-muted-foreground">{workspaceOpsDescription}</p>
+                <h3 className="text-[14px] font-semibold text-foreground">
+                  {workspaceOpsTitle}
+                </h3>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  {workspaceOpsDescription}
+                </p>
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {t("adminWorkspace.ui.currentWorkspace")}: {" "}
+                  {t("adminWorkspace.ui.currentWorkspace")}:{" "}
                   <span className="font-medium text-foreground">
                     {props.selectedWorkspace?.name ??
                       t("adminWorkspace.controlPlane.noWorkspaceSelected")}
                   </span>
                 </p>
               </div>
-              <Badge variant="secondary" className="h-6 px-2.5 text-[11px] font-medium">
+              <Badge
+                variant="secondary"
+                className="h-6 px-2.5 text-[11px] font-medium"
+              >
                 <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                 {scopeLabel}
               </Badge>
@@ -1468,7 +1611,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             {showWorkspaceFlowTabs ? (
               <Tabs
                 value={activeFlow}
-                onValueChange={(value) => setInternalFlow(value as WorkspaceAdminFlow)}
+                onValueChange={(value) =>
+                  setInternalFlow(value as WorkspaceAdminFlow)
+                }
                 className="w-full"
               >
                 <div className="border-b border-border/70 px-4 py-3">
@@ -1515,10 +1660,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
               </span>
               <span className="inline-flex items-center gap-1">
                 <Building2 className="h-3.5 w-3.5" />
-                {t("adminWorkspace.metrics.members")}: {props.memberships.length}
+                {t("adminWorkspace.metrics.members")}:{" "}
+                {props.memberships.length}
               </span>
-              <span>{t("adminWorkspace.metrics.invites")}: {activeInvites}</span>
-              <span>{t("adminWorkspace.share.title")}: {activeShares}</span>
+              <span>
+                {t("adminWorkspace.metrics.invites")}: {activeInvites}
+              </span>
+              <span>
+                {t("adminWorkspace.share.title")}: {activeShares}
+              </span>
             </div>
           </div>
           {renderInviteDialog()}

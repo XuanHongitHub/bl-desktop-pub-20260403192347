@@ -56,8 +56,9 @@ function writeStoredSortingSettings(settings: TableSortingSettings) {
 }
 
 export function useTableSorting() {
-  const [sortingSettings, setSortingSettings] =
-    useState<TableSortingSettings>(readStoredSortingSettings);
+  const [sortingSettings, setSortingSettings] = useState<TableSortingSettings>(
+    readStoredSortingSettings,
+  );
   const [isLoaded] = useState(true);
 
   // Save sorting settings to disk

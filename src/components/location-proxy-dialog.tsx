@@ -39,9 +39,9 @@ export function LocationProxyDialog({
   const [selectedCity, setSelectedCity] = useState("");
   const [proxyName, setProxyName] = useState("");
 
-  const [isLoadingCountries, setIsLoadingCountries] = useState(false);
-  const [isLoadingStates, setIsLoadingStates] = useState(false);
-  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [_isLoadingCountries, setIsLoadingCountries] = useState(false);
+  const [_isLoadingStates, setIsLoadingStates] = useState(false);
+  const [_isLoadingCities, setIsLoadingCities] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   const handleClose = useCallback(() => {

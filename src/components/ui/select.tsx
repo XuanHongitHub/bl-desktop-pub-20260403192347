@@ -12,21 +12,20 @@ function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   const hasValueProp = typeof value === "string";
-  const normalizedValue =
-    hasValueProp && value.length > 0 ? value : undefined;
+  const normalizedValue = hasValueProp && value.length > 0 ? value : undefined;
   const lastNotifiedValueRef = React.useRef<string | null>(null);
 
   return (
-      <SelectPrimitive.Root
-        data-slot="select"
-        {...(normalizedValue !== undefined ? { value: normalizedValue } : {})}
-        onValueChange={(nextValue) => {
-          if (nextValue.length === 0) {
-            return;
-          }
-          if (normalizedValue && nextValue === normalizedValue) {
-            return;
-          }
+    <SelectPrimitive.Root
+      data-slot="select"
+      {...(normalizedValue !== undefined ? { value: normalizedValue } : {})}
+      onValueChange={(nextValue) => {
+        if (nextValue.length === 0) {
+          return;
+        }
+        if (normalizedValue && nextValue === normalizedValue) {
+          return;
+        }
         if (lastNotifiedValueRef.current === nextValue) {
           return;
         }

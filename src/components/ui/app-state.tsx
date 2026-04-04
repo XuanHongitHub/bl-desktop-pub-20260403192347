@@ -2,8 +2,8 @@
 
 import { AlertTriangle, CircleAlert, Inbox, Info } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 type AppStateKind = "loading" | "empty" | "error" | "warning" | "info";
 

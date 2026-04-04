@@ -20,7 +20,11 @@ const SIZE_CLASSNAME: Record<SpinnerSize, string> = {
 export function Spinner({ size = "md", className }: SpinnerProps) {
   return (
     <Loader2
-      className={cn("animate-spin text-muted-foreground", SIZE_CLASSNAME[size], className)}
+      className={cn(
+        "animate-spin text-muted-foreground",
+        SIZE_CLASSNAME[size],
+        className,
+      )}
     />
   );
 }

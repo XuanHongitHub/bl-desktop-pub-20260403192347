@@ -35,7 +35,8 @@ export default function AccountBillingPage() {
   const usage = billingState?.usage ?? null;
   const subscription = billingState?.subscription ?? null;
   const workspaceRole = selectedWorkspace?.actorRole ?? "viewer";
-  const canManageBilling = workspaceRole === "owner" || workspaceRole === "admin";
+  const canManageBilling =
+    workspaceRole === "owner" || workspaceRole === "admin";
   const hasPaidPlan = Boolean(subscription?.planId);
   const canReactivate = hasPaidPlan && Boolean(subscription?.cancelAtPeriodEnd);
   const canCancel = hasPaidPlan && subscription?.status !== "canceled";
@@ -74,13 +75,19 @@ export default function AccountBillingPage() {
       if (mode === "reactivate") {
         await reactivateWorkspaceSubscription(connection, selectedWorkspaceId);
       } else {
-        await cancelWorkspaceSubscription(connection, selectedWorkspaceId, mode);
+        await cancelWorkspaceSubscription(
+          connection,
+          selectedWorkspaceId,
+          mode,
+        );
       }
       await refreshBilling();
       showSuccessToast(t("portalSite.account.actionSuccess"));
     } catch (error) {
       const description =
-        error instanceof Error ? error.message : t("portalSite.account.actionFailed");
+        error instanceof Error
+          ? error.message
+          : t("portalSite.account.actionFailed");
       showErrorToast(t("portalSite.account.actionFailed"), { description });
     } finally {
       setPendingAction(null);
@@ -100,7 +107,12 @@ export default function AccountBillingPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild size="sm" variant="outline" disabled={!canManageBilling}>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            disabled={!canManageBilling}
+          >
             <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
           </Button>
         </div>
@@ -114,19 +126,27 @@ export default function AccountBillingPage() {
             </h2>
             <dl className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                <dt className="text-xs text-muted-foreground">{t("portalSite.account.workspace")}</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("portalSite.account.workspace")}
+                </dt>
                 <dd className="mt-1 text-sm font-semibold text-foreground">
-                  {selectedWorkspace?.name ?? t("portalSite.account.workspaceEmpty")}
+                  {selectedWorkspace?.name ??
+                    t("portalSite.account.workspaceEmpty")}
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                <dt className="text-xs text-muted-foreground">{t("portalSite.account.workspaceMode")}</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("portalSite.account.workspaceMode")}
+                </dt>
                 <dd className="mt-1 text-sm font-semibold text-foreground">
-                  {selectedWorkspace?.mode ?? t("portalSite.account.notAvailable")}
+                  {selectedWorkspace?.mode ??
+                    t("portalSite.account.notAvailable")}
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                <dt className="text-xs text-muted-foreground">{t("portalSite.account.plan")}</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("portalSite.account.plan")}
+                </dt>
                 <dd className="mt-1 flex items-center gap-2 text-sm font-semibold text-foreground">
                   {planLabel}
                   <Badge variant="info" className="h-5 px-2 text-[10px]">
@@ -135,18 +155,25 @@ export default function AccountBillingPage() {
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                <dt className="text-xs text-muted-foreground">{t("portalSite.account.status")}</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("portalSite.account.status")}
+                </dt>
                 <dd className="mt-1">
                   <Badge
-                    variant={statusBadgeVariant(billingState?.subscription.status)}
+                    variant={statusBadgeVariant(
+                      billingState?.subscription.status,
+                    )}
                     className="h-5 px-2 text-[10px] capitalize"
                   >
-                    {billingState?.subscription.status ?? t("portalSite.account.notAvailable")}
+                    {billingState?.subscription.status ??
+                      t("portalSite.account.notAvailable")}
                   </Badge>
                 </dd>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/70 p-3 sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">{t("portalSite.account.renewal")}</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {t("portalSite.account.renewal")}
+                </dt>
                 <dd className="mt-1 text-sm font-semibold text-foreground">
                   {billingState?.subscription.expiresAt
                     ? formatLocaleDateTime(billingState.subscription.expiresAt)
@@ -157,13 +184,24 @@ export default function AccountBillingPage() {
 
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" disabled={!canManageBilling}>
-                <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
+                <Link href="/checkout">
+                  {t("portalSite.account.goToCheckout")}
+                </Link>
               </Button>
-              <Button asChild size="sm" variant="outline" disabled={!canManageBilling}>
-                <Link href="/pricing">{t("portalSite.account.changePlan")}</Link>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                disabled={!canManageBilling}
+              >
+                <Link href="/pricing">
+                  {t("portalSite.account.changePlan")}
+                </Link>
               </Button>
               <Button asChild size="sm" variant="ghost">
-                <Link href="/account/invoices">{t("portalSite.account.nav.invoices")}</Link>
+                <Link href="/account/invoices">
+                  {t("portalSite.account.nav.invoices")}
+                </Link>
               </Button>
             </div>
           </div>
@@ -176,7 +214,9 @@ export default function AccountBillingPage() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t("portalSite.account.storageUsage")}</span>
+                  <span className="text-muted-foreground">
+                    {t("portalSite.account.storageUsage")}
+                  </span>
                   <span className="font-medium text-foreground">
                     {storagePercentLabel}
                   </span>
@@ -200,7 +240,9 @@ export default function AccountBillingPage() {
                 variant="secondary"
                 disabled={!canManageBilling}
               >
-                <Link href="/pricing">{t("portalSite.account.selectPlan")}</Link>
+                <Link href="/pricing">
+                  {t("portalSite.account.selectPlan")}
+                </Link>
               </Button>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -220,7 +262,9 @@ export default function AccountBillingPage() {
                       size="sm"
                       variant="outline"
                       disabled={!canManageBilling || pendingAction !== null}
-                      onClick={() => void handleSubscriptionAction("period_end")}
+                      onClick={() =>
+                        void handleSubscriptionAction("period_end")
+                      }
                     >
                       {t("portalSite.account.cancelAtPeriodEnd")}
                     </Button>

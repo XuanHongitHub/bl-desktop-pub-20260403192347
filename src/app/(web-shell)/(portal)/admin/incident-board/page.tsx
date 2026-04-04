@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
+import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Button } from "@/components/ui/button";
 import { listAdminWorkspaceHealth } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
@@ -167,19 +166,19 @@ export default function AdminIncidentBoardPage() {
                     className="border-t border-border/70"
                   >
                     <td className="px-3 py-2">
-                       <p className="font-medium text-foreground">
-                         {item.workspaceName}
-                       </p>
-                       <p className="mt-0.5">
-                         <AdminPlanBadge planId={item.planLabel.toLowerCase()} />
-                       </p>
-                     </td>
-                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.riskLevel} />
-                     </td>
-                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.subscriptionStatus} />
-                     </td>
+                      <p className="font-medium text-foreground">
+                        {item.workspaceName}
+                      </p>
+                      <p className="mt-0.5">
+                        <AdminPlanBadge planId={item.planLabel.toLowerCase()} />
+                      </p>
+                    </td>
+                    <td className="px-3 py-2">
+                      <AdminStatusBadge status={item.riskLevel} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <AdminStatusBadge status={item.subscriptionStatus} />
+                    </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {Math.round(item.storagePercent)}%
                     </td>

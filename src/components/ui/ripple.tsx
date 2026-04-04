@@ -18,8 +18,7 @@ const buttonVariants = cva(
           "border border-border bg-background text-foreground hover:border-primary/20 hover:bg-accent/40 hover:text-foreground",
         secondary:
           "border border-primary/15 bg-primary/10 text-primary hover:bg-primary/15",
-        ghost:
-          "hover:bg-accent/40 hover:text-foreground",
+        ghost: "hover:bg-accent/40 hover:text-foreground",
       },
       size: {
         default: "h-8 rounded-md gap-1.5 px-3",

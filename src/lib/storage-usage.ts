@@ -3,7 +3,9 @@ type UsageLike = {
   storageLimitMb?: number | null;
 };
 
-export function computeStorageUsagePercent(usage: UsageLike | null | undefined): number {
+export function computeStorageUsagePercent(
+  usage: UsageLike | null | undefined,
+): number {
   const storageLimitMb = usage?.storageLimitMb ?? 0;
   const storageUsedBytes = usage?.storageUsedBytes ?? 0;
   if (!storageLimitMb || storageLimitMb <= 0 || storageUsedBytes <= 0) {

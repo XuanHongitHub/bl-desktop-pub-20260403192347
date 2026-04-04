@@ -228,8 +228,10 @@ function usePortalBillingDataState() {
             return current;
           }
 
-          const currentSessionInfo = typeof window !== "undefined" ? readPortalSessionStorage() : null;
-          const fromSession = currentSessionInfo?.current?.workspaceId?.trim() ?? "";
+          const currentSessionInfo =
+            typeof window !== "undefined" ? readPortalSessionStorage() : null;
+          const fromSession =
+            currentSessionInfo?.current?.workspaceId?.trim() ?? "";
           if (
             fromSession &&
             items.some((workspace) => workspace.id === fromSession)

@@ -57,10 +57,8 @@ interface ControlPlaneRuntime {
 const BUGIDEA_TIKTOK_API_PREFIX = "/api/tiktok-cookies";
 const CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX =
   "control_plane_capability_unsupported:";
-const CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY =
-  "admin_tiktok_automation";
-const CONTROL_PLANE_TIKTOK_AUTOMATION_UNSUPPORTED_ERROR =
-  `${CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX}${CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY}`;
+const CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY = "admin_tiktok_automation";
+const CONTROL_PLANE_TIKTOK_AUTOMATION_UNSUPPORTED_ERROR = `${CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX}${CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY}`;
 const CONTROL_PLANE_GET_DEDUP_TTL_MS = 10_000;
 const CONTROL_PLANE_RUNTIME_CACHE_TTL_MS = 4_000;
 const SYNC_SETTINGS_CACHE_TTL_MS = 30_000;
@@ -262,22 +260,30 @@ interface UseControlPlaneResult {
   ) => Promise<TiktokAutomationAccountRecord[]>;
   createTiktokAutomationRun: (
     input: CreateTiktokAutomationRunInput,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
-  getTiktokAutomationRun: (
-    runId: string,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
-  startTiktokAutomationRun: (
-    runId: string,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
-  pauseTiktokAutomationRun: (
-    runId: string,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
-  resumeTiktokAutomationRun: (
-    runId: string,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
-  stopTiktokAutomationRun: (
-    runId: string,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
+  ) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
+  getTiktokAutomationRun: (runId: string) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
+  startTiktokAutomationRun: (runId: string) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
+  pauseTiktokAutomationRun: (runId: string) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
+  resumeTiktokAutomationRun: (runId: string) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
+  stopTiktokAutomationRun: (runId: string) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
   updateTiktokAutomationRunItem: (
     runId: string,
     itemId: string,
@@ -290,7 +296,10 @@ interface UseControlPlaneResult {
   pollTiktokAutomationRunEvents: (
     runId: string,
     since?: string | null,
-  ) => Promise<{ run: TiktokAutomationRunRecord; items: TiktokAutomationRunItemRecord[] }>;
+  ) => Promise<{
+    run: TiktokAutomationRunRecord;
+    items: TiktokAutomationRunItemRecord[];
+  }>;
   adminTiktokState: AdminTiktokState | null;
   refreshAdminTiktokState: () => Promise<void>;
   saveAdminTiktokState: (
@@ -365,10 +374,13 @@ function normalizeAdminTiktokState(
           operationId: input.operationProgress.operationId,
           label: input.operationProgress.label,
           status:
-            (input.operationProgress.status as AdminTiktokOperationProgressState["status"]) ??
-            "idle",
+            (input.operationProgress
+              .status as AdminTiktokOperationProgressState["status"]) ?? "idle",
           total: Math.max(0, Number(input.operationProgress.total ?? 0)),
-          processed: Math.max(0, Number(input.operationProgress.processed ?? 0)),
+          processed: Math.max(
+            0,
+            Number(input.operationProgress.processed ?? 0),
+          ),
           success: Math.max(0, Number(input.operationProgress.success ?? 0)),
           failed: Math.max(0, Number(input.operationProgress.failed ?? 0)),
           skipped: Math.max(0, Number(input.operationProgress.skipped ?? 0)),
@@ -474,7 +486,9 @@ function resolvePreferredWorkspaceId(
   }
 
   if (preferred === "personal") {
-    const personalWorkspace = rows.find((workspace) => workspace.mode === "personal");
+    const personalWorkspace = rows.find(
+      (workspace) => workspace.mode === "personal",
+    );
     return personalWorkspace?.id ?? null;
   }
 
@@ -491,8 +505,8 @@ function normalizeTiktokCookieRows(payload: unknown): TiktokCookieRecord[] {
     ? payload
     : payload && typeof payload === "object"
       ? ((payload as { data?: unknown }).data ??
-          (payload as { items?: unknown }).items ??
-          (payload as { cookies?: unknown }).cookies)
+        (payload as { items?: unknown }).items ??
+        (payload as { cookies?: unknown }).cookies)
       : [];
 
   if (!Array.isArray(rows)) {
@@ -512,7 +526,8 @@ function normalizeTiktokCookieRows(payload: unknown): TiktokCookieRecord[] {
           : `${candidate.notes}`,
       testedAt:
         candidate.testedAt === null || candidate.testedAt === undefined
-          ? `${candidate.last_used_at ?? candidate.last_tested_at ?? ""}` || null
+          ? `${candidate.last_used_at ?? candidate.last_tested_at ?? ""}` ||
+            null
           : `${candidate.testedAt}`,
       createdAt:
         candidate.createdAt === null || candidate.createdAt === undefined
@@ -571,10 +586,7 @@ function isBugIdeaTiktokPath(path: string): boolean {
 }
 
 function resolveControlPlaneCapability(path: string): string | null {
-  const normalizedPath = path.replace(
-    /^\/v1\/control\/workspaces\/[^/]+/,
-    "",
-  );
+  const normalizedPath = path.replace(/^\/v1\/control\/workspaces\/[^/]+/, "");
   if (normalizedPath.startsWith("/admin/tiktok-automation")) {
     return CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY;
   }
@@ -661,7 +673,10 @@ export function useControlPlane(
   useEffect(() => {
     const previousActorIdentity = previousActorIdentityRef.current;
     previousActorIdentityRef.current = actorIdentityKey;
-    if (previousActorIdentity === null || previousActorIdentity === actorIdentityKey) {
+    if (
+      previousActorIdentity === null ||
+      previousActorIdentity === actorIdentityKey
+    ) {
       return;
     }
 
@@ -733,7 +748,7 @@ export function useControlPlane(
       const serializedBody = body ? JSON.stringify(body) : "";
       const authScope = isBugIdeaTiktokPath(path)
         ? bugIdeaBearerRef.current
-        : runtime.token ?? "";
+        : (runtime.token ?? "");
       const cacheKey = [
         runtime.baseUrl ?? "bugidea",
         method,
@@ -762,73 +777,73 @@ export function useControlPlane(
       }
 
       const executeRequest = async (): Promise<T> => {
-      if (isBugIdeaTiktokPath(path)) {
-        if (!canAccessBugIdeaProxy) {
-          throw new Error("permission_denied");
+        if (isBugIdeaTiktokPath(path)) {
+          if (!canAccessBugIdeaProxy) {
+            throw new Error("permission_denied");
+          }
+          const bearerToken = bugIdeaBearerRef.current;
+          if (!bearerToken) {
+            throw new Error("bugidea_bearer_required");
+          }
+          return invoke<T>("bugidea_tiktok_request", {
+            method,
+            path,
+            bearerToken,
+            baseUrl: null,
+            body: body ?? null,
+          });
         }
-        const bearerToken = bugIdeaBearerRef.current;
-        if (!bearerToken) {
-          throw new Error("bugidea_bearer_required");
+
+        if (!runtime.baseUrl || !runtime.token) {
+          throw new Error("control_plane_not_configured");
         }
-        return invoke<T>("bugidea_tiktok_request", {
-          method,
-          path,
-          bearerToken,
-          baseUrl: null,
-          body: body ?? null,
-        });
-      }
+        if (!actorUserId || !actorEmail) {
+          throw new Error("auth_required");
+        }
 
-      if (!runtime.baseUrl || !runtime.token) {
-        throw new Error("control_plane_not_configured");
-      }
-      if (!actorUserId || !actorEmail) {
-        throw new Error("auth_required");
-      }
-
-      const capability = resolveControlPlaneCapability(path);
-      if (
-        capability &&
-        unsupportedControlPlaneCapabilitiesRef.current.has(capability)
-      ) {
-        throw new Error(
-          `${CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX}${capability}`,
-        );
-      }
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "x-user-id": actorUserId,
-        "x-user-email": actorEmail,
-      };
-
-      if (actorPlatformRole) {
-        headers["x-platform-role"] = actorPlatformRole;
-      }
-      headers.Authorization = `Bearer ${runtime.token}`;
-
-      const response = await fetch(`${runtime.baseUrl}${path}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-
-      if (!response.ok) {
-        const rawBody = await response.text().catch(() => "");
-        if (response.status === 404 && capability) {
-          unsupportedControlPlaneCapabilitiesRef.current.add(capability);
+        const capability = resolveControlPlaneCapability(path);
+        if (
+          capability &&
+          unsupportedControlPlaneCapabilitiesRef.current.has(capability)
+        ) {
           throw new Error(
             `${CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX}${capability}`,
           );
         }
-        throw new Error(`control_plane_${response.status}:${rawBody}`);
-      }
 
-      if (response.status === 204) {
-        return undefined as T;
-      }
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "x-user-id": actorUserId,
+          "x-user-email": actorEmail,
+        };
 
-      return (await response.json()) as T;
+        if (actorPlatformRole) {
+          headers["x-platform-role"] = actorPlatformRole;
+        }
+        headers.Authorization = `Bearer ${runtime.token}`;
+
+        const response = await fetch(`${runtime.baseUrl}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+
+        if (!response.ok) {
+          const rawBody = await response.text().catch(() => "");
+          if (response.status === 404 && capability) {
+            unsupportedControlPlaneCapabilitiesRef.current.add(capability);
+            throw new Error(
+              `${CONTROL_PLANE_CAPABILITY_UNSUPPORTED_PREFIX}${capability}`,
+            );
+          }
+          throw new Error(`control_plane_${response.status}:${rawBody}`);
+        }
+
+        if (response.status === 204) {
+          return undefined as T;
+        }
+
+        return (await response.json()) as T;
       };
 
       if (!isGetRequest) {
@@ -870,13 +885,13 @@ export function useControlPlane(
       if (shouldBlock) {
         setIsLoading(true);
       }
-    try {
-      return await run();
-    } finally {
-      if (shouldBlock) {
-        setIsLoading(false);
+      try {
+        return await run();
+      } finally {
+        if (shouldBlock) {
+          setIsLoading(false);
+        }
       }
-    }
     },
     [],
   );
@@ -951,32 +966,32 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      const effectiveWorkspaceScope =
-        workspaceScope === "all" && isPlatformAdmin ? "all" : "member";
-      const rows = await request<ControlWorkspace[]>(
-        "GET",
-        `/v1/control/workspaces?scope=${effectiveWorkspaceScope}`,
-      );
-      setWorkspaces((current) =>
-        areWorkspaceRowsEqual(current, rows) ? current : rows,
-      );
-      setSelectedWorkspaceId((current) => {
-        if (!rows.length) {
-          return null;
-        }
-        if (current && rows.some((workspace) => workspace.id === current)) {
-          return current;
-        }
-        const preferredWorkspace = resolvePreferredWorkspaceId(
-          rows,
-          preferredWorkspaceId,
+        setError(null);
+        const effectiveWorkspaceScope =
+          workspaceScope === "all" && isPlatformAdmin ? "all" : "member";
+        const rows = await request<ControlWorkspace[]>(
+          "GET",
+          `/v1/control/workspaces?scope=${effectiveWorkspaceScope}`,
         );
-        if (preferredWorkspace) {
-          return preferredWorkspace;
-        }
-        return rows[0].id;
-      });
+        setWorkspaces((current) =>
+          areWorkspaceRowsEqual(current, rows) ? current : rows,
+        );
+        setSelectedWorkspaceId((current) => {
+          if (!rows.length) {
+            return null;
+          }
+          if (current && rows.some((workspace) => workspace.id === current)) {
+            return current;
+          }
+          const preferredWorkspace = resolvePreferredWorkspaceId(
+            rows,
+            preferredWorkspaceId,
+          );
+          if (preferredWorkspace) {
+            return preferredWorkspace;
+          }
+          return rows[0].id;
+        });
       },
       { blocking: false },
     ).catch((requestError) => {
@@ -1012,30 +1027,30 @@ export function useControlPlane(
 
       await runWithLoading(
         async () => {
-        setError(null);
-        const [nextOverview, nextMemberships, nextInvites, nextShareGrants] =
-          await Promise.all([
-            request<ControlWorkspaceOverview>(
-              "GET",
-              `/v1/control/workspaces/${workspaceId}/overview`,
-            ),
-            request<ControlMembership[]>(
-              "GET",
-              `/v1/control/workspaces/${workspaceId}/members`,
-            ),
-            request<ControlInvite[]>(
-              "GET",
-              `/v1/control/workspaces/${workspaceId}/invites`,
-            ),
-            request<ControlShareGrant[]>(
-              "GET",
-              `/v1/control/workspaces/${workspaceId}/share-grants`,
-            ),
-          ]);
-        setOverview(nextOverview);
-        setMemberships(nextMemberships);
-        setInvites(nextInvites);
-        setShareGrants(nextShareGrants);
+          setError(null);
+          const [nextOverview, nextMemberships, nextInvites, nextShareGrants] =
+            await Promise.all([
+              request<ControlWorkspaceOverview>(
+                "GET",
+                `/v1/control/workspaces/${workspaceId}/overview`,
+              ),
+              request<ControlMembership[]>(
+                "GET",
+                `/v1/control/workspaces/${workspaceId}/members`,
+              ),
+              request<ControlInvite[]>(
+                "GET",
+                `/v1/control/workspaces/${workspaceId}/invites`,
+              ),
+              request<ControlShareGrant[]>(
+                "GET",
+                `/v1/control/workspaces/${workspaceId}/share-grants`,
+              ),
+            ]);
+          setOverview(nextOverview);
+          setMemberships(nextMemberships);
+          setInvites(nextInvites);
+          setShareGrants(nextShareGrants);
         },
         { blocking: false },
       ).catch((requestError) => {
@@ -1065,38 +1080,48 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      try {
-        const [nextOverview, nextWorkspaceHealth, nextCoupons, nextAuditLogs] =
-          await Promise.all([
-          request<ControlAdminOverview>("GET", "/v1/control/admin/overview"),
-          request<ControlAdminWorkspaceHealthRow[]>(
-            "GET",
-            "/v1/control/admin/workspace-health",
-          ),
-          request<ControlCoupon[]>("GET", "/v1/control/admin/coupons"),
-          request<ControlAuditLog[]>(
-            "GET",
-            "/v1/control/admin/audit-logs?limit=50",
-          ),
+        setError(null);
+        try {
+          const [
+            nextOverview,
+            nextWorkspaceHealth,
+            nextCoupons,
+            nextAuditLogs,
+          ] = await Promise.all([
+            request<ControlAdminOverview>("GET", "/v1/control/admin/overview"),
+            request<ControlAdminWorkspaceHealthRow[]>(
+              "GET",
+              "/v1/control/admin/workspace-health",
+            ),
+            request<ControlCoupon[]>("GET", "/v1/control/admin/coupons"),
+            request<ControlAuditLog[]>(
+              "GET",
+              "/v1/control/admin/audit-logs?limit=50",
+            ),
           ]);
-        setAdminOverview(nextOverview);
-        setAdminWorkspaceHealth(
-          Array.isArray(nextWorkspaceHealth) ? nextWorkspaceHealth : [],
-        );
-        setCoupons(nextCoupons);
-        setAuditLogs(nextAuditLogs);
-      } catch (requestError) {
-        setAdminOverview(null);
-        setAdminWorkspaceHealth([]);
-        setCoupons([]);
-        setAuditLogs([]);
-        setError(extractRootError(requestError));
-      }
+          setAdminOverview(nextOverview);
+          setAdminWorkspaceHealth(
+            Array.isArray(nextWorkspaceHealth) ? nextWorkspaceHealth : [],
+          );
+          setCoupons(nextCoupons);
+          setAuditLogs(nextAuditLogs);
+        } catch (requestError) {
+          setAdminOverview(null);
+          setAdminWorkspaceHealth([]);
+          setCoupons([]);
+          setAuditLogs([]);
+          setError(extractRootError(requestError));
+        }
       },
       { blocking: false },
     );
-  }, [isPlatformAdmin, request, runWithLoading, runtime.baseUrl, runtime.token]);
+  }, [
+    isPlatformAdmin,
+    request,
+    runWithLoading,
+    runtime.baseUrl,
+    runtime.token,
+  ]);
 
   const refreshTiktokCookies = useCallback(async () => {
     if (!canAccessBugIdeaProxy) {
@@ -1112,14 +1137,14 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      try {
-        const payload = await request<unknown>("GET", "/api/tiktok-cookies");
-        setTiktokCookies(normalizeTiktokCookieRows(payload));
-      } catch (requestError) {
-        setTiktokCookies([]);
-        setError(extractRootError(requestError));
-      }
+        setError(null);
+        try {
+          const payload = await request<unknown>("GET", "/api/tiktok-cookies");
+          setTiktokCookies(normalizeTiktokCookieRows(payload));
+        } catch (requestError) {
+          setTiktokCookies([]);
+          setError(extractRootError(requestError));
+        }
       },
       { blocking: false },
     );
@@ -1143,17 +1168,17 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      try {
-        const rows = await request<TiktokCookieSourceRecord[]>(
-          "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-cookie-sources`,
-        );
-        setTiktokCookieSources(Array.isArray(rows) ? rows : []);
-      } catch (requestError) {
-        setTiktokCookieSources([]);
-        setError(extractRootError(requestError));
-      }
+        setError(null);
+        try {
+          const rows = await request<TiktokCookieSourceRecord[]>(
+            "GET",
+            `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-cookie-sources`,
+          );
+          setTiktokCookieSources(Array.isArray(rows) ? rows : []);
+        } catch (requestError) {
+          setTiktokCookieSources([]);
+          setError(extractRootError(requestError));
+        }
       },
       { blocking: false },
     );
@@ -1179,19 +1204,19 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      try {
-        const state = await request<AdminTiktokState>(
-          "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-state`,
-        );
-        setAdminTiktokState(
-          normalizeAdminTiktokState(selectedWorkspaceId, state),
-        );
-      } catch (requestError) {
-        setAdminTiktokState(null);
-        setError(extractRootError(requestError));
-      }
+        setError(null);
+        try {
+          const state = await request<AdminTiktokState>(
+            "GET",
+            `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-state`,
+          );
+          setAdminTiktokState(
+            normalizeAdminTiktokState(selectedWorkspaceId, state),
+          );
+        } catch (requestError) {
+          setAdminTiktokState(null);
+          setError(extractRootError(requestError));
+        }
       },
       { blocking: false },
     );
@@ -1252,28 +1277,28 @@ export function useControlPlane(
 
     await runWithLoading(
       async () => {
-      setError(null);
-      try {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        headers.Authorization = `Bearer ${runtime.token}`;
+        setError(null);
+        try {
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          headers.Authorization = `Bearer ${runtime.token}`;
 
-        const response = await fetch(`${runtime.baseUrl}/config-status`, {
-          method: "GET",
-          headers,
-        });
-        if (!response.ok) {
-          const body = await response.text().catch(() => "");
-          throw new Error(`config_status_${response.status}:${body}`);
+          const response = await fetch(`${runtime.baseUrl}/config-status`, {
+            method: "GET",
+            headers,
+          });
+          if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            throw new Error(`config_status_${response.status}:${body}`);
+          }
+
+          const status = (await response.json()) as SyncServerConfigStatus;
+          setServerConfigStatus(status);
+        } catch (requestError) {
+          setServerConfigStatus(null);
+          setError(extractRootError(requestError));
         }
-
-        const status = (await response.json()) as SyncServerConfigStatus;
-        setServerConfigStatus(status);
-      } catch (requestError) {
-        setServerConfigStatus(null);
-        setError(extractRootError(requestError));
-      }
       },
       { blocking: false },
     );
@@ -1350,7 +1375,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const revokeInvite = useCallback(
@@ -1372,7 +1403,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const updateMembershipRole = useCallback(
@@ -1399,7 +1436,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const removeMembership = useCallback(
@@ -1421,7 +1464,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const createShareGrant = useCallback(
@@ -1454,7 +1503,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const revokeShareGrant = useCallback(
@@ -1476,7 +1531,13 @@ export function useControlPlane(
         throw requestError;
       });
     },
-    [request, refreshWorkspaceDetails, runWithLoading, runtime.baseUrl, runtime.token],
+    [
+      request,
+      refreshWorkspaceDetails,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+    ],
   );
 
   const createCoupon = useCallback(
@@ -1673,119 +1734,119 @@ export function useControlPlane(
 
   const refreshTiktokAutomationAccounts = useCallback(
     async (flowType?: TiktokAutomationFlowType) => {
-    if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
-      setTiktokAutomationAccounts([]);
-      return;
-    }
-    if (!runtime.baseUrl || !runtime.token) {
-      setTiktokAutomationAccounts([]);
-      setError("control_plane_not_configured");
-      return;
-    }
-    if (
-      unsupportedControlPlaneCapabilitiesRef.current.has(
-        CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY,
-      )
-    ) {
-      setTiktokAutomationAccounts([]);
-      return;
-    }
-
-    await runWithLoading(
-      async () => {
-      setError(null);
-      try {
-        assertTiktokAutomationSupported();
-        const query =
-          flowType && flowType.trim().length > 0
-            ? `?flowType=${encodeURIComponent(flowType)}`
-            : "";
-        const rows = await request<TiktokAutomationAccountRecord[]>(
-          "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/accounts${query}`,
-        );
-        setTiktokAutomationAccounts(Array.isArray(rows) ? rows : []);
-      } catch (requestError) {
-        if (isTiktokAutomationUnsupportedError(requestError)) {
-          handleTiktokAutomationUnsupported();
-          return;
-        }
+      if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
         setTiktokAutomationAccounts([]);
-        setError(extractRootError(requestError));
+        return;
       }
-      },
-      { blocking: false },
-    );
+      if (!runtime.baseUrl || !runtime.token) {
+        setTiktokAutomationAccounts([]);
+        setError("control_plane_not_configured");
+        return;
+      }
+      if (
+        unsupportedControlPlaneCapabilitiesRef.current.has(
+          CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY,
+        )
+      ) {
+        setTiktokAutomationAccounts([]);
+        return;
+      }
+
+      await runWithLoading(
+        async () => {
+          setError(null);
+          try {
+            assertTiktokAutomationSupported();
+            const query =
+              flowType && flowType.trim().length > 0
+                ? `?flowType=${encodeURIComponent(flowType)}`
+                : "";
+            const rows = await request<TiktokAutomationAccountRecord[]>(
+              "GET",
+              `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/accounts${query}`,
+            );
+            setTiktokAutomationAccounts(Array.isArray(rows) ? rows : []);
+          } catch (requestError) {
+            if (isTiktokAutomationUnsupportedError(requestError)) {
+              handleTiktokAutomationUnsupported();
+              return;
+            }
+            setTiktokAutomationAccounts([]);
+            setError(extractRootError(requestError));
+          }
+        },
+        { blocking: false },
+      );
     },
     [
-    assertTiktokAutomationSupported,
-    handleTiktokAutomationUnsupported,
-    canAccessBugIdeaProxy,
-    isTiktokAutomationUnsupportedError,
-    request,
-    runWithLoading,
-    runtime.baseUrl,
-    runtime.token,
-    selectedWorkspaceId,
+      assertTiktokAutomationSupported,
+      handleTiktokAutomationUnsupported,
+      canAccessBugIdeaProxy,
+      isTiktokAutomationUnsupportedError,
+      request,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+      selectedWorkspaceId,
     ],
   );
 
   const refreshTiktokAutomationRuns = useCallback(
     async (flowType?: TiktokAutomationFlowType) => {
-    if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
-      setTiktokAutomationRuns([]);
-      return;
-    }
-    if (!runtime.baseUrl || !runtime.token) {
-      setTiktokAutomationRuns([]);
-      setError("control_plane_not_configured");
-      return;
-    }
-    if (
-      unsupportedControlPlaneCapabilitiesRef.current.has(
-        CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY,
-      )
-    ) {
-      setTiktokAutomationRuns([]);
-      return;
-    }
-
-    await runWithLoading(
-      async () => {
-      setError(null);
-      try {
-        assertTiktokAutomationSupported();
-        const query =
-          flowType && flowType.trim().length > 0
-            ? `?flowType=${encodeURIComponent(flowType)}`
-            : "";
-        const rows = await request<TiktokAutomationRunRecord[]>(
-          "GET",
-          `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/runs${query}`,
-        );
-        setTiktokAutomationRuns(Array.isArray(rows) ? rows : []);
-      } catch (requestError) {
-        if (isTiktokAutomationUnsupportedError(requestError)) {
-          handleTiktokAutomationUnsupported();
-          return;
-        }
+      if (!canAccessBugIdeaProxy || !selectedWorkspaceId) {
         setTiktokAutomationRuns([]);
-        setError(extractRootError(requestError));
+        return;
       }
-      },
-      { blocking: false },
-    );
+      if (!runtime.baseUrl || !runtime.token) {
+        setTiktokAutomationRuns([]);
+        setError("control_plane_not_configured");
+        return;
+      }
+      if (
+        unsupportedControlPlaneCapabilitiesRef.current.has(
+          CONTROL_PLANE_TIKTOK_AUTOMATION_CAPABILITY,
+        )
+      ) {
+        setTiktokAutomationRuns([]);
+        return;
+      }
+
+      await runWithLoading(
+        async () => {
+          setError(null);
+          try {
+            assertTiktokAutomationSupported();
+            const query =
+              flowType && flowType.trim().length > 0
+                ? `?flowType=${encodeURIComponent(flowType)}`
+                : "";
+            const rows = await request<TiktokAutomationRunRecord[]>(
+              "GET",
+              `/v1/control/workspaces/${selectedWorkspaceId}/admin/tiktok-automation/runs${query}`,
+            );
+            setTiktokAutomationRuns(Array.isArray(rows) ? rows : []);
+          } catch (requestError) {
+            if (isTiktokAutomationUnsupportedError(requestError)) {
+              handleTiktokAutomationUnsupported();
+              return;
+            }
+            setTiktokAutomationRuns([]);
+            setError(extractRootError(requestError));
+          }
+        },
+        { blocking: false },
+      );
     },
     [
-    assertTiktokAutomationSupported,
-    handleTiktokAutomationUnsupported,
-    canAccessBugIdeaProxy,
-    isTiktokAutomationUnsupportedError,
-    request,
-    runWithLoading,
-    runtime.baseUrl,
-    runtime.token,
-    selectedWorkspaceId,
+      assertTiktokAutomationSupported,
+      handleTiktokAutomationUnsupported,
+      canAccessBugIdeaProxy,
+      isTiktokAutomationUnsupportedError,
+      request,
+      runWithLoading,
+      runtime.baseUrl,
+      runtime.token,
+      selectedWorkspaceId,
     ],
   );
 
@@ -1962,26 +2023,22 @@ export function useControlPlane(
   );
 
   const startTiktokAutomationRun = useCallback(
-    async (runId: string) =>
-      updateTiktokAutomationRunStatus(runId, "start"),
+    async (runId: string) => updateTiktokAutomationRunStatus(runId, "start"),
     [updateTiktokAutomationRunStatus],
   );
 
   const pauseTiktokAutomationRun = useCallback(
-    async (runId: string) =>
-      updateTiktokAutomationRunStatus(runId, "pause"),
+    async (runId: string) => updateTiktokAutomationRunStatus(runId, "pause"),
     [updateTiktokAutomationRunStatus],
   );
 
   const resumeTiktokAutomationRun = useCallback(
-    async (runId: string) =>
-      updateTiktokAutomationRunStatus(runId, "resume"),
+    async (runId: string) => updateTiktokAutomationRunStatus(runId, "resume"),
     [updateTiktokAutomationRunStatus],
   );
 
   const stopTiktokAutomationRun = useCallback(
-    async (runId: string) =>
-      updateTiktokAutomationRunStatus(runId, "stop"),
+    async (runId: string) => updateTiktokAutomationRunStatus(runId, "stop"),
     [updateTiktokAutomationRunStatus],
   );
 

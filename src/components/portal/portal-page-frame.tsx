@@ -47,9 +47,7 @@ export function PortalPageFrame({
       {children ? (
         <div
           className={cn(
-            contentVariant === "surface"
-              ? "space-y-6 py-8"
-              : null,
+            contentVariant === "surface" ? "space-y-6 py-8" : null,
             contentClassName,
           )}
         >

@@ -1,12 +1,10 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { usePortalSessionStore } from "@/hooks/use-portal-session-store";
-import {
-  resolvePortalPostAuthPath,
-} from "@/lib/portal-session";
+import { resolvePortalPostAuthPath } from "@/lib/portal-session";
 
 function buildNextPath(pathname: string): string {
   const query =

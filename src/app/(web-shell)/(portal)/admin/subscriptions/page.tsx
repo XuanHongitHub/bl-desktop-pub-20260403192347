@@ -2,15 +2,28 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { resolveUnifiedPlanId } from "@/lib/plan-display";
 
 export default function AdminSubscriptionsPage() {
@@ -62,23 +75,37 @@ export default function AdminSubscriptionsPage() {
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.subscriptions.metrics.total")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.subscriptions.metrics.total")}
+            </CardDescription>
             <CardTitle className="text-2xl">{filteredRows.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.subscriptions.metrics.active")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.subscriptions.metrics.active")}
+            </CardDescription>
             <CardTitle className="text-2xl">
-              {filteredRows.filter((item) => item.subscriptionStatus === "active").length}
+              {
+                filteredRows.filter(
+                  (item) => item.subscriptionStatus === "active",
+                ).length
+              }
             </CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.subscriptions.metrics.pastDue")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.subscriptions.metrics.pastDue")}
+            </CardDescription>
             <CardTitle className="text-2xl">
-              {filteredRows.filter((item) => item.subscriptionStatus === "past_due").length}
+              {
+                filteredRows.filter(
+                  (item) => item.subscriptionStatus === "past_due",
+                ).length
+              }
             </CardTitle>
           </CardHeader>
         </Card>
@@ -154,7 +181,9 @@ export default function AdminSubscriptionsPage() {
                   </TableRow>
                 ) : (
                   filteredRows.map((workspace) => {
-                    const unifiedPlan = resolveUnifiedPlanId({ planLabel: workspace.planLabel });
+                    const unifiedPlan = resolveUnifiedPlanId({
+                      planLabel: workspace.planLabel,
+                    });
                     return (
                       <TableRow key={workspace.id} className="group">
                         <TableCell className="font-medium">
@@ -165,8 +194,8 @@ export default function AdminSubscriptionsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                             <AdminPlanBadge planId={unifiedPlan} />
-                             <span className="text-[10px] text-muted-foreground capitalize">
+                            <AdminPlanBadge planId={unifiedPlan} />
+                            <span className="text-[10px] text-muted-foreground capitalize">
                               {workspace.billingCycle ?? "--"}
                             </span>
                           </div>
@@ -175,7 +204,9 @@ export default function AdminSubscriptionsPage() {
                           {workspace.subscriptionSource}
                         </TableCell>
                         <TableCell>
-                          <AdminStatusBadge status={workspace.subscriptionStatus} />
+                          <AdminStatusBadge
+                            status={workspace.subscriptionStatus}
+                          />
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {workspace.expiresAt

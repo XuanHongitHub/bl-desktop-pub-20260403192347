@@ -1,6 +1,6 @@
+import type { Metadata } from "next";
 import { WebRuntimeOnlyGuard } from "@/components/website/runtime-surface-guard";
 import { WebsiteShell } from "@/components/website/website-shell";
-import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "BugLogin Website",

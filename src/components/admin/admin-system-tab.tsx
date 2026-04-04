@@ -11,7 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CustomRolesManager, type CustomRoleDefinition } from "./custom-roles-manager";
+import {
+  type CustomRoleDefinition,
+  CustomRolesManager,
+} from "./custom-roles-manager";
 
 interface AdminSystemTabProps {
   isPlatformAdmin: boolean;
@@ -64,8 +67,17 @@ export function AdminSystemTab(props: AdminSystemTabProps) {
   ];
 
   const mockSystemRoles: CustomRoleDefinition[] = [
-    { id: "platform_admin", name: "Platform Admin", isSystem: true, capabilities: [] },
-    { id: "support_agent", name: "Support Tier 1", capabilities: ["view_workspaces"] }
+    {
+      id: "platform_admin",
+      name: "Platform Admin",
+      isSystem: true,
+      capabilities: [],
+    },
+    {
+      id: "support_agent",
+      name: "Support Tier 1",
+      capabilities: ["view_workspaces"],
+    },
   ];
 
   return (

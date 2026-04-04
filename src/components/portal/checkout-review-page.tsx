@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowRight, Check, CreditCard, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PORTAL_PRICING_WIDTH_CLASS } from "@/components/portal/portal-geometry";
-import { createWorkspaceStripeCheckout } from "@/components/web-billing/control-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,12 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { createWorkspaceStripeCheckout } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import {
   BILLING_PLAN_DEFINITIONS,
-  getBillingPlanPrice,
   type BillingCycle,
   type BillingPlanId,
+  getBillingPlanPrice,
 } from "@/lib/billing-plans";
 import { formatLocaleNumber } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
@@ -82,7 +82,10 @@ export function CheckoutReviewPage() {
   const yearlySavings =
     selectedPlan.id === "enterprise"
       ? 0
-      : Math.max(0, (selectedPlan.monthlyPrice - selectedPlan.yearlyPrice) * 12);
+      : Math.max(
+          0,
+          (selectedPlan.monthlyPrice - selectedPlan.yearlyPrice) * 12,
+        );
 
   const featureRows = [
     `${selectedPlan.profiles.toLocaleString("en-US")} ${t("portalSite.pricing.table.profiles")}`,
@@ -132,7 +135,9 @@ export function CheckoutReviewPage() {
     <section className={cn("space-y-6 pb-14 pt-4", PORTAL_PRICING_WIDTH_CLASS)}>
       <div className="space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          {t("portalSite.checkout.eyebrow", { defaultValue: "Stripe checkout" })}
+          {t("portalSite.checkout.eyebrow", {
+            defaultValue: "Stripe checkout",
+          })}
         </p>
         <h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-4xl">
           {t("portalSite.checkout.summaryTitle", {
@@ -169,7 +174,9 @@ export function CheckoutReviewPage() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {t("portalSite.checkout.cycleMonthly", { defaultValue: "Monthly" })}
+                {t("portalSite.checkout.cycleMonthly", {
+                  defaultValue: "Monthly",
+                })}
               </button>
               <button
                 type="button"
@@ -181,7 +188,9 @@ export function CheckoutReviewPage() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {t("portalSite.checkout.cycleYearly", { defaultValue: "Yearly" })}
+                {t("portalSite.checkout.cycleYearly", {
+                  defaultValue: "Yearly",
+                })}
               </button>
             </div>
 
@@ -190,7 +199,10 @@ export function CheckoutReviewPage() {
                 {t("portalSite.checkout.planTitle", { defaultValue: "Plan" })}
               </p>
               <p className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-foreground">
-                ${formatLocaleNumber(monthlyEquivalent, { maximumFractionDigits: 2 })}
+                $
+                {formatLocaleNumber(monthlyEquivalent, {
+                  maximumFractionDigits: 2,
+                })}
               </p>
               <p className="text-sm text-muted-foreground">
                 {billingCycle === "yearly"
@@ -199,7 +211,8 @@ export function CheckoutReviewPage() {
               </p>
               {billingCycle === "yearly" && yearlySavings > 0 ? (
                 <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  {t("portalSite.pricing.saveBadge")} ${formatLocaleNumber(yearlySavings)}
+                  {t("portalSite.pricing.saveBadge")} $
+                  {formatLocaleNumber(yearlySavings)}
                 </p>
               ) : null}
             </div>
@@ -220,7 +233,9 @@ export function CheckoutReviewPage() {
             <CardContent className="space-y-4 pt-5">
               <div className="space-y-1">
                 <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("portalSite.checkout.workspace", { defaultValue: "Workspace" })}
+                  {t("portalSite.checkout.workspace", {
+                    defaultValue: "Workspace",
+                  })}
                 </p>
                 <Select
                   value={selectedWorkspaceId}
@@ -228,9 +243,12 @@ export function CheckoutReviewPage() {
                 >
                   <SelectTrigger className="h-10 w-full rounded-lg text-sm">
                     <SelectValue
-                      placeholder={t("portalSite.checkout.workspacePlaceholder", {
-                        defaultValue: "Select workspace",
-                      })}
+                      placeholder={t(
+                        "portalSite.checkout.workspacePlaceholder",
+                        {
+                          defaultValue: "Select workspace",
+                        },
+                      )}
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -297,7 +315,10 @@ export function CheckoutReviewPage() {
                         })}
                   </span>
                   <span className="font-semibold text-foreground">
-                    ${formatLocaleNumber(billedNow, { maximumFractionDigits: 2 })}
+                    $
+                    {formatLocaleNumber(billedNow, {
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
               </div>

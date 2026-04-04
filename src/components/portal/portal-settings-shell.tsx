@@ -84,7 +84,11 @@ export const ADMIN_SETTINGS_NAV: PortalSettingsNavItem[] = [
 function isActive(pathname: string, href: string): boolean {
   if (href === "/account") return pathname === "/account";
   if (href === "/admin/dashboard")
-    return pathname === "/admin" || pathname === "/admin/dashboard" || pathname === "/admin/command-center";
+    return (
+      pathname === "/admin" ||
+      pathname === "/admin/dashboard" ||
+      pathname === "/admin/command-center"
+    );
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

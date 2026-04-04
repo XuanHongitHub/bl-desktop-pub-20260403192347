@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,7 +21,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function statusVariant(
+function _statusVariant(
   status: ControlAdminAutomationRunListItem["status"],
 ): "success" | "warning" | "destructive" | "info" | "outline" {
   if (status === "completed") return "success";

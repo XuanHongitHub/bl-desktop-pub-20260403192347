@@ -28,4 +28,3 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     </I18nProvider>
   );
 }
-

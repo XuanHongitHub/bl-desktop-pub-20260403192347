@@ -2,21 +2,34 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { listAdminInvoices } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
-import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
-import { showErrorToast } from "@/lib/toast-utils";
 import { extractRootError } from "@/lib/error-utils";
-import type { ControlAdminInvoiceListItem } from "@/types";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
 import { resolveUnifiedPlanId } from "@/lib/plan-display";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { showErrorToast } from "@/lib/toast-utils";
+import type { ControlAdminInvoiceListItem } from "@/types";
 
 export default function AdminInvoicesPage() {
   const { t } = useTranslation();
@@ -83,13 +96,17 @@ export default function AdminInvoicesPage() {
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.invoices.metrics.count")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.invoices.metrics.count")}
+            </CardDescription>
             <CardTitle className="text-2xl">{summary.count}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.invoices.metrics.revenue")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.invoices.metrics.revenue")}
+            </CardDescription>
             <CardTitle className="text-2xl text-emerald-600 dark:text-emerald-400">
               ${formatLocaleNumber(summary.revenue)}
             </CardTitle>
@@ -97,7 +114,9 @@ export default function AdminInvoicesPage() {
         </Card>
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription>{t("portalSite.admin.invoices.metrics.average")}</CardDescription>
+            <CardDescription>
+              {t("portalSite.admin.invoices.metrics.average")}
+            </CardDescription>
             <CardTitle className="text-2xl">
               ${formatLocaleNumber(summary.average)}
             </CardTitle>
@@ -124,10 +143,18 @@ export default function AdminInvoicesPage() {
                   <TableHead className="font-medium text-left">
                     {t("portalSite.admin.columns.workspace")} // Người dùng
                   </TableHead>
-                  <TableHead className="font-medium text-left">Gói Đăng ký</TableHead>
-                  <TableHead className="font-medium text-left">Doanh thu (USD)</TableHead>
-                  <TableHead className="font-medium text-left">Thông tin thanh toán</TableHead>
-                  <TableHead className="font-medium text-left">Ngày hoàn tất</TableHead>
+                  <TableHead className="font-medium text-left">
+                    Gói Đăng ký
+                  </TableHead>
+                  <TableHead className="font-medium text-left">
+                    Doanh thu (USD)
+                  </TableHead>
+                  <TableHead className="font-medium text-left">
+                    Thông tin thanh toán
+                  </TableHead>
+                  <TableHead className="font-medium text-left">
+                    Ngày hoàn tất
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -151,7 +178,9 @@ export default function AdminInvoicesPage() {
                   </TableRow>
                 ) : (
                   rows.map((invoice) => {
-                    const unifiedPlan = resolveUnifiedPlanId({ planLabel: invoice.planLabel });
+                    const unifiedPlan = resolveUnifiedPlanId({
+                      planLabel: invoice.planLabel,
+                    });
                     const email = invoice.actorEmail || "--";
                     return (
                       <TableRow key={invoice.id} className="group">
@@ -163,7 +192,9 @@ export default function AdminInvoicesPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="truncate font-medium">{invoice.workspaceName}</p>
+                              <p className="truncate font-medium">
+                                {invoice.workspaceName}
+                              </p>
                               <p className="truncate text-[10px] text-muted-foreground font-mono">
                                 {invoice.actorEmail ?? invoice.actorUserId}
                               </p>
@@ -172,8 +203,8 @@ export default function AdminInvoicesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                             <AdminPlanBadge planId={unifiedPlan} />
-                             <span className="text-[10px] text-muted-foreground capitalize">
+                            <AdminPlanBadge planId={unifiedPlan} />
+                            <span className="text-[10px] text-muted-foreground capitalize">
                               {invoice.billingCycle}
                             </span>
                           </div>
@@ -185,7 +216,9 @@ export default function AdminInvoicesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col text-xs text-muted-foreground">
-                            <span className="capitalize">{invoice.method} • {invoice.source}</span>
+                            <span className="capitalize">
+                              {invoice.method} • {invoice.source}
+                            </span>
                             {invoice.couponCode && (
                               <span className="font-mono text-[10px] mt-0.5 px-1 py-0.5 bg-muted rounded w-fit">
                                 {invoice.couponCode}
@@ -194,7 +227,9 @@ export default function AdminInvoicesPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
-                           {formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}
+                          {formatLocaleDateTime(
+                            invoice.paidAt || invoice.createdAt,
+                          )}
                         </TableCell>
                       </TableRow>
                     );

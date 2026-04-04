@@ -27,7 +27,9 @@ export function useWebPortalSession() {
     () =>
       resolvePortalPostAuthPath({
         platformRole:
-          session?.user.platformRole ?? session?.connection.platformRole ?? null,
+          session?.user.platformRole ??
+          session?.connection.platformRole ??
+          null,
       }),
     [session],
   );

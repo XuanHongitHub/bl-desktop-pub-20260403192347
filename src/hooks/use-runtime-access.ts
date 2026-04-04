@@ -85,7 +85,9 @@ export function useRuntimeAccess(
     () => cachedSnapshot?.entitlement ?? null,
   );
   const [runtimeConfig, setRuntimeConfig] =
-    useState<RuntimeConfigStatus | null>(() => cachedSnapshot?.runtimeConfig ?? null);
+    useState<RuntimeConfigStatus | null>(
+      () => cachedSnapshot?.runtimeConfig ?? null,
+    );
   const [featureAccess, setFeatureAccess] =
     useState<FeatureAccessSnapshot | null>(
       () => cachedSnapshot?.featureAccess ?? DEFAULT_FEATURE_ACCESS,

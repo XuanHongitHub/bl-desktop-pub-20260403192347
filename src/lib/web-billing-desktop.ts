@@ -14,6 +14,7 @@ interface SyncSettings {
 }
 
 interface AppSettings {
+  sync_server_url?: string;
   billing_portal_url?: string;
   stripe_billing_url?: string;
 }
@@ -68,10 +69,39 @@ async function readAppSettings(): Promise<AppSettings | null> {
 
 function resolveControlBaseUrl(
   syncSettings: SyncSettings | null,
+  appSettings: AppSettings | null,
+  portalBaseUrl: string | null,
 ): string | null {
+  const configuredPortalBase = normalizeHttpBaseUrl(portalBaseUrl);
+  const derivedFromPortalBase = (() => {
+    if (!configuredPortalBase) {
+      return null;
+    }
+    try {
+      const parsed = new URL(configuredPortalBase);
+      const hostname = parsed.hostname.trim().toLowerCase();
+      if (!hostname) {
+        return null;
+      }
+      if (hostname.startsWith("api.")) {
+        return normalizeHttpBaseUrl(`${parsed.protocol}//${parsed.host}`);
+      }
+      if (hostname.includes(".")) {
+        return normalizeHttpBaseUrl(
+          `${parsed.protocol}//api.${hostname}${parsed.port ? `:${parsed.port}` : ""}`,
+        );
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  })();
+
   return (
     normalizeHttpBaseUrl(syncSettings?.sync_server_url) ??
-    normalizeHttpBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL)
+    normalizeHttpBaseUrl(appSettings?.sync_server_url) ??
+    normalizeHttpBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL) ??
+    derivedFromPortalBase
   );
 }
 
@@ -106,7 +136,7 @@ function resolvePortalBaseUrl(appSettings: AppSettings | null): string | null {
 export async function resolveWebBillingPortalUrl(
   input: OpenWebBillingPortalInput,
 ): Promise<string> {
-  const [syncSettings, appSettings] = await Promise.all([
+  const [initialSyncSettings, appSettings] = await Promise.all([
     readSyncSettings(),
     readAppSettings(),
   ]);
@@ -115,8 +145,38 @@ export async function resolveWebBillingPortalUrl(
     throw new Error("web_billing_portal_url_missing");
   }
 
-  const controlBaseUrl = resolveControlBaseUrl(syncSettings);
-  const controlToken = resolveControlToken(syncSettings);
+  const readSyncContextWithRetry = async () => {
+    let syncSettings = initialSyncSettings;
+    let controlBaseUrl = resolveControlBaseUrl(
+      syncSettings,
+      appSettings,
+      portalBaseUrl,
+    );
+    let controlToken = resolveControlToken(syncSettings);
+    if (controlBaseUrl && controlToken) {
+      return { controlBaseUrl, controlToken };
+    }
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      syncSettings = await readSyncSettings();
+      controlBaseUrl = resolveControlBaseUrl(
+        syncSettings,
+        appSettings,
+        portalBaseUrl,
+      );
+      controlToken = resolveControlToken(syncSettings);
+      if (controlBaseUrl && controlToken) {
+        break;
+      }
+    }
+    return {
+      controlBaseUrl,
+      controlToken,
+    };
+  };
+
+  const { controlBaseUrl, controlToken } = await readSyncContextWithRetry();
   const userId = input.user.id.trim();
   const userEmail = input.user.email.trim();
   const workspaceId = input.workspaceId?.trim() || null;

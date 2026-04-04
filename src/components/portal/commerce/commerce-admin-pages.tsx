@@ -2,8 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
+import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   activateCommerceCampaign,
+  type CommercePricePreviewInput,
   createCommerceCampaign,
   createCommerceCoupon,
   createCommerceLicense,
@@ -19,22 +34,7 @@ import {
   publishCommercePlanVersion,
   revokeCommerceLicense,
   rotateCommerceLicense,
-  type CommercePricePreviewInput,
 } from "@/components/web-billing/control-api";
-import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
@@ -109,7 +109,10 @@ export function AdminCommercePlansPage() {
       return plans;
     }
     return plans.filter((item) =>
-      [item.code, item.name, item.status].join(" ").toLowerCase().includes(keyword),
+      [item.code, item.name, item.status]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword),
     );
   }, [plans, query]);
 
@@ -240,7 +243,10 @@ export function AdminCommercePlansPage() {
               </SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => void handleCreate()} disabled={creating || loading}>
+          <Button
+            onClick={() => void handleCreate()}
+            disabled={creating || loading}
+          >
             {t("portalSite.commerce.actions.createPlan")}
           </Button>
         </div>
@@ -262,23 +268,39 @@ export function AdminCommercePlansPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.plan")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.price")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.limits")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.status")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.action")}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.plan")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.price")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.limits")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.status")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.action")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.loading")}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.empty")}
                   </td>
                 </tr>
@@ -286,23 +308,29 @@ export function AdminCommercePlansPage() {
                 filtered.map((item) => (
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
-                       <p className="font-medium text-foreground">{item.name}</p>
-                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                         <AdminPlanBadge planId={item.code} />
-                         <span>· v{item.version}</span>
-                       </p>
-                     </td>
+                      <p className="font-medium text-foreground">{item.name}</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <AdminPlanBadge planId={item.code} />
+                        <span>· v{item.version}</span>
+                      </p>
+                    </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       ${item.monthlyPriceUsd} / ${item.yearlyPriceUsd}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {item.profiles} {t("portalSite.commerce.columns.profiles")} · {item.members} {t("portalSite.commerce.columns.members")}
+                      {item.profiles}{" "}
+                      {t("portalSite.commerce.columns.profiles")} ·{" "}
+                      {item.members} {t("portalSite.commerce.columns.members")}
                     </td>
                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.status} />
-                     </td>
+                      <AdminStatusBadge status={item.status} />
+                    </td>
                     <td className="px-3 py-2">
-                      <Button size="sm" variant="outline" onClick={() => void handlePublish(item.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handlePublish(item.id)}
+                      >
                         {t("portalSite.commerce.actions.publish")}
                       </Button>
                     </td>
@@ -452,22 +480,36 @@ export function AdminCommerceCampaignsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.campaign")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.window")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.status")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.action")}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.campaign")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.window")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.status")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.action")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.loading")}
                   </td>
                 </tr>
               ) : campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.empty")}
                   </td>
                 </tr>
@@ -481,13 +523,18 @@ export function AdminCommerceCampaignsPage() {
                       </p>
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {formatLocaleDateTime(item.startsAt)} → {formatLocaleDateTime(item.endsAt)}
+                      {formatLocaleDateTime(item.startsAt)} →{" "}
+                      {formatLocaleDateTime(item.endsAt)}
                     </td>
                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.status} />
-                     </td>
+                      <AdminStatusBadge status={item.status} />
+                    </td>
                     <td className="px-3 py-2">
-                      <Button size="sm" variant="outline" onClick={() => void handleToggle(item)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleToggle(item)}
+                      >
                         {item.status === "running"
                           ? t("portalSite.commerce.actions.pause")
                           : t("portalSite.commerce.actions.activate")}
@@ -590,13 +637,49 @@ export function AdminCommerceCouponsPage() {
     >
       <section className="rounded-xl border border-border bg-card/70 p-4">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Input value={code} onChange={(event) => setCode(event.target.value)} className="h-9" placeholder={t("portalSite.commerce.fields.couponCode")} />
-          <Input value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.discountPercent")} />
-          <Input value={maxRedemptions} onChange={(event) => setMaxRedemptions(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.maxRedemptions")} />
-          <Input value={maxPerUser} onChange={(event) => setMaxPerUser(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.maxPerUser")} />
-          <Input value={maxPerWorkspace} onChange={(event) => setMaxPerWorkspace(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.maxPerWorkspace")} />
-          <Input value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} type="datetime-local" className="h-9" />
-          <Button onClick={() => void handleCreate()}>{t("portalSite.commerce.actions.createCoupon")}</Button>
+          <Input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.couponCode")}
+          />
+          <Input
+            value={discountPercent}
+            onChange={(event) => setDiscountPercent(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.discountPercent")}
+          />
+          <Input
+            value={maxRedemptions}
+            onChange={(event) => setMaxRedemptions(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.maxRedemptions")}
+          />
+          <Input
+            value={maxPerUser}
+            onChange={(event) => setMaxPerUser(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.maxPerUser")}
+          />
+          <Input
+            value={maxPerWorkspace}
+            onChange={(event) => setMaxPerWorkspace(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.maxPerWorkspace")}
+          />
+          <Input
+            value={expiresAt}
+            onChange={(event) => setExpiresAt(event.target.value)}
+            type="datetime-local"
+            className="h-9"
+          />
+          <Button onClick={() => void handleCreate()}>
+            {t("portalSite.commerce.actions.createCoupon")}
+          </Button>
         </div>
       </section>
       <section className="rounded-xl border border-border bg-card/70 p-4">
@@ -604,36 +687,60 @@ export function AdminCommerceCouponsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.coupon")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.usage")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.status")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.action")}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.coupon")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.usage")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.status")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.action")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">{t("portalSite.commerce.loading")}</td>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
+                    {t("portalSite.commerce.loading")}
+                  </td>
                 </tr>
               ) : coupons.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">{t("portalSite.commerce.empty")}</td>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
+                    {t("portalSite.commerce.empty")}
+                  </td>
                 </tr>
               ) : (
                 coupons.map((item) => (
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
                       <p className="font-medium text-foreground">{item.code}</p>
-                      <p className="text-xs text-muted-foreground">{item.discountPercent}%</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.discountPercent}%
+                      </p>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {item.redeemedCount} / {item.maxRedemptions}
                     </td>
                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.status} />
-                     </td>
+                      <AdminStatusBadge status={item.status} />
+                    </td>
                     <td className="px-3 py-2">
-                      <Button size="sm" variant="outline" onClick={() => void handleDisable(item.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleDisable(item.id)}
+                      >
                         {t("portalSite.commerce.actions.disable")}
                       </Button>
                     </td>
@@ -732,11 +839,35 @@ export function AdminCommerceLicensesPage() {
     >
       <section className="rounded-xl border border-border bg-card/70 p-4">
         <div className="grid gap-3 md:grid-cols-5">
-          <Input value={planCode} onChange={(event) => setPlanCode(event.target.value)} className="h-9" placeholder={t("portalSite.commerce.fields.planCode")} />
-          <Input value={seats} onChange={(event) => setSeats(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.seats")} />
-          <Input value={profileQuota} onChange={(event) => setProfileQuota(event.target.value)} type="number" className="h-9" placeholder={t("portalSite.commerce.fields.profileQuota")} />
-          <Input value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} type="datetime-local" className="h-9" />
-          <Button onClick={() => void handleCreate()}>{t("portalSite.commerce.actions.createLicense")}</Button>
+          <Input
+            value={planCode}
+            onChange={(event) => setPlanCode(event.target.value)}
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.planCode")}
+          />
+          <Input
+            value={seats}
+            onChange={(event) => setSeats(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.seats")}
+          />
+          <Input
+            value={profileQuota}
+            onChange={(event) => setProfileQuota(event.target.value)}
+            type="number"
+            className="h-9"
+            placeholder={t("portalSite.commerce.fields.profileQuota")}
+          />
+          <Input
+            value={expiresAt}
+            onChange={(event) => setExpiresAt(event.target.value)}
+            type="datetime-local"
+            className="h-9"
+          />
+          <Button onClick={() => void handleCreate()}>
+            {t("portalSite.commerce.actions.createLicense")}
+          </Button>
         </div>
       </section>
       <section className="rounded-xl border border-border bg-card/70 p-4">
@@ -744,43 +875,71 @@ export function AdminCommerceLicensesPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.license")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.binding")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.status")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.action")}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.license")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.binding")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.status")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.action")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">{t("portalSite.commerce.loading")}</td>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
+                    {t("portalSite.commerce.loading")}
+                  </td>
                 </tr>
               ) : licenses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">{t("portalSite.commerce.empty")}</td>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
+                    {t("portalSite.commerce.empty")}
+                  </td>
                 </tr>
               ) : (
                 licenses.map((item) => (
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
-                       <p className="font-medium text-foreground">{item.keyMasked}</p>
-                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                         <AdminPlanBadge planId={item.planCode} />
-                         <span>· {item.seats} seats</span>
-                       </p>
-                     </td>
+                      <p className="font-medium text-foreground">
+                        {item.keyMasked}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <AdminPlanBadge planId={item.planCode} />
+                        <span>· {item.seats} seats</span>
+                      </p>
+                    </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {item.workspaceId ?? "--"} / {item.userId ?? "--"}
                     </td>
                     <td className="px-3 py-2">
-                       <AdminStatusBadge status={item.status} />
-                     </td>
+                      <AdminStatusBadge status={item.status} />
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => void handleAction(item, "rotate")}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleAction(item, "rotate")}
+                        >
                           {t("portalSite.commerce.actions.rotate")}
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => void handleAction(item, "revoke")}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleAction(item, "revoke")}
+                        >
                           {t("portalSite.commerce.actions.revoke")}
                         </Button>
                       </div>
@@ -865,7 +1024,10 @@ export function AdminCommercePreviewPage() {
             <Input
               value={input.planCode}
               onChange={(event) =>
-                setInput((current) => ({ ...current, planCode: event.target.value }))
+                setInput((current) => ({
+                  ...current,
+                  planCode: event.target.value,
+                }))
               }
               className="h-9"
             />
@@ -885,8 +1047,12 @@ export function AdminCommercePreviewPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthly">{t("portalSite.checkout.cycleMonthly")}</SelectItem>
-                <SelectItem value="yearly">{t("portalSite.checkout.cycleYearly")}</SelectItem>
+                <SelectItem value="monthly">
+                  {t("portalSite.checkout.cycleMonthly")}
+                </SelectItem>
+                <SelectItem value="yearly">
+                  {t("portalSite.checkout.cycleYearly")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -917,7 +1083,11 @@ export function AdminCommercePreviewPage() {
             />
           </div>
           <div className="flex items-end">
-            <Button className="w-full" onClick={() => void handlePreview()} disabled={loading}>
+            <Button
+              className="w-full"
+              onClick={() => void handlePreview()}
+              disabled={loading}
+            >
               {t("portalSite.commerce.actions.runPreview")}
             </Button>
           </div>
@@ -926,7 +1096,9 @@ export function AdminCommercePreviewPage() {
 
       <section className="rounded-xl border border-border bg-card/70 p-4">
         {result == null ? (
-          <p className="text-sm text-muted-foreground">{t("portalSite.commerce.preview.empty")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("portalSite.commerce.preview.empty")}
+          </p>
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -934,23 +1106,35 @@ export function AdminCommercePreviewPage() {
               <Badge variant="outline">{result.interval}</Badge>
               <Badge variant="outline">{result.workspaceId}</Badge>
               <Badge variant="secondary" className="ml-auto">
-                ${formatLocaleNumber(result.finalAmountUsd, { maximumFractionDigits: 2 })}
+                $
+                {formatLocaleNumber(result.finalAmountUsd, {
+                  maximumFractionDigits: 2,
+                })}
               </Badge>
             </div>
             <div className="overflow-hidden rounded-lg border border-border/70">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.line")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.amount")}</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      {t("portalSite.commerce.columns.line")}
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      {t("portalSite.commerce.columns.amount")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.lines.map((line) => (
                     <tr key={line.code} className="border-t border-border/70">
-                      <td className="px-3 py-2 text-foreground">{line.label}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        {line.label}
+                      </td>
                       <td className="px-3 py-2 text-muted-foreground">
-                        ${formatLocaleNumber(line.amountUsd, { maximumFractionDigits: 2 })}
+                        $
+                        {formatLocaleNumber(line.amountUsd, {
+                          maximumFractionDigits: 2,
+                        })}
                       </td>
                     </tr>
                   ))}
@@ -1018,32 +1202,54 @@ export function AdminCommerceAuditPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.entity")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.action")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.actor")}</th>
-                <th className="px-3 py-2 text-left font-medium">{t("portalSite.commerce.columns.time")}</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.entity")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.action")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.actor")}
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {t("portalSite.commerce.columns.time")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.loading")}
                   </td>
                 </tr>
               ) : events.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     {t("portalSite.commerce.empty")}
                   </td>
                 </tr>
               ) : (
                 events.map((event) => (
                   <tr key={event.id} className="border-t border-border/70">
-                    <td className="px-3 py-2 text-foreground">{event.entityType}:{event.entityId}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{event.action}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{event.actorUserId}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{formatLocaleDateTime(event.createdAt)}</td>
+                    <td className="px-3 py-2 text-foreground">
+                      {event.entityType}:{event.entityId}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {event.action}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {event.actorUserId}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {formatLocaleDateTime(event.createdAt)}
+                    </td>
                   </tr>
                 ))
               )}
@@ -1054,4 +1260,3 @@ export function AdminCommerceAuditPage() {
     </PortalSettingsPage>
   );
 }
-

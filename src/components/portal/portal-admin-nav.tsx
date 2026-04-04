@@ -15,7 +15,11 @@ const ADMIN_NAV = [
 
 function isAdminActive(pathname: string, href: string): boolean {
   if (href === "/admin/dashboard") {
-    return pathname === "/admin" || pathname === href || pathname === "/admin/command-center";
+    return (
+      pathname === "/admin" ||
+      pathname === href ||
+      pathname === "/admin/command-center"
+    );
   }
   return pathname === href;
 }
