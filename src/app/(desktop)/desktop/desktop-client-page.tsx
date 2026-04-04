@@ -1577,16 +1577,14 @@ export default function Home() {
     null,
   );
   const [isLoadingEmbeddedPortal, setIsLoadingEmbeddedPortal] = useState(false);
+  const embeddedPortalRetryRef = useRef(0);
+  const embeddedPortalRetryTimerRef = useRef<number | null>(null);
 
   const showWebBillingPortalError = useCallback(
     (error: unknown) => {
       const message = extractRootError(error);
       if (message.includes("web_billing_portal_url_missing")) {
         showErrorToast(t("webBilling.desktopPortalMissing"));
-        return;
-      }
-      if (message.includes("web_billing_context_missing")) {
-        showErrorToast(t("webBilling.desktopContextMissing"));
         return;
       }
       showErrorToast(t("webBilling.desktopPortalOpenFailed"), {
@@ -1632,6 +1630,14 @@ export default function Home() {
     if (!embeddedPortalRoute || !cloudUser) {
       setEmbeddedPortalUrl(null);
       setIsLoadingEmbeddedPortal(false);
+      embeddedPortalRetryRef.current = 0;
+      if (
+        typeof window !== "undefined" &&
+        embeddedPortalRetryTimerRef.current !== null
+      ) {
+        window.clearTimeout(embeddedPortalRetryTimerRef.current);
+        embeddedPortalRetryTimerRef.current = null;
+      }
       return;
     }
 
@@ -1649,6 +1655,19 @@ export default function Home() {
           workspaceName,
         });
         if (!isCancelled) {
+          const hasContextHash = url.includes("#ctx=");
+          if (!hasContextHash && embeddedPortalRetryRef.current < 5) {
+            embeddedPortalRetryRef.current += 1;
+            if (typeof window !== "undefined") {
+              embeddedPortalRetryTimerRef.current = window.setTimeout(() => {
+                if (!isCancelled) {
+                  void loadPortalUrl();
+                }
+              }, 800);
+            }
+            return;
+          }
+          embeddedPortalRetryRef.current = 0;
           setEmbeddedPortalUrl(url);
         }
       } catch (error) {
@@ -1666,6 +1685,13 @@ export default function Home() {
     void loadPortalUrl();
     return () => {
       isCancelled = true;
+      if (
+        typeof window !== "undefined" &&
+        embeddedPortalRetryTimerRef.current !== null
+      ) {
+        window.clearTimeout(embeddedPortalRetryTimerRef.current);
+        embeddedPortalRetryTimerRef.current = null;
+      }
     };
   }, [
     cloudUser,
@@ -4183,7 +4209,7 @@ export default function Home() {
                 <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
                   {isLoadingEmbeddedPortal
                     ? t("shell.webPortal.opening")
-                    : t("shell.webPortal.movedDescription")}
+                    : t("shell.webPortal.opening")}
                 </div>
               )}
             </div>
@@ -4373,7 +4399,7 @@ export default function Home() {
                 <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
                   {isLoadingEmbeddedPortal
                     ? t("shell.webPortal.opening")
-                    : t("shell.webPortal.movedDescription")}
+                    : t("shell.webPortal.opening")}
                 </div>
               )}
             </div>
