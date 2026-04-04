@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -152,7 +152,6 @@ function PortalSidebarShell({
   mode: PortalSidebarMode;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const {
@@ -193,7 +192,9 @@ function PortalSidebarShell({
       mode === "admin"
         ? mapAdminSectionToPath(section)
         : mapAccountSectionToPath(section);
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
     if (selectedWorkspaceId) {
       params.set("workspaceId", selectedWorkspaceId);
     } else {
@@ -202,8 +203,8 @@ function PortalSidebarShell({
     const nextHref = params.toString()
       ? `${nextPath}?${params.toString()}`
       : nextPath;
-    const currentHref = searchParams.toString()
-      ? `${pathname}?${searchParams.toString()}`
+    const currentHref = params.toString()
+      ? `${pathname}?${params.toString()}`
       : pathname;
     if (nextHref === currentHref || nextPath === pathname) {
       return;
@@ -214,7 +215,9 @@ function PortalSidebarShell({
   const handleWorkspaceChange = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
 
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
     params.set("workspaceId", workspaceId);
     router.replace(`${pathname}?${params.toString()}`);
   };
