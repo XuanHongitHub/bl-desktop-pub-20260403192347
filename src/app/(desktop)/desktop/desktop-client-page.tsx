@@ -795,6 +795,7 @@ function extractOAuthCallbackPayload(
         email,
         name: getParam("name") ?? undefined,
         avatar: getParam("avatar") ?? undefined,
+        idToken: getParam("id_token") ?? undefined,
       };
     }
 
@@ -2692,6 +2693,13 @@ export default function Home() {
           if (!oauthPayload.email) {
             showErrorToast(t("authLanding.googleLoginErrorTitle"), {
               description: "invalid_callback_payload",
+            });
+            setIsPostLoginTransitioning(false);
+            return;
+          }
+          if (!oauthPayload.idToken) {
+            showErrorToast(t("authLanding.googleLoginErrorTitle"), {
+              description: t("authLanding.googleErrorMissingTokens"),
             });
             setIsPostLoginTransitioning(false);
             return;
