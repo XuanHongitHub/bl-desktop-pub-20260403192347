@@ -48,9 +48,6 @@ function resolvePortalErrorKey(message: string): string {
   if (message.includes("web_billing_portal_url_missing")) {
     return "webBilling.desktopPortalMissing";
   }
-  if (message.includes("web_billing_context_missing")) {
-    return "webBilling.desktopContextMissing";
-  }
   return "";
 }
 
