@@ -48,17 +48,21 @@ const geistMono = localFont({
 
 const SUPPORTED_LAYOUT_LANGUAGES = new Set(["vi", "en"]);
 const LANGUAGE_COOKIE_KEY = "buglogin_language";
+const IS_STATIC_EXPORT = process.env.NEXT_STATIC_EXPORT === "1";
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const languageCookie = cookieStore.get(LANGUAGE_COOKIE_KEY)?.value ?? "vi";
-  const htmlLanguage = SUPPORTED_LAYOUT_LANGUAGES.has(languageCookie)
-    ? languageCookie
-    : "vi";
+  let htmlLanguage = "vi";
+  if (!IS_STATIC_EXPORT) {
+    const cookieStore = await cookies();
+    const languageCookie = cookieStore.get(LANGUAGE_COOKIE_KEY)?.value ?? "vi";
+    htmlLanguage = SUPPORTED_LAYOUT_LANGUAGES.has(languageCookie)
+      ? languageCookie
+      : "vi";
+  }
 
   return (
     <html lang={htmlLanguage} suppressHydrationWarning>
