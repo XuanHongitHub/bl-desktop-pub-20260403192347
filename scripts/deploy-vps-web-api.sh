@@ -4,6 +4,9 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/var/www/buglogin/app}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 SKIP_GIT_PULL="${SKIP_GIT_PULL:-0}"
+VERIFY_STRICT="${VERIFY_STRICT:-1}"
+VERIFY_CMD="${VERIFY_CMD:-pnpm lint && pnpm --dir buglogin-sync test -- --runInBand}"
+LOCK_FILE="${LOCK_FILE:-/tmp/buglogin-vps-deploy.lock}"
 WEB_PORT="${WEB_PORT:-3003}"
 API_PORT="${API_PORT:-12342}"
 WEB_PROCESS="${WEB_PROCESS:-buglogin-web}"
@@ -56,8 +59,15 @@ require_cmd pnpm
 require_cmd pm2
 require_cmd curl
 require_cmd git
+require_cmd flock
 
 cd "$APP_DIR"
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  log "Another deploy is running (lock: $LOCK_FILE). Exit."
+  exit 0
+fi
 
 if [ "$SKIP_GIT_PULL" != "1" ]; then
   log "Syncing git branch ($DEPLOY_BRANCH) with fast-forward only"
@@ -83,6 +93,13 @@ fi
 
 log "Installing dependencies (frozen lockfile)"
 HUSKY=0 pnpm install --frozen-lockfile --prefer-offline --child-concurrency=2 --network-concurrency=8
+
+if [ "$VERIFY_STRICT" = "1" ]; then
+  log "Running strict verify command"
+  bash -lc "$VERIFY_CMD"
+else
+  log "Skipping strict verify (VERIFY_STRICT=$VERIFY_STRICT)"
+fi
 
 log "Building web (Next.js production build)"
 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}" ./node_modules/.bin/next build --webpack
