@@ -250,7 +250,7 @@ function OAuthCallbackContent() {
           return;
         }
         finish(
-          `buglogin://oauth-callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`,
+          `buglogin://oauth-callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}&id_token=${encodeURIComponent(idToken)}`,
           "desktop",
         );
         return;
