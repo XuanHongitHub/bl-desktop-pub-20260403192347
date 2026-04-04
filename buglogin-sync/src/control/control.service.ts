@@ -125,6 +125,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ControlService.name);
   private readonly authUsers = new Map<string, AuthUserRecord>();
   private readonly platformAdminEmails = new Set<string>();
+  private readonly configuredPlatformAdminEmails = new Set<string>();
   private readonly workspaces = new Map<string, WorkspaceRecord>();
   private readonly workspaceAdminTiktokStates = new Map<
     string,
@@ -201,6 +202,8 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           connectionString: this.databaseUrl,
         })
       : null;
+
+    this.loadConfiguredPlatformAdminEmails();
   }
 
   async onModuleInit() {
@@ -4702,6 +4705,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           this.platformAdminEmails.add(normalized);
         }
       }
+      for (const configuredEmail of this.configuredPlatformAdminEmails) {
+        this.platformAdminEmails.add(configuredEmail);
+      }
 
       const snapshot: PersistedControlState = {
         authUsers: authUsersResult.rows
@@ -5559,10 +5565,31 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private loadConfiguredPlatformAdminEmails() {
+    const configuredRaw =
+      this.configService?.get<string>("PLATFORM_ADMIN_EMAILS") ??
+      process.env.PLATFORM_ADMIN_EMAILS ??
+      process.env.PLATFORM_ADMIN_EMAIL ??
+      "";
+    for (const value of configuredRaw.split(/[,\n;]/)) {
+      const normalized = this.normalizeEmail(value);
+      if (normalized) {
+        this.configuredPlatformAdminEmails.add(normalized);
+      }
+    }
+  }
+
+  private isPlatformAdminEmail(normalizedEmail: string): boolean {
+    return (
+      this.platformAdminEmails.has(normalizedEmail) ||
+      this.configuredPlatformAdminEmails.has(normalizedEmail)
+    );
+  }
+
   private resolvePlatformRoleForRegistration(
     normalizedEmail: string,
   ): "platform_admin" | null {
-    if (this.platformAdminEmails.has(normalizedEmail)) {
+    if (this.isPlatformAdminEmail(normalizedEmail)) {
       return "platform_admin";
     }
     return null;
@@ -5597,7 +5624,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!normalizedEmail) {
       return null;
     }
-    if (this.platformAdminEmails.has(normalizedEmail)) {
+    if (this.isPlatformAdminEmail(normalizedEmail)) {
       return "platform_admin";
     }
     if (
