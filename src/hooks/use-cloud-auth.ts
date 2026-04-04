@@ -753,6 +753,12 @@ export function useCloudAuth(): UseCloudAuthReturn {
         // Keep the self-host login flow usable even if the Tauri bridge is unavailable.
       }
       updateAuthState(finalState);
+      // Immediately clear the loading state so the desktop UI transitions to
+      // the workspace view right after login — without requiring an F5 reload.
+      setIsLoading(false);
+      // Reset the throttle so cloud-auth-changed can fire immediately if Tauri
+      // emits an event right after persisting the new session.
+      lastLoadTriggeredAtRef.current = 0;
       return finalState;
     },
     [
