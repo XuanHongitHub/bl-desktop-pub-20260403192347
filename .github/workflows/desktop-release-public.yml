@@ -150,8 +150,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Validate macOS signing/notarization config (publish mode)
-        if: inputs.publish_release == true
+      - name: Detect macOS signing/notarization readiness
+        id: macos_signing
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -162,6 +162,10 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          if [ "${{ inputs.publish_release }}" != "true" ]; then
+            echo "signing_ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           required=(
             APPLE_CERTIFICATE
             APPLE_CERTIFICATE_PASSWORD
@@ -170,15 +174,22 @@ jobs:
             APPLE_PASSWORD
             APPLE_TEAM_ID
           )
+          missing=0
           for key in "${required[@]}"; do
             if [ -z "${!key:-}" ]; then
-              echo "Missing required macOS signing secret in publish mode: $key" >&2
-              exit 1
+              echo "Missing macOS signing secret: $key"
+              missing=1
             fi
           done
+          if [ "$missing" -eq 1 ]; then
+            echo "::warning::macOS signing secrets missing; building unsigned macOS artifact."
+            echo "signing_ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_ready=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Import Apple signing certificate
-        if: inputs.publish_release == true
+        if: inputs.publish_release == true && steps.macos_signing.outputs.signing_ready == 'true'
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
@@ -225,12 +236,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build macOS installer (verify mode, unsigned)
-        if: inputs.publish_release != true
+      - name: Build macOS installer (unsigned)
+        if: inputs.publish_release != true || steps.macos_signing.outputs.signing_ready != 'true'
         run: pnpm tauri build --bundles dmg
 
       - name: Build macOS installer (publish mode, signed + notarized)
-        if: inputs.publish_release == true
+        if: inputs.publish_release == true && steps.macos_signing.outputs.signing_ready == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
