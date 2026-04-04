@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+const isStaticExportBuild = process.env.NEXT_STATIC_EXPORT === "1";
 
 function readEnv(name: string): string | null {
   const value = process.env[name]?.trim();
@@ -23,6 +23,13 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ assetId: string }> },
 ) {
+  if (isStaticExportBuild) {
+    return NextResponse.json(
+      { message: "desktop_release_asset_api_unavailable_in_static_export" },
+      { status: 501 },
+    );
+  }
+
   const params = await context.params;
   const repo = resolveRepo();
   const token = resolveToken();

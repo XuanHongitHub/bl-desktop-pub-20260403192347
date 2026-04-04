@@ -1,9 +1,6 @@
 name: Release Asset Sync
 
 on:
-  repository_dispatch:
-    types:
-      - mirror-public-release
   workflow_dispatch:
     inputs:
       source_repo:
@@ -34,15 +31,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
-            SOURCE_TAG="${{ github.event.client_payload.source_tag }}"
-            TARGET_TAG="${{ github.event.client_payload.target_tag }}"
-          else
-            SOURCE_REPO="${{ inputs.source_repo }}"
-            SOURCE_TAG="${{ inputs.source_tag }}"
-            TARGET_TAG="${{ inputs.target_tag }}"
-          fi
+          SOURCE_REPO="${{ inputs.source_repo }}"
+          SOURCE_TAG="${{ inputs.source_tag }}"
+          TARGET_TAG="${{ inputs.target_tag }}"
 
           if [ -z "${SOURCE_REPO:-}" ] || [ -z "${SOURCE_TAG:-}" ]; then
             echo "Missing source repo/tag payload" >&2

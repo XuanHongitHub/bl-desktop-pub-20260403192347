@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
@@ -331,6 +331,11 @@ export default function AdminDashboardPage() {
     [t],
   );
 
+  const workspacesRef = useRef(workspaces);
+  useEffect(() => {
+    workspacesRef.current = workspaces;
+  }, [workspaces]);
+
   const refreshDashboard = useCallback(async () => {
     await refreshWorkspaces();
 
@@ -360,19 +365,19 @@ export default function AdminDashboardPage() {
 
     setLoadingRevenue(true);
     try {
-      const targets = workspaces.length > 0 ? workspaces : [];
+      const targets = workspacesRef.current.length > 0 ? workspacesRef.current : [];
       if (targets.length === 0) {
         setAllInvoices([]);
         setRevenueError(null);
       } else {
         const responses = await Promise.allSettled(
-          targets.map((workspace) =>
+          targets.map((workspace: any) =>
             getWorkspaceBillingState(connection, workspace.id),
           ),
         );
         const invoices = responses
-          .filter((item) => item.status === "fulfilled")
-          .flatMap((item) =>
+          .filter((item: any) => item.status === "fulfilled")
+          .flatMap((item: any) =>
             item.status === "fulfilled"
               ? (item.value.recentInvoices ?? [])
               : [],
@@ -386,7 +391,7 @@ export default function AdminDashboardPage() {
         }
 
         setAllInvoices([...unique.values()]);
-        if (responses.every((item) => item.status === "rejected")) {
+        if (responses.every((item: any) => item.status === "rejected")) {
           setRevenueError(
             t("portalSite.admin.dashboard.errors.loadRevenueFailed"),
           );
@@ -404,10 +409,15 @@ export default function AdminDashboardPage() {
     } finally {
       setLoadingRevenue(false);
     }
-  }, [connection, refreshWorkspaces, t, workspaces]);
+  }, [connection, refreshWorkspaces, t]);
+
+  const hasAttemptedInitialLoadRef = useRef(false);
 
   useEffect(() => {
-    void refreshDashboard();
+    if (!hasAttemptedInitialLoadRef.current) {
+      hasAttemptedInitialLoadRef.current = true;
+      void refreshDashboard();
+    }
   }, [refreshDashboard]);
 
   const dateRangeOptions = useMemo(
