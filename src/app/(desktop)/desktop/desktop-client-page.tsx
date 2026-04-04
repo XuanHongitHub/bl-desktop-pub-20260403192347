@@ -2389,6 +2389,12 @@ export default function Home() {
     if (!cloudUser) {
       return;
     }
+    // Wait until workspace selection finishes loading before running access checks.
+    // Without this guard, the role defaults to "member" (selectedWorkspaceContext is null)
+    // and owners/admins get a false-positive "no access" toast on startup.
+    if (!isWorkspaceSelectionReady) {
+      return;
+    }
     if (!isWorkspaceOwnerSection(activeSection)) {
       return;
     }
@@ -2398,7 +2404,8 @@ export default function Home() {
         description: t("adminWorkspace.ownerOnlyGovernance"),
       });
     }
-  }, [activeSection, canAccessSelectedWorkspaceGovernance, cloudUser, t]);
+  }, [activeSection, canAccessSelectedWorkspaceGovernance, cloudUser, isWorkspaceSelectionReady, t]);
+
 
   useEffect(() => {
     didRestoreWorkspaceSelectionRef.current = false;
