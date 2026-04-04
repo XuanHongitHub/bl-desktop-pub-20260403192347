@@ -66,7 +66,9 @@ async function readAppSettings(): Promise<AppSettings | null> {
   }
 }
 
-function resolveControlBaseUrl(syncSettings: SyncSettings | null): string | null {
+function resolveControlBaseUrl(
+  syncSettings: SyncSettings | null,
+): string | null {
   return (
     normalizeHttpBaseUrl(syncSettings?.sync_server_url) ??
     normalizeHttpBaseUrl(process.env.NEXT_PUBLIC_SYNC_SERVER_URL)
@@ -117,14 +119,25 @@ export async function resolveWebBillingPortalUrl(
   const controlToken = resolveControlToken(syncSettings);
   const userId = input.user.id.trim();
   const userEmail = input.user.email.trim();
-  if (!controlBaseUrl || !controlToken || !userId || !userEmail) {
-    throw new Error("web_billing_context_missing");
-  }
-
   const workspaceId = input.workspaceId?.trim() || null;
   const workspaceName = input.workspaceName?.trim() || null;
   const planId = input.planId?.trim() || null;
   const billingCycle = input.billingCycle ?? null;
+
+  // If sync context is unavailable, still open the portal route without encoded context.
+  // This avoids hard-blocking desktop users and lets the web portal auth flow continue.
+  if (!controlBaseUrl || !controlToken || !userId || !userEmail) {
+    return buildWebBillingPortalUrl({
+      baseUrl: portalBaseUrl,
+      route: input.route,
+      query: {
+        workspaceId,
+        workspaceName,
+        planId,
+        billingCycle,
+      },
+    });
+  }
 
   return buildWebBillingPortalUrl({
     baseUrl: portalBaseUrl,
