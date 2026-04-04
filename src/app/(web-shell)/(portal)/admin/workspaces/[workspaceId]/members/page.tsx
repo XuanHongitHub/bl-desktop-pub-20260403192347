@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 
+export function generateStaticParams() {
+  return [{ workspaceId: "placeholder" }];
+}
+
 export default async function AdminWorkspaceMembersRoutePage({
   params,
 }: {
