@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   getProfileSharedActionKeys,
   PROFILE_SHARED_ACTION_KEYS,
-} from "./profile-action-contract";
+} from "./profile-action-contract.ts";
 
 test("profile shared actions expose one canonical order for row and bulk", () => {
   const keys = getProfileSharedActionKeys();

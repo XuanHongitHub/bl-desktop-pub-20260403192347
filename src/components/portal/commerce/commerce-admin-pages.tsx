@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -309,9 +307,8 @@ export function AdminCommercePlansPage() {
                   <tr key={item.id} className="border-t border-border/70">
                     <td className="px-3 py-2">
                       <p className="font-medium text-foreground">{item.name}</p>
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <AdminPlanBadge planId={item.code} />
-                        <span>· v{item.version}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {item.code} · v{item.version}
                       </p>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
@@ -323,7 +320,7 @@ export function AdminCommercePlansPage() {
                       {item.members} {t("portalSite.commerce.columns.members")}
                     </td>
                     <td className="px-3 py-2">
-                      <AdminStatusBadge status={item.status} />
+                      <Badge variant="outline">{item.status}</Badge>
                     </td>
                     <td className="px-3 py-2">
                       <Button
@@ -527,7 +524,7 @@ export function AdminCommerceCampaignsPage() {
                       {formatLocaleDateTime(item.endsAt)}
                     </td>
                     <td className="px-3 py-2">
-                      <AdminStatusBadge status={item.status} />
+                      <Badge variant="outline">{item.status}</Badge>
                     </td>
                     <td className="px-3 py-2">
                       <Button
@@ -733,7 +730,7 @@ export function AdminCommerceCouponsPage() {
                       {item.redeemedCount} / {item.maxRedemptions}
                     </td>
                     <td className="px-3 py-2">
-                      <AdminStatusBadge status={item.status} />
+                      <Badge variant="outline">{item.status}</Badge>
                     </td>
                     <td className="px-3 py-2">
                       <Button
@@ -915,16 +912,15 @@ export function AdminCommerceLicensesPage() {
                       <p className="font-medium text-foreground">
                         {item.keyMasked}
                       </p>
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <AdminPlanBadge planId={item.planCode} />
-                        <span>· {item.seats} seats</span>
+                      <p className="text-xs text-muted-foreground">
+                        {item.planCode} · {item.seats}
                       </p>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {item.workspaceId ?? "--"} / {item.userId ?? "--"}
                     </td>
                     <td className="px-3 py-2">
-                      <AdminStatusBadge status={item.status} />
+                      <Badge variant="outline">{item.status}</Badge>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1.5">

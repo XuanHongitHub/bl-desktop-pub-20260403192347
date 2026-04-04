@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function Page() {
-  redirect("/auth");
+  redirect("/shadcn-full/examples/dashboard");
 }

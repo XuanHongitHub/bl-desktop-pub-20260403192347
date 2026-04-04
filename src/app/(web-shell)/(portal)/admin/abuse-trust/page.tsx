@@ -4,7 +4,6 @@ import { CreditCard, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -209,10 +208,18 @@ export default function AdminAbuseTrustOverviewPage() {
                           </div>
                         </TableCell>
                         <TableCell className="capitalize">
-                          <AdminStatusBadge status={row.subscriptionStatus} />
+                          {row.subscriptionStatus}
                         </TableCell>
                         <TableCell>
-                          <AdminStatusBadge status={row.riskLevel} />
+                          <Badge
+                            variant={
+                              row.riskLevel === "high"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {row.riskLevel}
+                          </Badge>
                         </TableCell>
                         <TableCell>{row.members}</TableCell>
                         <TableCell>{Math.round(row.storagePercent)}%</TableCell>

@@ -75,6 +75,3 @@ nodecar/nodecar-bin
 
 # accidental notes in workflows
 /.github/workflows/temp-claudechat-*.md
-
-# local sensitive tax docs
-private/tiktok-seller/ein/

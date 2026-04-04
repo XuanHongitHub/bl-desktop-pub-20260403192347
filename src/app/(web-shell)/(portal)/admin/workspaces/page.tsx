@@ -1,13 +1,10 @@
 "use client";
 
-import { CreditCard, Eye, Plus, Users } from "lucide-react";
+import { CreditCard, Eye, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,10 +127,14 @@ export default function AdminWorkspacesOverviewPage() {
           >
             {t("portalSite.admin.refresh")}
           </Button>
-          <Button asChild size="sm" variant="default">
+          <Button asChild size="sm" variant="outline">
             <Link href="/admin/workspaces/create">
-              <Plus className="mr-1 h-3.5 w-3.5" />
               {t("portalSite.admin.workspaces.create.action")}
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/admin/workspaces/manage">
+              {t("portalSite.admin.workspaces.actions.manage")}
             </Link>
           </Button>
         </div>
@@ -318,26 +319,15 @@ export default function AdminWorkspacesOverviewPage() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[220px] truncate">
-                            <div className="flex items-center gap-2">
-                              {workspace.owner?.email && (
-                                <Avatar className="h-6 w-6 border border-border/50">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary uppercase">
-                                    {workspace.owner.email.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                              )}
-                              <span className="truncate">
-                                {workspace.owner?.email ?? "--"}
-                              </span>
-                            </div>
+                            {workspace.owner?.email ?? "--"}
                           </TableCell>
                           <TableCell>
-                            <AdminPlanBadge planId={unifiedPlan} />
+                            <Badge variant="outline">
+                              {getUnifiedPlanLabel({ planId: unifiedPlan })}
+                            </Badge>
                           </TableCell>
-                          <TableCell>
-                            <AdminStatusBadge
-                              status={workspace.subscriptionStatus}
-                            />
+                          <TableCell className="capitalize">
+                            {workspace.subscriptionStatus}
                           </TableCell>
                           <TableCell>{workspace.members}</TableCell>
                           <TableCell>

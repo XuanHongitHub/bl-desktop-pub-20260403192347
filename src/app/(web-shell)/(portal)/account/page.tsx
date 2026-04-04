@@ -54,11 +54,6 @@ export default function AccountOverviewPage() {
     loadingWorkspaces,
   } = usePortalBillingData();
 
-  const isOperator =
-    selectedWorkspace?.actorRole === "owner" ||
-    selectedWorkspace?.actorRole === "admin";
-  const canViewBilling = isOperator;
-
   const [workspaceQuery, setWorkspaceQuery] = useState("");
 
   const subscription = billingState?.subscription ?? null;
@@ -219,236 +214,217 @@ export default function AccountOverviewPage() {
         </div>
       </section>
 
-      {!canViewBilling ? (
-        <section className="flex flex-col items-center justify-center rounded-xl md:py-24 py-16 border border-dashed border-border bg-card/40 px-6 text-center">
-          <ShieldCheck className="mb-4 h-12 w-12 text-muted-foreground opacity-50" />
-          <h3 className="text-lg font-semibold text-foreground">
-            {t("portalSite.account.memberViewTitle", "Chế độ Thành viên")}
-          </h3>
-          <p className="mt-2 max-w-[500px] text-sm text-muted-foreground">
-            {t(
-              "portalSite.account.memberViewDescription",
-              "Bạn đang làm việc trong vùng này cấu hình dưới quyền dành cho thành viên, hoặc quyền khách. Vui lòng liên hệ Chủ sở hữu (Owner) của workspace này để biết thêm thông tin thanh toán & cấu hình gói cước.",
-            )}
-          </p>
-        </section>
-      ) : (
-        <>
-          <section className="rounded-xl border border-border bg-card/70">
-            <div className="grid gap-0 md:grid-cols-2 xl:grid-cols-4">
-              <div className="border-b border-border/70 p-4 xl:border-b-0 xl:border-r">
-                <p className="text-xs text-muted-foreground">
-                  {t("portalSite.account.workspace")}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {selectedWorkspace?.name ??
-                    t("portalSite.account.workspaceEmpty")}
-                </p>
-              </div>
-              <div className="border-b border-border/70 p-4 md:border-l md:border-border/70 xl:border-b-0 xl:border-r">
-                <p className="text-xs text-muted-foreground">
-                  {t("portalSite.account.plan")}
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    {subscription?.planLabel ?? t("portalSite.account.noPlan")}
-                  </p>
-                  <Badge variant="info" className="h-5 px-2 text-[10px]">
-                    {subscription?.billingCycle ??
-                      t("portalSite.account.notAvailable")}
-                  </Badge>
-                </div>
-              </div>
-              <div className="border-b border-border/70 p-4 xl:border-b-0 xl:border-r">
-                <p className="text-xs text-muted-foreground">
-                  {t("portalSite.account.status")}
-                </p>
-                <Badge
-                  variant={statusBadgeVariant(subscription?.status)}
-                  className="mt-1 h-5 px-2 text-[10px] capitalize"
-                >
-                  {subscription?.status ?? t("portalSite.account.notAvailable")}
-                </Badge>
-              </div>
-              <div className="p-4">
-                <p className="text-xs text-muted-foreground">
-                  {t("portalSite.account.renewal")}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">
-                  {subscription?.expiresAt
-                    ? formatLocaleDateTime(subscription.expiresAt)
-                    : t("portalSite.account.notAvailable")}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                {t("portalSite.account.queue.title")}
-              </h2>
-              <Badge variant="warning">{queueItems.length}</Badge>
-            </div>
-
-            {queueItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t("portalSite.account.queue.empty")}
-              </p>
-            ) : (
-              <div className="overflow-hidden rounded-lg border border-border/70">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">
-                        {t("portalSite.account.queue.issue")}
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium">
-                        {t("portalSite.account.queue.severity")}
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium">
-                        {t("portalSite.admin.columns.action")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queueItems.map((item) => (
-                      <tr key={item.id} className="border-t border-border/70">
-                        <td className="px-3 py-2 align-top">
-                          <p className="font-medium text-foreground">
-                            {item.issue}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.detail}
-                          </p>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant={severityBadgeVariant(item.severity)}>
-                            {t(`portalSite.admin.risk.${item.severity}`)}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button asChild size="sm" variant="outline">
-                            <Link href={item.href}>{item.cta}</Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
-            <section className="rounded-xl border border-border bg-card/70 p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-chart-1" />
-                <h2 className="text-sm font-semibold text-foreground">
-                  {t("portalSite.account.usageSnapshot")}
-                </h2>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {t("portalSite.account.storageUsage")}
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {storagePercentLabel}
-                    </span>
-                  </div>
-                  <Progress value={storagePercent} className="h-2" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("portalSite.account.usageUpdatedAt")}:{" "}
-                  {usage?.updatedAt
-                    ? formatLocaleDateTime(usage.updatedAt)
-                    : t("portalSite.account.notAvailable")}
-                </p>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-border bg-card/70 p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <ReceiptText className="h-4 w-4 text-chart-4" />
-                <h2 className="text-sm font-semibold text-foreground">
-                  {t("portalSite.account.latestInvoices")}
-                </h2>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.account.invoicesCount")}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">
-                    {invoices.length}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.account.billedAmount")}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">
-                    $
-                    {formatLocaleNumber(paidTotal, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {t("portalSite.account.invoiceDate")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">
-                    {latestInvoice
-                      ? formatLocaleDateTime(
-                          latestInvoice.paidAt || latestInvoice.createdAt,
-                        )
-                      : t("portalSite.account.notAvailable")}
-                  </p>
-                </div>
-              </div>
-              {!hasPaidPlan ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {t("portalSite.account.planRequiredHint")}
-                </p>
-              ) : null}
-            </section>
+      <section className="rounded-xl border border-border bg-card/70">
+        <div className="grid gap-0 md:grid-cols-2 xl:grid-cols-4">
+          <div className="border-b border-border/70 p-4 xl:border-b-0 xl:border-r">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.workspace")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {selectedWorkspace?.name ??
+                t("portalSite.account.workspaceEmpty")}
+            </p>
           </div>
+          <div className="border-b border-border/70 p-4 md:border-l md:border-border/70 xl:border-b-0 xl:border-r">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.plan")}
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                {subscription?.planLabel ?? t("portalSite.account.noPlan")}
+              </p>
+              <Badge variant="info" className="h-5 px-2 text-[10px]">
+                {subscription?.billingCycle ??
+                  t("portalSite.account.notAvailable")}
+              </Badge>
+            </div>
+          </div>
+          <div className="border-b border-border/70 p-4 xl:border-b-0 xl:border-r">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.status")}
+            </p>
+            <Badge
+              variant={statusBadgeVariant(subscription?.status)}
+              className="mt-1 h-5 px-2 text-[10px] capitalize"
+            >
+              {subscription?.status ?? t("portalSite.account.notAvailable")}
+            </Badge>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.renewal")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {subscription?.expiresAt
+                ? formatLocaleDateTime(subscription.expiresAt)
+                : t("portalSite.account.notAvailable")}
+            </p>
+          </div>
+        </div>
+      </section>
 
-          <section className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-foreground">
-                {t("portalSite.account.quickActions")}
-              </h2>
+      <section className="rounded-xl border border-border bg-card/70 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            {t("portalSite.account.queue.title")}
+          </h2>
+          <Badge variant="warning">{queueItems.length}</Badge>
+        </div>
+
+        {queueItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("portalSite.account.queue.empty")}
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border/70">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.queue.issue")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.account.queue.severity")}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t("portalSite.admin.columns.action")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {queueItems.map((item) => (
+                  <tr key={item.id} className="border-t border-border/70">
+                    <td className="px-3 py-2 align-top">
+                      <p className="font-medium text-foreground">
+                        {item.issue}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.detail}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant={severityBadgeVariant(item.severity)}>
+                        {t(`portalSite.admin.risk.${item.severity}`)}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={item.href}>{item.cta}</Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <section className="rounded-xl border border-border bg-card/70 p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-chart-1" />
+            <h2 className="text-sm font-semibold text-foreground">
+              {t("portalSite.account.usageSnapshot")}
+            </h2>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {t("portalSite.account.storageUsage")}
+                </span>
+                <span className="font-medium text-foreground">
+                  {storagePercentLabel}
+                </span>
+              </div>
+              <Progress value={storagePercent} className="h-2" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
-                <Link href="/account/billing">
-                  {t("portalSite.account.nav.billing")}
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/account/invoices">
-                  {t("portalSite.account.nav.invoices")}
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/pricing">{t("portalSite.nav.pricing")}</Link>
-              </Button>
-              <Button asChild size="sm" variant="ghost">
-                <Link href="/checkout">
-                  {t("portalSite.account.goToCheckout")}
-                </Link>
-              </Button>
+            <p className="text-xs text-muted-foreground">
+              {t("portalSite.account.usageUpdatedAt")}:{" "}
+              {usage?.updatedAt
+                ? formatLocaleDateTime(usage.updatedAt)
+                : t("portalSite.account.notAvailable")}
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card/70 p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <ReceiptText className="h-4 w-4 text-chart-4" />
+            <h2 className="text-sm font-semibold text-foreground">
+              {t("portalSite.account.latestInvoices")}
+            </h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.account.invoicesCount")}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                {invoices.length}
+              </p>
             </div>
-          </section>
-        </>
-      )}
+            <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.account.billedAmount")}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                $
+                {formatLocaleNumber(paidTotal, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("portalSite.account.invoiceDate")}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">
+                {latestInvoice
+                  ? formatLocaleDateTime(
+                      latestInvoice.paidAt || latestInvoice.createdAt,
+                    )
+                  : t("portalSite.account.notAvailable")}
+              </p>
+            </div>
+          </div>
+          {!hasPaidPlan ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t("portalSite.account.planRequiredHint")}
+            </p>
+          ) : null}
+        </section>
+      </div>
+
+      <section className="rounded-xl border border-border bg-card/70 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">
+            {t("portalSite.account.quickActions")}
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href="/account/billing">
+              {t("portalSite.account.nav.billing")}
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/account/invoices">
+              {t("portalSite.account.nav.invoices")}
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/pricing">{t("portalSite.nav.pricing")}</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
+          </Button>
+        </div>
+      </section>
     </PortalSettingsPage>
   );
 }

@@ -24,12 +24,6 @@ const SUPPORTED_PLATFORMS = [
   "macos-arm64",
 ] as const;
 
-export const dynamic = "force-static";
-
-export function generateStaticParams() {
-  return [{ slug: ["bugium.json"] }, { slug: ["bugox.json"] }];
-}
-
 function isBrowserSlug(input: string): input is BrowserSlug {
   return input === "bugium" || input === "bugox";
 }

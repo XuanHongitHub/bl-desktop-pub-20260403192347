@@ -1,9 +1,5 @@
 import { AdminUserDetailPage } from "@/components/portal/admin/users/admin-user-detail-page";
 
-export function generateStaticParams() {
-  return [{ userId: "placeholder" }];
-}
-
 export default async function AdminUserDetailRoute({
   params,
 }: {

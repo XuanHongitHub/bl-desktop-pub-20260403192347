@@ -18,15 +18,15 @@ import { useTranslation } from "react-i18next";
 import { FaGoogle } from "react-icons/fa";
 import { Logo } from "@/components/icons/logo";
 import { TopNavHead } from "@/components/portal/top-nav-head";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { PageLoader } from "@/components/ui/page-loader";
-import { Separator } from "@/components/ui/separator";
-import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/frontend-shadcn/ui/button";
+import { Card, CardContent, CardHeader } from "@/frontend-shadcn/ui/card";
+import { Checkbox } from "@/frontend-shadcn/ui/checkbox";
+import { Input } from "@/frontend-shadcn/ui/input";
+import { Label } from "@/frontend-shadcn/ui/label";
+import { Separator } from "@/frontend-shadcn/ui/separator";
+import { Spinner } from "@/frontend-shadcn/ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@/frontend-shadcn/ui/tabs";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/i18n";
 import {
@@ -481,11 +481,7 @@ export function PortalAuthPage({
     try {
       setIsSubmitting(true);
       setGoogleAuthState("idle");
-      const callbackOrigin =
-        surface === "desktop"
-          ? process.env.NEXT_PUBLIC_WEB_PORTAL_URL || "https://buglogin.com"
-          : window.location.origin;
-      const callback = new URL("/oauth-callback", callbackOrigin);
+      const callback = new URL("/oauth-callback", window.location.origin);
       const nonce = Math.random().toString(36).slice(2);
       const state = encodeOAuthState({
         target: "portal",
@@ -1012,7 +1008,7 @@ export function PortalAuthPage({
 
             <div className="relative hidden overflow-hidden border-l border-border md:block">
               <Image
-                src="/img_buglogin/browser-multi-account-platform.png"
+                src="/auth/buglogin-auth-security.jpg"
                 alt="BugLogin — Antidetect Browser"
                 fill
                 className="object-cover"

@@ -2105,8 +2105,8 @@
     "googleErrorAuthCodeUnsupported": "Authorization code OAuth flow is not supported in this app yet.",
     "googleErrorMissingTokens": "Google callback did not include required auth tokens.",
     "googleErrorAccessDenied": "Google access was denied by the user.",
-    "invalidCredentialsTitle": "Login failed",
-    "invalidCredentialsDescription": "The email or password you entered is incorrect. Please check and try again.",
+    "invalidCredentialsTitle": "Email or password is incorrect.",
+    "invalidCredentialsDescription": "Use the password you registered for this local account. `Password123!` is only a test value in specs, not a runtime default.",
     "emailAlreadyRegisteredTitle": "This email is already registered.",
     "emailAlreadyRegisteredDescription": "Sign in with the existing password, or use Forgot Password if you need to recover access.",
     "controlAuthUnavailableTitle": "Authentication service unreachable",
@@ -5303,20 +5303,6 @@
       "badge": "Download",
       "title": "Download the BugLogin desktop app.",
       "description": "Get the runtime app and keep entitlement synced from the web portal.",
-      "installers": {
-        "title": "Desktop Installers",
-        "description": "Auto-resolved from the latest release in the deployment repository.",
-        "latest": "Latest release: {{tag}}",
-        "loading": "Loading installers...",
-        "error": "Cannot load installer links right now.",
-        "downloadForCurrentOs": "Download for this device",
-        "download": "Download",
-        "windows": "Windows",
-        "macIntel": "macOS (Intel)",
-        "macApple": "macOS (Apple Silicon)",
-        "linux": "Linux",
-        "empty": "No installer available yet."
-      },
       "cards": {
         "windows": {
           "title": "Windows-ready package",
@@ -5644,7 +5630,7 @@
       },
       "registry": {
         "title": "Registry Component Inventory",
-        "description": "Component set is integrated into the shared UI system.",
+        "description": "Component set cloned into src/frontend-shadcn/ui.",
         "footer": "Total cloned components: {{value}}."
       },
       "navigation": {

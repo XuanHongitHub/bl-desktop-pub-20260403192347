@@ -5,9 +5,7 @@ import {
   HttpStatus,
   Post,
   Req,
-  UnauthorizedException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 import { ControlService } from "./control.service.js";
 import { GoogleIdTokenService } from "./google-id-token.service.js";
@@ -21,20 +19,7 @@ export class ControlPublicAuthController {
   constructor(
     private readonly controlService: ControlService,
     private readonly googleIdTokenService: GoogleIdTokenService,
-    private readonly configService: ConfigService,
   ) {}
-
-  private resolveControlToken(): string {
-    const controlToken = this.configService
-      .get<string>("CONTROL_API_TOKEN")
-      ?.trim();
-    const syncToken = this.configService.get<string>("SYNC_TOKEN")?.trim();
-    const resolved = controlToken || syncToken;
-    if (!resolved) {
-      throw new UnauthorizedException("control_token_not_configured");
-    }
-    return resolved;
-  }
 
   private resolveActorKey(request: Request): string {
     const forwardedFor = request.headers["x-forwarded-for"];
@@ -73,14 +58,10 @@ export class ControlPublicAuthController {
     @Body() body: { email?: string; password?: string },
   ) {
     this.assertAuthRateLimit(request, "register");
-    const result = this.controlService.registerAuthUser(
+    return this.controlService.registerAuthUser(
       body.email ?? "",
       body.password ?? "",
     );
-    return {
-      ...result,
-      controlToken: this.resolveControlToken(),
-    };
   }
 
   @Post("login")
@@ -89,14 +70,7 @@ export class ControlPublicAuthController {
     @Body() body: { email?: string; password?: string },
   ) {
     this.assertAuthRateLimit(request, "login");
-    const result = this.controlService.loginAuthUser(
-      body.email ?? "",
-      body.password ?? "",
-    );
-    return {
-      ...result,
-      controlToken: this.resolveControlToken(),
-    };
+    return this.controlService.loginAuthUser(body.email ?? "", body.password ?? "");
   }
 
   @Post("google")
@@ -105,17 +79,11 @@ export class ControlPublicAuthController {
     @Body() body: { idToken?: string },
   ) {
     this.assertAuthRateLimit(request, "google");
-    const identity = await this.googleIdTokenService.verifyIdToken(
-      body.idToken ?? "",
-    );
-    const result = this.controlService.loginOrRegisterGoogleAuthUser(
+    const identity = await this.googleIdTokenService.verifyIdToken(body.idToken ?? "");
+    return this.controlService.loginOrRegisterGoogleAuthUser(
       identity.email,
       identity.sub,
     );
-    return {
-      ...result,
-      controlToken: this.resolveControlToken(),
-    };
   }
 
   @Post("google/unlink")

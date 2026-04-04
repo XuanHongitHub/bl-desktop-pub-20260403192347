@@ -80,6 +80,8 @@ pub struct BrowserProfile {
   #[serde(default)]
   pub created_by_email: Option<String>,
   #[serde(default)]
+  pub workspace_id: Option<String>,
+  #[serde(default)]
   pub runtime_state: RuntimeState,
 }
 

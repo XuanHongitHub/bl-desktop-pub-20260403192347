@@ -11,8 +11,6 @@ type PageLoaderProps = {
   description?: ReactNode;
   mode?: PageLoaderMode;
   className?: string;
-  /** Show a subtle branded logo mark instead of generic spinner (desktop boot/post-login) */
-  branded?: boolean;
 };
 
 type PageLoaderOverlayProps = Omit<PageLoaderProps, "mode"> & {
@@ -36,11 +34,7 @@ export function PageLoader({
 
   return (
     <div
-      className={cn(
-        placementClassName,
-        "animate-in fade-in duration-200",
-        className,
-      )}
+      className={cn(placementClassName, className)}
       aria-busy="true"
       suppressHydrationWarning
     >
@@ -71,7 +65,6 @@ export function PageLoaderOverlay({
     <div
       className={cn(
         "fixed inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]",
-        "animate-in fade-in duration-150",
         zIndexClassName,
         overlayClassName,
       )}

@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -219,14 +217,21 @@ export default function AdminSupportConsolePage() {
                           <p className="truncate text-sm font-medium text-foreground">
                             {workspace.workspaceName}
                           </p>
-                          <AdminStatusBadge status={workspace.riskLevel} />
+                          <Badge
+                            variant={
+                              workspace.riskLevel === "high"
+                                ? "destructive"
+                                : workspace.riskLevel === "medium"
+                                  ? "warning"
+                                  : "outline"
+                            }
+                          >
+                            {workspace.riskLevel}
+                          </Badge>
                         </div>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          <AdminPlanBadge
-                            planId={workspace.planLabel.toLowerCase()}
-                          />
-                          <span>· {workspace.members} members</span>
-                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {workspace.planLabel} · {workspace.members} members
+                        </p>
                       </div>
                       <Button
                         asChild

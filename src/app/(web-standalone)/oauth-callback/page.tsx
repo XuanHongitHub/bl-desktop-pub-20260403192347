@@ -258,7 +258,7 @@ function OAuthCallbackContent() {
           return;
         }
         finish(
-          `buglogin://oauth-callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}&id_token=${encodeURIComponent(idToken)}`,
+          `buglogin://oauth-callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`,
           "desktop",
         );
         return;
@@ -371,6 +371,8 @@ function OAuthCallbackContent() {
 }
 
 export default function OAuthCallbackPage() {
+  const { t } = useTranslation();
+
   return (
     <Suspense fallback={<PageLoader mode="fullscreen" />}>
       <OAuthCallbackContent />

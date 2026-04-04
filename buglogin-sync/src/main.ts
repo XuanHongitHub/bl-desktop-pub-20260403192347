@@ -24,11 +24,10 @@ function resolveCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
   }
 
   return [
+    "https://bugdev.site",
     "https://buglogin.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://tauri.localhost",
-    "tauri://localhost",
   ];
 }
 

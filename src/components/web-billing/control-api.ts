@@ -22,7 +22,6 @@ import type {
   ControlCoupon,
   ControlInvite,
   ControlMembership,
-  ControlShareGrant,
   ControlStripeCheckoutConfirmResponse,
   ControlStripeCheckoutCreateResponse,
   ControlWorkspaceBillingState,
@@ -44,7 +43,6 @@ export interface WebBillingWorkspaceListItem {
   createdAt: string;
   createdBy: string;
   planLabel: string;
-  actorRole?: import("@/types").TeamRole;
   profileLimit: number;
   memberLimit: number;
   billingCycle: BillingCycle | null;
@@ -207,10 +205,9 @@ async function parseErrorMessage(response: Response): Promise<string> {
 function buildHeaders(
   connection: WebBillingConnection,
 ): Record<string, string> {
-  const controlToken = connection.controlToken.trim();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${controlToken}`,
+    Authorization: `Bearer ${connection.controlToken}`,
     "x-user-id": connection.userId,
     "x-user-email": connection.userEmail,
   };
@@ -234,10 +231,6 @@ async function requestControl<T>(
     | "workspaceMembers"
     | "workspaceMemberInvite"
     | "workspaceMemberRole"
-    | "workspaceInvites"
-    | "workspaceInviteRevoke"
-    | "workspaceShareGrants"
-    | "workspaceShareGrantRevoke"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
@@ -281,7 +274,6 @@ async function requestControl<T>(
     campaignId?: string;
     couponId?: string;
     licenseId?: string;
-    shareGrantId?: string;
     auditLimit?: number;
     q?: string;
     page?: number;
@@ -291,10 +283,6 @@ async function requestControl<T>(
   },
   init: RequestInit,
 ): Promise<T> {
-  if (!connection?.controlToken?.trim()) {
-    throw new Error("missing_control_token");
-  }
-
   const response = await fetch(
     buildControlApiUrl(connection.controlBaseUrl, routeKey, routeInput),
     {
@@ -504,66 +492,6 @@ export async function inviteWorkspaceMember(
     {
       method: "POST",
       body: JSON.stringify(input),
-    },
-  );
-}
-
-export async function listWorkspaceInvites(
-  connection: WebBillingConnection,
-  workspaceId: string,
-): Promise<ControlInvite[]> {
-  return requestControl<ControlInvite[]>(
-    connection,
-    "workspaceInvites",
-    { workspaceId },
-    {
-      method: "GET",
-    },
-  );
-}
-
-export async function revokeWorkspaceInvite(
-  connection: WebBillingConnection,
-  workspaceId: string,
-  inviteId: string,
-): Promise<ControlInvite> {
-  return requestControl<ControlInvite>(
-    connection,
-    "workspaceInviteRevoke",
-    { workspaceId, inviteId },
-    {
-      method: "POST",
-      body: JSON.stringify({ reason: "revoked_from_portal" }),
-    },
-  );
-}
-
-export async function listWorkspaceShareGrants(
-  connection: WebBillingConnection,
-  workspaceId: string,
-): Promise<ControlShareGrant[]> {
-  return requestControl<ControlShareGrant[]>(
-    connection,
-    "workspaceShareGrants",
-    { workspaceId },
-    {
-      method: "GET",
-    },
-  );
-}
-
-export async function revokeWorkspaceShareGrant(
-  connection: WebBillingConnection,
-  workspaceId: string,
-  shareGrantId: string,
-): Promise<ControlShareGrant> {
-  return requestControl<ControlShareGrant>(
-    connection,
-    "workspaceShareGrantRevoke",
-    { workspaceId, shareGrantId },
-    {
-      method: "POST",
-      body: JSON.stringify({ reason: "revoked_from_portal" }),
     },
   );
 }

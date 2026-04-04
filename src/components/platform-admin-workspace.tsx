@@ -157,12 +157,6 @@ export function PlatformAdminWorkspace({
   const [workspaceMode, setWorkspaceMode] = useState<"personal" | "team">(
     "team",
   );
-  const [workspacePlanId, setWorkspacePlanId] = useState<
-    "free" | "starter" | "team" | "scale" | "enterprise"
-  >("free");
-  const [workspaceBillingCycle, setWorkspaceBillingCycle] = useState<
-    "monthly" | "yearly"
-  >("monthly");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
   const [shareResourceType, setShareResourceType] = useState<
@@ -589,16 +583,7 @@ export function PlatformAdminWorkspace({
     }
     try {
       setIsCreatingWorkspace(true);
-      const created = await createWorkspace(
-        nextName,
-        workspaceMode,
-        workspacePlanId === "free"
-          ? undefined
-          : {
-              planId: workspacePlanId,
-              billingCycle: workspaceBillingCycle,
-            },
-      );
+      const created = await createWorkspace(nextName, workspaceMode);
       setWorkspaceName("");
       await refreshWorkspaceDetails(created.id);
       showSuccessToast(t("adminWorkspace.controlPlane.workspaceCreated"));
@@ -907,10 +892,6 @@ export function PlatformAdminWorkspace({
           setWorkspaceName={setWorkspaceName}
           workspaceMode={workspaceMode}
           setWorkspaceMode={setWorkspaceMode}
-          workspacePlanId={workspacePlanId}
-          setWorkspacePlanId={setWorkspacePlanId}
-          workspaceBillingCycle={workspaceBillingCycle}
-          setWorkspaceBillingCycle={setWorkspaceBillingCycle}
           inviteEmail={inviteEmail}
           setInviteEmail={setInviteEmail}
           inviteRole={inviteRole}

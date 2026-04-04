@@ -28,7 +28,3 @@ Single entrypoint for the repository workflow standard.
 - Do not recreate `openspecs/`.
 - Keep OpenSpec + Superpowers + Beads synchronized for non-trivial changes.
 - For upstream intake from `zhom/bugloginbrowser`, use the canonical files under `docs/workflow/references/upstream-bugloginbrowser/`.
-
-## Release runbooks
-
-- Desktop public release-only flow: `docs/workflow/desktop-public-repo-release.md`

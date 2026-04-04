@@ -28,8 +28,8 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+} from "@/frontend-shadcn/ui/avatar";
+import { Button } from "@/frontend-shadcn/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +37,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/frontend-shadcn/ui/dropdown-menu";
 import { useWebPortalSession } from "@/hooks/use-web-portal-session";
 import i18n, { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/i18n";
 import {

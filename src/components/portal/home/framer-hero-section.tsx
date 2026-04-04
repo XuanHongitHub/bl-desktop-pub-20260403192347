@@ -190,6 +190,19 @@ export function FramerHeroSection() {
             "mx-auto flex w-full flex-col items-center text-center",
           )}
         >
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-3 rounded-full border border-border/70 bg-card/70 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted/70"
+          >
+            <span suppressHydrationWarning>
+              {t("portalSite.home.reportLabel")}
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground" suppressHydrationWarning>
+              {t("portalSite.home.reportCta")}
+            </span>
+          </Link>
+
           <div className="mt-8 space-y-4">
             <h1 className="text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-7xl">
               <span suppressHydrationWarning>

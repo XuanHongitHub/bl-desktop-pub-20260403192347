@@ -68,7 +68,10 @@ impl SyncEngine {
   }
 
   /// Get the key prefix for team profiles. Returns empty string for personal profiles.
-  async fn get_team_key_prefix(profile: &BrowserProfile) -> String {
+  pub async fn get_team_key_prefix(profile: &BrowserProfile) -> String {
+    if let Some(ws_id) = &profile.workspace_id {
+      return format!("workspaces/{}/", ws_id);
+    }
     if profile.created_by_id.is_some() {
       if let Some(auth) = crate::cloud_auth::CLOUD_AUTH.get_user().await {
         if let Some(team_id) = &auth.user.team_id {
@@ -2878,3 +2881,73 @@ pub async fn set_extension_group_sync_enabled(
 
   Ok(())
 }
+
+#[tauri::command]
+pub async fn list_remote_workspace_profile_ids(
+  app_handle: tauri::AppHandle,
+  workspace_id: String,
+) -> Result<Vec<String>, String> {
+  let engine = SyncEngine::create_from_settings(&app_handle)
+    .await
+    .map_err(|e| format!("Failed to create sync engine: {e}"))?;
+  engine
+    .list_remote_workspace_profile_ids(&workspace_id)
+    .await
+    .map_err(|e| format!("Failed to list remote profiles: {e:?}"))
+}
+
+#[tauri::command]
+pub async fn pull_workspace_profiles(
+  app_handle: tauri::AppHandle,
+  workspace_id: String,
+) -> Result<Vec<String>, String> {
+  let engine = SyncEngine::create_from_settings(&app_handle)
+    .await
+    .map_err(|e| format!("Failed to create sync engine: {e}"))?;
+  engine
+    .pull_workspace_profiles(&app_handle, &workspace_id)
+    .await
+    .map_err(|e| format!("Failed to pull workspace profiles: {e:?}"))
+}
+
+impl SyncEngine {
+  pub async fn list_remote_workspace_profile_ids(
+    &self,
+    workspace_id: &str,
+  ) -> SyncResult<Vec<String>> {
+    let prefix = format!("workspaces/{}/profiles/", workspace_id);
+    let list_response = self.client.list(&prefix).await?;
+    let ids: Vec<String> = list_response
+      .objects
+      .into_iter()
+      .map(|obj| {
+        obj
+          .key
+          .strip_prefix(&prefix)
+          .unwrap_or(&obj.key)
+          .trim_end_matches('/')
+          .to_string()
+      })
+      .filter(|id| !id.is_empty())
+      .collect();
+    Ok(ids)
+  }
+
+  pub async fn pull_workspace_profiles(
+    &self,
+    app_handle: &tauri::AppHandle,
+    workspace_id: &str,
+  ) -> SyncResult<Vec<String>> {
+    let ids = self.list_remote_workspace_profile_ids(workspace_id).await?;
+    let mut pulled = Vec::new();
+    for id in ids {
+      if let Err(e) = self.pull_profile(app_handle, &id).await {
+        log::error!("Failed to pull workspace profile {id}: {e:?}");
+      } else {
+        pulled.push(id);
+      }
+    }
+    Ok(pulled)
+  }
+}
+

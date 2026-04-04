@@ -1031,7 +1031,6 @@ interface ProfilesDataTableProps {
   vpnConfigs: VpnConfig[];
   isProxyVpnCatalogLoading?: boolean;
   isLoading?: boolean;
-  tableMode?: "default" | "group";
 }
 
 export function ProfilesDataTable({
@@ -1077,7 +1076,6 @@ export function ProfilesDataTable({
   vpnConfigs,
   isProxyVpnCatalogLoading = false,
   isLoading = false,
-  tableMode = "default",
 }: ProfilesDataTableProps) {
   const { t } = useTranslation();
   const sharedActionKeys = getProfileSharedActionKeys();
@@ -3413,12 +3411,7 @@ export function ProfilesDataTable({
     }
   }, [table]);
 
-  const isGroupTableMode = tableMode === "group";
-  const compactHiddenColumnIds = new Set(
-    isGroupTableMode
-      ? ["tags", "note", "sync", "runtime", "lastLaunch"]
-      : ["tags", "note", "sync"],
-  );
+  const compactHiddenColumnIds = new Set(["tags", "note", "sync"]);
   const shouldRenderColumn = (columnId: string) =>
     !compactHiddenColumnIds.has(columnId);
   const visibleColumnCount = table
@@ -3559,10 +3552,6 @@ export function ProfilesDataTable({
                       return (
                         <TableHead
                           key={header.id}
-                          className={cn(
-                            isGroupTableMode &&
-                              "h-8 px-2 py-1 text-xs font-medium",
-                          )}
                           style={{
                             width: header.column.columnDef.size
                               ? `${header.column.getSize()}px`

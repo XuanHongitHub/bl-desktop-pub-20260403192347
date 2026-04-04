@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { type ReactNode, Suspense } from "react";
+import type { ReactNode } from "react";
 import { PortalAccountSidebarShell } from "@/components/portal/portal-sidebar-shell";
 
 export const metadata: Metadata = {
@@ -9,9 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function AccountLayout({ children }: { children: ReactNode }) {
-  return (
-    <Suspense fallback={null}>
-      <PortalAccountSidebarShell>{children}</PortalAccountSidebarShell>
-    </Suspense>
-  );
+  return <PortalAccountSidebarShell>{children}</PortalAccountSidebarShell>;
 }

@@ -494,12 +494,12 @@ function AppSidebarComponent({
   const effectiveWorkspaceRole = currentWorkspaceRole ?? teamRole;
   const isTeamOperator =
     effectiveWorkspaceRole === "owner" || effectiveWorkspaceRole === "admin";
-  const allowPlatformAdminWorkspaceBypass = navigationMode !== "portal-account";
-  const canManageWorkspaceBilling =
-    isTeamOperator || (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
-  const canManageWorkspaceGovernance = canManageWorkspaceBilling;
-  const canAccessWorkspaceGovernance =
-    isTeamOperator || (allowPlatformAdminWorkspaceBypass && isPlatformAdmin);
+  const canManageWorkspaceBilling = isPlatformAdmin || isTeamOperator;
+  const canManageWorkspaceGovernance =
+    isPlatformAdmin ||
+    effectiveWorkspaceRole === "owner" ||
+    effectiveWorkspaceRole === "admin";
+  const canAccessWorkspaceGovernance = canManageWorkspaceGovernance;
   const inSuperAdminPanel = isSuperAdminPanelSection(activeSection);
   const inWorkspaceOwnerPanel =
     activeSection.startsWith("workspace-owner-") ||
@@ -572,30 +572,12 @@ function AppSidebarComponent({
 
   const navItems = useMemo(() => {
     if (navigationMode === "portal-account") {
-      const items: NavEntry[] = [
+      return [
         {
           type: "item",
           id: "profiles",
           labelKey: "shell.sections.accountOverview",
           icon: LayoutDashboard,
-        },
-      ];
-
-      if (canManageWorkspaceGovernance) {
-        items.push({
-          type: "item",
-          id: "account-members",
-          labelKey: "adminWorkspace.ui.memberList",
-          icon: Users,
-        });
-      }
-
-      items.push(
-        {
-          type: "item",
-          id: "account-invites" as AppSection,
-          labelKey: "portalSite.invites.pageTitle",
-          icon: UserPlus,
         },
         {
           type: "item",
@@ -615,8 +597,7 @@ function AppSidebarComponent({
           labelKey: "shell.sections.accountSettings",
           icon: Settings2,
         },
-      );
-      return items;
+      ] satisfies NavEntry[];
     }
 
     return buildNavItems({
@@ -860,8 +841,7 @@ function AppSidebarComponent({
   );
 
   const renderAccountMenuContent = () => {
-    const canOpenWorkspaceOwnerPanel =
-      canAccessWorkspaceGovernance && panelMode === "workspace";
+    const canOpenWorkspaceOwnerPanel = false;
     const canOpenSuperAdminPanel = isPlatformAdmin && panelMode === "workspace";
     const canBackToWorkspace = panelMode !== "workspace";
     const isPortalSuperAdminMenu =

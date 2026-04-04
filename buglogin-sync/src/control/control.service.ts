@@ -125,7 +125,6 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ControlService.name);
   private readonly authUsers = new Map<string, AuthUserRecord>();
   private readonly platformAdminEmails = new Set<string>();
-  private readonly configuredPlatformAdminEmails = new Set<string>();
   private readonly workspaces = new Map<string, WorkspaceRecord>();
   private readonly workspaceAdminTiktokStates = new Map<
     string,
@@ -202,18 +201,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           connectionString: this.databaseUrl,
         })
       : null;
-
-    this.loadConfiguredPlatformAdminEmails();
   }
 
   async onModuleInit() {
     if (!this.postgresPool) {
-      this.bootstrapPlatformAdminPolicyFromConfig();
       this.refreshWorkspaceUsageSnapshots();
       return;
     }
     await this.loadStateFromPostgres();
-    this.bootstrapPlatformAdminPolicyFromConfig();
     this.refreshWorkspaceUsageSnapshots();
   }
 
@@ -1112,7 +1107,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("password_login_not_linked");
     }
     if (
-      !this.verifyPasswordWithTrimFallback(
+      !this.verifyPassword(
         normalizedPassword,
         record.passwordSalt,
         record.passwordHash,
@@ -1315,7 +1310,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("invalid_credentials");
     }
     if (
-      !this.verifyPasswordWithTrimFallback(
+      !this.verifyPassword(
         normalizedPassword,
         record.passwordSalt,
         record.passwordHash,
@@ -5564,51 +5559,10 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private loadConfiguredPlatformAdminEmails() {
-    const configuredRaw =
-      this.configService?.get<string>("PLATFORM_ADMIN_EMAILS") ??
-      process.env.PLATFORM_ADMIN_EMAILS ??
-      process.env.PLATFORM_ADMIN_EMAIL ??
-      "";
-    for (const value of configuredRaw.split(/[,\n;]/)) {
-      const normalized = this.normalizeEmail(value);
-      if (normalized) {
-        this.configuredPlatformAdminEmails.add(normalized);
-      }
-    }
-  }
-
-  private isPlatformAdminEmail(normalizedEmail: string): boolean {
-    return this.platformAdminEmails.has(normalizedEmail);
-  }
-
-  private bootstrapPlatformAdminPolicyFromConfig() {
-    if (this.configuredPlatformAdminEmails.size === 0) {
-      return;
-    }
-    let changed = false;
-    for (const email of this.configuredPlatformAdminEmails) {
-      if (!this.platformAdminEmails.has(email)) {
-        this.platformAdminEmails.add(email);
-        changed = true;
-      }
-      const record = this.authUsers.get(email);
-      if (record && record.platformRole !== "platform_admin") {
-        record.platformRole = "platform_admin";
-        record.updatedAt = new Date().toISOString();
-        this.authUsers.set(email, record);
-        changed = true;
-      }
-    }
-    if (changed) {
-      this.persistState();
-    }
-  }
-
   private resolvePlatformRoleForRegistration(
     normalizedEmail: string,
   ): "platform_admin" | null {
-    if (this.isPlatformAdminEmail(normalizedEmail)) {
+    if (this.platformAdminEmails.has(normalizedEmail)) {
       return "platform_admin";
     }
     return null;
@@ -5643,7 +5597,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (!normalizedEmail) {
       return null;
     }
-    if (this.isPlatformAdminEmail(normalizedEmail)) {
+    if (this.platformAdminEmails.has(normalizedEmail)) {
       return "platform_admin";
     }
     if (
@@ -6716,21 +6670,6 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     } catch {
       return false;
     }
-  }
-
-  private verifyPasswordWithTrimFallback(
-    password: string,
-    salt: string,
-    hash: string,
-  ): boolean {
-    if (this.verifyPassword(password, salt, hash)) {
-      return true;
-    }
-    const trimmed = password.trim();
-    if (!trimmed || trimmed === password) {
-      return false;
-    }
-    return this.verifyPassword(trimmed, salt, hash);
   }
 
   private normalizeAuthProvider(value: unknown): AuthProvider {

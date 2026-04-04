@@ -3,13 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { TFunction } from "i18next";
-import {
-  MoreHorizontal,
-  PenLine,
-  Settings2,
-  Share2,
-  Trash2,
-} from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import {
   useCallback,
   useDeferredValue,
@@ -20,6 +14,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
+import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
 import { DeleteGroupDialog } from "@/components/delete-group-dialog";
 import { EditGroupDialog } from "@/components/edit-group-dialog";
@@ -78,7 +73,6 @@ import {
   writeGroupAppearanceMap,
 } from "@/lib/group-appearance-store";
 import { formatLocaleDateTime } from "@/lib/locale-format";
-import { canPerformTeamAction, type TeamAction } from "@/lib/team-permissions";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import {
   applyScopedGroupCounts,
@@ -189,21 +183,19 @@ export function GroupManagementDialog({
   initialAction = "manage",
   initialGroupId = null,
   mode = "dialog",
-  selectedGroupId,
-  onSelectedGroupChange,
-  workspaceRole = null,
-  fallbackTeamRole = null,
-  onShareGroupInvite,
+  selectedGroupId: _selectedGroupId,
+  onSelectedGroupChange: _onSelectedGroupChange,
+  workspaceRole: _workspaceRole = null,
+  fallbackTeamRole: _fallbackTeamRole = null,
+  onShareGroupInvite: _onShareGroupInvite,
 }: GroupManagementDialogProps) {
   const { t } = useTranslation();
   const isEmbeddedMode = mode === "embedded";
-  const showSyncColumns = !isEmbeddedMode;
   const { isReadOnly } = useRuntimeAccess({
     enabled: mode === "page" || isEmbeddedMode || isOpen,
   });
   const isVisible = mode === "page" || isEmbeddedMode ? true : isOpen;
   const isPageMode = mode === "page";
-  const effectiveTeamRole = workspaceRole ?? fallbackTeamRole ?? null;
 
   const [groups, setGroups] = useState<GroupWithCount[]>([]);
   const [profiles, setProfiles] = useState<BrowserProfile[]>([]);
@@ -256,11 +248,6 @@ export function GroupManagementDialog({
     [],
   );
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
-  const [groupShareDialogOpen, setGroupShareDialogOpen] = useState(false);
-  const [groupShareTarget, setGroupShareTarget] =
-    useState<GroupWithCount | null>(null);
-  const [shareRecipientEmail, setShareRecipientEmail] = useState("");
-  const [isSubmittingShareInvite, setIsSubmittingShareInvite] = useState(false);
   const [groupColorById, setGroupColorById] = useState<
     Record<string, GroupColorLabel>
   >({});
@@ -279,72 +266,10 @@ export function GroupManagementDialog({
     enabled: isPageMode,
     includeUsage: false,
   });
-  const canManageGroupAssignments = useMemo(
-    () =>
-      effectiveTeamRole
-        ? canPerformTeamAction(effectiveTeamRole, "assign_group")
-        : true,
-    [effectiveTeamRole],
-  );
-  const canManageGroupSync = useMemo(
-    () =>
-      effectiveTeamRole
-        ? canPerformTeamAction(effectiveTeamRole, "toggle_profile_sync")
-        : true,
-    [effectiveTeamRole],
-  );
-  const canManageGroupShare = useMemo(
-    () =>
-      effectiveTeamRole
-        ? canPerformTeamAction(effectiveTeamRole, "share_group")
-        : true,
-    [effectiveTeamRole],
-  );
-  const canManageGroupRowMenu =
-    canManageGroupAssignments || canManageGroupShare;
-  const canManageGroupSettings =
-    canManageGroupAssignments || canManageGroupShare;
-
-  const ensureTeamPermission = useCallback(
-    (action: TeamAction): boolean => {
-      if (isReadOnly) {
-        showErrorToast(t("entitlement.readOnlyDenied"), {
-          description: t("entitlement.readOnlyDescription"),
-        });
-        return false;
-      }
-      if (
-        effectiveTeamRole &&
-        !canPerformTeamAction(effectiveTeamRole, action)
-      ) {
-        showErrorToast(t("sync.team.permissionDenied"), {
-          description: "permission_denied",
-        });
-        return false;
-      }
-      return true;
-    },
-    [effectiveTeamRole, isReadOnly, t],
-  );
 
   const handledInitialIntentRef = useRef<string | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const deferredMemberSearchQuery = useDeferredValue(memberSearchQuery);
-  const emitSelectedGroupChange = useCallback(
-    (groupId: string | null) => {
-      onSelectedGroupChange?.(groupId ?? "all");
-    },
-    [onSelectedGroupChange],
-  );
-  const handleActiveGroupSelection = useCallback(
-    (groupId: string | null) => {
-      setActiveGroupId(groupId);
-      setSelectedMemberProfileIds([]);
-      setSelectedCandidateProfileIds([]);
-      emitSelectedGroupChange(groupId);
-    },
-    [emitSelectedGroupChange],
-  );
 
   const appendActivity = useCallback((groupId: string, message: string) => {
     setActivityEntries((prev) => [
@@ -562,94 +487,22 @@ export function GroupManagementDialog({
     onGroupManagementComplete();
   }, [appendActivity, loadGroups, onGroupManagementComplete, selectedGroup, t]);
 
-  const handleEditGroup = useCallback(
-    (group: GroupWithCount) => {
-      if (!ensureTeamPermission("assign_group")) {
-        return;
-      }
-      setSelectedGroup(group);
-      setEditDialogOpen(true);
-    },
-    [ensureTeamPermission],
-  );
+  const handleEditGroup = useCallback((group: GroupWithCount) => {
+    setSelectedGroup(group);
+    setEditDialogOpen(true);
+  }, []);
 
-  const handleDeleteGroup = useCallback(
-    (group: GroupWithCount) => {
-      if (!ensureTeamPermission("assign_group")) {
-        return;
-      }
-      setSelectedGroup(group);
-      setDeleteDialogOpen(true);
-    },
-    [ensureTeamPermission],
-  );
-
-  const handleOpenShareDialog = useCallback(
-    (group: GroupWithCount) => {
-      if (!ensureTeamPermission("share_group")) {
-        return;
-      }
-      setGroupShareTarget(group);
-      setShareRecipientEmail("");
-      setGroupShareDialogOpen(true);
-    },
-    [ensureTeamPermission],
-  );
-
-  const handleSubmitShareInvite = useCallback(async () => {
-    if (!groupShareTarget) {
-      return;
-    }
-    if (!ensureTeamPermission("share_group")) {
-      return;
-    }
-    const normalizedEmail = shareRecipientEmail.trim().toLowerCase();
-    if (!normalizedEmail || !normalizedEmail.includes("@")) {
-      showErrorToast(t("adminWorkspace.members.inviteEmailInvalid"));
-      return;
-    }
-    if (!onShareGroupInvite) {
-      showErrorToast(t("adminWorkspace.share.createFailed"), {
-        description: "group_share_invite_not_configured",
-      });
-      return;
-    }
-
-    try {
-      setIsSubmittingShareInvite(true);
-      await onShareGroupInvite({
-        groupId: groupShareTarget.id,
-        recipientEmail: normalizedEmail,
-      });
-      showSuccessToast(t("adminWorkspace.share.created"));
-      appendActivity(
-        groupShareTarget.id,
-        `${t("groupManagementDialog.sidebar.share")}: ${normalizedEmail}`,
-      );
-      setGroupShareDialogOpen(false);
-      setShareRecipientEmail("");
-    } catch (shareError) {
-      showErrorToast(t("adminWorkspace.share.createFailed"), {
-        description:
-          shareError instanceof Error
-            ? shareError.message
-            : "group_share_invite_failed",
-      });
-    } finally {
-      setIsSubmittingShareInvite(false);
-    }
-  }, [
-    appendActivity,
-    ensureTeamPermission,
-    groupShareTarget,
-    onShareGroupInvite,
-    shareRecipientEmail,
-    t,
-  ]);
+  const handleDeleteGroup = useCallback((group: GroupWithCount) => {
+    setSelectedGroup(group);
+    setDeleteDialogOpen(true);
+  }, []);
 
   const handleToggleSync = useCallback(
     async (group: GroupWithCount) => {
-      if (!ensureTeamPermission("toggle_profile_sync")) {
+      if (isReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
         return;
       }
       setIsTogglingSync((prev) => ({ ...prev, [group.id]: true }));
@@ -685,12 +538,15 @@ export function GroupManagementDialog({
         setIsTogglingSync((prev) => ({ ...prev, [group.id]: false }));
       }
     },
-    [appendActivity, ensureTeamPermission, loadGroups, t],
+    [appendActivity, isReadOnly, loadGroups, t],
   );
 
   const handleBulkSync = useCallback(
     async (enabled: boolean) => {
-      if (!ensureTeamPermission("toggle_profile_sync")) {
+      if (isReadOnly) {
+        showErrorToast(t("entitlement.readOnlyDenied"), {
+          description: t("entitlement.readOnlyDescription"),
+        });
         return;
       }
       const targetGroups = groups.filter((group) =>
@@ -762,7 +618,7 @@ export function GroupManagementDialog({
       appendActivity,
       groupInUse,
       groups,
-      ensureTeamPermission,
+      isReadOnly,
       loadGroups,
       selectedGroupIds,
       t,
@@ -793,29 +649,14 @@ export function GroupManagementDialog({
     }
 
     setSelectedGroup(targetGroup);
-    handleActiveGroupSelection(targetGroup.id);
+    setActiveGroupId(targetGroup.id);
     if (initialAction === "edit") {
       setEditDialogOpen(true);
     } else if (initialAction === "delete") {
       setDeleteDialogOpen(true);
     }
     handledInitialIntentRef.current = intentKey;
-  }, [
-    groups,
-    handleActiveGroupSelection,
-    initialAction,
-    initialGroupId,
-    isVisible,
-  ]);
-
-  useEffect(() => {
-    if (selectedGroupId === undefined) {
-      return;
-    }
-    const nextActiveGroupId =
-      !selectedGroupId || selectedGroupId === "all" ? null : selectedGroupId;
-    setActiveGroupId(nextActiveGroupId);
-  }, [selectedGroupId]);
+  }, [groups, initialAction, initialGroupId, isVisible]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -1081,9 +922,6 @@ export function GroupManagementDialog({
   }, []);
 
   const handleMoveMembersToDefault = useCallback(async () => {
-    if (!ensureTeamPermission("assign_group")) {
-      return;
-    }
     if (selectedMemberProfileIds.length === 0) {
       showErrorToast(t("groupManagementDialog.toast.noMembersSelected"));
       return;
@@ -1123,7 +961,6 @@ export function GroupManagementDialog({
   }, [
     activeGroup,
     appendActivity,
-    ensureTeamPermission,
     loadGroups,
     onGroupManagementComplete,
     selectedMemberProfileIds,
@@ -1131,9 +968,6 @@ export function GroupManagementDialog({
   ]);
 
   const handleMoveMembersToGroup = useCallback(async () => {
-    if (!ensureTeamPermission("assign_group")) {
-      return;
-    }
     if (selectedMemberProfileIds.length === 0 || moveTargetGroupId === "none") {
       showErrorToast(t("groupManagementDialog.toast.selectTargetGroup"));
       return;
@@ -1178,7 +1012,6 @@ export function GroupManagementDialog({
   }, [
     activeGroup,
     appendActivity,
-    ensureTeamPermission,
     groups,
     loadGroups,
     moveTargetGroupId,
@@ -1188,9 +1021,6 @@ export function GroupManagementDialog({
   ]);
 
   const handleAddCandidatesToGroup = useCallback(async () => {
-    if (!ensureTeamPermission("assign_group")) {
-      return;
-    }
     if (!activeGroup) {
       return;
     }
@@ -1232,7 +1062,6 @@ export function GroupManagementDialog({
   }, [
     activeGroup,
     appendActivity,
-    ensureTeamPermission,
     loadGroups,
     onGroupManagementComplete,
     selectedCandidateProfileIds,
@@ -1263,8 +1092,7 @@ export function GroupManagementDialog({
                 disabled={
                   isMemberActionLoading ||
                   selectedMemberProfileIds.length === 0 ||
-                  isReadOnly ||
-                  !canManageGroupAssignments
+                  isReadOnly
                 }
                 onClick={() => void handleMoveMembersToDefault()}
               >
@@ -1273,11 +1101,7 @@ export function GroupManagementDialog({
               <Select
                 value={moveTargetGroupId}
                 onValueChange={setMoveTargetGroupId}
-                disabled={
-                  isMemberActionLoading ||
-                  isReadOnly ||
-                  !canManageGroupAssignments
-                }
+                disabled={isMemberActionLoading || isReadOnly}
               >
                 <SelectTrigger className="w-[220px]">
                   <SelectValue
@@ -1305,8 +1129,7 @@ export function GroupManagementDialog({
                   isMemberActionLoading ||
                   selectedMemberProfileIds.length === 0 ||
                   moveTargetGroupId === "none" ||
-                  isReadOnly ||
-                  !canManageGroupAssignments
+                  isReadOnly
                 }
                 onClick={() => void handleMoveMembersToGroup()}
               >
@@ -1398,8 +1221,7 @@ export function GroupManagementDialog({
                 disabled={
                   isMemberActionLoading ||
                   selectedCandidateProfileIds.length === 0 ||
-                  isReadOnly ||
-                  !canManageGroupAssignments
+                  isReadOnly
                 }
                 onClick={() => void handleAddCandidatesToGroup()}
               >
@@ -1591,7 +1413,32 @@ export function GroupManagementDialog({
 
   const content = (
     <div className="space-y-4 text-sm">
-      {isEmbeddedMode ? (
+      <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {t("groupManagementDialog.totalGroups", {
+              count: filteredGroups.length,
+            })}
+          </Badge>
+          <RippleButton
+            size="sm"
+            onClick={() => setCreateDialogOpen(true)}
+            className="flex items-center gap-2"
+            disabled={isReadOnly}
+          >
+            <GoPlus className="h-4 w-4" />
+            {t("common.buttons.create")}
+          </RippleButton>
+        </div>
+      </div>
+
+      {isReadOnly ? (
+        <div className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">
+          {t("entitlement.readOnlyDescription")}
+        </div>
+      ) : null}
+
+      {!isPageMode ? (
         <div className="flex flex-wrap items-center gap-2">
           <Select
             value={syncFilter}
@@ -1600,7 +1447,7 @@ export function GroupManagementDialog({
               setPageIndex(0);
             }}
           >
-            <SelectTrigger className="h-8 w-[170px]">
+            <SelectTrigger className="w-[170px]">
               <SelectValue
                 placeholder={t("groupManagementDialog.syncFilterLabel")}
               />
@@ -1621,7 +1468,7 @@ export function GroupManagementDialog({
             value={sortValue}
             onValueChange={(value) => setSortValue(value as GroupSortValue)}
           >
-            <SelectTrigger className="h-8 w-[170px]">
+            <SelectTrigger className="w-[170px]">
               <SelectValue placeholder={t("groupManagementDialog.sortLabel")} />
             </SelectTrigger>
             <SelectContent>
@@ -1639,86 +1486,6 @@ export function GroupManagementDialog({
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-end gap-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">
-                {t("groupManagementDialog.totalGroups", {
-                  count: filteredGroups.length,
-                })}
-              </Badge>
-              <RippleButton
-                size="sm"
-                onClick={() => setCreateDialogOpen(true)}
-                className="flex items-center gap-2"
-                disabled={isReadOnly || !canManageGroupAssignments}
-              >
-                <GoPlus className="h-4 w-4" />
-                {t("common.buttons.create")}
-              </RippleButton>
-            </div>
-          </div>
-
-          {!isPageMode ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={syncFilter}
-                onValueChange={(value) => {
-                  setSyncFilter(value as "all" | "enabled" | "disabled");
-                  setPageIndex(0);
-                }}
-              >
-                <SelectTrigger className="w-[170px]">
-                  <SelectValue
-                    placeholder={t("groupManagementDialog.syncFilterLabel")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {t("groupManagementDialog.syncFilterAll")}
-                  </SelectItem>
-                  <SelectItem value="enabled">
-                    {t("groupManagementDialog.syncFilterEnabled")}
-                  </SelectItem>
-                  <SelectItem value="disabled">
-                    {t("groupManagementDialog.syncFilterDisabled")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={sortValue}
-                onValueChange={(value) => setSortValue(value as GroupSortValue)}
-              >
-                <SelectTrigger className="w-[170px]">
-                  <SelectValue
-                    placeholder={t("groupManagementDialog.sortLabel")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name-asc">
-                    {t("groupManagementDialog.sort.nameAsc")}
-                  </SelectItem>
-                  <SelectItem value="name-desc">
-                    {t("groupManagementDialog.sort.nameDesc")}
-                  </SelectItem>
-                  <SelectItem value="profiles-desc">
-                    {t("groupManagementDialog.sort.profilesDesc")}
-                  </SelectItem>
-                  <SelectItem value="profiles-asc">
-                    {t("groupManagementDialog.sort.profilesAsc")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-        </>
-      )}
-
-      {isReadOnly ? (
-        <div className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">
-          {t("entitlement.readOnlyDescription")}
         </div>
       ) : null}
 
@@ -1739,7 +1506,7 @@ export function GroupManagementDialog({
             size="sm"
             variant="outline"
             onClick={() => void handleBulkSync(true)}
-            disabled={isReadOnly || !canManageGroupSync}
+            disabled={isReadOnly}
           >
             {t("groupManagementDialog.bulkBar.enableSync")}
           </Button>
@@ -1747,7 +1514,7 @@ export function GroupManagementDialog({
             size="sm"
             variant="outline"
             onClick={() => void handleBulkSync(false)}
-            disabled={isReadOnly || !canManageGroupSync}
+            disabled={isReadOnly}
           >
             {t("groupManagementDialog.bulkBar.disableSync")}
           </Button>
@@ -1797,7 +1564,7 @@ export function GroupManagementDialog({
                     className={
                       activeGroupId === null ? "bg-muted/50" : undefined
                     }
-                    onClick={() => handleActiveGroupSelection(null)}
+                    onClick={() => setActiveGroupId(null)}
                   >
                     <TableCell className="text-sm font-medium">All</TableCell>
                     <TableCell className="w-16 text-right">
@@ -1823,7 +1590,10 @@ export function GroupManagementDialog({
                       <TableRow
                         key={group.id}
                         className={isActive ? "bg-muted/50" : undefined}
-                        onClick={() => handleActiveGroupSelection(group.id)}
+                        onClick={() => {
+                          setActiveGroupId(group.id);
+                          setSelectedMemberProfileIds([]);
+                        }}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -1831,7 +1601,7 @@ export function GroupManagementDialog({
                               className="h-2 w-2 rounded-full"
                               style={{ backgroundColor: colorHex }}
                             />
-                            <span className="truncate text-xs font-medium whitespace-nowrap">
+                            <span className="text-sm font-medium">
                               {group.name}
                             </span>
                           </div>
@@ -1848,9 +1618,7 @@ export function GroupManagementDialog({
                                   variant="ghost"
                                   className="h-7 w-7 p-0"
                                   onClick={(event) => event.stopPropagation()}
-                                  disabled={
-                                    isReadOnly || !canManageGroupRowMenu
-                                  }
+                                  disabled={isReadOnly}
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
@@ -1863,36 +1631,32 @@ export function GroupManagementDialog({
                                   {group.name}
                                 </DropdownMenuLabel>
                                 <DropdownMenuItem
-                                  disabled={!canManageGroupAssignments}
                                   onClick={() => handleEditGroup(group)}
                                 >
-                                  <PenLine className="h-4 w-4 text-muted-foreground" />
                                   {t("groupManagementDialog.sidebar.rename")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  disabled={!canManageGroupShare}
-                                  onClick={() => handleOpenShareDialog(group)}
+                                  onClick={() => {
+                                    setActiveGroupId(group.id);
+                                  }}
                                 >
-                                  <Share2 className="h-4 w-4 text-muted-foreground" />
                                   {t("groupManagementDialog.sidebar.share")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  disabled={!canManageGroupSettings}
                                   onClick={() => {
-                                    handleActiveGroupSelection(group.id);
+                                    setActiveGroupId(group.id);
                                     setGroupSettingsOpen(true);
                                   }}
                                 >
-                                  <Settings2 className="h-4 w-4 text-muted-foreground" />
-                                  {t("groupManagementDialog.settings.title")}
+                                  {t(
+                                    "groupManagementDialog.sidebar.memberAccess",
+                                  )}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   variant="destructive"
-                                  disabled={!canManageGroupAssignments}
                                   onClick={() => handleDeleteGroup(group)}
                                 >
-                                  <Trash2 className="h-4 w-4" />
                                   {t("groupManagementDialog.sidebar.delete")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -1963,7 +1727,6 @@ export function GroupManagementDialog({
                       variant="outline"
                       className="h-8"
                       onClick={() => setGroupSettingsOpen(true)}
-                      disabled={!canManageGroupSettings}
                     >
                       {t("groupManagementDialog.settings.title")}
                     </Button>
@@ -2124,8 +1887,7 @@ export function GroupManagementDialog({
                       disabled={
                         isMemberActionLoading ||
                         selectedMemberProfileIds.length === 0 ||
-                        isReadOnly ||
-                        !canManageGroupAssignments
+                        isReadOnly
                       }
                       onClick={() => void handleMoveMembersToDefault()}
                     >
@@ -2134,11 +1896,7 @@ export function GroupManagementDialog({
                     <Select
                       value={moveTargetGroupId}
                       onValueChange={setMoveTargetGroupId}
-                      disabled={
-                        isMemberActionLoading ||
-                        isReadOnly ||
-                        !canManageGroupAssignments
-                      }
+                      disabled={isMemberActionLoading || isReadOnly}
                     >
                       <SelectTrigger className="w-[220px]">
                         <SelectValue
@@ -2168,8 +1926,7 @@ export function GroupManagementDialog({
                         isMemberActionLoading ||
                         selectedMemberProfileIds.length === 0 ||
                         moveTargetGroupId === "none" ||
-                        isReadOnly ||
-                        !canManageGroupAssignments
+                        isReadOnly
                       }
                       onClick={() => void handleMoveMembersToGroup()}
                     >
@@ -2190,9 +1947,7 @@ export function GroupManagementDialog({
           }
         >
           <div className={isPageMode ? "min-w-0 lg:col-span-7" : "min-w-0"}>
-            <div
-              className={isEmbeddedMode ? "rounded-md" : "rounded-md border"}
-            >
+            <div className="rounded-md border">
               <ScrollArea className="h-[260px]">
                 <Table>
                   <TableHeader>
@@ -2212,16 +1967,12 @@ export function GroupManagementDialog({
                       <TableHead className="w-20">
                         {t("groupManagementDialog.columns.profiles")}
                       </TableHead>
-                      {showSyncColumns ? (
-                        <TableHead className="w-36">
-                          {t("groupManagementDialog.columns.syncHealth")}
-                        </TableHead>
-                      ) : null}
-                      {showSyncColumns ? (
-                        <TableHead className="w-24">
-                          {t("common.labels.sync")}
-                        </TableHead>
-                      ) : null}
+                      <TableHead className="w-36">
+                        {t("groupManagementDialog.columns.syncHealth")}
+                      </TableHead>
+                      <TableHead className="w-24">
+                        {t("common.labels.sync")}
+                      </TableHead>
                       <TableHead className="w-24">
                         {t("common.labels.actions")}
                       </TableHead>
@@ -2230,9 +1981,11 @@ export function GroupManagementDialog({
                   <TableBody>
                     {pagedGroups.map((group) => {
                       const isSelected = selectedGroupSet.has(group.id);
-                      const syncDot = showSyncColumns
-                        ? getSyncStatusDot(t, group, groupSyncStatus[group.id])
-                        : null;
+                      const syncDot = getSyncStatusDot(
+                        t,
+                        group,
+                        groupSyncStatus[group.id],
+                      );
                       const rowActive = activeGroupId === group.id;
                       return (
                         <TableRow
@@ -2247,13 +2000,15 @@ export function GroupManagementDialog({
                               }
                             />
                           </TableCell>
-                          <TableCell className="text-xs font-normal">
+                          <TableCell className="text-sm font-normal">
                             <button
                               type="button"
-                              className="w-full cursor-pointer truncate whitespace-nowrap text-left font-normal hover:text-foreground/90"
-                              onClick={() =>
-                                handleActiveGroupSelection(group.id)
-                              }
+                              className="w-full cursor-pointer text-left font-normal hover:text-foreground/90"
+                              onClick={() => {
+                                setActiveGroupId(group.id);
+                                setSelectedMemberProfileIds([]);
+                                setSelectedCandidateProfileIds([]);
+                              }}
                             >
                               {group.name}
                             </button>
@@ -2261,120 +2016,101 @@ export function GroupManagementDialog({
                           <TableCell>
                             <Badge variant="secondary">{group.count}</Badge>
                           </TableCell>
-                          {showSyncColumns && syncDot ? (
-                            <TableCell>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="inline-flex items-center gap-2">
-                                    <span
-                                      className={`h-2 w-2 rounded-full ${syncDot.color} ${syncDot.animate ? "animate-pulse" : ""}`}
-                                    />
-                                    <span className="text-xs text-muted-foreground">
-                                      {syncDot.label}
-                                    </span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{syncDot.tooltip}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TableCell>
-                          ) : null}
-                          {showSyncColumns ? (
-                            <TableCell>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center">
-                                    <Checkbox
-                                      checked={group.sync_enabled}
-                                      onCheckedChange={() =>
-                                        void handleToggleSync(group)
-                                      }
-                                      disabled={
-                                        isTogglingSync[group.id] ||
-                                        groupInUse[group.id] ||
-                                        isReadOnly ||
-                                        !canManageGroupSync
-                                      }
-                                    />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {groupInUse[group.id] ? (
-                                    <p>
-                                      {t(
-                                        "groupManagementDialog.tooltips.syncDisableBlockedGroup",
-                                      )}
-                                    </p>
-                                  ) : (
-                                    <p>
-                                      {group.sync_enabled
-                                        ? t(
-                                            "groupManagementDialog.tooltips.disableSync",
-                                          )
-                                        : t(
-                                            "groupManagementDialog.tooltips.enableSync",
-                                          )}
-                                    </p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TableCell>
-                          ) : null}
                           <TableCell>
-                            <div className="flex items-center justify-end">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 w-7 p-0"
-                                    disabled={
-                                      isReadOnly || !canManageGroupRowMenu
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex items-center gap-2">
+                                  <span
+                                    className={`h-2 w-2 rounded-full ${syncDot.color} ${syncDot.animate ? "animate-pulse" : ""}`}
+                                  />
+                                  <span className="text-xs text-muted-foreground">
+                                    {syncDot.label}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{syncDot.tooltip}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center">
+                                  <Checkbox
+                                    checked={group.sync_enabled}
+                                    onCheckedChange={() =>
+                                      void handleToggleSync(group)
                                     }
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-[170px]"
-                                >
-                                  <DropdownMenuItem
-                                    disabled={!canManageGroupAssignments}
+                                    disabled={
+                                      isTogglingSync[group.id] ||
+                                      groupInUse[group.id] ||
+                                      isReadOnly
+                                    }
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {groupInUse[group.id] ? (
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.syncDisableBlockedGroup",
+                                    )}
+                                  </p>
+                                ) : (
+                                  <p>
+                                    {group.sync_enabled
+                                      ? t(
+                                          "groupManagementDialog.tooltips.disableSync",
+                                        )
+                                      : t(
+                                          "groupManagementDialog.tooltips.enableSync",
+                                        )}
+                                  </p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => handleEditGroup(group)}
+                                    disabled={isReadOnly}
                                   >
-                                    <PenLine className="h-4 w-4 text-muted-foreground" />
-                                    {t("groupManagementDialog.sidebar.rename")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={!canManageGroupShare}
-                                    onClick={() => handleOpenShareDialog(group)}
-                                  >
-                                    <Share2 className="h-4 w-4 text-muted-foreground" />
-                                    {t("groupManagementDialog.sidebar.share")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={!canManageGroupSettings}
-                                    onClick={() => {
-                                      handleActiveGroupSelection(group.id);
-                                      setGroupSettingsOpen(true);
-                                    }}
-                                  >
-                                    <Settings2 className="h-4 w-4 text-muted-foreground" />
-                                    {t("groupManagementDialog.settings.title")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    disabled={!canManageGroupAssignments}
+                                    <LuPencil className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.editGroup",
+                                    )}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => handleDeleteGroup(group)}
+                                    disabled={isReadOnly}
                                   >
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("groupManagementDialog.sidebar.delete")}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                    <LuTrash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {t(
+                                      "groupManagementDialog.tooltips.deleteGroup",
+                                    )}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -2510,31 +2246,6 @@ export function GroupManagementDialog({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      ) : isEmbeddedMode ? (
-        <div className="h-full rounded-md border border-border bg-card p-3">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">
-                {t("groupManagementDialog.title")}
-              </p>
-              <Badge variant="secondary">
-                {t("groupManagementDialog.totalGroups", {
-                  count: filteredGroups.length,
-                })}
-              </Badge>
-            </div>
-            <RippleButton
-              size="sm"
-              onClick={() => setCreateDialogOpen(true)}
-              className="h-8 gap-2 px-3"
-              disabled={isReadOnly || !canManageGroupAssignments}
-            >
-              <GoPlus className="h-4 w-4" />
-              {t("common.buttons.create")}
-            </RippleButton>
-          </div>
-          {content}
-        </div>
       ) : (
         <div className="p-0">{content}</div>
       )}
@@ -2559,52 +2270,6 @@ export function GroupManagementDialog({
         onGroupDeleted={handleGroupDeleted}
       />
 
-      <Dialog
-        open={groupShareDialogOpen}
-        onOpenChange={setGroupShareDialogOpen}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {t("groupManagementDialog.sidebar.share")}
-            </DialogTitle>
-            <DialogDescription>
-              {groupShareTarget?.name ?? "-"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              {t("auth.emailLabel")}
-            </p>
-            <Input
-              value={shareRecipientEmail}
-              onChange={(event) => setShareRecipientEmail(event.target.value)}
-              placeholder={t("adminWorkspace.members.inviteEmailPlaceholder")}
-              disabled={isSubmittingShareInvite}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setGroupShareDialogOpen(false)}
-              disabled={isSubmittingShareInvite}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onClick={() => void handleSubmitShareInvite()}
-              disabled={
-                isSubmittingShareInvite ||
-                !shareRecipientEmail.trim() ||
-                !canManageGroupShare
-              }
-            >
-              {t("adminWorkspace.ui.sendInvite")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={groupSettingsOpen} onOpenChange={setGroupSettingsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -2622,7 +2287,7 @@ export function GroupManagementDialog({
                 <input
                   type="color"
                   value={activeGroupColor}
-                  disabled={!activeGroupId || !canManageGroupAssignments}
+                  disabled={!activeGroupId}
                   onChange={(event) => {
                     if (!activeGroupId) return;
                     setGroupColorById((prev) => ({
@@ -2641,7 +2306,7 @@ export function GroupManagementDialog({
                       [activeGroupId]: event.target.value,
                     }));
                   }}
-                  disabled={!activeGroupId || !canManageGroupAssignments}
+                  disabled={!activeGroupId}
                   className="h-8"
                 />
               </div>
@@ -2659,7 +2324,7 @@ export function GroupManagementDialog({
                     [activeGroupId]: value as GroupShareMode,
                   }));
                 }}
-                disabled={!activeGroupId || !canManageGroupShare}
+                disabled={!activeGroupId}
               >
                 <SelectTrigger className="h-8">
                   <SelectValue />
@@ -2690,7 +2355,7 @@ export function GroupManagementDialog({
                     [activeGroupId]: value as GroupMemberAccess,
                   }));
                 }}
-                disabled={!activeGroupId || !canManageGroupShare}
+                disabled={!activeGroupId}
               >
                 <SelectTrigger className="h-8">
                   <SelectValue />

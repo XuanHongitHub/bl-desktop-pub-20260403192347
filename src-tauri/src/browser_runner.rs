@@ -3836,8 +3836,8 @@ fn parse_firefox_major_from_ua(user_agent: &str) -> Option<u32> {
 
 fn managed_browser_slug(browser: &str) -> Option<&'static str> {
   match browser {
-    "camoufox" | "bugox" => Some("bugox"),
-    "wayfern" | "bugium" => Some("bugium"),
+    "camoufox" | "bugox" => Some("camoufox"),
+    "wayfern" | "bugium" => Some("wayfern"),
     _ => None,
   }
 }
@@ -3848,7 +3848,7 @@ fn managed_browser_metadata_url(browser: &str) -> Option<String> {
     .ok()
     .map(|value| value.trim().trim_end_matches('/').to_string())
     .filter(|value| !value.is_empty())
-    .unwrap_or_else(|| "https://api.buglogin.com".to_string());
+    .unwrap_or_else(|| "https://api.gnohh.com".to_string());
   Some(format!("{base}/v1/browser/{slug}.json"))
 }
 

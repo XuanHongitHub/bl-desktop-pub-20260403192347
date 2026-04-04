@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -17,10 +17,8 @@ function mapAccountPathToSection(pathname: string): AppSection {
   if (pathname.startsWith("/account/plan")) return "pricing";
   if (pathname.startsWith("/account/billing")) return "pricing";
   if (pathname.startsWith("/account/invoices")) return "billing";
-  if (pathname.startsWith("/account/invites"))
-    return "account-invites" as AppSection;
+  if (pathname.startsWith("/account/invites")) return "billing";
   if (pathname.startsWith("/account/settings")) return "settings";
-  if (pathname.startsWith("/account/members")) return "account-members";
   return "profiles";
 }
 
@@ -32,10 +30,6 @@ function mapAccountSectionToPath(section: AppSection): string {
       return "/account/invoices";
     case "settings":
       return "/account/settings";
-    case "account-members":
-      return "/account/members";
-    case "account-invites" as AppSection:
-      return "/account/invites";
     case "super-admin-overview":
       return "/admin/dashboard";
     default:
@@ -158,6 +152,7 @@ function PortalSidebarShell({
   mode: PortalSidebarMode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const {
@@ -198,9 +193,7 @@ function PortalSidebarShell({
       mode === "admin"
         ? mapAdminSectionToPath(section)
         : mapAccountSectionToPath(section);
-    const params = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : "",
-    );
+    const params = new URLSearchParams(searchParams.toString());
     if (selectedWorkspaceId) {
       params.set("workspaceId", selectedWorkspaceId);
     } else {
@@ -209,8 +202,8 @@ function PortalSidebarShell({
     const nextHref = params.toString()
       ? `${nextPath}?${params.toString()}`
       : nextPath;
-    const currentHref = params.toString()
-      ? `${pathname}?${params.toString()}`
+    const currentHref = searchParams.toString()
+      ? `${pathname}?${searchParams.toString()}`
       : pathname;
     if (nextHref === currentHref || nextPath === pathname) {
       return;
@@ -221,16 +214,12 @@ function PortalSidebarShell({
   const handleWorkspaceChange = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
 
-    const params = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : "",
-    );
+    const params = new URLSearchParams(searchParams.toString());
     params.set("workspaceId", workspaceId);
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const activeWorkspaceRole: TeamRole =
-    workspaces.find((workspace) => workspace.id === selectedWorkspaceId)
-      ?.actorRole ?? "viewer";
+  const workspaceRole: TeamRole = "owner";
 
   return (
     <div className="type-ui flex h-[calc(100vh-var(--window-titlebar-height,0px))] overflow-hidden bg-background">
@@ -240,8 +229,8 @@ function PortalSidebarShell({
         onSectionChange={handleSectionChange}
         onCollapsedChange={setCollapsed}
         showAdminSection={session?.user.platformRole === "platform_admin"}
-        teamRole={activeWorkspaceRole}
-        currentWorkspaceRole={activeWorkspaceRole}
+        teamRole={workspaceRole}
+        currentWorkspaceRole={workspaceRole}
         platformRole={session?.user.platformRole ?? null}
         isDeveloperBuild={false}
         workspaceOptions={workspaceOptions}

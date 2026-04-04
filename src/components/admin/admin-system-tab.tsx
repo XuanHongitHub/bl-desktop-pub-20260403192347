@@ -11,10 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  type CustomRoleDefinition,
-  CustomRolesManager,
-} from "./custom-roles-manager";
 
 interface AdminSystemTabProps {
   isPlatformAdmin: boolean;
@@ -63,20 +59,6 @@ export function AdminSystemTab(props: AdminSystemTabProps) {
       title: t("adminWorkspace.ui.serviceSync"),
       ready: props.syncReady,
       description: t("adminWorkspace.ui.serviceSyncDescription"),
-    },
-  ];
-
-  const mockSystemRoles: CustomRoleDefinition[] = [
-    {
-      id: "platform_admin",
-      name: "Platform Admin",
-      isSystem: true,
-      capabilities: [],
-    },
-    {
-      id: "support_agent",
-      name: "Support Tier 1",
-      capabilities: ["view_workspaces"],
     },
   ];
 
@@ -141,28 +123,6 @@ export function AdminSystemTab(props: AdminSystemTabProps) {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/50 shadow-sm rounded-xl overflow-hidden flex flex-col">
-        <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-          <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-            <Shield className="w-4 h-4 text-blue-500" />
-            Global Platform Roles
-          </CardTitle>
-          <CardDescription className="text-[13px]">
-            Cấu hình các bộ quyền hệ thống áp dụng cho Global Admin/Support.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 space-y-3 bg-card">
-          <CustomRolesManager
-            roles={mockSystemRoles}
-            onAddRole={() => {}}
-            onUpdateRole={() => {}}
-            onDeleteRole={() => {}}
-            isPlatformAdmin={props.isPlatformAdmin}
-            viewMode="superadmin"
-          />
         </CardContent>
       </Card>
 

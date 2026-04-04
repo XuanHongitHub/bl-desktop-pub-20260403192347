@@ -279,10 +279,9 @@ export function distributeUnscopedEntityIdsForAccount(
     }
     const hasPreferred =
       preferredScopeKey && sanitizedScopeKeys.includes(preferredScopeKey);
-    const targetScopeKey =
-      hasPreferred && preferredScopeKey
-        ? preferredScopeKey
-        : sanitizedScopeKeys[0];
+    const targetScopeKey = hasPreferred
+      ? preferredScopeKey!
+      : sanitizedScopeKeys[0];
     entityRegistry[id] = targetScopeKey;
     didMutate = true;
   }
@@ -540,149 +539,6 @@ export function rebalanceEntityScopesForAccountIfBiased(
     }
     const targetScopeKey = scopeKeys[hashString(id) % scopeKeys.length];
     if (scopeKey !== targetScopeKey) {
-      entityRegistry[id] = targetScopeKey;
-      didMutate = true;
-    }
-  }
-
-  if (didMutate) {
-    writeRegistry(registry);
-  }
-
-  return didMutate;
-}
-
-export function reconcileEntityScopesForAccount(
-  entity: ScopedEntityType,
-  ids: string[],
-  accountId: string,
-  workspaceTargetCounts: Record<string, number>,
-  preferredWorkspaceId?: string,
-): boolean {
-  if (!canUseStorage()) {
-    return false;
-  }
-
-  const sanitizedAccountId = accountId.trim();
-  if (!sanitizedAccountId) {
-    return false;
-  }
-
-  const workspaceIds = Array.from(
-    new Set(
-      Object.keys(workspaceTargetCounts)
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  );
-  if (workspaceIds.length === 0) {
-    return false;
-  }
-
-  const normalizedIds = Array.from(
-    new Set(ids.map((value) => value.trim()).filter(Boolean)),
-  );
-  if (normalizedIds.length === 0) {
-    return false;
-  }
-
-  const preferredWorkspace =
-    preferredWorkspaceId?.trim() &&
-    workspaceIds.includes(preferredWorkspaceId.trim())
-      ? preferredWorkspaceId.trim()
-      : workspaceIds[0];
-  if (!preferredWorkspace) {
-    return false;
-  }
-
-  const registry = readRegistry();
-  const entityRegistry = registry[entity];
-  const accountPrefix = `${sanitizedAccountId}::`;
-
-  const scopeByWorkspace = new Map<string, string>();
-  for (const workspaceId of workspaceIds) {
-    scopeByWorkspace.set(
-      workspaceId,
-      toDataScopeKey({ accountId: sanitizedAccountId, workspaceId }),
-    );
-  }
-
-  const remainingByWorkspace = new Map<string, number>();
-  for (const workspaceId of workspaceIds) {
-    const rawTarget = workspaceTargetCounts[workspaceId];
-    remainingByWorkspace.set(
-      workspaceId,
-      Number.isFinite(rawTarget) ? Math.max(0, Math.trunc(rawTarget)) : 0,
-    );
-  }
-
-  const desiredWorkspaceById = new Map<string, string>();
-  const backlogIds: string[] = [];
-
-  for (const id of normalizedIds) {
-    const assignedScope = entityRegistry[id];
-    if (!assignedScope || !assignedScope.startsWith(accountPrefix)) {
-      backlogIds.push(id);
-      continue;
-    }
-    const assignedWorkspaceId = assignedScope.split("::")[1]?.trim() || "";
-    if (!remainingByWorkspace.has(assignedWorkspaceId)) {
-      backlogIds.push(id);
-      continue;
-    }
-    const remaining = remainingByWorkspace.get(assignedWorkspaceId) ?? 0;
-    if (remaining <= 0) {
-      backlogIds.push(id);
-      continue;
-    }
-    desiredWorkspaceById.set(id, assignedWorkspaceId);
-    remainingByWorkspace.set(assignedWorkspaceId, remaining - 1);
-  }
-
-  const sortedWorkspaces = Array.from(remainingByWorkspace.entries()).sort(
-    ([leftId], [rightId]) => {
-      if (leftId === preferredWorkspace) {
-        return -1;
-      }
-      if (rightId === preferredWorkspace) {
-        return 1;
-      }
-      return leftId.localeCompare(rightId);
-    },
-  );
-
-  const resolveNextWorkspace = (): string => {
-    let nextWorkspace = preferredWorkspace;
-    let highestRemaining = -1;
-    for (const [workspaceId] of sortedWorkspaces) {
-      const remaining = remainingByWorkspace.get(workspaceId) ?? 0;
-      if (remaining > highestRemaining) {
-        highestRemaining = remaining;
-        nextWorkspace = workspaceId;
-      }
-    }
-    return nextWorkspace;
-  };
-
-  for (const id of backlogIds) {
-    const workspaceId = resolveNextWorkspace();
-    desiredWorkspaceById.set(id, workspaceId);
-    const remaining = remainingByWorkspace.get(workspaceId) ?? 0;
-    if (remaining > 0) {
-      remainingByWorkspace.set(workspaceId, remaining - 1);
-    }
-  }
-
-  let didMutate = false;
-  for (const id of normalizedIds) {
-    const workspaceId = desiredWorkspaceById.get(id) ?? preferredWorkspace;
-    const targetScopeKey =
-      scopeByWorkspace.get(workspaceId) ??
-      toDataScopeKey({
-        accountId: sanitizedAccountId,
-        workspaceId: preferredWorkspace,
-      });
-    if (entityRegistry[id] !== targetScopeKey) {
       entityRegistry[id] = targetScopeKey;
       didMutate = true;
     }

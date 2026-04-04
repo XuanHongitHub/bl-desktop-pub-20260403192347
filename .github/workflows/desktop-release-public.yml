@@ -1,51 +1,38 @@
-name: Release Packaging Pipeline
+name: Desktop Release (Public Repo)
 
 on:
   workflow_dispatch:
     inputs:
-      run_on_private:
-        description: "Allow manual build jobs on private repo (verify only)"
-        required: true
-        type: boolean
-        default: false
       release_tag:
-        description: "Release tag for target repo (required only when publish_release=true)"
-        required: false
-      target_repo:
-        description: "Target repository (required only when publish_release=true)"
-        required: false
-        default: "keyduc91/Malvanut-Login"
+        description: "Release tag (for example v0.17.1-desktop.1)"
+        required: true
       publish_release:
-        description: "false = verify build only, true = build + publish release"
+        description: "Create GitHub Release"
         required: true
         type: boolean
-        default: false
+        default: true
+  push:
+    tags:
+      - "v*-desktop*"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: packaging-matrix-${{ github.ref }}
+  group: desktop-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build-windows:
     runs-on: windows-latest
-    # Default: public only. Private can run only when manually enabled by run_on_private=true.
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' || (github.repository == 'keyduc91/Malvanut-Login' && inputs.run_on_private == true)
     timeout-minutes: 90
     env: &desktop_env
-      BUGLOGIN_BROWSER_API_BASE: ${{ vars.BUGLOGIN_BROWSER_API_BASE || 'https://api.buglogin.com' }}
-      NEXT_PUBLIC_SYNC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
-      BUGLOGIN_DEFAULT_SYNC_SERVER_URL: ${{ vars.BUGLOGIN_DEFAULT_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
-      NEXT_PUBLIC_WEB_PORTAL_URL: ${{ vars.NEXT_PUBLIC_WEB_PORTAL_URL || 'https://buglogin.com' }}
-      NEXT_PUBLIC_BILLING_PORTAL_URL: ${{ vars.NEXT_PUBLIC_BILLING_PORTAL_URL || 'https://buglogin.com' }}
-      NEXT_PUBLIC_STRIPE_BILLING_URL: ${{ vars.NEXT_PUBLIC_STRIPE_BILLING_URL || 'https://buglogin.com' }}
-      BUGLOGIN_AUTH_API_URL: ${{ vars.BUGLOGIN_AUTH_API_URL || 'https://api.buglogin.com' }}
-      BUGLOGIN_CLOUD_API_URL: ${{ vars.BUGLOGIN_CLOUD_API_URL || 'https://api.buglogin.com' }}
-      BUGLOGIN_CLOUD_SYNC_URL: ${{ vars.BUGLOGIN_CLOUD_SYNC_URL || 'https://sync.buglogin.com' }}
-      BUGLOGIN_RELEASE_API_URL: ${{ vars.BUGLOGIN_RELEASE_API_URL || 'https://api.buglogin.com/v1/browser/release' }}
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: 403889738022-q2k5otjm1jigt17hrs3oolarlh14759r.apps.googleusercontent.com
+      BUGLOGIN_BROWSER_API_BASE: https://api.buglogin.com
+      NEXT_PUBLIC_SYNC_SERVER_URL: https://api.buglogin.com
+      NEXT_PUBLIC_WEB_PORTAL_URL: https://buglogin.com
+      NEXT_PUBLIC_BILLING_PORTAL_URL: https://buglogin.com
+      NEXT_PUBLIC_STRIPE_BILLING_URL: https://buglogin.com
+      BUGLOGIN_AUTH_API_URL: https://api.buglogin.com
       RUSTFLAGS: -C debuginfo=0
       CARGO_INCREMENTAL: 0
     steps:
@@ -71,41 +58,6 @@ jobs:
           workspaces: "./src-tauri -> target"
           shared-key: buglogin-desktop-public-release-win
 
-      - name: Preflight Browser Endpoint Config
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $expectedHosts = @{
-            "BUGLOGIN_BROWSER_API_BASE" = "api.buglogin.com"
-            "NEXT_PUBLIC_SYNC_SERVER_URL" = "api.buglogin.com"
-            "BUGLOGIN_DEFAULT_SYNC_SERVER_URL" = "api.buglogin.com"
-            "BUGLOGIN_AUTH_API_URL" = "api.buglogin.com"
-            "BUGLOGIN_CLOUD_API_URL" = "api.buglogin.com"
-            "BUGLOGIN_RELEASE_API_URL" = "api.buglogin.com"
-          }
-
-          foreach ($name in $expectedHosts.Keys) {
-            $value = [Environment]::GetEnvironmentVariable($name)
-            if ([string]::IsNullOrWhiteSpace($value)) {
-              throw "Missing required env: $name"
-            }
-            $expected = $expectedHosts[$name]
-            if (-not $value.ToLowerInvariant().Contains($expected)) {
-              throw "Unexpected host in $name=$value (expected host contains '$expected')"
-            }
-          }
-
-          $browserBase = $env:BUGLOGIN_BROWSER_API_BASE.TrimEnd("/")
-          foreach ($slug in @("bugox", "bugium")) {
-            $url = "$browserBase/v1/browser/$slug.json"
-            Write-Host "Preflight GET $url"
-            $resp = Invoke-WebRequest -Uri $url -Method GET -TimeoutSec 20
-            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 300) {
-              throw "Non-success status for $url : $($resp.StatusCode)"
-            }
-          }
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -129,8 +81,6 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    # Default: public only. Private can run only when manually enabled by run_on_private=true.
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' || (github.repository == 'keyduc91/Malvanut-Login' && inputs.run_on_private == true)
     timeout-minutes: 90
     env: *desktop_env
     steps:
@@ -150,112 +100,22 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Detect macOS signing/notarization readiness
-        id: macos_signing
-        shell: bash
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          if [ "${{ inputs.publish_release }}" != "true" ]; then
-            echo "signing_ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          required=(
-            APPLE_CERTIFICATE
-            APPLE_CERTIFICATE_PASSWORD
-            APPLE_SIGNING_IDENTITY
-            APPLE_ID
-            APPLE_PASSWORD
-            APPLE_TEAM_ID
-          )
-          missing=0
-          for key in "${required[@]}"; do
-            if [ -z "${!key:-}" ]; then
-              echo "Missing macOS signing secret: $key"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 1 ]; then
-            echo "::warning::macOS signing secrets missing; building unsigned macOS artifact."
-            echo "signing_ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "signing_ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Import Apple signing certificate
-        if: inputs.publish_release == true && steps.macos_signing.outputs.signing_ready == 'true'
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
-          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
           shared-key: buglogin-desktop-public-release-macos
 
-      - name: Preflight Browser Endpoint Config
-        shell: bash
-        run: |
-          set -euo pipefail
-          vars=(
-            BUGLOGIN_BROWSER_API_BASE
-            NEXT_PUBLIC_SYNC_SERVER_URL
-            BUGLOGIN_DEFAULT_SYNC_SERVER_URL
-            BUGLOGIN_AUTH_API_URL
-            BUGLOGIN_CLOUD_API_URL
-            BUGLOGIN_RELEASE_API_URL
-          )
-          for name in "${vars[@]}"; do
-            value="${!name:-}"
-            if [ -z "$value" ]; then
-              echo "Missing required env: $name" >&2
-              exit 1
-            fi
-            expected_host="api.buglogin.com"
-            if [[ "$value" != *"$expected_host"* ]]; then
-              echo "Unexpected host in $name=$value (expected contains $expected_host)" >&2
-              exit 1
-            fi
-          done
-
-          base="${BUGLOGIN_BROWSER_API_BASE%/}"
-          for slug in bugox bugium; do
-            url="$base/v1/browser/$slug.json"
-            echo "Preflight GET $url"
-            curl -fsS --max-time 20 "$url" >/dev/null
-          done
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build macOS installer (unsigned)
-        if: inputs.publish_release != true || steps.macos_signing.outputs.signing_ready != 'true'
+      - name: Build macOS installer (DMG)
         run: pnpm tauri build --bundles dmg
-
-      - name: Build macOS installer (publish mode, signed + notarized)
-        if: inputs.publish_release == true && steps.macos_signing.outputs.signing_ready == 'true'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm tauri build --bundles app,dmg
 
       - name: Collect artifacts
         run: |
           mkdir -p dist-release
           cp -f src-tauri/target/release/bundle/dmg/* dist-release/
-          if [ -d "src-tauri/target/release/bundle/macos/BugLogin.app" ]; then
-            ditto -c -k --keepParent "src-tauri/target/release/bundle/macos/BugLogin.app" "dist-release/BugLogin-macos-app.zip"
-          fi
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -264,13 +124,12 @@ jobs:
           path: dist-release/*
           if-no-files-found: error
 
-  publish-to-target:
+  create-release:
     needs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
-    # Publish is strictly public-only.
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' && inputs.publish_release == true
+    if: ${{ github.event_name == 'push' || inputs.publish_release }}
     steps:
       - name: Download workflow artifacts
         uses: actions/download-artifact@v4
@@ -278,28 +137,9 @@ jobs:
           path: dist-release
           merge-multiple: true
 
-      - name: Publish release in target repository
-        env:
-          GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
-          TARGET_REPO: ${{ inputs.target_repo || 'keyduc91/Malvanut-Login' }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-        run: |
-          set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "TARGET_REPO_TOKEN secret is not configured."
-            exit 1
-          fi
-          if [ -z "${TARGET_REPO:-}" ]; then
-            echo "target_repo input is required."
-            exit 1
-          fi
-          if [ -z "${RELEASE_TAG:-}" ]; then
-            echo "release_tag input is required."
-            exit 1
-          fi
-
-          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --clobber
-          else
-            gh release create "$RELEASE_TAG" dist-release/* --repo "$TARGET_REPO" --title "$RELEASE_TAG" --notes "Automated desktop package release."
-          fi
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          generate_release_notes: true
+          files: dist-release/*

@@ -11,10 +11,16 @@ import {
   listAdminAuditLogs,
 } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
-import { extractRootError } from "@/lib/error-utils";
 import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
 import type { ControlAdminOverview, ControlAuditLog } from "@/types";
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export default function AdminPolicyCenterPage() {
   const { t } = useTranslation();
@@ -39,7 +45,7 @@ export default function AdminPolicyCenterPage() {
       setAuditLogs(audits.slice(0, 12));
     } catch (error) {
       showErrorToast(t("portalSite.admin.policyCenter.loadFailed"), {
-        description: extractRootError(error),
+        description: extractErrorMessage(error, "load_policy_center_failed"),
       });
     } finally {
       setLoading(false);

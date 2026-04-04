@@ -1,9 +1,5 @@
 import { redirect } from "next/navigation";
 
-export function generateStaticParams() {
-  return [{ userId: "placeholder" }];
-}
-
 export default async function AdminUsersManageByIdPage({
   params,
 }: {

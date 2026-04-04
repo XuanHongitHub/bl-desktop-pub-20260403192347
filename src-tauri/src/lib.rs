@@ -1,4 +1,4 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+﻿// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use calamine::{open_workbook_auto, Data, Reader};
 use chrono::Utc;
 use std::collections::{BTreeMap, HashMap};
@@ -126,9 +126,9 @@ pub mod vpn_worker_runner;
 pub mod vpn_worker_storage;
 
 use browser_runner::{
-  check_browser_exists, kill_browser_profile, launch_browser_profile, launch_browser_profile_by_id,
-  open_url_with_profile, park_browser_profile, get_browser_runtime_diagnostics,
-  check_camoufox_ua_version_alignment,
+  check_browser_exists, check_camoufox_ua_version_alignment, get_browser_runtime_diagnostics,
+  kill_browser_profile, launch_browser_profile, launch_browser_profile_by_id,
+  open_url_with_profile, park_browser_profile,
 };
 
 use profile::manager::{
@@ -165,7 +165,8 @@ use sync::{
   get_groups_in_use_by_synced_profiles, get_proxies_in_use_by_synced_profiles,
   get_unsynced_entity_counts, get_vpns_in_use_by_synced_profiles,
   is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
-  is_vpn_in_use_by_synced_profile, request_profile_sync, set_e2e_password,
+  is_vpn_in_use_by_synced_profile, list_remote_workspace_profile_ids,
+  pull_workspace_profiles, request_profile_sync, set_e2e_password,
   set_extension_group_sync_enabled, set_extension_sync_enabled, set_group_sync_enabled,
   set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
 };
@@ -534,17 +535,12 @@ fn detect_seller_step_from_url_title(
     return (Some("setup".to_string()), None);
   }
 
-  if combined.contains("seller")
-    && combined.contains("sole")
-    && combined.contains("proprietorship")
+  if combined.contains("seller") && combined.contains("sole") && combined.contains("proprietorship")
   {
     return (Some("legal_form".to_string()), None);
   }
 
-  if combined.contains("verify")
-    && combined.contains("business")
-    && combined.contains("details")
-  {
+  if combined.contains("verify") && combined.contains("business") && combined.contains("details") {
     return (Some("verify_business".to_string()), None);
   }
 
@@ -565,7 +561,8 @@ fn detect_tiktok_seller_runtime_step(
     .ok_or_else(|| "Profile not found".to_string())?;
 
   let profiles_dir = profile_manager.get_profiles_dir();
-  let effective_profile_path = crate::ephemeral_dirs::get_effective_profile_path(&profile, &profiles_dir);
+  let effective_profile_path =
+    crate::ephemeral_dirs::get_effective_profile_path(&profile, &profiles_dir);
 
   let db_path = match profile.browser.as_str() {
     "camoufox" | "bugox" => effective_profile_path.join("places.sqlite"),
@@ -956,13 +953,7 @@ fn normalize_seed_header(value: &str) -> String {
     .replace('\u{feff}', "")
     .to_lowercase()
     .chars()
-    .map(|c| {
-      if c.is_ascii_alphanumeric() {
-        c
-      } else {
-        '_'
-      }
-    })
+    .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
     .collect::<String>()
     .trim_matches('_')
     .to_string()
@@ -1291,14 +1282,23 @@ fn map_seed_row_from_columns(
   ));
   let proxy = get(header_index(
     headers,
-    &["proxy", "proxy_raw", "proxy_string", "proxy_full", "proxy_value"],
+    &[
+      "proxy",
+      "proxy_raw",
+      "proxy_string",
+      "proxy_full",
+      "proxy_value",
+    ],
   ));
   if profile.is_empty() && looks_like_profile_token(&proxy) {
     profile = proxy.clone();
   }
   let first_name = get(header_index(headers, &["first_name", "firstname", "first"]));
   let last_name = get(header_index(headers, &["last_name", "lastname", "last"]));
-  let full_name = get(header_index(headers, &["full_name", "name", "contact_name"]));
+  let full_name = get(header_index(
+    headers,
+    &["full_name", "name", "contact_name"],
+  ));
   let company_name = get(header_index(
     headers,
     &[
@@ -1334,8 +1334,14 @@ fn map_seed_row_from_columns(
       "street",
     ],
   ));
-  let city = get(header_index(headers, &["city", "citi", "city_llc", "citi_llc"]));
-  let state = get(header_index(headers, &["state", "bang", "state_llc", "bang_llc"]));
+  let city = get(header_index(
+    headers,
+    &["city", "citi", "city_llc", "citi_llc"],
+  ));
+  let state = get(header_index(
+    headers,
+    &["state", "bang", "state_llc", "bang_llc"],
+  ));
   let zip = normalize_seed_phone_like_value(&get(header_index(
     headers,
     &["zip", "zip_code", "postal_code", "zip_llc"],
@@ -1527,9 +1533,8 @@ fn parse_tiktok_seller_seed_file(
     .decode(content_base64.trim())
     .map_err(|error| format!("Failed to decode seed file bytes: {error}"))?;
   let lower_name = file_name.trim().to_lowercase();
-  let parse_as_delimited = lower_name.ends_with(".csv")
-    || lower_name.ends_with(".tsv")
-    || lower_name.ends_with(".txt");
+  let parse_as_delimited =
+    lower_name.ends_with(".csv") || lower_name.ends_with(".tsv") || lower_name.ends_with(".txt");
 
   if parse_as_delimited {
     let text = String::from_utf8_lossy(&decoded_bytes).to_string();
@@ -1847,9 +1852,7 @@ fn resolve_probe_script_path() -> Result<PathBuf, String> {
       return Ok(candidate);
     }
   }
-  Err(
-    "Probe script not found. Expected scripts/tiktok_seller_probe_session.py".to_string(),
-  )
+  Err("Probe script not found. Expected scripts/tiktok_seller_probe_session.py".to_string())
 }
 
 fn map_probe_step(stage: &str, action: &str) -> String {
@@ -1947,7 +1950,10 @@ fn read_tiktok_probe_progress(
       .get("at")
       .and_then(|v| v.as_str())
       .map(|v| v.to_string());
-    let kind = value.get("kind").and_then(|v| v.as_str()).unwrap_or_default();
+    let kind = value
+      .get("kind")
+      .and_then(|v| v.as_str())
+      .unwrap_or_default();
     if at.is_some() {
       last_event_at = at;
     }
@@ -2011,7 +2017,10 @@ fn read_tiktok_probe_progress(
     false
   } else {
     match fs::metadata(&events_path).and_then(|meta| meta.modified()) {
-      Ok(modified) => modified.elapsed().map(|elapsed| elapsed.as_secs() <= 20).unwrap_or(false),
+      Ok(modified) => modified
+        .elapsed()
+        .map(|elapsed| elapsed.as_secs() <= 20)
+        .unwrap_or(false),
       Err(_) => false,
     }
   };
@@ -2057,7 +2066,9 @@ fn start_tiktok_probe_session(
       .lock()
       .map_err(|error| format!("Failed to lock probe launch guard: {error}"))?;
     let now = Instant::now();
-    guard.retain(|_, started_at| now.saturating_duration_since(*started_at) < Duration::from_secs(120));
+    guard.retain(|_, started_at| {
+      now.saturating_duration_since(*started_at) < Duration::from_secs(120)
+    });
     if let Some(previous) = guard.get(&launch_guard_key) {
       let elapsed = now.saturating_duration_since(*previous);
       if elapsed < Duration::from_secs(20) {
@@ -2079,11 +2090,7 @@ fn start_tiktok_probe_session(
     .map(str::trim)
     .filter(|value| !value.is_empty())
     .map(PathBuf::from)
-    .unwrap_or_else(|| {
-      env::temp_dir()
-        .join("buglogin")
-        .join("automation-output")
-    });
+    .unwrap_or_else(|| env::temp_dir().join("buglogin").join("automation-output"));
   let profile_token = input
     .profile_name
     .as_deref()
@@ -2120,13 +2127,13 @@ fn start_tiktok_probe_session(
           crate::ephemeral_dirs::get_effective_profile_path(&profile, &profiles_dir)
         };
         if resolved_user_data_dir.is_none() {
-          resolved_user_data_dir =
-            Some(effective_profile_path.to_string_lossy().to_string());
+          resolved_user_data_dir = Some(effective_profile_path.to_string_lossy().to_string());
         }
 
         if profile.extension_group_id.is_some() {
           if let Ok(mgr) = crate::extension_manager::EXTENSION_MANAGER.lock() {
-            if let Err(error) = mgr.install_extensions_for_profile(&profile, &effective_profile_path)
+            if let Err(error) =
+              mgr.install_extensions_for_profile(&profile, &effective_profile_path)
             {
               log::warn!(
                 "Failed to install extensions for profile {} before probe launch: {}",
@@ -2137,13 +2144,11 @@ fn start_tiktok_probe_session(
           }
         }
 
-        if let Err(error) =
-          crate::browser_identity_extension::ensure_runtime_identity_for_browser(
-            &profile.browser,
-            &effective_profile_path,
-            &profile.name,
-          )
-        {
+        if let Err(error) = crate::browser_identity_extension::ensure_runtime_identity_for_browser(
+          &profile.browser,
+          &effective_profile_path,
+          &profile.name,
+        ) {
           log::warn!(
             "Failed to ensure runtime identity extension for profile {} before probe launch: {}",
             profile.name,
@@ -2231,7 +2236,9 @@ fn start_tiktok_probe_session(
   command.arg("--headless").arg(headless_value);
   if let Some(seconds) = input.max_duration_seconds {
     if seconds > 0 {
-      command.arg("--max-duration-seconds").arg(seconds.to_string());
+      command
+        .arg("--max-duration-seconds")
+        .arg(seconds.to_string());
     }
   }
   if let Some(executable_path) = input
@@ -2321,7 +2328,10 @@ fn start_tiktok_probe_session(
       "--output-dir".to_string(),
       session_dir.to_string_lossy().to_string(),
       "--start-url".to_string(),
-      seed_json["startUrl"].as_str().unwrap_or_default().to_string(),
+      seed_json["startUrl"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string(),
       "--browser-type".to_string(),
       browser_type.to_string(),
       "--headless".to_string(),
@@ -3505,7 +3515,7 @@ pub fn run() {
       let app_handle_cloud = app.handle().clone();
       tauri::async_runtime::spawn(async move {
         // On startup, refresh sync token and proxy if cloud auth is active.
-        // api_call_with_retry handles 401/refresh internally — no direct
+        // api_call_with_retry handles 401/refresh internally â€” no direct
         // refresh_access_token call needed.
         if cloud_auth::CLOUD_AUTH.is_logged_in().await {
           if let Err(e) = cloud_auth::CLOUD_AUTH.get_or_refresh_sync_token().await {
@@ -3650,6 +3660,8 @@ pub fn run() {
       set_e2e_password,
       check_has_e2e_password,
       delete_e2e_password,
+      list_remote_workspace_profile_ids,
+      pull_workspace_profiles,
       read_profile_cookies,
       read_profile_cookies_bulk,
       read_profile_tiktok_cookie_headers_bulk,
@@ -3689,7 +3701,6 @@ pub fn run() {
       cloud_auth::cloud_verify_otp,
       cloud_auth::cloud_get_user,
       cloud_auth::cloud_set_self_host_auth_state,
-      cloud_auth::local_control_public_auth,
       cloud_auth::cloud_refresh_profile,
       cloud_auth::cloud_logout,
       cloud_auth::cloud_get_proxy_usage,
@@ -3770,7 +3781,7 @@ mod tests {
       if mcp_only_commands.contains(&command.as_str()) {
         used_commands.push(command.clone());
         if verbose {
-          println!("✅ {command} (MCP-only)");
+          println!("âœ… {command} (MCP-only)");
         }
         continue;
       }
@@ -3788,20 +3799,20 @@ mod tests {
       if is_used {
         used_commands.push(command.clone());
         if verbose {
-          println!("✅ {command}");
+          println!("âœ… {command}");
         }
       } else {
         unused_commands.push(command.clone());
         if verbose {
-          println!("❌ {command} (UNUSED)");
+          println!("âŒ {command} (UNUSED)");
         }
       }
     }
 
     if verbose {
-      println!("\n📊 Summary:");
-      println!("  ✅ Used commands: {}", used_commands.len());
-      println!("  ❌ Unused commands: {}", unused_commands.len());
+      println!("\nðŸ“Š Summary:");
+      println!("  âœ… Used commands: {}", used_commands.len());
+      println!("  âŒ Unused commands: {}", unused_commands.len());
     }
 
     if !unused_commands.is_empty() {
@@ -3812,15 +3823,15 @@ mod tests {
       );
 
       if verbose {
-        println!("\n🚨 {message}");
+        println!("\nðŸš¨ {message}");
       } else {
         panic!("{}", message);
       }
     } else if verbose {
-      println!("\n🎉 All exported commands are being used!");
+      println!("\nðŸŽ‰ All exported commands are being used!");
     } else {
       println!(
-        "✅ All {} exported Tauri commands are being used in the frontend",
+        "âœ… All {} exported Tauri commands are being used in the frontend",
         commands.len()
       );
     }

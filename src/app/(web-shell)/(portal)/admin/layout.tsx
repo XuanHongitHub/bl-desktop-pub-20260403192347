@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { type ReactNode, Suspense } from "react";
+import type { ReactNode } from "react";
 import { PortalAdminSidebarShell } from "@/components/portal/portal-sidebar-shell";
 
 export const metadata: Metadata = {
@@ -10,10 +10,8 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={null}>
-      <PortalAdminSidebarShell>
-        <div className="type-ui-sm text-sm">{children}</div>
-      </PortalAdminSidebarShell>
-    </Suspense>
+    <PortalAdminSidebarShell>
+      <div className="type-ui-sm text-sm">{children}</div>
+    </PortalAdminSidebarShell>
   );
 }

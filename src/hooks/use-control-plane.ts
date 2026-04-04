@@ -181,10 +181,6 @@ interface UseControlPlaneResult {
   createWorkspace: (
     name: string,
     mode: "personal" | "team",
-    options?: {
-      planId?: "starter" | "team" | "scale" | "enterprise" | null;
-      billingCycle?: "monthly" | "yearly";
-    },
   ) => Promise<ControlWorkspace>;
   createInvite: (
     workspaceId: string,
@@ -336,7 +332,27 @@ function resolveRuntimeBaseUrl(settings?: SyncSettings | null): string | null {
 
 function resolveRuntimeToken(settings?: SyncSettings | null): string | null {
   const configuredToken = settings?.sync_token?.trim();
-  return configuredToken && configuredToken.length > 0 ? configuredToken : null;
+  const envToken = process.env.NEXT_PUBLIC_SYNC_TOKEN?.trim();
+
+  if (process.env.NODE_ENV !== "production") {
+    if (envToken && envToken.length > 0) {
+      return envToken;
+    }
+    if (configuredToken && configuredToken.length > 0) {
+      return configuredToken;
+    }
+    return null;
+  }
+
+  if (configuredToken && configuredToken.length > 0) {
+    return configuredToken;
+  }
+
+  if (envToken && envToken.length > 0) {
+    return envToken;
+  }
+
+  return null;
 }
 
 function compactWorkflowCookiePreview(value?: string | null): string | null {
@@ -1305,14 +1321,7 @@ export function useControlPlane(
   }, [runWithLoading, runtime.baseUrl, runtime.token]);
 
   const createWorkspace = useCallback(
-    async (
-      name: string,
-      mode: "personal" | "team",
-      options?: {
-        planId?: "starter" | "team" | "scale" | "enterprise" | null;
-        billingCycle?: "monthly" | "yearly";
-      },
-    ) => {
+    async (name: string, mode: "personal" | "team") => {
       return runWithLoading(async () => {
         setError(null);
         if (!runtime.baseUrl || !runtime.token) {
@@ -1326,16 +1335,6 @@ export function useControlPlane(
             mode,
           },
         );
-        if (options?.planId && options.billingCycle) {
-          await request(
-            "PATCH",
-            `/v1/control/workspaces/${created.id}/billing/subscription/admin-override`,
-            {
-              planId: options.planId,
-              billingCycle: options.billingCycle,
-            },
-          );
-        }
         await refreshWorkspaceList();
         setSelectedWorkspaceId(created.id);
         return created;

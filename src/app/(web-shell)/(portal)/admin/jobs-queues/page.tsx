@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function _statusVariant(
+function statusVariant(
   status: ControlAdminAutomationRunListItem["status"],
 ): "success" | "warning" | "destructive" | "info" | "outline" {
   if (status === "completed") return "success";
@@ -151,7 +150,9 @@ export default function AdminJobsQueuesPage() {
                         <p className="truncate text-sm font-medium text-foreground">
                           {row.workspaceName}
                         </p>
-                        <AdminStatusBadge status={row.status} />
+                        <Badge variant={statusVariant(row.status)}>
+                          {row.status}
+                        </Badge>
                       </div>
                       <p className="truncate text-xs text-muted-foreground">
                         {row.flowType} · {row.mode} · {row.createdBy}

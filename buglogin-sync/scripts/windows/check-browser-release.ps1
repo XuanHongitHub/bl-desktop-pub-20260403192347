@@ -38,7 +38,7 @@ if ($PublishSample) {
     browser = "bugox"
     version = "1.0.0-dev"
     downloads = @{
-      "windows-x64" = "https://downloads.buglogin.com/bugox/windows-x64/1.0.0-dev.zip"
+      "windows-x64" = "https://downloads.bugdev.site/bugox/windows-x64/1.0.0-dev.zip"
     }
     update_policy = @{
       mode = "optional"

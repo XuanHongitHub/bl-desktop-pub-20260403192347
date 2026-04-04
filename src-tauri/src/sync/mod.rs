@@ -1,4 +1,4 @@
-mod client;
+﻿mod client;
 pub mod encryption;
 mod engine;
 pub mod manifest;
@@ -15,7 +15,8 @@ pub use engine::{
   get_vpns_in_use_by_synced_profiles, is_group_in_use_by_synced_profile,
   is_group_used_by_synced_profile, is_proxy_in_use_by_synced_profile,
   is_proxy_used_by_synced_profile, is_sync_configured, is_vpn_in_use_by_synced_profile,
-  is_vpn_used_by_synced_profile, request_profile_sync, set_extension_group_sync_enabled,
+  is_vpn_used_by_synced_profile, list_remote_workspace_profile_ids, pull_workspace_profiles,
+  request_profile_sync, set_extension_group_sync_enabled,
   set_extension_sync_enabled, set_group_sync_enabled, set_profile_sync_mode,
   set_proxy_sync_enabled, set_vpn_sync_enabled, sync_profile, trigger_sync_for_profile, SyncEngine,
 };

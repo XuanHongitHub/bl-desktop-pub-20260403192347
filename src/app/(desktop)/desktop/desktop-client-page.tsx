@@ -32,12 +32,6 @@ import { useRuntimeAccess } from "@/hooks/use-runtime-access";
 import { useUpdateNotifications } from "@/hooks/use-update-notifications";
 import { useWayfernTerms } from "@/hooks/use-wayfern-terms";
 import { getBrowserDisplayName } from "@/lib/browser-utils";
-import {
-  isSuperAdminSection,
-  isWorkspaceOwnerSection,
-  normalizeLegacyAppSection,
-  parsePersistedAppSection,
-} from "@/lib/desktop-app-sections";
 import { extractRootError } from "@/lib/error-utils";
 import { invokeCached } from "@/lib/ipc-query-cache";
 import { formatLocaleDate } from "@/lib/locale-format";
@@ -53,14 +47,18 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
-import { openWebBillingPortal } from "@/lib/web-billing-desktop";
+import {
+  openWebBillingPortal,
+  resolveWebBillingPortalUrl,
+} from "@/lib/web-billing-desktop";
+import type { WebBillingPortalRoute } from "@/lib/web-billing-portal";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import {
   DATA_SCOPE_CHANGED_EVENT,
+  distributeUnscopedEntityIdsForAccount,
   getScopedEntityCountsForWorkspaces,
   migrateDataScopeAccount,
   normalizeDataScopeWorkspacesForAccount,
-  reconcileEntityScopesForAccount,
   setCurrentDataScope,
   toDataScopeKey,
 } from "@/lib/workspace-data-scope";
@@ -354,9 +352,9 @@ const PLAN_PROFILE_LIMIT_FALLBACK: Record<
   scale: 1000,
   enterprise: 2000,
 };
-const WORKSPACE_SWITCH_MIN_DURATION_MS = 700;
-const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 300;
-const SECTION_SWITCH_MIN_DURATION_MS = 100;
+const WORKSPACE_SWITCH_MIN_DURATION_MS = 1100;
+const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 700;
+const SECTION_SWITCH_MIN_DURATION_MS = 180;
 const URL_DEDUP_WINDOW_MS = 8_000;
 const WORKSPACE_DATA_CACHE_TTL_MS = 4_000;
 const SYNC_SETTINGS_CACHE_TTL_MS = 30_000;
@@ -390,6 +388,259 @@ function markNoticeShownOnce(storageKey: string): void {
   } catch {
     // ignore localStorage failures (private mode / policy restriction)
   }
+}
+const APP_SECTION_VALUES: AppSection[] = [
+  "profiles",
+  "profiles-create",
+  "groups",
+  "bugidea-automation",
+  "proxies",
+  "pricing",
+  "billing",
+  "workspace-owner-overview",
+  "workspace-owner-directory",
+  "workspace-owner-permissions",
+  "super-admin-overview",
+  "super-admin-incident-board",
+  "super-admin-workspace",
+  "super-admin-permissions",
+  "super-admin-memberships",
+  "super-admin-abuse-trust",
+  "super-admin-users",
+  "super-admin-billing",
+  "super-admin-subscriptions",
+  "super-admin-invoices",
+  "super-admin-cookies",
+  "super-admin-policy-center",
+  "super-admin-data-governance",
+  "super-admin-jobs-queues",
+  "super-admin-feature-flags",
+  "super-admin-support-console",
+  "super-admin-impersonation-center",
+  "super-admin-browser-update",
+  "super-admin-audit",
+  "super-admin-system",
+  "super-admin-commerce-plans",
+  "super-admin-commerce-campaigns",
+  "super-admin-commerce-coupons",
+  "super-admin-commerce-licenses",
+  "super-admin-commerce-preview",
+  "super-admin-commerce-audit",
+  "super-admin-analytics",
+  "workspace-admin-overview",
+  "workspace-admin-directory",
+  "workspace-admin-permissions",
+  "workspace-admin-members",
+  "workspace-admin-access",
+  "workspace-admin-workspace",
+  "workspace-admin-audit",
+  "workspace-admin-system",
+  "workspace-admin-analytics",
+  "workspace-governance",
+  "settings",
+  "admin-overview",
+  "admin-workspace",
+  "admin-billing",
+  "admin-cookies",
+  "admin-audit",
+  "admin-system",
+  "admin-analytics",
+];
+const APP_SECTION_SET = new Set<AppSection>(APP_SECTION_VALUES);
+const WORKSPACE_OWNER_SECTIONS: AppSection[] = [
+  "workspace-owner-overview",
+  "workspace-owner-directory",
+  "workspace-owner-permissions",
+  "workspace-admin-overview",
+  "workspace-admin-directory",
+  "workspace-admin-permissions",
+  "workspace-admin-members",
+  "workspace-admin-access",
+  "workspace-admin-workspace",
+  "workspace-admin-audit",
+  "workspace-admin-system",
+  "workspace-admin-analytics",
+  "workspace-governance",
+];
+
+const WORKSPACE_OWNER_LEGACY_SECTION_MAP: Partial<
+  Record<AppSection, AppSection>
+> = {
+  "workspace-governance": "workspace-owner-overview",
+  "workspace-admin-overview": "workspace-owner-overview",
+  "workspace-owner-directory": "workspace-admin-members",
+  "workspace-admin-directory": "workspace-admin-members",
+  "workspace-owner-permissions": "workspace-admin-access",
+  "workspace-admin-permissions": "workspace-admin-access",
+  "workspace-admin-system": "workspace-owner-overview",
+  "workspace-admin-analytics": "workspace-owner-overview",
+};
+
+const SUPER_ADMIN_LEGACY_SECTION_MAP: Partial<Record<AppSection, AppSection>> =
+  {
+    "admin-overview": "super-admin-overview",
+    "admin-workspace": "super-admin-workspace",
+    "admin-billing": "super-admin-billing",
+    "admin-cookies": "super-admin-cookies",
+    "admin-audit": "super-admin-audit",
+    "admin-system": "super-admin-overview",
+    "admin-analytics": "super-admin-overview",
+    "super-admin-system": "super-admin-overview",
+    "super-admin-analytics": "super-admin-overview",
+  };
+
+const BILLING_LEGACY_SECTION_MAP: Record<string, AppSection> = {
+  "billing-checkout": "billing",
+  "billing-coupon": "billing",
+  "billing-license": "billing",
+};
+
+function normalizeLegacyAppSection(section: string): AppSection {
+  const fromBillingLegacy = BILLING_LEGACY_SECTION_MAP[section];
+  if (fromBillingLegacy) {
+    return fromBillingLegacy;
+  }
+  const typedSection = section as AppSection;
+  return (
+    WORKSPACE_OWNER_LEGACY_SECTION_MAP[typedSection] ??
+    SUPER_ADMIN_LEGACY_SECTION_MAP[typedSection] ??
+    typedSection
+  );
+}
+
+function isWorkspaceOwnerSection(section: AppSection): boolean {
+  const normalizedSection = normalizeLegacyAppSection(section);
+  return WORKSPACE_OWNER_SECTIONS.includes(normalizedSection);
+}
+
+function isSuperAdminSection(section: AppSection): boolean {
+  return section.startsWith("super-admin-") || section.startsWith("admin-");
+}
+
+function resolveEmbeddedPortalRouteForSection(
+  section: AppSection,
+): WebBillingPortalRoute | null {
+  if (
+    section === "workspace-owner-overview" ||
+    section === "workspace-owner-directory" ||
+    section === "workspace-owner-permissions" ||
+    section === "workspace-governance" ||
+    section === "workspace-admin-overview" ||
+    section === "workspace-admin-directory" ||
+    section === "workspace-admin-permissions" ||
+    section === "workspace-admin-members" ||
+    section === "workspace-admin-access" ||
+    section === "workspace-admin-workspace" ||
+    section === "workspace-admin-audit" ||
+    section === "workspace-admin-system" ||
+    section === "workspace-admin-analytics"
+  ) {
+    return "management";
+  }
+
+  if (
+    section === "super-admin-overview" ||
+    section === "admin-overview" ||
+    section === "super-admin-cookies" ||
+    section === "admin-cookies"
+  ) {
+    return "adminCommandCenter";
+  }
+  if (section === "super-admin-incident-board") {
+    return "adminIncidentBoard";
+  }
+  if (section === "super-admin-permissions") {
+    return "adminPermissions";
+  }
+  if (section === "super-admin-memberships") {
+    return "adminMemberships";
+  }
+  if (section === "super-admin-abuse-trust") {
+    return "adminAbuseTrust";
+  }
+  if (section === "super-admin-users") {
+    return "adminUsers";
+  }
+  if (section === "super-admin-workspace" || section === "admin-workspace") {
+    return "adminWorkspaces";
+  }
+  if (section === "super-admin-subscriptions") {
+    return "adminSubscriptions";
+  }
+  if (section === "super-admin-invoices") {
+    return "adminInvoices";
+  }
+  if (section === "super-admin-billing" || section === "admin-billing") {
+    return "adminRevenue";
+  }
+  if (section === "super-admin-policy-center") {
+    return "adminPolicyCenter";
+  }
+  if (section === "super-admin-data-governance") {
+    return "adminDataGovernance";
+  }
+  if (section === "super-admin-jobs-queues") {
+    return "adminJobsQueues";
+  }
+  if (section === "super-admin-feature-flags") {
+    return "adminFeatureFlags";
+  }
+  if (section === "super-admin-support-console") {
+    return "adminSupportConsole";
+  }
+  if (section === "super-admin-impersonation-center") {
+    return "adminImpersonationCenter";
+  }
+  if (section === "super-admin-browser-update") {
+    return "adminBrowserUpdate";
+  }
+  if (section === "super-admin-audit" || section === "admin-audit") {
+    return "adminAudit";
+  }
+  if (section === "super-admin-commerce-plans") {
+    return "adminCommercePlans";
+  }
+  if (section === "super-admin-commerce-campaigns") {
+    return "adminCommerceCampaigns";
+  }
+  if (section === "super-admin-commerce-coupons") {
+    return "adminCommerceCoupons";
+  }
+  if (section === "super-admin-commerce-licenses") {
+    return "adminCommerceLicenses";
+  }
+  if (section === "super-admin-commerce-preview") {
+    return "adminCommercePreview";
+  }
+  if (section === "super-admin-commerce-audit") {
+    return "adminCommerceAudit";
+  }
+  if (
+    section === "super-admin-system" ||
+    section === "admin-system" ||
+    section === "super-admin-analytics" ||
+    section === "admin-analytics"
+  ) {
+    return "adminSystem";
+  }
+  return null;
+}
+
+function parsePersistedAppSection(
+  value: string | null | undefined,
+): AppSection | null {
+  if (!value) {
+    return null;
+  }
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+  const normalizedSection = normalizeLegacyAppSection(normalizedValue);
+  if (!APP_SECTION_SET.has(normalizedSection)) {
+    return null;
+  }
+  return normalizedSection;
 }
 
 function normalizeBaseUrl(url?: string | null): string | null {
@@ -544,7 +795,6 @@ function extractOAuthCallbackPayload(
         email,
         name: getParam("name") ?? undefined,
         avatar: getParam("avatar") ?? undefined,
-        idToken: getParam("id_token") ?? undefined,
       };
     }
 
@@ -916,15 +1166,9 @@ export default function Home() {
         if (cloudUser?.platformRole) {
           headers["x-platform-role"] = cloudUser?.platformRole;
         }
-        const controlToken = settings.sync_token?.trim() ?? "";
-        if (!controlToken) {
-          if (!isCancelled) {
-            setWorkspaceSwitcherSummaries([]);
-            setWorkspaceSwitcherError("missing_control_token");
-          }
-          return;
+        if (settings.sync_token?.trim()) {
+          headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
         }
-        headers.Authorization = `Bearer ${controlToken}`;
 
         const actorResponse = await fetch(`${baseUrl}/v1/control/auth/me`, {
           method: "GET",
@@ -1320,12 +1564,20 @@ export default function Home() {
   const canAccessSelectedWorkspaceGovernance =
     Boolean(cloudUser) && canManageSelectedWorkspaceGovernance;
   const [isOpeningWebPortal, setIsOpeningWebPortal] = useState(false);
+  const [embeddedPortalUrl, setEmbeddedPortalUrl] = useState<string | null>(
+    null,
+  );
+  const [isLoadingEmbeddedPortal, setIsLoadingEmbeddedPortal] = useState(false);
 
   const showWebBillingPortalError = useCallback(
     (error: unknown) => {
       const message = extractRootError(error);
       if (message.includes("web_billing_portal_url_missing")) {
         showErrorToast(t("webBilling.desktopPortalMissing"));
+        return;
+      }
+      if (message.includes("web_billing_context_missing")) {
+        showErrorToast(t("webBilling.desktopContextMissing"));
         return;
       }
       showErrorToast(t("webBilling.desktopPortalOpenFailed"), {
@@ -1356,6 +1608,59 @@ export default function Home() {
     }
   }, [
     cloudUser,
+    selectedWorkspaceContext?.id,
+    selectedWorkspaceContext?.name,
+    showWebBillingPortalError,
+    sidebarWorkspaceId,
+  ]);
+
+  const embeddedPortalRoute = useMemo(
+    () => resolveEmbeddedPortalRouteForSection(activeSection),
+    [activeSection],
+  );
+
+  useEffect(() => {
+    if (!embeddedPortalRoute || !cloudUser) {
+      setEmbeddedPortalUrl(null);
+      setIsLoadingEmbeddedPortal(false);
+      return;
+    }
+
+    const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
+    const workspaceName = selectedWorkspaceContext?.name ?? null;
+    let isCancelled = false;
+
+    const loadPortalUrl = async () => {
+      setIsLoadingEmbeddedPortal(true);
+      try {
+        const url = await resolveWebBillingPortalUrl({
+          route: embeddedPortalRoute,
+          user: cloudUser,
+          workspaceId,
+          workspaceName,
+        });
+        if (!isCancelled) {
+          setEmbeddedPortalUrl(url);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setEmbeddedPortalUrl(null);
+          showWebBillingPortalError(error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingEmbeddedPortal(false);
+        }
+      }
+    };
+
+    void loadPortalUrl();
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    cloudUser,
+    embeddedPortalRoute,
     selectedWorkspaceContext?.id,
     selectedWorkspaceContext?.name,
     showWebBillingPortalError,
@@ -1421,12 +1726,13 @@ export default function Home() {
     if (!cloudUser) {
       return;
     }
+    const route = embeddedPortalRoute ?? "adminCommandCenter";
     const workspaceId = selectedWorkspaceContext?.id ?? sidebarWorkspaceId;
     const workspaceName = selectedWorkspaceContext?.name ?? null;
     setIsOpeningWebPortal(true);
     try {
       await openWebBillingPortal({
-        route: "adminCommandCenter",
+        route,
         user: cloudUser,
         workspaceId,
         workspaceName,
@@ -1438,6 +1744,7 @@ export default function Home() {
     }
   }, [
     cloudUser,
+    embeddedPortalRoute,
     selectedWorkspaceContext?.id,
     selectedWorkspaceContext?.name,
     showWebBillingPortalError,
@@ -1640,9 +1947,8 @@ export default function Home() {
   }, [normalizedActiveSection, proxyAssignmentDialogOpen]);
 
   useEffect(() => {
-    void activeSectionStorageKey;
     didRestoreActiveSectionRef.current = false;
-  }, [activeSectionStorageKey]);
+  }, []);
 
   useEffect(() => {
     if (isCloudAuthLoading) {
@@ -1806,6 +2112,10 @@ export default function Home() {
       return;
     }
     lastScopeSeedRequestKeyRef.current = currentSeedRequestKey;
+    const preferredScopeKey = toDataScopeKey({
+      accountId: cloudUser?.id as string,
+      workspaceId: sidebarWorkspaceId,
+    });
 
     const seedWorkspaceDataScopes = async () => {
       try {
@@ -1835,22 +2145,11 @@ export default function Home() {
           return;
         }
 
-        const workspaceTargetCounts = workspaceOptionIds.reduce<
-          Record<string, number>
-        >((accumulator, workspaceId) => {
-          const summary = workspaceSwitcherSummaries.find(
-            (row) => row.id === workspaceId,
-          );
-          accumulator[workspaceId] = Math.max(0, summary?.profilesUsed ?? 0);
-          return accumulator;
-        }, {});
-
-        const didChangeProfiles = reconcileEntityScopesForAccount(
+        const didChangeProfiles = distributeUnscopedEntityIdsForAccount(
           "profiles",
           profileRows.map((row) => row.id),
-          cloudUser?.id as string,
-          workspaceTargetCounts,
-          sidebarWorkspaceId,
+          accountScopeKeys,
+          preferredScopeKey,
         );
 
         if (didMigrateGuest || didNormalizeScopes || didChangeProfiles) {
@@ -1872,7 +2171,6 @@ export default function Home() {
     isWorkspaceSelectionReady,
     listProfilesSnapshot,
     sidebarWorkspaceId,
-    workspaceSwitcherSummaries,
     workspaceOptionIds,
   ]);
 
@@ -2080,12 +2378,6 @@ export default function Home() {
     if (!cloudUser) {
       return;
     }
-    // Wait until workspace selection finishes loading before running access checks.
-    // Without this guard, the role defaults to "member" (selectedWorkspaceContext is null)
-    // and owners/admins get a false-positive "no access" toast on startup.
-    if (!isWorkspaceSelectionReady) {
-      return;
-    }
     if (!isWorkspaceOwnerSection(activeSection)) {
       return;
     }
@@ -2095,13 +2387,7 @@ export default function Home() {
         description: t("adminWorkspace.ownerOnlyGovernance"),
       });
     }
-  }, [
-    activeSection,
-    canAccessSelectedWorkspaceGovernance,
-    cloudUser,
-    isWorkspaceSelectionReady,
-    t,
-  ]);
+  }, [activeSection, canAccessSelectedWorkspaceGovernance, cloudUser, t]);
 
   useEffect(() => {
     didRestoreWorkspaceSelectionRef.current = false;
@@ -2392,13 +2678,6 @@ export default function Home() {
             setIsPostLoginTransitioning(false);
             return;
           }
-          if (!oauthPayload.idToken) {
-            showErrorToast(t("authLanding.googleLoginErrorTitle"), {
-              description: t("authLanding.googleErrorMissingTokens"),
-            });
-            setIsPostLoginTransitioning(false);
-            return;
-          }
 
           try {
             await loginWithEmail(oauthPayload.email, {
@@ -2434,7 +2713,6 @@ export default function Home() {
             showErrorToast(t("authDialog.loginFailed"), {
               description: authMessage,
             });
-          } finally {
             setIsPostLoginTransitioning(false);
           }
           return;
@@ -3701,6 +3979,10 @@ export default function Home() {
       onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
     />
   );
+  const profileTableModeProps = {
+    tableMode: normalizedActiveSection === "groups" ? "group" : "default",
+  } as Record<string, unknown>;
+
   const profilesWorkspaceContent = (
     <>
       {filteredProfiles.length === 0 &&
@@ -3773,6 +4055,7 @@ export default function Home() {
             storedProxies={storedProxies}
             vpnConfigs={vpnConfigs}
             isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
+            {...profileTableModeProps}
           />
         </div>
       </div>
@@ -3854,10 +4137,21 @@ export default function Home() {
             description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <div className="rounded-md border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                {t("shell.webPortal.movedDescription")}
-              </p>
+            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+              {embeddedPortalUrl ? (
+                <iframe
+                  key={embeddedPortalUrl}
+                  src={embeddedPortalUrl}
+                  className="h-full min-h-[640px] w-full border-0"
+                  title="Workspace Management Portal"
+                />
+              ) : (
+                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
+                  {isLoadingEmbeddedPortal
+                    ? t("shell.webPortal.opening")
+                    : t("shell.webPortal.movedDescription")}
+                </div>
+              )}
             </div>
             <div className="flex justify-end">
               <Button
@@ -4033,10 +4327,21 @@ export default function Home() {
             description={t("shell.webPortal.billingDescription")}
             contentClassName="max-w-none space-y-4 pb-0"
           >
-            <div className="rounded-md border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                {t("shell.webPortal.movedDescription")}
-              </p>
+            <div className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+              {embeddedPortalUrl ? (
+                <iframe
+                  key={embeddedPortalUrl}
+                  src={embeddedPortalUrl}
+                  className="h-full min-h-[640px] w-full border-0"
+                  title="Super Admin Portal"
+                />
+              ) : (
+                <div className="flex h-full min-h-[640px] items-center justify-center p-4 text-sm text-muted-foreground">
+                  {isLoadingEmbeddedPortal
+                    ? t("shell.webPortal.opening")
+                    : t("shell.webPortal.movedDescription")}
+                </div>
+              )}
             </div>
             <div className="flex justify-end">
               <Button
@@ -4091,16 +4396,13 @@ export default function Home() {
     return null;
   }
 
-  // Desktop: initial boot loader — only shown when there's no cached auth state.
-  // After our fix, loginWithGoogle/Email already clears isLoading immediately,
-  // so this only appears on cold boot (before local Tauri storage responds).
   if (!cloudUser && isCloudAuthLoading) {
     return <PageLoader mode="fullscreen" className="type-ui" />;
   }
 
   if (!cloudUser) {
     return (
-      <div className="type-ui relative flex min-h-screen bg-background animate-in fade-in duration-200">
+      <div className="type-ui relative flex min-h-screen bg-background">
         {pendingConfigMessages.length > 0 && (
           <div className="type-section fixed top-0 left-0 right-0 z-50 flex justify-center border-b border-border bg-muted/80 px-4 py-2 uppercase text-muted-foreground backdrop-blur-md">
             {pendingConfigMessages.join(" • ")}
@@ -4118,6 +4420,10 @@ export default function Home() {
         />
       </div>
     );
+  }
+
+  if (isPostLoginTransitioning) {
+    return <PageLoader mode="fullscreen" className="type-ui" />;
   }
 
   return (
@@ -4191,25 +4497,13 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Post-login transition — soft overlay that fades away as the workspace loads.
-          Lighter than workspace-switch overlay to give a sense of "arriving" rather than blocking. */}
-      <PageLoaderOverlay
-        open={isPostLoginTransitioning && !workspaceSwitchState}
-        overlayClassName="bg-background/80"
-      />
-      {/* Workspace switch — opaque so profile list doesn't flash half-loaded */}
       <PageLoaderOverlay
         open={Boolean(workspaceSwitchState)}
         overlayClassName="bg-background"
       />
-      {/* Section switch — suppressed during post-login / workspace switch to avoid double-spinner */}
       <PageLoaderOverlay
-        open={
-          isSectionSwitching &&
-          !workspaceSwitchState &&
-          !isPostLoginTransitioning
-        }
-        overlayClassName="bg-background/30"
+        open={isSectionSwitching && !workspaceSwitchState}
+        overlayClassName="bg-background/45"
       />
       {importProfileDialogOpen && (
         <ImportProfileDialog

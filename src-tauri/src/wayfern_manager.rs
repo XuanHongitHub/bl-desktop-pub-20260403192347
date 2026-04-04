@@ -741,29 +741,8 @@ impl WayfernManager {
               return Err(format!("Failed to parse stored fingerprint config after Wayfern.getFingerprint missing: {e}").into());
             }
           } else {
-            log::warn!(
-              "No stored fingerprint available and Wayfern CDP not present; generating minimal software fingerprint"
-            );
-            let mut fallback_fp = json!({
-              "localStorage": true,
-              "sessionStorage": true,
-              "indexedDb": true,
-              "cookieEnabled": true,
-            });
-            if let Some(runtime_ua) = runtime_user_agent.as_deref() {
-              Self::sync_runtime_user_agent(&mut fallback_fp, runtime_ua);
-            }
-            self
-              .sync_fingerprint_with_proxy_context(
-                profile,
-                config,
-                config.proxy.as_deref(),
-                &mut fallback_fp,
-              )
-              .await;
-            Self::enforce_storage_signals(&mut fallback_fp, profile.ephemeral);
-            Self::ensure_timezone_defaults(&mut fallback_fp);
-            fallback_fp
+            cleanup().await;
+            return Err(format!("Failed to get fingerprint: {e}").into());
           }
         } else {
           cleanup().await;

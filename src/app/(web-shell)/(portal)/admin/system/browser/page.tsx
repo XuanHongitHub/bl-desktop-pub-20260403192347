@@ -36,7 +36,7 @@ function createToken(): string {
 function readStoredConfig(): BrowserUpdateConfig {
   if (typeof window === "undefined") {
     return {
-      releaseApiUrl: "https://api.buglogin.com/v1/browser/release",
+      releaseApiUrl: "https://api.bugdev.site/v1/browser/release",
       updateMode: "optional",
       minSupportedVersion: "",
       updateMessage: "",
@@ -47,7 +47,7 @@ function readStoredConfig(): BrowserUpdateConfig {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return {
-        releaseApiUrl: "https://api.buglogin.com/v1/browser/release",
+        releaseApiUrl: "https://api.bugdev.site/v1/browser/release",
         updateMode: "optional",
         minSupportedVersion: "",
         updateMessage: "",
@@ -57,7 +57,7 @@ function readStoredConfig(): BrowserUpdateConfig {
     const parsed = JSON.parse(raw) as Partial<BrowserUpdateConfig>;
     return {
       releaseApiUrl:
-        parsed.releaseApiUrl || "https://api.buglogin.com/v1/browser/release",
+        parsed.releaseApiUrl || "https://api.bugdev.site/v1/browser/release",
       updateMode: parsed.updateMode === "required" ? "required" : "optional",
       minSupportedVersion: parsed.minSupportedVersion || "",
       updateMessage: parsed.updateMessage || "",
@@ -65,7 +65,7 @@ function readStoredConfig(): BrowserUpdateConfig {
     };
   } catch {
     return {
-      releaseApiUrl: "https://api.buglogin.com/v1/browser/release",
+      releaseApiUrl: "https://api.bugdev.site/v1/browser/release",
       updateMode: "optional",
       minSupportedVersion: "",
       updateMessage: "",
@@ -90,7 +90,7 @@ export default function AdminBrowserUpdatePage() {
   const envSnippet = useMemo(
     () =>
       [
-        `BUGLOGIN_RELEASE_API_URL=${releaseApiUrl || "https://api.buglogin.com/v1/browser/release"}`,
+        `BUGLOGIN_RELEASE_API_URL=${releaseApiUrl || "https://api.bugdev.site/v1/browser/release"}`,
         `BUGLOGIN_RELEASE_API_TOKEN=${token || "<paste_token_here>"}`,
         "",
         `BUGLOGIN_BUGIUM_UPDATE_MODE=${updateMode}`,
@@ -183,7 +183,7 @@ export default function AdminBrowserUpdatePage() {
               onChange={(event) => {
                 setReleaseApiUrl(event.target.value);
               }}
-              placeholder="https://api.buglogin.com/v1/browser/release"
+              placeholder="https://api.bugdev.site/v1/browser/release"
             />
           </div>
 

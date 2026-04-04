@@ -5,8 +5,8 @@
   "identifier": "com.buglogin.desktop",
   "build": {
     "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
-    "devUrl": "http://127.0.0.1:12341",
-    "beforeBuildCommand": "node scripts/tauri-before-build.mjs",
+    "devUrl": "http://localhost:12341/desktop",
+    "beforeBuildCommand": "pnpm copy-proxy-binary && (node scripts/ci-skip-build.mjs || pnpm build)",
     "frontendDist": "../dist"
   },
   "app": {
@@ -76,9 +76,6 @@
       }
     },
     "windows": {
-      "nsis": {
-        "installerHooks": "installer.nsh"
-      },
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": ""

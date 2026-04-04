@@ -231,11 +231,10 @@ pub async fn start_proxy_process_with_profile(
       cmd.stderr(Stdio::null());
     }
 
-    // On Windows, also force no console window to avoid terminal flicker in desktop UX.
+    // On Windows, use DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP for proper detachment.
     const DETACHED_PROCESS: u32 = 0x00000008;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+    cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
 
     let child = cmd.spawn()?;
     let pid = child.id();

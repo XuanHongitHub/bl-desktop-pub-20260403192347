@@ -29,10 +29,10 @@ interface MarketingInfoPageProps {
 }
 
 const PAGE_VISUAL_BY_BASE_KEY: Record<string, string> = {
-  "portalSite.docsPage": "/img_buglogin/digital-fingerprint.png",
-  "portalSite.downloadPage": "/img_buglogin/browser-profiles.png",
-  "portalSite.statusPage": "/img_buglogin/workspace-sync.png",
-  "portalSite.contactPage": "/img_buglogin/core-components.png",
+  "portalSite.docsPage": "/images/landing/fingerprint-security.png",
+  "portalSite.downloadPage": "/images/landing/ops-management.png",
+  "portalSite.statusPage": "/images/landing/network-proxy.png",
+  "portalSite.contactPage": "/images/landing/hero-main.png",
 };
 
 export function MarketingInfoPage({
@@ -63,7 +63,7 @@ export function MarketingInfoPage({
   const translate = (key: string): string =>
     mounted ? t(key) : fallbackTranslate(key);
   const visualSrc =
-    PAGE_VISUAL_BY_BASE_KEY[baseKey] ?? "/img_buglogin/identity-shield.png";
+    PAGE_VISUAL_BY_BASE_KEY[baseKey] ?? "/auth/buglogin-auth-security.jpg";
 
   if (presentation === "split") {
     return (

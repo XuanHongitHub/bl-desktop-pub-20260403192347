@@ -42,7 +42,6 @@ import {
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocaleDate } from "@/lib/locale-format";
-import { getUnifiedPlanLabel } from "@/lib/plan-display";
 import { cn } from "@/lib/utils";
 import type {
   ControlInvite,
@@ -52,11 +51,6 @@ import type {
   ControlWorkspaceOverview,
   TeamRole,
 } from "@/types";
-import {
-  type CustomRoleDefinition,
-  CustomRolesManager,
-} from "./custom-roles-manager";
-import { MemberPermissionsMatrix } from "./member-permissions-matrix";
 
 interface AdminWorkspaceTabProps {
   isBusy: boolean;
@@ -71,21 +65,10 @@ interface AdminWorkspaceTabProps {
   memberships: ControlMembership[];
   invites: ControlInvite[];
   shareGrants: ControlShareGrant[];
-  availableResources?: {
-    id: string;
-    name: string;
-    type: "profile" | "group";
-  }[];
   workspaceName: string;
   setWorkspaceName: (name: string) => void;
   workspaceMode: "personal" | "team";
   setWorkspaceMode: (mode: "personal" | "team") => void;
-  workspacePlanId: "free" | "starter" | "team" | "scale" | "enterprise";
-  setWorkspacePlanId: (
-    planId: "free" | "starter" | "team" | "scale" | "enterprise",
-  ) => void;
-  workspaceBillingCycle: "monthly" | "yearly";
-  setWorkspaceBillingCycle: (cycle: "monthly" | "yearly") => void;
   inviteEmail: string;
   setInviteEmail: (email: string) => void;
   inviteRole: TeamRole;
@@ -116,7 +99,6 @@ interface AdminWorkspaceTabProps {
 export type WorkspaceAdminFlow =
   | "overview"
   | "directory"
-  | "roles"
   | "permissions"
   | "plan";
 
@@ -214,23 +196,21 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     props.currentUserEmail?.trim().toLowerCase() ?? "";
   const normalizedCurrentUserId = props.currentUserId?.trim() ?? "";
 
-  const _isLocalMode = !props.runtimeBaseUrl;
-  const canManageAsPlatformAdmin =
-    props.isPlatformAdmin && !workspaceScopedOnly;
-  const canManageWorkspace = canManageAsPlatformAdmin || props.isTeamOperator;
+  const isLocalMode = !props.runtimeBaseUrl;
+  const canManageWorkspace = props.isPlatformAdmin || props.isTeamOperator;
   const isWorkspaceOwner = props.workspaceRole === "owner";
   const isWorkspaceAdmin = props.workspaceRole === "admin";
   const canManageMembers =
-    canManageAsPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
+    props.isPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
   const canManageUserPermissions =
-    canManageAsPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
-  const canManagePlan = canManageAsPlatformAdmin || isWorkspaceOwner;
+    props.isPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
+  const canManagePlan = props.isPlatformAdmin || isWorkspaceOwner;
   const isMemberActionDisabled = props.isBusy || !canManageMembers;
   const isPermissionActionDisabled = props.isBusy || !canManageUserPermissions;
   const isActionDisabled = props.isBusy || !canManageWorkspace;
   const canSwitchWorkspaceContext =
     props.isPlatformAdmin && !workspaceScopedOnly;
-  const canProvisionWorkspace = canManageWorkspace && !workspaceScopedOnly;
+  const canProvisionWorkspace = props.isPlatformAdmin && !workspaceScopedOnly;
 
   useEffect(() => {
     if (!props.forcedFlow) {
@@ -623,7 +603,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             disabled={isActionDisabled || !canProvisionWorkspace}
             className="h-9 bg-background"
           />
-          <div className="grid grid-cols-[1fr_130px_120px_140px] gap-2">
+          <div className="grid grid-cols-[1fr_140px] gap-2">
             <Select
               value={props.workspaceMode}
               onValueChange={(value) =>
@@ -640,59 +620,6 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 </SelectItem>
                 <SelectItem value="personal">
                   {t("adminWorkspace.controlPlane.modePersonal")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={props.workspacePlanId}
-              onValueChange={(value) =>
-                props.setWorkspacePlanId(
-                  value as "free" | "starter" | "team" | "scale" | "enterprise",
-                )
-              }
-              disabled={isActionDisabled || !canProvisionWorkspace}
-            >
-              <SelectTrigger className="h-9 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="free">
-                  {getUnifiedPlanLabel({ planId: "free" })}
-                </SelectItem>
-                <SelectItem value="starter">
-                  {getUnifiedPlanLabel({ planId: "starter" })}
-                </SelectItem>
-                <SelectItem value="team">
-                  {getUnifiedPlanLabel({ planId: "team" })}
-                </SelectItem>
-                <SelectItem value="scale">
-                  {getUnifiedPlanLabel({ planId: "scale" })}
-                </SelectItem>
-                <SelectItem value="enterprise">
-                  {getUnifiedPlanLabel({ planId: "enterprise" })}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={props.workspaceBillingCycle}
-              onValueChange={(value) =>
-                props.setWorkspaceBillingCycle(value as "monthly" | "yearly")
-              }
-              disabled={
-                isActionDisabled ||
-                !canProvisionWorkspace ||
-                props.workspacePlanId === "free"
-              }
-            >
-              <SelectTrigger className="h-9 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monthly">
-                  {t("authLanding.monthly")}
-                </SelectItem>
-                <SelectItem value="yearly">
-                  {t("authLanding.yearly")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -716,7 +643,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           )}
           {canManageWorkspace && !canProvisionWorkspace && (
             <p className="text-[11px] text-muted-foreground">
-              {t("adminWorkspace.ui.workspaceScopedModeHint")}
+              {t("adminWorkspace.ui.platformAdminHint")}
             </p>
           )}
         </div>
@@ -807,39 +734,8 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                           membershipEmail === normalizedCurrentUserEmail) ||
                         (normalizedCurrentUserId.length > 0 &&
                           membership.userId === normalizedCurrentUserId);
-
-                      const canEditThisMember = (() => {
-                        if (isSelfMembership) return false;
-                        if (
-                          workspaceScopedOnly &&
-                          membership.role === "owner"
-                        ) {
-                          return false;
-                        }
-                        if (canManageAsPlatformAdmin) return true;
-                        if (props.workspaceRole === "owner") return true;
-                        if (props.workspaceRole === "admin") {
-                          return (
-                            membership.role === "member" ||
-                            membership.role === "viewer"
-                          );
-                        }
-                        return false;
-                      })();
-
-                      const allowedRoleOptions = MEMBER_ROLE_OPTIONS.filter(
-                        (option) => {
-                          if (canManageAsPlatformAdmin) return true;
-                          if (props.workspaceRole === "owner") return true;
-                          if (props.workspaceRole === "admin") {
-                            return option !== "owner" && option !== "admin";
-                          }
-                          return false;
-                        },
-                      );
-
                       const rowActionDisabled =
-                        isMemberActionDisabled || !canEditThisMember;
+                        isMemberActionDisabled || isSelfMembership;
                       return (
                         <Select
                           value={
@@ -867,7 +763,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {allowedRoleOptions.map((roleOption) => (
+                            {MEMBER_ROLE_OPTIONS.map((roleOption) => (
                               <SelectItem key={roleOption} value={roleOption}>
                                 {t(`adminWorkspace.roles.${roleOption}`)}
                               </SelectItem>
@@ -892,28 +788,8 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                           membershipEmail === normalizedCurrentUserEmail) ||
                         (normalizedCurrentUserId.length > 0 &&
                           membership.userId === normalizedCurrentUserId);
-
-                      const canEditThisMember = (() => {
-                        if (isSelfMembership) return false;
-                        if (
-                          workspaceScopedOnly &&
-                          membership.role === "owner"
-                        ) {
-                          return false;
-                        }
-                        if (canManageAsPlatformAdmin) return true;
-                        if (props.workspaceRole === "owner") return true;
-                        if (props.workspaceRole === "admin") {
-                          return (
-                            membership.role === "member" ||
-                            membership.role === "viewer"
-                          );
-                        }
-                        return false;
-                      })();
-
                       const rowActionDisabled =
-                        isMemberActionDisabled || !canEditThisMember;
+                        isMemberActionDisabled || isSelfMembership;
                       return (
                         <div className="flex justify-end gap-2">
                           <Button
@@ -1222,7 +1098,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     </Dialog>
   );
 
-  const _renderShareCard = () => (
+  const renderShareCard = () => (
     <div className="rounded-lg border border-border/70 bg-background">
       <div className="flex items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
         <div>
@@ -1437,57 +1313,42 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     </div>
   );
 
-  const renderRolesFlow = () => {
-    // MOCK DATA for Phase 1 testing
-    const mockRoles: CustomRoleDefinition[] = [
-      { id: "owner", name: "Owner", isSystem: true, capabilities: [] },
-      { id: "admin", name: "Admin", isSystem: true, capabilities: [] },
-      { id: "member", name: "Member", isSystem: true, capabilities: [] },
-      {
-        id: "r_1",
-        name: "Marketing Team",
-        capabilities: ["create_profile", "edit_profile"],
-      },
-    ];
-
-    return (
-      <div className="space-y-4">
-        {!canManageUserPermissions && (
-          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-            {t("adminWorkspace.ui.readOnlyHint")}
+  const renderPermissionsFlow = () => (
+    <div className="space-y-4">
+      {!canManageUserPermissions && (
+        <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+          {t("adminWorkspace.ui.readOnlyHint")}
+        </div>
+      )}
+      <div className="rounded-lg border border-border/70 bg-background p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[13px] font-semibold text-foreground">
+              {t("adminWorkspace.ui.memberAccessTitle")}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {t("adminWorkspace.ui.memberAccessDescription")}
+            </p>
           </div>
-        )}
-        <CustomRolesManager
-          roles={mockRoles}
-          onAddRole={() => {}}
-          onUpdateRole={() => {}}
-          onDeleteRole={() => {}}
-          isPlatformAdmin={props.isPlatformAdmin}
-        />
-      </div>
-    );
-  };
-
-  const renderPermissionsFlow = () => {
-    return (
-      <div className="space-y-4">
-        {!canManageUserPermissions && (
-          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-            {t("adminWorkspace.ui.readOnlyHint")}
+          <div className="flex gap-1.5">
+            <Badge variant="outline" className="h-5 px-2 text-[10px]">
+              {t("adminWorkspace.controlPlane.memberCount", {
+                count: props.memberships.length,
+              })}
+            </Badge>
+            <Badge variant="outline" className="h-5 px-2 text-[10px]">
+              {t("adminWorkspace.controlPlane.inviteCount", {
+                count: activeInvites,
+              })}
+            </Badge>
           </div>
-        )}
-        <MemberPermissionsMatrix
-          memberships={props.memberships}
-          shareGrants={props.shareGrants}
-          availableResources={props.availableResources ?? []}
-          onBulkManage={(u, r, action) => {
-            console.log(u, r, action);
-          }}
-          isPlatformAdmin={props.isPlatformAdmin}
-        />
+        </div>
       </div>
-    );
-  };
+
+      {renderMembersInvitesTabsCard()}
+      {renderShareCard()}
+    </div>
+  );
 
   const renderPlanFlow = () => (
     <div className="space-y-4">
@@ -1564,9 +1425,6 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     if (activeFlow === "permissions") {
       return renderPermissionsFlow();
     }
-    if (activeFlow === "roles") {
-      return renderRolesFlow();
-    }
     if (activeFlow === "plan") {
       return renderPlanFlow();
     }
@@ -1575,6 +1433,12 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
   return (
     <div className="space-y-4">
+      {isLocalMode && (
+        <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+          {t("adminWorkspace.ui.localModeEnabled")}
+        </div>
+      )}
+
       {workspaceScopedOnly ? (
         <div className="space-y-4">
           {renderFlowContent()}
@@ -1617,15 +1481,12 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 className="w-full"
               >
                 <div className="border-b border-border/70 px-4 py-3">
-                  <TabsList className="grid w-full max-w-[720px] grid-cols-4 bg-muted/30 p-1">
+                  <TabsList className="grid w-full max-w-[720px] grid-cols-3 bg-muted/30 p-1">
                     <TabsTrigger value="directory" className="text-[12px]">
                       {t("shell.sections.workspaceAdminMembers")}
                     </TabsTrigger>
-                    <TabsTrigger value="roles" className="text-[12px]">
-                      Vai trò
-                    </TabsTrigger>
                     <TabsTrigger value="permissions" className="text-[12px]">
-                      Phân quyền Group/Profile
+                      {t("shell.sections.workspaceOwnerUserPermissions")}
                     </TabsTrigger>
                     <TabsTrigger value="plan" className="text-[12px]">
                       {t("shell.sections.workspaceOwnerPlanManagement")}
@@ -1635,9 +1496,6 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 <div className="p-4">
                   <TabsContent value="directory" className="mt-0">
                     {renderDirectoryFlow()}
-                  </TabsContent>
-                  <TabsContent value="roles" className="mt-0">
-                    {renderRolesFlow()}
                   </TabsContent>
                   <TabsContent value="permissions" className="mt-0">
                     {renderPermissionsFlow()}
