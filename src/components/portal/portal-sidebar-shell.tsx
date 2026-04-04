@@ -17,7 +17,7 @@ function mapAccountPathToSection(pathname: string): AppSection {
   if (pathname.startsWith("/account/plan")) return "pricing";
   if (pathname.startsWith("/account/billing")) return "pricing";
   if (pathname.startsWith("/account/invoices")) return "billing";
-  if (pathname.startsWith("/account/invites")) return "billing";
+  if (pathname.startsWith("/account/invites")) return "account-invites" as AppSection;
   if (pathname.startsWith("/account/settings")) return "settings";
   if (pathname.startsWith("/account/members")) return "account-members";
   return "profiles";
@@ -33,6 +33,8 @@ function mapAccountSectionToPath(section: AppSection): string {
       return "/account/settings";
     case "account-members":
       return "/account/members";
+    case "account-invites" as AppSection:
+      return "/account/invites";
     case "super-admin-overview":
       return "/admin/dashboard";
     default:

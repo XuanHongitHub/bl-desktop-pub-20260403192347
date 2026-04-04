@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -233,10 +234,19 @@ export default function AdminPermissionsPage() {
                     return (
                       <TableRow key={user.userId}>
                         <TableCell>
-                          <p className="truncate font-medium">{user.email}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {user.userId}
-                          </p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border border-border/50">
+                              <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
+                                {user.email.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{user.email}</p>
+                              <p className="truncate text-[10px] text-muted-foreground font-mono">
+                                {user.userId}
+                              </p>
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell className="capitalize">
                           {user.authProvider}
@@ -345,10 +355,19 @@ export default function AdminPermissionsPage() {
                           </p>
                         </TableCell>
                         <TableCell>
-                          <p className="truncate font-medium">{row.email}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {row.userId}
-                          </p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border border-border/50">
+                              <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
+                                {row.email.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{row.email}</p>
+                              <p className="truncate text-[10px] text-muted-foreground font-mono">
+                                {row.userId}
+                              </p>
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {t("portalSite.admin.permissions.scopeWorkspace")}

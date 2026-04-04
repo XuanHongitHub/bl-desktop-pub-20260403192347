@@ -52,7 +52,14 @@ export default function AccountOverviewPage() {
     refreshWorkspaces,
     loadingBilling,
     loadingWorkspaces,
+    session,
   } = usePortalBillingData();
+
+  const isPlatformAdmin = session?.user?.platformRole === "platform_admin";
+  const isOperator =
+    selectedWorkspace?.actorRole === "owner" ||
+    selectedWorkspace?.actorRole === "admin";
+  const canViewBilling = isPlatformAdmin || isOperator;
 
   const [workspaceQuery, setWorkspaceQuery] = useState("");
 
@@ -214,7 +221,22 @@ export default function AccountOverviewPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card/70">
+      {!canViewBilling ? (
+        <section className="flex flex-col items-center justify-center rounded-xl md:py-24 py-16 border border-dashed border-border bg-card/40 px-6 text-center">
+          <ShieldCheck className="mb-4 h-12 w-12 text-muted-foreground opacity-50" />
+          <h3 className="text-lg font-semibold text-foreground">
+            {t("portalSite.account.memberViewTitle", "Chế độ Thành viên")}
+          </h3>
+          <p className="mt-2 max-w-[500px] text-sm text-muted-foreground">
+            {t(
+              "portalSite.account.memberViewDescription",
+              "Bạn đang làm việc trong vùng này cấu hình dưới quyền dành cho thành viên, hoặc quyền khách. Vui lòng liên hệ Chủ sở hữu (Owner) của workspace này để biết thêm thông tin thanh toán & cấu hình gói cước.",
+            )}
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="rounded-xl border border-border bg-card/70">
         <div className="grid gap-0 md:grid-cols-2 xl:grid-cols-4">
           <div className="border-b border-border/70 p-4 xl:border-b-0 xl:border-r">
             <p className="text-xs text-muted-foreground">
@@ -425,6 +447,8 @@ export default function AccountOverviewPage() {
           </Button>
         </div>
       </section>
+        </>
+      )}
     </PortalSettingsPage>
   );
 }

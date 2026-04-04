@@ -6,19 +6,17 @@ import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listAdminInvoices } from "@/components/web-billing/control-api";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime, formatLocaleNumber } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
+import { extractRootError } from "@/lib/error-utils";
 import type { ControlAdminInvoiceListItem } from "@/types";
-
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return fallback;
-}
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { resolveUnifiedPlanId } from "@/lib/plan-display";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function AdminInvoicesPage() {
   const { t } = useTranslation();
@@ -43,7 +41,7 @@ export default function AdminInvoicesPage() {
         setRows(payload.items ?? []);
       } catch (error) {
         showErrorToast(t("portalSite.admin.invoices.loadFailed"), {
-          description: extractErrorMessage(error, "load_admin_invoices_failed"),
+          description: extractRootError(error),
         });
       } finally {
         setLoading(false);
@@ -82,96 +80,131 @@ export default function AdminInvoicesPage() {
         </Button>
       }
     >
-      <section className="mx-auto w-full max-w-[1180px] space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.invoices.metrics.count")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {summary.count}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.invoices.metrics.revenue")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.invoices.metrics.count")}</CardDescription>
+            <CardTitle className="text-2xl">{summary.count}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.invoices.metrics.revenue")}</CardDescription>
+            <CardTitle className="text-2xl text-emerald-600 dark:text-emerald-400">
               ${formatLocaleNumber(summary.revenue)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.invoices.metrics.average")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.invoices.metrics.average")}</CardDescription>
+            <CardTitle className="text-2xl">
               ${formatLocaleNumber(summary.average)}
-            </p>
-          </div>
-        </div>
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
-        <div className="rounded-xl border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <Card className="border-border/50 shadow-sm">
+        <CardContent className="pt-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("portalSite.admin.invoices.search")}
-              className="h-9 w-full sm:max-w-sm"
+              className="h-9 w-full sm:w-[320px]"
             />
             <Badge variant="outline">{summary.count}</Badge>
           </div>
-          <ScrollArea className="h-[620px]">
-            <div className="divide-y divide-border">
-              {loading ? (
-                <div className="p-4 text-sm text-muted-foreground">
-                  {t("portalSite.admin.loading")}
-                </div>
-              ) : rows.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">
-                  {t("portalSite.admin.invoices.empty")}
-                </div>
-              ) : (
-                rows.map((invoice) => (
-                  <div
-                    key={invoice.id}
-                    className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_140px_160px_160px]"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {invoice.workspaceName}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {invoice.actorEmail ?? invoice.actorUserId}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        ${formatLocaleNumber(invoice.amountUsd)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {invoice.planLabel}
-                      </p>
-                    </div>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>{invoice.method}</p>
-                      <p>{invoice.source}</p>
-                      {invoice.couponCode ? <p>{invoice.couponCode}</p> : null}
-                    </div>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>
-                        {formatLocaleDateTime(
-                          invoice.paidAt || invoice.createdAt,
-                        )}
-                      </p>
-                      <p>{invoice.billingCycle}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      </section>
+
+          <div className="rounded-md border overflow-hidden">
+            <Table className="text-sm">
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="font-medium text-left">
+                    {t("portalSite.admin.columns.workspace")} // Người dùng
+                  </TableHead>
+                  <TableHead className="font-medium text-left">Gói Đăng ký</TableHead>
+                  <TableHead className="font-medium text-left">Doanh thu (USD)</TableHead>
+                  <TableHead className="font-medium text-left">Thông tin thanh toán</TableHead>
+                  <TableHead className="font-medium text-left">Ngày hoàn tất</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {t("portalSite.admin.loading")}
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {t("portalSite.admin.invoices.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((invoice) => {
+                    const unifiedPlan = resolveUnifiedPlanId({ planLabel: invoice.planLabel });
+                    const email = invoice.actorEmail || "--";
+                    return (
+                      <TableRow key={invoice.id} className="group">
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border border-border/50">
+                              <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
+                                {email.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{invoice.workspaceName}</p>
+                              <p className="truncate text-[10px] text-muted-foreground font-mono">
+                                {invoice.actorEmail ?? invoice.actorUserId}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                             <AdminPlanBadge planId={unifiedPlan} />
+                             <span className="text-[10px] text-muted-foreground capitalize">
+                              {invoice.billingCycle}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            ${formatLocaleNumber(invoice.amountUsd)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col text-xs text-muted-foreground">
+                            <span className="capitalize">{invoice.method} • {invoice.source}</span>
+                            {invoice.couponCode && (
+                              <span className="font-mono text-[10px] mt-0.5 px-1 py-0.5 bg-muted rounded w-fit">
+                                {invoice.couponCode}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                           {formatLocaleDateTime(invoice.paidAt || invoice.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </PortalSettingsPage>
   );
 }

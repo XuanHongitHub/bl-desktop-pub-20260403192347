@@ -412,16 +412,23 @@ export function useCloudAuth(): UseCloudAuthReturn {
     [],
   );
 
-  const enrichUserFromControlPlane = useCallback(async (user: CloudUser) => {
-    const cacheKey = `${user.id}::${user.email}::${user.platformRole ?? "-"}`;
-    const cached = enrichUserCacheRef.current;
-    if (cached && cached.key === cacheKey && cached.expiresAt > Date.now()) {
-      return cached.user;
-    }
-    const inFlight = enrichUserInFlightRef.current.get(cacheKey);
-    if (inFlight) {
-      return inFlight;
-    }
+  const enrichUserFromControlPlane = useCallback(
+    async (user: CloudUser, options?: { forceRefresh?: boolean }) => {
+      const cacheKey = `${user.id}::${user.email}::${user.platformRole ?? "-"}`;
+
+      if (options?.forceRefresh) {
+        enrichUserCacheRef.current = null;
+        enrichUserInFlightRef.current.delete(cacheKey);
+      }
+
+      const cached = enrichUserCacheRef.current;
+      if (cached && cached.key === cacheKey && cached.expiresAt > Date.now()) {
+        return cached.user;
+      }
+      const inFlight = enrichUserInFlightRef.current.get(cacheKey);
+      if (inFlight) {
+        return inFlight;
+      }
 
     const task = (async (): Promise<CloudUser> => {
       let syncSettings: SyncSettings | null = null;
@@ -860,14 +867,20 @@ export function useCloudAuth(): UseCloudAuthReturn {
             Array.isArray(normalizedState.user.workspaceSeeds) &&
             normalizedState.user.workspaceSeeds.length > 0;
           const now = Date.now();
-          const shouldEnrich =
-            !hasPersistedWorkspaceSeeds &&
-            (lastEnrichedUserIdRef.current !== normalizedState.user.id ||
-              now - lastEnrichedAtRef.current >= CONTROL_ENRICH_CACHE_TTL_MS);
-          if (hasPersistedWorkspaceSeeds) {
-            lastEnrichedAtRef.current = now;
+
+          // We want to background refresh if TTL elapsed or no seeds.
+          // Setting the ref here prevented that refresh. We now only set it if it's recent.
+          if (hasPersistedWorkspaceSeeds && lastEnrichedAtRef.current === 0) {
+            // Keep the previous lastEnrichedAt if it was 0, so shouldEnrich becomes true
+            // but we still update the state instantly for fast boot.
             lastEnrichedUserIdRef.current = normalizedState.user.id;
           }
+
+          const shouldEnrich =
+            lastEnrichedUserIdRef.current !== normalizedState.user.id ||
+            now - lastEnrichedAtRef.current >= CONTROL_ENRICH_CACHE_TTL_MS ||
+            !hasPersistedWorkspaceSeeds;
+
           if (!shouldEnrich) {
             return;
           }
@@ -1022,7 +1035,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
       if (!authState) {
         throw new Error("not_logged_in");
       }
-      const enrichedUser = await enrichUserFromControlPlane(authState.user);
+      const enrichedUser = await enrichUserFromControlPlane(authState.user, { forceRefresh: true });
       const nextState = {
         ...authState,
         user: enrichedUser,

@@ -15,12 +15,7 @@ import { formatLocaleDateTime } from "@/lib/locale-format";
 import { showErrorToast } from "@/lib/toast-utils";
 import type { ControlAdminOverview, ControlAuditLog } from "@/types";
 
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return fallback;
-}
+import { extractRootError } from "@/lib/error-utils";
 
 export default function AdminPolicyCenterPage() {
   const { t } = useTranslation();
@@ -45,7 +40,7 @@ export default function AdminPolicyCenterPage() {
       setAuditLogs(audits.slice(0, 12));
     } catch (error) {
       showErrorToast(t("portalSite.admin.policyCenter.loadFailed"), {
-        description: extractErrorMessage(error, "load_policy_center_failed"),
+        description: extractRootError(error),
       });
     } finally {
       setLoading(false);

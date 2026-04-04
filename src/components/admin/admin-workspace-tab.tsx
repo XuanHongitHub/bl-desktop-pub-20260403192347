@@ -750,7 +750,27 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                           membershipEmail === normalizedCurrentUserEmail) ||
                         (normalizedCurrentUserId.length > 0 &&
                           membership.userId === normalizedCurrentUserId);
-                      const rowActionDisabled = isMemberActionDisabled || isSelfMembership;
+
+                      const canEditThisMember = (() => {
+                        if (isSelfMembership) return false;
+                        if (props.isPlatformAdmin) return true;
+                        if (props.workspaceRole === "owner") return true;
+                        if (props.workspaceRole === "admin") {
+                          return membership.role === "member" || membership.role === "viewer";
+                        }
+                        return false;
+                      })();
+
+                      const allowedRoleOptions = MEMBER_ROLE_OPTIONS.filter((option) => {
+                        if (props.isPlatformAdmin) return true;
+                        if (props.workspaceRole === "owner") return true;
+                        if (props.workspaceRole === "admin") {
+                          return option !== "owner" && option !== "admin";
+                        }
+                        return false;
+                      });
+
+                      const rowActionDisabled = isMemberActionDisabled || !canEditThisMember;
                       return (
                     <Select
                       value={
@@ -776,7 +796,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {MEMBER_ROLE_OPTIONS.map((roleOption) => (
+                        {allowedRoleOptions.map((roleOption) => (
                           <SelectItem key={roleOption} value={roleOption}>
                             {t(`adminWorkspace.roles.${roleOption}`)}
                           </SelectItem>
@@ -799,7 +819,18 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                           membershipEmail === normalizedCurrentUserEmail) ||
                         (normalizedCurrentUserId.length > 0 &&
                           membership.userId === normalizedCurrentUserId);
-                      const rowActionDisabled = isMemberActionDisabled || isSelfMembership;
+
+                      const canEditThisMember = (() => {
+                        if (isSelfMembership) return false;
+                        if (props.isPlatformAdmin) return true;
+                        if (props.workspaceRole === "owner") return true;
+                        if (props.workspaceRole === "admin") {
+                          return membership.role === "member" || membership.role === "viewer";
+                        }
+                        return false;
+                      })();
+
+                      const rowActionDisabled = isMemberActionDisabled || !canEditThisMember;
                       return (
                     <div className="flex justify-end gap-2">
                       <Button
@@ -1314,7 +1345,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           memberships={props.memberships}
           shareGrants={props.shareGrants}
           availableResources={availableResources}
-          onToggleGrant={(u, r, t, s) => { console.log(u, r, t, s); }}
+          onBulkManage={(u, r, action) => { console.log(u, r, action); }}
           isPlatformAdmin={props.isPlatformAdmin}
         />
       </div>

@@ -3,12 +3,15 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
 import { formatLocaleDateTime } from "@/lib/locale-format";
-import { getUnifiedPlanLabel } from "@/lib/plan-display";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AdminStatusBadge } from "@/components/admin/ui/admin-status-badge";
+import { AdminPlanBadge } from "@/components/admin/ui/admin-plan-badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { resolveUnifiedPlanId } from "@/lib/plan-display";
 
 export default function AdminSubscriptionsPage() {
   const { t } = useTranslation();
@@ -56,152 +59,138 @@ export default function AdminSubscriptionsPage() {
         </Button>
       }
     >
-      <section className="rounded-xl border border-border bg-card/70 p-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.subscriptions.metrics.total")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {filteredRows.length}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.subscriptions.metrics.active")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {
-                filteredRows.filter(
-                  (item) => item.subscriptionStatus === "active",
-                ).length
-              }
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("portalSite.admin.subscriptions.metrics.pastDue")}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {
-                filteredRows.filter(
-                  (item) => item.subscriptionStatus === "past_due",
-                ).length
-              }
-            </p>
-          </div>
-        </div>
-      </section>
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.subscriptions.metrics.total")}</CardDescription>
+            <CardTitle className="text-2xl">{filteredRows.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.subscriptions.metrics.active")}</CardDescription>
+            <CardTitle className="text-2xl">
+              {filteredRows.filter((item) => item.subscriptionStatus === "active").length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription>{t("portalSite.admin.subscriptions.metrics.pastDue")}</CardDescription>
+            <CardTitle className="text-2xl">
+              {filteredRows.filter((item) => item.subscriptionStatus === "past_due").length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
-      <section className="rounded-xl border border-border bg-card/70 p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("portalSite.admin.subscriptions.search")}
-            className="h-9 w-full sm:max-w-sm"
-          />
-          <div className="flex items-center gap-1">
-            {(["all", "active", "past_due", "canceled"] as const).map(
-              (status) => (
-                <Button
-                  key={status}
-                  size="sm"
-                  variant={statusFilter === status ? "secondary" : "outline"}
-                  onClick={() => setStatusFilter(status)}
-                  className="h-8 px-2.5 text-xs"
-                >
-                  {status === "all"
-                    ? t("portalSite.admin.workspaces.allStatuses")
-                    : t(`portalSite.admin.subscriptions.status.${status}`)}
-                </Button>
-              ),
-            )}
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-lg border border-border/70">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.admin.columns.workspace")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.admin.columns.plan")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.admin.subscriptions.columns.source")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.admin.columns.status")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t("portalSite.admin.subscriptions.columns.expiresAt")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingWorkspaces ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-3 py-6 text-center text-muted-foreground"
+      <Card className="border-border/50 shadow-sm">
+        <CardContent className="pt-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "active", "past_due", "canceled"] as const).map(
+                (status) => (
+                  <Button
+                    key={status}
+                    size="sm"
+                    variant={statusFilter === status ? "secondary" : "ghost"}
+                    onClick={() => setStatusFilter(status)}
+                    className="h-8 px-3 text-xs font-medium"
                   >
-                    {t("portalSite.admin.loading")}
-                  </td>
-                </tr>
-              ) : filteredRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-3 py-6 text-center text-muted-foreground"
-                  >
-                    {t("portalSite.admin.subscriptions.empty")}
-                  </td>
-                </tr>
-              ) : (
-                filteredRows.map((workspace) => (
-                  <tr key={workspace.id} className="border-t border-border/70">
-                    <td className="px-3 py-2 text-foreground">
-                      {workspace.name}
-                    </td>
-                    <td className="px-3 py-2">
-                      <p className="text-foreground">
-                        {getUnifiedPlanLabel({
-                          planLabel: workspace.planLabel,
-                        })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {workspace.billingCycle
-                          ? t(
-                              `portalSite.admin.subscriptions.cycle.${workspace.billingCycle}`,
-                            )
-                          : "--"}
-                      </p>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {workspace.subscriptionSource}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant="outline">
-                        {t(
-                          `portalSite.admin.subscriptions.status.${workspace.subscriptionStatus}`,
-                        )}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {workspace.expiresAt
-                        ? formatLocaleDateTime(workspace.expiresAt)
-                        : "--"}
-                    </td>
-                  </tr>
-                ))
+                    {status === "all"
+                      ? t("portalSite.admin.workspaces.allStatuses")
+                      : t(`portalSite.admin.subscriptions.status.${status}`)}
+                  </Button>
+                ),
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("portalSite.admin.subscriptions.search")}
+              className="h-9 w-full sm:w-[320px]"
+            />
+          </div>
+
+          <div className="rounded-md border overflow-hidden">
+            <Table className="text-sm">
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="font-medium">
+                    {t("portalSite.admin.columns.workspace")}
+                  </TableHead>
+                  <TableHead className="font-medium">
+                    {t("portalSite.admin.columns.plan")}
+                  </TableHead>
+                  <TableHead className="font-medium">
+                    {t("portalSite.admin.subscriptions.columns.source")}
+                  </TableHead>
+                  <TableHead className="font-medium">
+                    {t("portalSite.admin.columns.status")}
+                  </TableHead>
+                  <TableHead className="font-medium">
+                    {t("portalSite.admin.subscriptions.columns.expiresAt")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingWorkspaces ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {t("portalSite.admin.loading")}
+                    </TableCell>
+                  </TableRow>
+                ) : filteredRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {t("portalSite.admin.subscriptions.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredRows.map((workspace) => {
+                    const unifiedPlan = resolveUnifiedPlanId({ planLabel: workspace.planLabel });
+                    return (
+                      <TableRow key={workspace.id} className="group">
+                        <TableCell className="font-medium">
+                          <p className="truncate">{workspace.name}</p>
+                          <p className="truncate text-[10px] text-muted-foreground font-mono">
+                            {workspace.id}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                             <AdminPlanBadge planId={unifiedPlan} />
+                             <span className="text-[10px] text-muted-foreground capitalize">
+                              {workspace.billingCycle ?? "--"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground capitalize text-xs">
+                          {workspace.subscriptionSource}
+                        </TableCell>
+                        <TableCell>
+                          <AdminStatusBadge status={workspace.subscriptionStatus} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {workspace.expiresAt
+                            ? formatLocaleDateTime(workspace.expiresAt)
+                            : "Never (Lifetime)"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </PortalSettingsPage>
   );
 }

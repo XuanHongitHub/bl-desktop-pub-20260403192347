@@ -228,7 +228,8 @@ function usePortalBillingDataState() {
             return current;
           }
 
-          const fromSession = session?.current?.workspaceId?.trim() ?? "";
+          const currentSessionInfo = typeof window !== "undefined" ? readPortalSessionStorage() : null;
+          const fromSession = currentSessionInfo?.current?.workspaceId?.trim() ?? "";
           if (
             fromSession &&
             items.some((workspace) => workspace.id === fromSession)
@@ -271,7 +272,7 @@ function usePortalBillingDataState() {
         setLoadingWorkspaces(false);
       }
     },
-    [session?.current?.workspaceId],
+    [],
   );
 
   const loadBilling = useCallback(
@@ -331,9 +332,9 @@ function usePortalBillingDataState() {
     if (!billingState?.subscription || !selectedWorkspaceId) {
       return;
     }
-
-    setWorkspaces((current) =>
-      current.map((workspace) => {
+    setWorkspaces((current) => {
+      let hasChanges = false;
+      const nextWorkspaces = current.map((workspace) => {
         if (workspace.id !== selectedWorkspaceId) {
           return workspace;
         }
@@ -354,6 +355,7 @@ function usePortalBillingDataState() {
         ) {
           return workspace;
         }
+        hasChanges = true;
         return {
           ...workspace,
           planLabel: nextPlanLabel,
@@ -363,8 +365,9 @@ function usePortalBillingDataState() {
           profileLimit: nextProfileLimit,
           memberLimit: nextMemberLimit,
         };
-      }),
-    );
+      });
+      return hasChanges ? nextWorkspaces : current;
+    });
   }, [billingState, selectedWorkspaceId]);
 
   const refreshWorkspaces = useCallback(async () => {

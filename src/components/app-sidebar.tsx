@@ -590,6 +590,12 @@ function AppSidebarComponent({
       items.push(
         {
           type: "item",
+          id: "account-invites" as AppSection,
+          labelKey: "portalSite.invites.pageTitle",
+          icon: UserPlus,
+        },
+        {
+          type: "item",
           id: "pricing",
           labelKey: "shell.sections.accountBilling",
           icon: Crown,

@@ -1,14 +1,35 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Users, LayoutGrid, KeyRound, MonitorSmartphone, Search, ChevronRight } from "lucide-react";
+import {
+  Users,
+  Search,
+  MonitorSmartphone,
+  LayoutGrid,
+  Settings2,
+  ShieldAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { ControlMembership, ControlShareGrant } from "@/types";
 
@@ -18,221 +39,338 @@ interface ResourceItem {
   type: "profile" | "group";
 }
 
-interface MemberPermissionsMatrixProps {
+export interface MemberPermissionsMatrixProps {
   memberships: ControlMembership[];
   shareGrants: ControlShareGrant[];
-  availableResources: ResourceItem[]; // Profiles and groups available in workspace
-  onToggleGrant: (userId: string, resourceId: string, resourceType: "profile" | "group", currentStatus: boolean) => void;
+  availableResources: ResourceItem[];
+  onBulkManage: (
+    userIds: string[],
+    resources: { id: string; type: "profile" | "group" }[],
+    action: "grant" | "revoke"
+  ) => void;
   isPlatformAdmin?: boolean;
 }
 
-export function MemberPermissionsMatrix({ 
-  memberships, 
-  shareGrants, 
+export function MemberPermissionsMatrix({
+  memberships,
+  shareGrants,
   availableResources,
-  onToggleGrant 
+  onBulkManage,
 }: MemberPermissionsMatrixProps) {
   const [searchMember, setSearchMember] = useState("");
-  const [searchResource, setSearchResource] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(memberships[0]?.userId ?? null);
-  const [resourceFilter, setResourceFilter] = useState<"all" | "group" | "profile">("all");
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
-  const activeMember = memberships.find(m => m.userId === selectedUserId);
+  // Sheet states
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [sheetSearch, setSheetSearch] = useState("");
+  const [sheetSelectedResources, setSheetSelectedResources] = useState<Set<string>>(new Set());
+  const [sheetMode, setSheetMode] = useState<"grant" | "revoke">("grant");
 
-  // Show all members including owners so admins can inspect any member's grants
+  // Handle member table
   const manageableMembers = useMemo(() => {
-    return memberships.filter(m => {
+    return memberships.filter((m) => {
       if (!searchMember) return true;
       return m.email.toLowerCase().includes(searchMember.toLowerCase());
     });
   }, [memberships, searchMember]);
 
-  const filteredResources = useMemo(() => {
-    return availableResources.filter(r => {
-      if (resourceFilter !== "all" && r.type !== resourceFilter) return false;
-      if (!searchResource) return true;
-      return r.name.toLowerCase().includes(searchResource.toLowerCase());
-    });
-  }, [availableResources, searchResource, resourceFilter]);
+  const toggleUserSelection = (userId: string) => {
+    const next = new Set(selectedUserIds);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
+    setSelectedUserIds(next);
+  };
 
-  const getUserShareStatus = (userId: string, resourceId: string) => {
-    // Ideally map by email for shareGrants since Backend uses recipient_email.
-    const memberEmail = memberships.find(m => m.userId === userId)?.email;
-    return shareGrants.some(
-      g => g.recipientEmail === memberEmail && g.resourceId === resourceId && !g.revokedAt
-    );
+  const toggleAllUsers = () => {
+    if (selectedUserIds.size === manageableMembers.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(manageableMembers.map((m) => m.userId)));
+    }
+  };
+
+  const getResourceCount = (memberEmail: string, type: "profile" | "group") => {
+    return shareGrants.filter(
+      (g) => g.recipientEmail === memberEmail && g.resourceType === type && !g.revokedAt
+    ).length;
+  };
+
+  // Sheet interactions
+  const openSheet = (userIds: string[], mode: "grant" | "revoke") => {
+    // If we only selected one user to manage, auto-select those they already have/don't have?
+    // Actually simpler: just blank slate and let user select resources.
+    setSheetSelectedResources(new Set());
+    setSelectedUserIds(new Set(userIds));
+    setSheetMode(mode);
+    setIsSheetOpen(true);
+  };
+
+  const filteredResources = useMemo(() => {
+    return availableResources.filter((r) => {
+      if (!sheetSearch) return true;
+      return r.name.toLowerCase().includes(sheetSearch.toLowerCase());
+    });
+  }, [availableResources, sheetSearch]);
+
+  const toggleResourceSelection = (resId: string) => {
+    const next = new Set(sheetSelectedResources);
+    if (next.has(resId)) next.delete(resId);
+    else next.add(resId);
+    setSheetSelectedResources(next);
+  };
+
+  const toggleAllResources = () => {
+    if (sheetSelectedResources.size === filteredResources.length) {
+      setSheetSelectedResources(new Set());
+    } else {
+      setSheetSelectedResources(new Set(filteredResources.map((r) => r.id)));
+    }
+  };
+
+  const handleApplyBulk = () => {
+    const userIds = Array.from(selectedUserIds);
+    const resources = Array.from(sheetSelectedResources).map((id) => {
+      const res = availableResources.find((r) => r.id === id);
+      return { id, type: res!.type };
+    });
+    
+    if (userIds.length > 0 && resources.length > 0) {
+      onBulkManage(userIds, resources, sheetMode);
+    }
+    
+    setIsSheetOpen(false);
+    setSelectedUserIds(new Set());
   };
 
   return (
-    <div className="flex h-[calc(100vh-280px)] min-h-[500px] w-full gap-4 overflow-hidden rounded-xl border border-border/70 bg-background/50 shadow-sm backdrop-blur-sm">
-      
-      {/* LEFT: MEMBER LIST */}
-      <div className="flex w-[320px] flex-col border-r border-border/70 bg-card/30">
-        <div className="border-b border-border/60 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Chọn Member (User)</span>
-            <Badge variant="secondary" className="px-1.5 py-0">
-              {manageableMembers.length}
-            </Badge>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+    <div className="flex flex-col gap-4">
+      {/* Action Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/70 bg-card p-3">
+        <div className="flex items-center gap-2">
+          <div className="relative w-[280px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm theo email..."
+              placeholder="Tìm user..."
+              className="pl-8 h-9"
               value={searchMember}
               onChange={(e) => setSearchMember(e.target.value)}
-              className="h-8 w-full bg-background/50 pl-8 text-xs"
             />
           </div>
+          <Badge variant="secondary" className="h-6">
+            {manageableMembers.length} thành viên
+          </Badge>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-3 space-y-1">
-            {manageableMembers.map((member) => (
-              <button
-                key={member.userId}
-                onClick={() => setSelectedUserId(member.userId)}
-                className={cn(
-                  "group relative flex w-full items-center justify-between rounded-md p-3 text-left transition-all duration-200",
-                  selectedUserId === member.userId 
-                    ? "bg-primary/10 border border-primary/20" 
-                    : "border border-transparent hover:bg-muted/50"
-                )}
-              >
-                <div className="flex items-start gap-3 overflow-hidden">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-inner">
-                    <Users className="h-4 w-4" />
-                  </div>
-                  <div className="space-y-1 truncate">
-                    <p className={cn(
-                      "truncate text-sm font-medium",
-                      selectedUserId === member.userId ? "text-primary" : "text-foreground"
-                    )}>
-                      {member.email}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      {member.role}
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className={cn(
-                  "h-4 w-4 shrink-0 transition-transform", 
-                  selectedUserId === member.userId ? "text-primary opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                )} />
-              </button>
-            ))}
-            
-            {manageableMembers.length === 0 && (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Không tìm thấy member nào
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* RIGHT: RESOURCE MATRIX */}
-      <div className="flex flex-1 flex-col bg-background/50">
-        {activeMember ? (
-          <>
-            <div className="border-b border-border/60 p-6">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground">
-                  Phân quyền vùng dữ liệu
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Bật/tắt các Profile và Group mà <span className="font-semibold text-foreground">{activeMember.email}</span> được phép truy cập.
-                </p>
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-                <Tabs value={resourceFilter} onValueChange={(v) => setResourceFilter(v as any)} className="w-[300px]">
-                  <TabsList className="grid w-full grid-cols-3 h-8">
-                    <TabsTrigger value="all" className="text-xs">Tất cả</TabsTrigger>
-                    <TabsTrigger value="group" className="text-xs">Chỉ Group</TabsTrigger>
-                    <TabsTrigger value="profile" className="text-xs">Chỉ Profile</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Tìm tên resource..."
-                    value={searchResource}
-                    onChange={(e) => setSearchResource(e.target.value)}
-                    className="h-8 w-full bg-background/50 pl-8 text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <ScrollArea className="flex-1 p-6">
-              <div className="mx-auto max-w-4xl grid gap-3 sm:grid-cols-2 xl:grid-cols-3 pb-10">
-                <AnimatePresence mode="popLayout">
-                  {filteredResources.map((resource) => {
-                    const isGranted = getUserShareStatus(activeMember.userId, resource.id);
-                    
-                    return (
-                      <motion.div
-                        layout
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        key={resource.id}
-                        className={cn(
-                          "flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors",
-                          isGranted 
-                            ? "border-primary/40 bg-primary/[0.02]" 
-                            : "border-border/60 bg-card/30"
-                        )}
-                      >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
-                            resource.type === "group" 
-                              ? "bg-blue-500/10 border-blue-500/20 text-blue-500" 
-                              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                          )}>
-                            {resource.type === "group" ? <LayoutGrid className="h-4 w-4" /> : <MonitorSmartphone className="h-4 w-4" />}
-                          </div>
-                          
-                          <div className="truncate">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {resource.name}
-                            </p>
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {resource.type}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Switch
-                          checked={isGranted}
-                          onCheckedChange={() => onToggleGrant(activeMember.userId, resource.id, resource.type, isGranted)}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-                
-                {filteredResources.length === 0 && (
-                  <div className="col-span-full py-12 text-center text-muted-foreground">
-                    <KeyRound className="mx-auto mb-3 h-8 w-8 opacity-20" />
-                    <p>Không có vùng dữ liệu nào khớp với bộ lọc.</p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <Users className="mb-4 h-12 w-12 opacity-20" />
-            <p>Chọn một thành viên từ danh sách để phân quyền</p>
+        {selectedUserIds.size > 0 && (
+          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+            <span className="text-sm font-medium text-foreground px-2">
+              Đã chọn {selectedUserIds.size}
+            </span>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => openSheet(Array.from(selectedUserIds), "grant")}
+            >
+              Cấp quyền Hàng loạt
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => openSheet(Array.from(selectedUserIds), "revoke")}
+            >
+              Gỡ quyền Hàng loạt
+            </Button>
           </div>
         )}
       </div>
+
+      {/* Main Table */}
+      <div className="rounded-md border border-border/70 bg-card shadow-sm">
+        <ScrollArea className="h-[500px]">
+          <Table>
+            <TableHeader className="bg-muted/30 sticky top-0 z-10">
+              <TableRow>
+                <TableHead className="w-[50px] text-center">
+                  <Checkbox
+                    checked={
+                      manageableMembers.length > 0 &&
+                      selectedUserIds.size === manageableMembers.length
+                    }
+                    onCheckedChange={toggleAllUsers}
+                  />
+                </TableHead>
+                <TableHead>User / Email</TableHead>
+                <TableHead>Vai trò</TableHead>
+                <TableHead className="text-center">Profile đã gán</TableHead>
+                <TableHead className="text-center">Group đã gán</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {manageableMembers.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-32 text-center text-muted-foreground"
+                  >
+                    Không tìm thấy thành viên.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                manageableMembers.map((member) => (
+                  <TableRow
+                    key={member.userId}
+                    data-state={selectedUserIds.has(member.userId) ? "selected" : undefined}
+                  >
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={selectedUserIds.has(member.userId)}
+                        onCheckedChange={() => toggleUserSelection(member.userId)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        {member.email}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {member.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="px-2 font-mono">
+                        {getResourceCount(member.email, "profile")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="px-2 font-mono text-blue-500">
+                        {getResourceCount(member.email, "group")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openSheet([member.userId], "grant")}
+                      >
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        Quản lý...
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </div>
+
+      {/* Sheet / Drawer for choosing multiple resources */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="w-[480px] sm:max-w-md flex flex-col p-0 h-full">
+          <SheetHeader className="p-6 pb-4 border-b border-border/70">
+            <SheetTitle className="flex items-center gap-2">
+              {sheetMode === "grant" ? "Cấp quyền truy cập" : "Gỡ quyền truy cập"}
+              {sheetMode === "revoke" && <ShieldAlert className="h-4 w-4 text-destructive" />}
+            </SheetTitle>
+            <SheetDescription>
+              {(sheetMode === "grant" ? "Chỉ định" : "Thu hồi")} quyền trên các Profile/Group dưới đây cho{" "}
+              <strong className="text-foreground">{selectedUserIds.size} thành viên</strong>.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="px-6 py-3 border-b border-border/70">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm Profile hoặc Group..."
+                className="pl-8"
+                value={sheetSearch}
+                onChange={(e) => setSheetSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 px-6">
+            <div className="py-2 flex flex-col gap-2">
+              <div
+                className="flex items-center gap-3 p-3 cursor-pointer rounded-md hover:bg-muted/50 border border-transparent"
+                onClick={toggleAllResources}
+              >
+                <Checkbox
+                  checked={
+                    filteredResources.length > 0 &&
+                    sheetSelectedResources.size === filteredResources.length
+                  }
+                />
+                <span className="text-sm font-semibold">Chọn tất cả hiện thị ({filteredResources.length})</span>
+              </div>
+              
+              {filteredResources.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-md mt-4">
+                  Trống.
+                </div>
+              ) : (
+                filteredResources.map((res) => (
+                  <label
+                    key={res.id}
+                    className="flex items-center justify-between gap-3 p-3 rounded-md border border-border/70 bg-card hover:border-primary/50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <Checkbox
+                        checked={sheetSelectedResources.has(res.id)}
+                        onCheckedChange={() => toggleResourceSelection(res.id)}
+                      />
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                          res.type === "group"
+                            ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                        )}
+                      >
+                        {res.type === "group" ? (
+                          <LayoutGrid className="h-4 w-4" />
+                        ) : (
+                          <MonitorSmartphone className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="truncate">
+                        <p className="truncate text-sm font-medium text-foreground leading-tight">
+                          {res.name}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                          {res.type}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          <SheetFooter className="p-6 border-t border-border/70 flex flex-col sm:flex-row sm:justify-between items-center sm:space-x-2 bg-muted/20">
+            <div className="text-sm text-foreground mb-4 sm:mb-0 space-x-1">
+              Đã chọn: <strong>{sheetSelectedResources.size}</strong> tài nguyên
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsSheetOpen(false)}>
+                Hủy
+              </Button>
+              <Button
+                variant={sheetMode === "grant" ? "default" : "destructive"}
+                disabled={sheetSelectedResources.size === 0}
+                onClick={handleApplyBulk}
+              >
+                {sheetMode === "grant" ? "Lưu cấp quyền" : "Xác nhận gỡ"}
+              </Button>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

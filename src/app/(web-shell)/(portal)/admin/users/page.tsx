@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PortalSettingsPage } from "@/components/portal/portal-settings-page";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -299,22 +300,31 @@ export default function AdminUsersPage() {
                   rows.map((user) => (
                     <TableRow key={user.userId}>
                       <TableCell>
-                        <p className="truncate font-medium">{user.email}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {user.userId}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8 border border-border/50">
+                            <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
+                              {user.email.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{user.email}</p>
+                            <p className="truncate text-[10px] text-muted-foreground font-mono">
+                              {user.userId}
+                            </p>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="capitalize">
                         {formatAuthProvider(user.authProvider)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {user.platformRole === "platform_admin"
-                            ? t(
-                                "portalSite.adminUsers.create.rolePlatformAdmin",
-                              )
-                            : t("portalSite.adminUsers.create.roleUser")}
-                        </Badge>
+                        {user.platformRole === "platform_admin" ? (
+                          <Badge className="bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20" variant="outline">
+                            Platform VIP
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">User</span>
+                        )}
                       </TableCell>
                       <TableCell>{user.workspaceCount}</TableCell>
                       <TableCell>
