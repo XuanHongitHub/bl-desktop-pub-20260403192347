@@ -2,6 +2,8 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/buglogin/app}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
+SKIP_GIT_PULL="${SKIP_GIT_PULL:-0}"
 WEB_PORT="${WEB_PORT:-3003}"
 API_PORT="${API_PORT:-12342}"
 WEB_PROCESS="${WEB_PROCESS:-buglogin-web}"
@@ -53,8 +55,22 @@ start_or_reload_pm2() {
 require_cmd pnpm
 require_cmd pm2
 require_cmd curl
+require_cmd git
 
 cd "$APP_DIR"
+
+if [ "$SKIP_GIT_PULL" != "1" ]; then
+  log "Syncing git branch ($DEPLOY_BRANCH) with fast-forward only"
+  if [ -n "$(git status --porcelain)" ]; then
+    log "Working tree is dirty at $APP_DIR. Commit/stash changes first, or run with SKIP_GIT_PULL=1."
+    exit 1
+  fi
+  git fetch origin "$DEPLOY_BRANCH"
+  git checkout "$DEPLOY_BRANCH"
+  git pull --ff-only origin "$DEPLOY_BRANCH"
+else
+  log "Skipping git pull (SKIP_GIT_PULL=1)"
+fi
 
 if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
