@@ -207,9 +207,10 @@ async function parseErrorMessage(response: Response): Promise<string> {
 function buildHeaders(
   connection: WebBillingConnection,
 ): Record<string, string> {
+  const controlToken = connection.controlToken.trim();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${connection.controlToken}`,
+    Authorization: `Bearer ${controlToken}`,
     "x-user-id": connection.userId,
     "x-user-email": connection.userEmail,
   };
@@ -290,7 +291,7 @@ async function requestControl<T>(
   },
   init: RequestInit,
 ): Promise<T> {
-  if (!connection?.controlToken) {
+  if (!connection?.controlToken?.trim()) {
     throw new Error("missing_control_token");
   }
 
