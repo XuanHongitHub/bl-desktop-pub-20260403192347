@@ -29,6 +29,8 @@ jobs:
       BUGLOGIN_BROWSER_API_BASE: https://api.buglogin.com
       NEXT_PUBLIC_SYNC_SERVER_URL: https://api.buglogin.com
       BUGLOGIN_DEFAULT_SYNC_SERVER_URL: https://api.buglogin.com
+      NEXT_PUBLIC_SYNC_TOKEN: ${{ secrets.BUGLOGIN_SYNC_TOKEN }}
+      BUGLOGIN_DEFAULT_SYNC_TOKEN: ${{ secrets.BUGLOGIN_SYNC_TOKEN }}
       NEXT_PUBLIC_WEB_PORTAL_URL: https://buglogin.com
       NEXT_PUBLIC_BILLING_PORTAL_URL: https://buglogin.com
       NEXT_PUBLIC_STRIPE_BILLING_URL: https://buglogin.com

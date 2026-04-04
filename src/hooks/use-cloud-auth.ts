@@ -159,6 +159,10 @@ function resolveControlTokenFromSettings(
     return null;
   }
 
+  if (envToken && envToken.length > 0) {
+    return envToken;
+  }
+
   if (configuredToken && configuredToken.length > 0) {
     return configuredToken;
   }

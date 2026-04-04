@@ -339,12 +339,12 @@ function resolveRuntimeToken(settings?: SyncSettings | null): string | null {
     return null;
   }
 
-  if (configuredToken && configuredToken.length > 0) {
-    return configuredToken;
-  }
-
   if (envToken && envToken.length > 0) {
     return envToken;
+  }
+
+  if (configuredToken && configuredToken.length > 0) {
+    return configuredToken;
   }
 
   return null;
