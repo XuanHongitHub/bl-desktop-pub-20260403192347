@@ -12,10 +12,10 @@ use crate::wayfern_manager::{WayfernConfig, WayfernManager};
 #[cfg(target_os = "windows")]
 use image::{ImageFormat, Rgba, RgbaImage};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::System;
 use url::Url;
@@ -244,7 +244,9 @@ impl BrowserRunner {
 
     // Construct browser directory path: binaries/<browser>/<version>/
     let mut browser_dir = self.get_binaries_dir();
-    browser_dir.push(crate::browser::canonical_managed_browser_slug(&profile.browser));
+    browser_dir.push(crate::browser::canonical_managed_browser_slug(
+      &profile.browser,
+    ));
     browser_dir.push(&profile.version);
 
     // Get platform-specific executable path
@@ -3681,7 +3683,9 @@ async fn ensure_managed_browser_downloaded_for_profile(
     .get_browser_release_types(managed_slug)
     .await
     .map_err(|e| format!("Failed to resolve latest version for {managed_slug}: {e}"))?;
-  let target_version = release_types.stable.unwrap_or_else(|| profile.version.clone());
+  let target_version = release_types
+    .stable
+    .unwrap_or_else(|| profile.version.clone());
 
   log::info!(
     "Managed browser binary missing for profile '{}' ({} {}). Auto-downloading {} {}",
@@ -3731,7 +3735,10 @@ async fn ensure_managed_browser_downloaded_for_profile(
 async fn preflight_check_required_managed_browser_update(
   profile: &BrowserProfile,
 ) -> Result<(), String> {
-  if !matches!(profile.browser.as_str(), "camoufox" | "bugox" | "wayfern" | "bugium") {
+  if !matches!(
+    profile.browser.as_str(),
+    "camoufox" | "bugox" | "wayfern" | "bugium"
+  ) {
     return Ok(());
   }
 
@@ -3869,9 +3876,7 @@ fn resolve_process_snapshot_by_pid(
     RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
   );
   let process = system.process(Pid::from(pid as usize))?;
-  let executable_path = process
-    .exe()
-    .map(|path| path.to_string_lossy().to_string());
+  let executable_path = process.exe().map(|path| path.to_string_lossy().to_string());
   let command_line = process
     .cmd()
     .iter()
@@ -3929,7 +3934,9 @@ pub async fn get_browser_runtime_diagnostics(
 
   if let Some(filter_ids) = profile_ids {
     if !filter_ids.is_empty() {
-      let filter_set = filter_ids.into_iter().collect::<std::collections::HashSet<_>>();
+      let filter_set = filter_ids
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>();
       profiles.retain(|profile| filter_set.contains(&profile.id.to_string()));
     }
   }
@@ -4018,7 +4025,6 @@ pub async fn get_browser_runtime_diagnostics(
 
   Ok(diagnostics)
 }
-
 
 #[tauri::command]
 pub async fn check_camoufox_ua_version_alignment(

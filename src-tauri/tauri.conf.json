@@ -5,7 +5,7 @@
   "identifier": "com.buglogin.desktop",
   "build": {
     "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
-    "devUrl": "http://localhost:12341/desktop",
+    "devUrl": "http://localhost:12341",
     "beforeBuildCommand": "node scripts/tauri-before-build.mjs",
     "frontendDist": "../dist"
   },

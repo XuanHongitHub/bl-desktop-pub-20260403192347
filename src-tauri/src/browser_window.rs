@@ -1,7 +1,6 @@
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
 mod platform_windows {
-  use std::collections::HashSet;
   use ::sysinfo::{Pid, System};
   use ::windows::core::{BOOL, PCWSTR};
   use ::windows::Win32::Foundation::{HWND, LPARAM};
@@ -9,6 +8,7 @@ mod platform_windows {
     EnumWindows, GetWindow, GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow,
     SetWindowTextW, ShowWindow, GW_OWNER, SW_MINIMIZE, SW_RESTORE,
   };
+  use std::collections::HashSet;
   use std::time::Duration;
 
   #[derive(Clone, Copy)]

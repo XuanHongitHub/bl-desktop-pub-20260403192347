@@ -259,12 +259,6 @@ function deriveSeedContext(seed) {
     pickSeedValue(raw, ["login_password", "tiktok_login_password"]);
   const username = explicitUsername || (phone ? `${phone}.bug` : "");
   const loginPassword = explicitLoginPassword || accountPassword || (phone ? `${phone}bug!` : "");
-  const firstName =
-    pickSeedValue(payload, ["firstName", "first_name", "fname"]) ||
-    pickSeedValue(raw, ["first_name", "firstname", "fname"]);
-  const lastName =
-    pickSeedValue(payload, ["lastName", "last_name", "lname"]) ||
-    pickSeedValue(raw, ["last_name", "lastname", "lname"]);
 
   return {
     email,
@@ -293,8 +287,6 @@ function deriveSeedContext(seed) {
     username,
     loginUsername: username,
     loginPassword,
-    firstName,
-    lastName,
     ein,
     ssn,
     dob,
@@ -369,11 +361,6 @@ function createAutoState() {
     callbackTicketExpiredRecoveredAt: 0,
     lastStepDiagnosticAt: Object.create(null),
     stepDiagnosticCount: 0,
-    shopNameRetryCount: 0,
-    shopContactVerified: false,
-    shopContactType: "",
-    shopContactCodeRequestedAt: 0,
-    shopContactOtpLastSubmittedCode: "",
   };
 }
 
@@ -399,31 +386,6 @@ async function safeFill(locator, value) {
     await locator.first().fill("");
     await locator.first().fill(value, { timeout: 1500 });
     return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Force-set a React controlled input value using the native setter so React
- * picks up the change event. Falls back to direct .value assignment.
- * Must be called inside page.evaluate().
- */
-function forceReactInputValue(input, value) {
-  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return false;
-  try {
-    const nativeSetter = Object.getOwnPropertyDescriptor(
-      Object.getPrototypeOf(input),
-      "value",
-    )?.set;
-    if (nativeSetter) {
-      nativeSetter.call(input, value);
-    } else {
-      input.value = value;
-    }
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    return String(input.value || "") === String(value);
   } catch {
     return false;
   }
@@ -1063,61 +1025,6 @@ async function fillFirstMatch(inputs, value) {
   return false;
 }
 
-async function readFirstInputValue(locator) {
-  try {
-    if ((await safeCount(locator)) === 0) return "";
-    return String((await locator.first().inputValue().catch(() => "")) || "").trim();
-  } catch {
-    return "";
-  }
-}
-
-function normalizeSimpleText(input) {
-  return String(input || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function normalizeDigitsOnly(input) {
-  return String(input || "").replace(/\D+/g, "");
-}
-
-function isLikelyPersonName(value) {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  if (!/[a-z]/i.test(text)) return false;
-  if (/\d/.test(text)) return false;
-  return true;
-}
-
-async function fillFirstMatchIfNeeded(inputs, value, options = {}) {
-  const targetRaw = String(value || "");
-  if (!targetRaw.trim()) return false;
-
-  const normalize =
-    typeof options.normalize === "function" ? options.normalize : (v) => String(v || "").trim();
-  const isValidCurrent = typeof options.isValidCurrent === "function" ? options.isValidCurrent : null;
-  const forceOverwriteInvalid = options.forceOverwriteInvalid !== false;
-  const target = normalize(targetRaw);
-
-  for (const input of inputs) {
-    if ((await safeCount(input)) === 0) continue;
-    const current = await readFirstInputValue(input);
-    const normalizedCurrent = normalize(current);
-    if (normalizedCurrent && normalizedCurrent === target) {
-      return true;
-    }
-    if (isValidCurrent && isValidCurrent(current)) {
-      // Already valid enough, do not overwrite to avoid reset loops.
-      return true;
-    }
-    if (!forceOverwriteInvalid && normalizedCurrent) {
-      continue;
-    }
-    const done = await safeFill(input, targetRaw);
-    if (done) return true;
-  }
-  return false;
-}
-
 async function fillOtpInputs(page, otpCode) {
   const code = String(otpCode || "").replace(/[^\d]/g, "").slice(0, 8);
   if (!code || code.length < 4) return false;
@@ -1617,8 +1524,162 @@ async function fillVisibleEinFormFields(page, seedContext) {
     };
   }
 
-  // Strict mode: no generic fallback to avoid touching non-EIN inputs.
-  return { filledCount: 0 };
+  const values = {
+    einRaw,
+  };
+  return page
+    .evaluate((payload) => {
+      const normalized = (value) => String(value || "").trim().toLowerCase();
+      let filledCount = 0;
+
+      const countPlaceholderDigits = (placeholder) =>
+        String(placeholder || "")
+          .split("")
+          .filter((char) => char.toLowerCase() === "x").length;
+
+      const findVisibleEinInputs = () => {
+        const isVisible = (node) => node instanceof HTMLInputElement && node.offsetParent !== null;
+        const byVisualOrder = (inputs) =>
+          [...inputs].sort((a, b) => {
+            const ar = a.getBoundingClientRect();
+            const br = b.getBoundingClientRect();
+            if (Math.abs(ar.top - br.top) > 2) return ar.top - br.top;
+            return ar.left - br.left;
+          });
+
+        const einContainer =
+          document.querySelector("[data-tid='entity_info.company_info.company_register_num']") ||
+          Array.from(document.querySelectorAll("div,section,form")).find((node) => {
+            if (!(node instanceof HTMLElement) || node.offsetParent === null) return false;
+            const text = String(node.innerText || node.textContent || "").toLowerCase();
+            return text.includes("employer identification number") || text.includes("(ein)");
+          }) ||
+          document.body;
+
+        const scopedInputs = byVisualOrder(
+          Array.from(einContainer.querySelectorAll("input")).filter(isVisible),
+        );
+
+        const firstByPlaceholder = scopedInputs.find(
+          (node) => normalized(node.getAttribute("placeholder")) === "xx",
+        );
+        const secondByPlaceholder =
+          scopedInputs.find((node) => normalized(node.getAttribute("placeholder")) === "xxxxxxx") ||
+          scopedInputs.find((node) => normalized(node.getAttribute("placeholder")) === "xxxxxxxx");
+
+        if (firstByPlaceholder && secondByPlaceholder) {
+          return { firstInput: firstByPlaceholder, secondInput: secondByPlaceholder };
+        }
+
+        const xInputs = byVisualOrder(
+          scopedInputs.filter((node) => countPlaceholderDigits(node.getAttribute("placeholder")) > 0),
+        );
+        if (xInputs.length >= 2) {
+          return { firstInput: xInputs[0], secondInput: xInputs[1] };
+        }
+
+        const compactInputs = byVisualOrder(
+          scopedInputs.filter((node) => {
+            const rect = node.getBoundingClientRect();
+            return rect.width >= 24 && rect.width <= 200;
+          }),
+        );
+        if (compactInputs.length >= 2) {
+          return { firstInput: compactInputs[0], secondInput: compactInputs[1] };
+        }
+        return { firstInput: null, secondInput: null };
+      };
+
+      const setNativeValue = (input, value) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        const proto = Object.getPrototypeOf(input);
+        const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+        if (descriptor && typeof descriptor.set === "function") {
+          descriptor.set.call(input, String(value || ""));
+        } else {
+          input.value = String(value || "");
+        }
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      const fillEinByVisibleOrder = () => {
+        const { firstInput, secondInput } = findVisibleEinInputs();
+        if (!firstInput || !secondInput || !payload.einRaw) {
+          return { count: 0, firstInput, secondInput };
+        }
+        const firstPlaceholderLen = countPlaceholderDigits(firstInput.getAttribute("placeholder"));
+        const secondPlaceholderLen = countPlaceholderDigits(secondInput.getAttribute("placeholder"));
+        const firstLen = Math.max(2, firstPlaceholderLen || 2);
+        const secondLen = Math.max(7, secondPlaceholderLen || 7);
+        const wholeEinDigits = String(payload.einRaw || "").replace(/\D+/g, "");
+        const firstTarget = wholeEinDigits.slice(0, firstLen);
+        const secondTarget = wholeEinDigits.slice(firstLen, firstLen + secondLen);
+        if (!firstTarget || !secondTarget) {
+          return { count: 0, firstInput, secondInput };
+        }
+        const firstCurrent = String(firstInput.value || "").replace(/\D+/g, "");
+        const secondCurrent = String(secondInput.value || "").replace(/\D+/g, "");
+        if (firstCurrent === firstTarget && secondCurrent === secondTarget) {
+          return { count: 0, firstInput, secondInput };
+        }
+
+        // Atomic write in one pass to avoid cross-field reset when framework re-validates.
+        firstInput.focus();
+        setNativeValue(firstInput, firstTarget);
+        secondInput.focus();
+        setNativeValue(secondInput, secondTarget);
+        secondInput.blur();
+
+        const firstAfter = String(firstInput.value || "").replace(/\D+/g, "");
+        const secondAfter = String(secondInput.value || "").replace(/\D+/g, "");
+        let count = 0;
+        if (firstAfter === firstTarget) count += 1;
+        if (secondAfter === secondTarget) count += 1;
+        return { count, firstInput, secondInput };
+      };
+
+      const einFilled = fillEinByVisibleOrder();
+      filledCount += Number(einFilled?.count || 0);
+      // Conservative fallback:
+      // only use single-input EIN mode when there is exactly one visible EIN input
+      // and it is not a split placeholder style (XX / XXXXXXX / XXXXXXXX).
+      if (filledCount === 0 && payload.einRaw) {
+        const visibleInputs = Array.from(document.querySelectorAll("input")).filter(
+          (node) => node instanceof HTMLInputElement && node.offsetParent !== null,
+        );
+        const einCandidates = visibleInputs.filter((node) => {
+          const key = [
+            node.getAttribute("name"),
+            node.getAttribute("id"),
+            node.getAttribute("placeholder"),
+            node.getAttribute("aria-label"),
+            node.closest("[data-b-form-item]")?.textContent || "",
+          ]
+            .map((item) => normalized(item))
+            .join(" ");
+          return key.includes("ein") || key.includes("employer identification");
+        });
+        if (einCandidates.length === 1) {
+          const singleEin = einCandidates[0];
+          const placeholder = normalized(singleEin?.getAttribute("placeholder"));
+          const looksSplitPlaceholder =
+            placeholder === "xx" || placeholder === "xxxxxxx" || placeholder === "xxxxxxxx";
+          if (singleEin instanceof HTMLInputElement && !looksSplitPlaceholder) {
+            singleEin.focus();
+            singleEin.value = "";
+            singleEin.dispatchEvent(new Event("input", { bubbles: true }));
+            singleEin.value = payload.einRaw;
+            singleEin.dispatchEvent(new Event("input", { bubbles: true }));
+            singleEin.dispatchEvent(new Event("change", { bubbles: true }));
+            filledCount += 1;
+          }
+        }
+      }
+
+      return { filledCount };
+    }, values)
+    .catch(() => ({ filledCount: 0 }));
 }
 
 async function fillBusinessDetailsFields(page, seedContext) {
@@ -1918,7 +1979,7 @@ async function fillBusinessDetailsWithPlaywright(page, seedContext) {
   }
   if (zip) {
     const done = await fillFirstMatch(
-      [page.locator("input[placeholder='ZIP code']"), page.locator("input[placeholder*='zip' i]")],
+      [page.locator("input[placeholder*='zip' i]"), page.locator("input[inputmode='numeric']")],
       zip,
     );
     if (done) filledCount += 1;
@@ -1948,20 +2009,7 @@ async function fillBusinessDetailsWithPlaywright(page, seedContext) {
   return { filledCount, addressOptionChosen, stateChosen };
 }
 
-async function fillBusinessDetailsFallbackByDescriptor(page, seedContext) {
-  const generic = await fillBusinessDetailsFields(page, seedContext);
-  return {
-    filledCount: Number(generic?.filledCount || 0),
-    addressOptionChosen: Boolean(generic?.addressOptionChosen),
-    stateChosen:
-      Boolean(generic?.stateChosen) ||
-      Boolean(generic?.selectCount) ||
-      false,
-  };
-}
-
 async function fillPrimaryRepresentativeStep(page, seedContext) {
-  const raw = seedContext?.raw && typeof seedContext.raw === "object" ? seedContext.raw : {};
   const fullNameRaw = String(seedContext.fullName || "").trim();
   const companyNameRaw = String(seedContext.companyName || "").trim();
   const hasLetters = (value) => /[a-z]/i.test(String(value || ""));
@@ -1977,10 +2025,9 @@ async function fillPrimaryRepresentativeStep(page, seedContext) {
     if (!hasLetters(text)) return "";
     return text;
   };
-  const seededFirstName = safeName(seedContext.firstName || raw.first_name || "");
-  const seededLastName = safeName(seedContext.lastName || raw.last_name || "");
-  const firstName = seededFirstName || safeName(splitPreferred.firstName);
-  const lastName = seededLastName || safeName(splitPreferred.lastName);
+  const firstName = safeName(splitPreferred.firstName);
+  const lastName = safeName(splitPreferred.lastName);
+  const fullName = safeName(preferredNameSource);
   const dob = String(seedContext.dob || "").trim();
   const ssnDigits = String(seedContext.ssn || "").replace(/\D+/g, "");
   const address = String(seedContext.address || "").trim();
@@ -1994,20 +2041,6 @@ async function fillPrimaryRepresentativeStep(page, seedContext) {
     const candidates = [String(value), ...aliases.filter(Boolean)].map((item) => String(item).trim());
     const searchInput = page.locator(`input[placeholder='${placeholder}']`).first();
     if ((await safeCount(searchInput)) === 0) return false;
-
-    const currentBefore = String((await searchInput.inputValue().catch(() => "")) || "").trim();
-    const placeholderNorm = String(placeholder || "").trim().toLowerCase();
-    const currentNorm = normalizeSimpleText(currentBefore);
-    const candidatesNorm = candidates.map((item) => normalizeSimpleText(item)).filter(Boolean);
-    const isPlaceholderValue =
-      !currentBefore ||
-      currentNorm === placeholderNorm ||
-      (placeholderNorm === "month" && currentNorm === "month") ||
-      (placeholderNorm === "day" && currentNorm === "day") ||
-      (placeholderNorm === "year" && currentNorm === "year");
-    if (!isPlaceholderValue && candidatesNorm.some((item) => currentNorm === item || currentNorm.includes(item))) {
-      return true;
-    }
 
     const combobox =
       searchInput.locator("xpath=ancestor::*[@role='combobox'][1]").first();
@@ -2056,132 +2089,67 @@ async function fillPrimaryRepresentativeStep(page, seedContext) {
     const input = page.locator(`input[placeholder='${placeholder}']`).first();
     if ((await safeCount(input)) === 0) return false;
     const value = String((await input.inputValue().catch(() => "")) || "").trim();
-    if (!value) return false;
-    const normalized = normalizeSimpleText(value);
-    const p = normalizeSimpleText(placeholder);
-    if (normalized === p) return false;
-    return true;
+    return value.length > 0;
   };
 
-  const normalizePersonName = (value) =>
-    String(value || "")
-      .replace(/[^a-zA-Z\s.'-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
   await safeClick(page.locator("label", { hasText: /provide ssn/i }).first());
-  await page.waitForTimeout(150).catch(() => {});
 
-  if (ssnDigits.length >= 4) {
-    const ssnLeft = ssnDigits.length >= 9 ? ssnDigits.slice(0, 5) : "";
-    const ssnRight = ssnDigits.slice(-4);
-    const ssnFillResult = await page
+  if (ssnDigits.length >= 9) {
+    const ssnLeft = ssnDigits.slice(0, 5);
+    const ssnRight = ssnDigits.slice(5, 9);
+    const ssnSplitFilled = await page
       .evaluate((payload) => {
-        const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-        const applyValue = (input, value) => {
-          if (!(input instanceof HTMLInputElement)) return false;
-          const currentDigits = String(input.value || "").replace(/\D+/g, "");
-          if (currentDigits === value) return true;
+        const inputs = Array.from(document.querySelectorAll("input")).filter(
+          (node) => node instanceof HTMLInputElement && node.offsetParent !== null,
+        );
+        const findByPlaceholder = (target) =>
+          inputs.find(
+            (node) =>
+              String(node.getAttribute("placeholder") || "")
+                .trim()
+                .toLowerCase() === target,
+          ) || null;
+        const left = findByPlaceholder("xxx-xx-");
+        const right = findByPlaceholder("xxxx");
+        if (!(left instanceof HTMLInputElement) || !(right instanceof HTMLInputElement)) {
+          return false;
+        }
+        const setValue = (input, value) => {
           input.focus();
-          try {
-            const nativeSetter = Object.getOwnPropertyDescriptor(
-              Object.getPrototypeOf(input),
-              "value",
-            )?.set;
-            if (nativeSetter) {
-              nativeSetter.call(input, "");
-              input.dispatchEvent(new Event("input", { bubbles: true }));
-              nativeSetter.call(input, value);
-            } else {
-              input.value = "";
-              input.dispatchEvent(new Event("input", { bubbles: true }));
-              input.value = value;
-            }
-          } catch {
-            input.value = "";
-            input.dispatchEvent(new Event("input", { bubbles: true }));
-            input.value = value;
-          }
+          input.value = "";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.value = value;
           input.dispatchEvent(new Event("input", { bubbles: true }));
           input.dispatchEvent(new Event("change", { bubbles: true }));
-          input.blur();
-          return String(input.value || "").replace(/\D+/g, "") === value;
         };
-        const allInputs = Array.from(document.querySelectorAll("input")).filter(
-          (node) => node instanceof HTMLInputElement && visible(node),
-        );
-        const findByPlaceholder = (ph) =>
-          allInputs.find(
-            (node) => String(node.getAttribute("placeholder") || "").trim().toLowerCase() === ph,
-          ) || null;
-        // Split-field SSN: left side "xxx-xx-" and right side "xxxx"
-        const leftInput = findByPlaceholder("xxx-xx-");
-        const rightInput =
-          findByPlaceholder("xxxx") ||
-          allInputs.find((node) => {
-            const ph = String(node.getAttribute("placeholder") || "").trim().toLowerCase();
-            const ml = Number(node.maxLength || 0);
-            return ph === "xxxx" || ml === 4;
-          }) ||
-          null;
-        let leftOk = false;
-        let rightOk = false;
-        if (leftInput && payload.left) {
-          leftOk = applyValue(leftInput, payload.left);
-        }
-        if (rightInput) {
-          rightOk = applyValue(rightInput, payload.right);
-        }
-        return { leftOk, rightOk, hasLeft: !!leftInput, hasRight: !!rightInput };
+        setValue(left, payload.left);
+        setValue(right, payload.right);
+        return true;
       }, { left: ssnLeft, right: ssnRight })
-      .catch(() => ({ leftOk: false, rightOk: false, hasLeft: false, hasRight: false }));
-    if (ssnFillResult?.rightOk) filledCount += 1;
-    if (ssnFillResult?.leftOk) filledCount += 1;
+      .catch(() => false);
+    if (ssnSplitFilled) filledCount += 1;
   }
 
   if (firstName) {
-    const normalized = normalizePersonName(firstName);
-    const done = await fillFirstMatchIfNeeded([page.locator("input[placeholder*='first name' i]")], normalized, {
-      normalize: normalizeSimpleText,
-      isValidCurrent: (value) => isLikelyPersonName(value),
-    });
+    const done = await fillFirstMatch([page.locator("input[placeholder*='first name' i]")], firstName);
     if (done) filledCount += 1;
   }
   if (lastName) {
-    const normalized = normalizePersonName(lastName);
-    const done = await fillFirstMatchIfNeeded([page.locator("input[placeholder*='last name' i]")], normalized, {
-      normalize: normalizeSimpleText,
-      isValidCurrent: (value) => isLikelyPersonName(value),
-    });
+    const done = await fillFirstMatch([page.locator("input[placeholder*='last name' i]")], lastName);
     if (done) filledCount += 1;
   }
-
-  // Guard against accidental numeric pollution (e.g. ZIP/EIN leaking into name fields).
-  await page
-    .evaluate((payload) => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      const patchName = (selector, expected) => {
-        const input = document.querySelector(selector);
-        if (!(input instanceof HTMLInputElement) || !visible(input)) return false;
-        const current = String(input.value || "").trim();
-        const hasLetters = /[a-z]/i.test(current);
-        if (hasLetters) return false;
-        const safe = String(expected || "").trim();
-        if (!safe || !/[a-z]/i.test(safe)) return false;
-        input.focus();
-        input.value = "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.value = safe;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-      };
-      patchName("input[placeholder*='first name' i]", payload.firstName);
-      patchName("input[placeholder*='last name' i]", payload.lastName);
-    }, { firstName: normalizePersonName(firstName), lastName: normalizePersonName(lastName) })
-    .catch(() => {});
-  // Disable single-field legal-name fallback for this step:
-  // it can mis-map values when the page is still hydrating.
+  if (fullName && !(firstName && lastName)) {
+    // Only use full-name fallback when form truly exposes a single legal-name field.
+    const firstNameInputs = await safeCount(page.locator("input[placeholder*='first name' i]"));
+    const lastNameInputs = await safeCount(page.locator("input[placeholder*='last name' i]"));
+    if (firstNameInputs === 0 && lastNameInputs === 0) {
+      const done = await fillFirstMatch(
+        [page.locator("input[placeholder*='legal name' i]"), page.locator("input[name*='legal' i]")],
+        fullName,
+      );
+      if (done) filledCount += 1;
+    }
+  }
 
   if (dob) {
     const parsedDob = parseUsDateForDropdown(dob);
@@ -2216,214 +2184,71 @@ async function fillPrimaryRepresentativeStep(page, seedContext) {
         );
       }
       monthDone = monthDone || (await hasSelectValue("Month"));
-      if (!monthDone || !dayDone || !yearDone) {
-        const dobFallback = await page
-          .evaluate((payload) => {
-            const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-            const root =
-              Array.from(document.querySelectorAll("div,section,form")).find((node) => {
-                if (!visible(node)) return false;
-                const text = String(node.textContent || "").toLowerCase();
-                return text.includes("date of birth");
-              }) || document.body;
-            const selects = Array.from(root.querySelectorAll("select")).filter(visible);
-            if (selects.length < 3) return { month: false, day: false, year: false };
-            const monthSelect = selects[0];
-            const daySelect = selects[1];
-            const yearSelect = selects[2];
-            const setSelect = (sel, candidates) => {
-              if (!(sel instanceof HTMLSelectElement)) return false;
-              const options = Array.from(sel.options || []);
-              const normalized = candidates.map((v) => String(v || "").trim().toLowerCase());
-              let matched = null;
-              for (const option of options) {
-                const v = String(option.value || "").trim().toLowerCase();
-                const t = String(option.text || "").trim().toLowerCase();
-                if (normalized.includes(v) || normalized.includes(t)) {
-                  matched = option;
-                  break;
-                }
-              }
-              if (!matched) return false;
-              sel.value = matched.value;
-              sel.dispatchEvent(new Event("input", { bubbles: true }));
-              sel.dispatchEvent(new Event("change", { bubbles: true }));
-              return true;
-            };
-            const monthCandidates = [
-              payload.month,
-              payload.monthPad,
-              payload.monthName,
-              payload.monthShort,
-            ];
-            const dayCandidates = [payload.day, payload.dayPad];
-            const yearCandidates = [payload.year];
-            return {
-              month: setSelect(monthSelect, monthCandidates),
-              day: setSelect(daySelect, dayCandidates),
-              year: setSelect(yearSelect, yearCandidates),
-            };
-          }, {
-            month: String(parsedDob.month),
-            monthPad: String(parsedDob.month).padStart(2, "0"),
-            monthName,
-            monthShort: monthName.slice(0, 3),
-            day: String(parsedDob.day),
-            dayPad: String(parsedDob.day).padStart(2, "0"),
-            year: String(parsedDob.year),
-          })
-          .catch(() => ({ month: false, day: false, year: false }));
-        if (dobFallback.month) monthDone = true;
-      }
-      const dobDoneNow =
-        monthDone && (dayDone || (await hasSelectValue("Day"))) && (yearDone || (await hasSelectValue("Year")));
-      if (dobDoneNow) filledCount += 1;
+      if (monthDone || dayDone || yearDone) filledCount += 1;
     }
   }
 
   if (address) {
-    const done = await fillFirstMatchIfNeeded(
+    const done = await fillFirstMatch(
       [page.locator("input[placeholder*='street address' i]"), page.locator("input[placeholder*='residential address' i]")],
       address,
-      {
-        normalize: normalizeSimpleText,
-        isValidCurrent: (value) => String(value || "").trim().length >= 8,
-      },
     );
     if (done) filledCount += 1;
   }
   if (city) {
-    const cityInput = page.locator("input[placeholder='City']").first();
-    const currentCity = await readFirstInputValue(cityInput);
-    if (currentCity && normalizeSimpleText(currentCity) === normalizeSimpleText(city)) {
-      filledCount += 1;
-    } else if (currentCity && normalizeSimpleText(currentCity).length >= 2) {
-      filledCount += 1;
-    } else {
     let done = await selectArcoOption("City", city);
     if (!done) {
-      done = await fillFirstMatchIfNeeded(
+      done = await fillFirstMatch(
         [page.locator("input[placeholder='City']"), page.locator("input[placeholder*='city' i]")],
         city,
-        { normalize: normalizeSimpleText, isValidCurrent: (value) => String(value || "").trim().length >= 2 },
       );
     }
     if (done) filledCount += 1;
-    }
   }
   if (zip) {
-    const done = await fillFirstMatchIfNeeded(
-      [page.locator("input[placeholder='ZIP code']"), page.locator("input[placeholder*='zip' i]")],
-      zip,
-      { normalize: normalizeDigitsOnly, isValidCurrent: (value) => normalizeDigitsOnly(value).length === 5 },
-    );
+    const done = await fillFirstMatch([page.locator("input[placeholder*='zip' i]"), page.locator("input[inputmode='numeric']")], zip);
     if (done) filledCount += 1;
   }
   if (state) {
     const fullState = usStateName(state) || state;
-    const stateInput = page.locator("input[placeholder='State']").first();
-    const currentState = await readFirstInputValue(stateInput);
-    let chosen = false;
-    if (currentState) {
-      const now = normalizeSimpleText(currentState);
-      const t1 = normalizeSimpleText(fullState);
-      const t2 = normalizeSimpleText(state);
-      if (now === t1 || now.includes(t1) || now === t2) {
-        chosen = true;
-      }
-    }
-    if (!chosen) {
-      chosen = await selectArcoOption("State", fullState, [state]);
-    }
+    const chosen = await selectArcoOption("State", fullState, [state]);
     if (chosen) filledCount += 1;
   }
 
-  // Click UBO "Yes" scoped to the UBO question section to avoid clicking wrong Yes.
-  const uboYes = await page
-    .evaluate(() => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      // Find the UBO section container by its heading text.
-      const uboRoot = Array.from(document.querySelectorAll("div,section,fieldset")).find((node) => {
-        if (!visible(node)) return false;
-        const text = String(node.textContent || "").toLowerCase();
-        return (
-          text.includes("beneficial owner") ||
-          text.includes("ultimate beneficial") ||
-          text.includes("ubo") ||
-          text.includes("25% or more") ||
-          text.includes("owns 25") ||
-          text.includes("significant control")
-        );
-      });
-      const scope = uboRoot || document.body;
-      // Find a label/button containing exactly "Yes" within that scope.
-      const yesLabel = Array.from(scope.querySelectorAll("label,button,div[role='radio']")).find(
-        (node) => visible(node) && /^\s*yes\s*$/i.test(String(node.textContent || "")),
-      );
-      if (yesLabel instanceof HTMLElement) {
-        yesLabel.click();
-        return true;
-      }
-      return false;
-    })
-    .catch(() => false);
+  const uboYes =
+    (await safeClick(page.locator("label", { hasText: /\byes\b/i }).first())) ||
+    (await safeClick(page.locator("text=Yes").first()));
 
   const nationalityUsOpened =
-    (await selectArcoOption("select your region", "United States", ["US", "U.S.", "United States of America"])) ||
-    (await selectArcoOption("Nationality", "United States", ["US", "U.S.", "United States of America"])) ||
-    (await safeClick(page.locator("[role='combobox']").filter({ hasText: /nationality|region/i }).first())) ||
-    (await safeClick(page.locator("div", { hasText: /^Nationality$|^Region$/i }).first()));
+    (await safeClick(page.locator("[role='combobox']").filter({ hasText: /nationality/i }).first())) ||
+    (await safeClick(page.locator("div", { hasText: /^Nationality$/i }).first()));
   if (nationalityUsOpened) {
     await page.waitForTimeout(200).catch(() => {});
-    await safeClick(
-      page
-        .locator("[role='option'], .arco-select-option, .theme-arco-select-option")
-        .filter({ hasText: /\bUnited States\b|\bUS\b/i })
-        .first(),
-    );
+    await safeClick(page.locator("[role='option'], .arco-select-option").filter({ hasText: /\bUnited States\b/i }).first());
   }
 
   return { filledCount, uboYes: Boolean(uboYes) };
 }
 
 async function fillShopInformationStep(page, seedContext) {
-  const shopName = sanitizeShopName(seedContext.companyName || seedContext.fullName || "");
+  const shopName = String(seedContext.companyName || seedContext.fullName || "").trim();
   const email = String(seedContext.email || "").trim();
   const phone = String(seedContext.phone || "").trim();
 
   let filledCount = 0;
   if (shopName) {
     const done = await fillFirstMatch(
-      [
-        page.locator("input[placeholder*='shop name' i]"),
-        page.locator("input[placeholder='Enter a shop name']"),
-        page.locator("input[placeholder*='store name' i]"),
-        page.locator("input[name*='shop' i]"),
-      ],
+      [page.locator("input[placeholder*='shop name' i]"), page.locator("input[name*='shop' i]")],
       shopName,
     );
     if (done) filledCount += 1;
   }
   if (email) {
-    const done = await fillFirstMatch(
-      [
-        page.locator("input[placeholder*='contact email' i]"),
-        page.locator("input[placeholder*='email' i]"),
-        page.locator("input[type='email']"),
-      ],
-      email,
-    );
+    const done = await fillFirstMatch([page.locator("input[placeholder*='contact email' i]"), page.locator("input[type='email']")], email);
     if (done) filledCount += 1;
   }
   if (phone) {
-    const done = await fillFirstMatch(
-      [
-        page.locator("input[placeholder*='phone number' i]"),
-        page.locator("input[placeholder*='contact number' i]"),
-        page.locator("input[type='tel']"),
-      ],
-      phone,
-    );
+    const done = await fillFirstMatch([page.locator("input[placeholder*='phone number' i]"), page.locator("input[type='tel']")], phone);
     if (done) filledCount += 1;
   }
 
@@ -2434,364 +2259,11 @@ async function fillShopInformationStep(page, seedContext) {
   if (productOpened) {
     await page.waitForTimeout(200).catch(() => {});
     productChosen =
-      (await safeClick(
-        page
-          .locator("[role='option'], .arco-select-option, .theme-arco-select-option")
-          .filter({ hasText: /fashion|accessories|assoc|apparel|beauty|health|home/i })
-          .first(),
-      )) ||
-      (await safeClick(page.locator("[role='option'], .arco-select-option, .theme-arco-select-option").first()));
+      (await safeClick(page.locator("[role='option'], .arco-select-option").filter({ hasText: /fashion accessories/i }).first())) ||
+      (await safeClick(page.locator("[role='option'], .arco-select-option").first()));
   }
 
   return { filledCount, productChosen: Boolean(productChosen) };
-}
-
-async function readShopInformationStatus(page) {
-  return page
-    .evaluate(() => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      const textOf = (node) => String(node?.textContent || "").trim();
-      const normalize = (value) => String(value || "").trim().toLowerCase();
-      const digits = (value) => String(value || "").replace(/\D+/g, "");
-      const hasErrorText = Array.from(document.querySelectorAll("div,span,p"))
-        .filter(visible)
-        .some((node) => /required|invalid|correct format|please enter/i.test(textOf(node)));
-      const shopNameIssueText = Array.from(document.querySelectorAll("div,span,p"))
-        .filter(visible)
-        .map((node) => textOf(node))
-        .find((text) =>
-          /shop name/i.test(text) &&
-          /already exists|already taken|unavailable|not available|invalid|not meet|not allowed|required/i.test(text),
-        ) || "";
-
-      const getFirstInput = (selector) =>
-        Array.from(document.querySelectorAll(selector)).find(
-          (node) => node instanceof HTMLInputElement && visible(node),
-        ) || null;
-
-      const shopInput = getFirstInput("input[placeholder*='shop name' i],input[placeholder*='store name' i],input[name*='shop' i]");
-      const emailInput = getFirstInput("input[placeholder*='contact email' i],input[placeholder*='email' i],input[type='email']");
-      const phoneInput = getFirstInput("input[placeholder*='phone number' i],input[placeholder*='contact number' i],input[type='tel']");
-      const productInput = getFirstInput("input[placeholder*='primary product' i],input[placeholder*='product/service type' i],input[placeholder*='product' i]");
-
-      const shopVal = String(shopInput?.value || "").trim();
-      const emailVal = String(emailInput?.value || "").trim();
-      const phoneVal = String(phoneInput?.value || "").trim();
-      const productVal = String(productInput?.value || "").trim();
-      const emailOk = !emailInput || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal);
-      const phoneOk = !phoneInput || digits(phoneVal).length >= 7;
-      const productPlaceholder = normalize(productInput?.getAttribute("placeholder") || "");
-      const productOk =
-        !productInput ||
-        (normalize(productVal).length >= 2 &&
-          normalize(productVal) !== productPlaceholder &&
-          !normalize(productVal).includes("select"));
-
-      const shopOk = !shopInput || shopVal.length >= 2;
-
-      return {
-        shopOk,
-        emailOk,
-        phoneOk,
-        productOk,
-        hasErrorText,
-        shopNameIssue: shopNameIssueText,
-        ready: shopOk && emailOk && phoneOk && productOk && !hasErrorText,
-      };
-    })
-    .catch(() => ({
-      shopOk: false,
-      emailOk: false,
-      phoneOk: false,
-      productOk: false,
-      hasErrorText: true,
-      shopNameIssue: "",
-      ready: false,
-    }));
-}
-
-async function readReviewApplicationStatus(page) {
-  return page
-    .evaluate(() => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      const text = String(document.body?.innerText || "").toLowerCase();
-      const hasUnderReview = text.includes("under review");
-      const hasInformationRequired = text.includes("information required");
-      const hasApplicationRejected = text.includes("application rejected");
-      const hasReviewHeading =
-        text.includes("review application") ||
-        text.includes("review your application") ||
-        text.includes("submit application");
-
-      const checkboxInputs = Array.from(document.querySelectorAll("input[type='checkbox']"))
-        .filter((node) => node instanceof HTMLInputElement && visible(node));
-      const requiredUnchecked = checkboxInputs.filter((node) => {
-        if (node.checked) return false;
-        const container = node.closest("label,div,section,fieldset") || node.parentElement;
-        const line = String(container?.textContent || "").toLowerCase();
-        return (
-          line.includes("i confirm") ||
-          line.includes("i agree") ||
-          line.includes("information on this page is true") ||
-          line.includes("accurate")
-        );
-      }).length;
-
-      const buttons = Array.from(document.querySelectorAll("button"))
-        .filter((node) => node instanceof HTMLButtonElement && visible(node));
-      const submitButton = buttons.find((btn) => {
-        const label = String(btn.textContent || "").toLowerCase();
-        return (
-          label.includes("submit application") ||
-          label === "submit" ||
-          label.includes("continue") ||
-          label === "next"
-        );
-      });
-      const submitEnabled = Boolean(submitButton && !submitButton.disabled);
-
-      return {
-        hasUnderReview,
-        hasInformationRequired,
-        hasApplicationRejected,
-        hasReviewHeading,
-        requiredUnchecked,
-        submitEnabled,
-        readyToSubmit:
-          hasReviewHeading &&
-          !hasUnderReview &&
-          !hasInformationRequired &&
-          !hasApplicationRejected &&
-          requiredUnchecked === 0 &&
-          submitEnabled,
-      };
-    })
-    .catch(() => ({
-      hasUnderReview: false,
-      hasInformationRequired: false,
-      hasApplicationRejected: false,
-      hasReviewHeading: false,
-      requiredUnchecked: 0,
-      submitEnabled: false,
-      readyToSubmit: false,
-    }));
-}
-
-async function readShopContactVerificationStatus(page, targetType = "phone") {
-  return page
-    .evaluate((kind) => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      const lower = (value) => String(value || "").trim().toLowerCase();
-      const target = String(kind || "phone").toLowerCase() === "email" ? "email" : "phone";
-      const keywords = target === "email" ? ["email address", "email"] : ["phone number", "phone"];
-      const allRoots = Array.from(document.querySelectorAll("div,section,fieldset,label"));
-      const section =
-        allRoots.find((node) => {
-          if (!visible(node)) return false;
-          const text = lower(node.textContent || "");
-          return keywords.some((key) => text.includes(key)) && text.includes("use below");
-        }) ||
-        allRoots.find((node) => {
-          if (!visible(node)) return false;
-          const text = lower(node.textContent || "");
-          return keywords.some((key) => text.includes(key));
-        }) ||
-        null;
-      if (!section) {
-        return {
-          sectionFound: false,
-          verified: true,
-          canUseAnother: false,
-          usingAnother: false,
-          canRequestCode: false,
-          codeInputVisible: false,
-          canSubmitCode: false,
-          contactValue: "",
-          placeholder: "",
-        };
-      }
-
-      const sectionText = lower(section.textContent || "");
-      const verified =
-        sectionText.includes("verified") ||
-        sectionText.includes("verification successful") ||
-        sectionText.includes("successfully verified");
-      const canUseAnother = sectionText.includes("use another");
-      const usingAnother = (() => {
-        const labels = Array.from(section.querySelectorAll("label")).filter(visible);
-        const targetLabel = labels.find((label) => lower(label.textContent || "").includes("use another"));
-        if (!targetLabel) return false;
-        const radio = targetLabel.querySelector("input[type='radio']") || null;
-        if (radio instanceof HTMLInputElement) return Boolean(radio.checked);
-        return lower(targetLabel.className || "").includes("checked");
-      })();
-
-      const allInputs = Array.from(section.querySelectorAll("input")).filter(
-        (node) => node instanceof HTMLInputElement && visible(node),
-      );
-      const codeInput = allInputs.find((input) => {
-        const name = lower(input.getAttribute("name"));
-        const id = lower(input.getAttribute("id"));
-        const placeholder = lower(input.getAttribute("placeholder"));
-        const aria = lower(input.getAttribute("aria-label"));
-        const maxLength = Number(input.maxLength || 0);
-        return (
-          placeholder.includes("code") ||
-          aria.includes("code") ||
-          name.includes("otp") ||
-          name.includes("code") ||
-          id.includes("otp") ||
-          id.includes("code") ||
-          maxLength === 1
-        );
-      });
-      const contactInput = allInputs.find((input) => {
-        const type = lower(input.getAttribute("type"));
-        const placeholder = lower(input.getAttribute("placeholder"));
-        const name = lower(input.getAttribute("name"));
-        if (codeInput && input === codeInput) return false;
-        if (target === "email") {
-          return type === "email" || placeholder.includes("email") || name.includes("email");
-        }
-        return type === "tel" || placeholder.includes("phone") || placeholder.includes("number") || name.includes("phone");
-      }) || allInputs.find((input) => input !== codeInput) || null;
-      const contactValue = String(contactInput?.value || "").trim();
-      const placeholder = String(contactInput?.getAttribute("placeholder") || "").trim();
-
-      const buttons = Array.from(section.querySelectorAll("button")).filter(
-        (btn) => btn instanceof HTMLButtonElement && visible(btn),
-      );
-      const canRequestCode = buttons.some((btn) => {
-        if (btn.disabled) return false;
-        const label = lower(btn.textContent || "");
-        return (
-          label.includes("send code") ||
-          label.includes("get code") ||
-          label.includes("resend") ||
-          label.includes("request code")
-        );
-      });
-      const canSubmitCode = buttons.some((btn) => {
-        if (btn.disabled) return false;
-        const label = lower(btn.textContent || "");
-        return (
-          label.includes("verify") ||
-          label.includes("confirm") ||
-          label.includes("continue")
-        );
-      });
-
-      return {
-        sectionFound: true,
-        verified,
-        canUseAnother,
-        usingAnother,
-        canRequestCode,
-        codeInputVisible: Boolean(codeInput),
-        canSubmitCode,
-        contactValue,
-        placeholder,
-      };
-    }, targetType)
-    .catch(() => ({
-      sectionFound: false,
-      verified: false,
-      canUseAnother: false,
-      usingAnother: false,
-      canRequestCode: false,
-      codeInputVisible: false,
-      canSubmitCode: false,
-      contactValue: "",
-      placeholder: "",
-    }));
-}
-
-async function clickShopContactAction(page, targetType = "phone", action = "switch_use_another") {
-  return page
-    .evaluate((kind, desiredAction) => {
-      const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-      const lower = (value) => String(value || "").trim().toLowerCase();
-      const target = String(kind || "phone").toLowerCase() === "email" ? "email" : "phone";
-      const keywords = target === "email" ? ["email address", "email"] : ["phone number", "phone"];
-      const section =
-        Array.from(document.querySelectorAll("div,section,fieldset,label")).find((node) => {
-          if (!visible(node)) return false;
-          const text = lower(node.textContent || "");
-          return keywords.some((key) => text.includes(key));
-        }) || null;
-      if (!section) return false;
-
-      const clickByMatcher = (matcher) => {
-        const buttons = Array.from(section.querySelectorAll("button,label,div[role='button']"));
-        for (const node of buttons) {
-          if (!(node instanceof HTMLElement) || !visible(node)) continue;
-          const label = lower(node.textContent || "");
-          if (!matcher(label)) continue;
-          node.click();
-          return true;
-        }
-        return false;
-      };
-
-      if (desiredAction === "switch_use_another") {
-        return clickByMatcher((label) => label.includes("use another"));
-      }
-      if (desiredAction === "request_code") {
-        return clickByMatcher((label) =>
-          label.includes("send code") ||
-          label.includes("get code") ||
-          label.includes("resend") ||
-          label.includes("request code"),
-        );
-      }
-      if (desiredAction === "submit_code") {
-        return clickByMatcher((label) =>
-          label.includes("verify") ||
-          label.includes("confirm") ||
-          label.includes("continue"),
-        );
-      }
-      return false;
-    }, targetType, action)
-    .catch(() => false);
-}
-
-async function fillShopContactValue(page, targetType = "phone", value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-  const locatorCandidates =
-    targetType === "email"
-      ? [
-          page.locator("input[placeholder*='email' i]"),
-          page.locator("input[type='email']"),
-          page.locator("input[name*='email' i]"),
-        ]
-      : [
-          page.locator("input[placeholder*='phone number' i]"),
-          page.locator("input[placeholder*='contact number' i]"),
-          page.locator("input[type='tel']"),
-          page.locator("input[name*='phone' i]"),
-        ];
-  return fillFirstMatch(locatorCandidates, raw);
-}
-
-async function setAlternateShopName(page, seedContext, state) {
-  const candidates = buildShopNameCandidates(seedContext, state);
-  const index = Number(state.shopNameRetryCount || 0);
-  const pick = candidates[index % Math.max(candidates.length, 1)] || "";
-  if (!pick) return { changed: false, value: "" };
-  const changed = await fillFirstMatch(
-    [
-      page.locator("input[placeholder*='shop name' i]"),
-      page.locator("input[placeholder='Enter a shop name']"),
-      page.locator("input[name*='shop_name' i]"),
-    ],
-    pick,
-  );
-  if (changed) {
-    state.shopNameRetryCount = index + 1;
-  }
-  return { changed, value: pick };
 }
 
 function usStateName(value) {
@@ -2885,26 +2357,6 @@ function monthIndexToName(index) {
   const value = Number(index || 0);
   if (value < 1 || value > 12) return "";
   return months[value] || "";
-}
-
-function sanitizeShopName(value) {
-  return String(value || "")
-    .replace(/[^a-zA-Z0-9\s&.'-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function buildShopNameCandidates(seedContext, state) {
-  const legalBase = sanitizeShopName(seedContext.companyName || seedContext.fullName || "");
-  const base = legalBase || "US Seller Shop";
-  const suffix = String((state?.shopNameRetryCount || 0) + 1).padStart(2, "0");
-  const candidates = [
-    base,
-    /llc\b/i.test(base) ? base : `${base} LLC`,
-    `${base} Shop`,
-    `${base} ${suffix}`,
-  ].map((item) => sanitizeShopName(item).slice(0, 40).trim());
-  return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 function escapeRegExp(value) {
@@ -3092,31 +2544,13 @@ async function detectSellerStep(page) {
       const onVerification = href.includes("/settle/verification");
       if (onVerification) {
         const businessKeys = new Set(["business_name", "business_address", "ein", "biztype"]);
-        const primaryKeys = new Set([
-          "legal_name", "ssn", "ssn_itin", "itin", "passport",
-          "residence_address", "ssn_or_itin",
-        ]);
+        const primaryKeys = new Set(["legal_name", "ssn", "itin", "passport", "residence_address"]);
         const shopKeys = new Set(["shop_name", "shop_info", "category", "product"]);
         const reviewKeys = new Set(["review", "review_application", "submit"]);
-        const looksPrimaryByDomEarly =
-          isVisible("input[placeholder='XXXX']") ||
-          isVisible("input[placeholder='xxxx']") ||
-          isVisible("input[placeholder*='first name' i]") ||
-          hasVisibleText("primary representative");
-        const looksBusinessByDomEarly =
-          isVisible("input[placeholder*='business name' i]") ||
-          hasVisibleText("verify business details");
-
-        // gyq is useful, but DOM can be fresher during TikTok step transitions.
         if (primaryKeys.has(gyq)) return "primary_representative";
         if (shopKeys.has(gyq)) return "shop_information";
         if (reviewKeys.has(gyq)) return "review_application";
-        if (businessKeys.has(gyq)) {
-          if (looksPrimaryByDomEarly && !looksBusinessByDomEarly) {
-            return "primary_representative";
-          }
-          return "business_details";
-        }
+        if (businessKeys.has(gyq)) return "business_details";
       }
       const looksBusinessDetailsByDom =
         isVisible("input[placeholder*='business name' i]") ||
@@ -3126,19 +2560,10 @@ async function detectSellerStep(page) {
         isVisible("input[placeholder*='state' i]") ||
         hasVisibleText("business details");
 
-      // Guard: Primary representative form also has city/zip/address.
-      // Use SSN input or first-name input as the tiebreaker.
-      const looksLikePrimaryRep =
-        isVisible("input[placeholder='XXXX']") ||
-        isVisible("input[placeholder='xxxx']") ||
-        isVisible("input[placeholder*='first name' i]") ||
-        hasVisibleText("primary representative");
-
-      if (onVerification && looksLikePrimaryRep) {
-        return "primary_representative";
-      }
-
-      if (onVerification && looksBusinessDetailsByDom) {
+      if (
+        onVerification &&
+        looksBusinessDetailsByDom
+      ) {
         return "business_details";
       }
 
@@ -3159,8 +2584,7 @@ async function detectSellerStep(page) {
         body.includes("primary representative") &&
         (body.includes("verify your identity") ||
           body.includes("provide ssn") ||
-          body.includes("legal name") ||
-          body.includes("date of birth"))
+          body.includes("legal name"))
       ) {
         return "primary_representative";
       }
@@ -3183,9 +2607,6 @@ async function detectSellerStep(page) {
           body.includes("i confirm") ||
           body.includes("i agree"))
       ) {
-        return "review_application";
-      }
-      if (body.includes("under review") || body.includes("information required")) {
         return "review_application";
       }
       if (body.includes("enter verification code")) return "otp";
@@ -3318,141 +2739,6 @@ async function maybeCaptureStepDiagnostics(page, outputDir, events, state, step,
       url: page.url(),
     })
     .catch(() => {});
-}
-
-async function readPrimaryRepresentativeStatus(page) {
-  return page
-    .evaluate(() => {
-      const getInput = (selector) => {
-        const node = document.querySelector(selector);
-        if (!(node instanceof HTMLInputElement)) return null;
-        if (node.offsetParent === null) return null;
-        return node;
-      };
-      const normalize = (value) => String(value || "").trim().toLowerCase();
-      const digits = (value) => String(value || "").replace(/\D+/g, "");
-      const hasLetterOnly = (value) => /^[a-z][a-z\s.'-]*$/i.test(String(value || "").trim());
-      const isPlaceholderLike = (value, placeholder) => {
-        const v = normalize(value);
-        const p = normalize(placeholder);
-        return !v || v === p;
-      };
-      const hasErrorText = Array.from(document.querySelectorAll("div,span,p"))
-        .filter((node) => node instanceof HTMLElement && node.offsetParent !== null)
-        .some((node) => {
-          const text = normalize(node.textContent || "");
-          return (
-            text.includes("this field is required") ||
-            text.includes("doesn't follow the correct format") ||
-            text.includes("information you provided doesn't follow") ||
-            text.includes("invalid")
-          );
-        });
-
-      const firstNameInput = getInput("input[placeholder*='First name' i]");
-      const lastNameInput = getInput("input[placeholder*='Last name' i]");
-      const ssnLast4Input = getInput("input[placeholder='XXXX'],input[placeholder='xxxx']");
-      const monthInput = getInput("input[placeholder='Month']");
-      const dayInput = getInput("input[placeholder='Day']");
-      const yearInput = getInput("input[placeholder='Year']");
-      const streetInput = getInput("input[placeholder*='Street address' i]");
-      const cityInput = getInput("input[placeholder='City']");
-      const stateInput = getInput("input[placeholder='State']");
-      const zipInput = getInput("input[placeholder='ZIP code']");
-      const regionInput = getInput("input[placeholder='select your region'],input[placeholder*='nationality' i]");
-
-      const firstName = String(firstNameInput?.value || "").trim();
-      const lastName = String(lastNameInput?.value || "").trim();
-      const month = String(monthInput?.value || "").trim();
-      const day = String(dayInput?.value || "").trim();
-      const year = String(yearInput?.value || "").trim();
-      const zip = String(zipInput?.value || "").trim();
-      const street = String(streetInput?.value || "").trim();
-      const city = String(cityInput?.value || "").trim();
-      const state = String(stateInput?.value || "").trim();
-      const ssnLast4 = digits(ssnLast4Input?.value || "");
-      const region = String(regionInput?.value || "").trim();
-
-      const firstNameOk = hasLetterOnly(firstName);
-      const lastNameOk = hasLetterOnly(lastName);
-      const monthOk = !isPlaceholderLike(month, "Month");
-      const dayOk = !isPlaceholderLike(day, "Day");
-      const yearOk = !isPlaceholderLike(year, "Year");
-      const streetOk = street.length >= 8;
-      const cityOk = city.length >= 2;
-      const stateOk = state.length >= 2 && !isPlaceholderLike(state, "State");
-      const zipOk = digits(zip).length === 5;
-      const ssnOk = ssnLast4.length === 4;
-      const regionPlaceholder = String(regionInput?.getAttribute("placeholder") || "").trim();
-      const regionOk =
-        !regionInput ||
-        (region.length >= 2 && !isPlaceholderLike(region, regionPlaceholder));
-
-      const uboRoot = Array.from(document.querySelectorAll("div,section,fieldset")).find((node) => {
-        if (!(node instanceof HTMLElement) || node.offsetParent === null) return false;
-        const text = normalize(node.textContent || "");
-        return (
-          text.includes("beneficial owner") ||
-          text.includes("ultimate beneficial") ||
-          text.includes("ubo") ||
-          text.includes("25% or more") ||
-          text.includes("owns 25") ||
-          text.includes("significant control")
-        );
-      });
-      const uboRequired = Boolean(uboRoot);
-      const uboSelected =
-        !uboRequired ||
-        Boolean(
-          uboRoot?.querySelector("input[type='radio']:checked,[role='radio'][aria-checked='true']"),
-        );
-
-      return {
-        firstNameOk,
-        lastNameOk,
-        monthOk,
-        dayOk,
-        yearOk,
-        streetOk,
-        cityOk,
-        stateOk,
-        zipOk,
-        ssnOk,
-        regionOk,
-        uboOk: uboSelected,
-        hasErrorText,
-        ready:
-          firstNameOk &&
-          lastNameOk &&
-          monthOk &&
-          dayOk &&
-          yearOk &&
-          streetOk &&
-          cityOk &&
-          stateOk &&
-          zipOk &&
-          ssnOk &&
-          regionOk &&
-          uboSelected &&
-          !hasErrorText,
-      };
-    })
-    .catch(() => ({
-      firstNameOk: false,
-      lastNameOk: false,
-      monthOk: false,
-      dayOk: false,
-      yearOk: false,
-      streetOk: false,
-      cityOk: false,
-      stateOk: false,
-      zipOk: false,
-      ssnOk: false,
-      regionOk: false,
-      uboOk: false,
-      hasErrorText: true,
-      ready: false,
-    }));
 }
 
 async function bestEffortAutomationTick(page, events, seedContext, state, options = {}) {
@@ -4411,24 +3697,6 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
           );
           return list.find((node) => node.offsetParent !== null) || null;
         };
-        const visibleFieldValueByLabel = (labelText) => {
-          const target = String(labelText || "").trim().toLowerCase();
-          if (!target) return "";
-          const blocks = Array.from(document.querySelectorAll("div,section,fieldset,label"));
-          for (const block of blocks) {
-            if (!(block instanceof HTMLElement) || block.offsetParent === null) continue;
-            const text = String(block.innerText || block.textContent || "").toLowerCase();
-            if (!text.includes(target)) continue;
-            const input =
-              block.querySelector("input") ||
-              block.parentElement?.querySelector("input") ||
-              null;
-            if (!(input instanceof HTMLInputElement) || input.offsetParent === null) continue;
-            const value = String(input.value || "").trim();
-            if (value) return value;
-          }
-          return "";
-        };
         const legal = visibleInputByPlaceholder("Enter the business name");
         const street = visibleInputByPlaceholder("Street address");
         const zip = visibleInputByPlaceholder("ZIP code");
@@ -4437,8 +3705,8 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         const legalValue = String(legal?.value || "").trim();
         const streetValue = String(street?.value || "").trim();
         const zipValue = String(zip?.value || "").replace(/\D+/g, "");
-        const cityValue = String(cityInput?.value || "").trim() || visibleFieldValueByLabel("City");
-        const stateValue = String(stateInput?.value || "").trim() || visibleFieldValueByLabel("State");
+        const cityValue = String(cityInput?.value || "").trim();
+        const stateValue = String(stateInput?.value || "").trim();
         const hasCityError = Array.from(document.querySelectorAll("div,span,p"))
           .filter((node) => node instanceof HTMLElement && node.offsetParent !== null)
           .some((node) => /city is required/i.test(String(node.textContent || "")));
@@ -4476,10 +3744,9 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
 
     const runBusinessTopFillPass = async (passLabel) => {
       const playwrightFill = await fillBusinessDetailsWithPlaywright(page, seedContext);
-      const genericFill = await fillBusinessDetailsFallbackByDescriptor(page, seedContext);
+      const result = await fillBusinessDetailsFields(page, seedContext);
       const filledCount =
-        Number(playwrightFill?.filledCount || 0) +
-        Number(genericFill?.filledCount || 0);
+        Number(playwrightFill?.filledCount || 0) + Number(result?.filledCount || 0);
       if (filledCount > 0) {
         state.businessInfoFilled = true;
       }
@@ -4488,11 +3755,10 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         action: `fill_business_details_${passLabel}`,
         result: filledCount > 0 ? "filled" : "no_fill_target",
         filledCount,
-        selectCount: 0,
+        selectCount: Number(result?.selectCount || 0),
         addressOptionChosen:
-          Boolean(playwrightFill?.addressOptionChosen) ||
-          Boolean(genericFill?.addressOptionChosen),
-        stateChosen: Boolean(playwrightFill?.stateChosen) || Boolean(genericFill?.stateChosen),
+          Boolean(playwrightFill?.addressOptionChosen) || Boolean(result?.addressOptionChosen),
+        stateChosen: Boolean(playwrightFill?.stateChosen),
         url: page.url(),
       });
     };
@@ -4789,13 +4055,9 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
       return;
     }
 
-    const readyToSubmitBusinessDetails =
-      hasProofSection
-        ? Boolean(state.businessDocumentUploaded) && Boolean(einStatus.complete)
-        : Boolean(state.businessVerifyDone) && Boolean(einStatus.complete);
     if (
-      canAttemptStep(state, currentStep, "ready_to_submit_business_details", 1500, 30) &&
-      readyToSubmitBusinessDetails
+      canAttemptStep(state, currentStep, "ready_to_submit_business_details", 5000, 8) &&
+      state.businessVerifyDone
     ) {
       if (!hasProofSection || !state.businessDocumentUploaded || !einStatus.complete) {
         await emitAutoEvent(events, {
@@ -4838,11 +4100,11 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   ) {
     if (!state.businessInfoFilled && canAttemptStep(state, "unknown_verification", "fill_business_details_fallback", 3000, 10)) {
       const playwrightFill = await fillBusinessDetailsWithPlaywright(page, seedContext);
-      const genericFill = await fillBusinessDetailsFallbackByDescriptor(page, seedContext);
+      const result = await fillBusinessDetailsFields(page, seedContext);
       const extra = await fillVisibleEinFormFields(page, seedContext);
       const filledCount =
         Number(playwrightFill?.filledCount || 0) +
-        Number(genericFill?.filledCount || 0) +
+        Number(result?.filledCount || 0) +
         Number(extra?.filledCount || 0);
       if (filledCount > 0) {
         state.businessInfoFilled = true;
@@ -4852,11 +4114,10 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
         action: "fill_business_details_fallback",
         result: filledCount > 0 ? "filled" : "no_fill_target",
         filledCount,
-        selectCount: 0,
+        selectCount: Number(result?.selectCount || 0),
         addressOptionChosen:
-          Boolean(playwrightFill?.addressOptionChosen) ||
-          Boolean(genericFill?.addressOptionChosen),
-        stateChosen: Boolean(playwrightFill?.stateChosen) || Boolean(genericFill?.stateChosen),
+          Boolean(playwrightFill?.addressOptionChosen) || Boolean(result?.addressOptionChosen),
+        stateChosen: Boolean(playwrightFill?.stateChosen),
         url: page.url(),
       });
     }
@@ -4864,63 +4125,36 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   }
 
   if (currentStep === "primary_representative") {
-    // Phase 1: Fill fields — run up to 5 times with a 2.5s cooldown between attempts.
-    if (canAttemptStep(state, currentStep, "fill_primary_representative", 2500, 5)) {
+    if (canAttemptStep(state, currentStep, "fill_primary_representative", 3000, 10)) {
       const playwrightFill = await fillPrimaryRepresentativeStep(page, seedContext);
-      const repStatus = await readPrimaryRepresentativeStatus(page);
+      const hasRequiredError = await page
+        .locator("text=/this field is required/i")
+        .first()
+        .isVisible()
+        .catch(() => false);
       await emitAutoEvent(events, {
         stage: "primary_representative",
         action: "fill_primary_representative",
         result: Number(playwrightFill?.filledCount || 0) > 0 ? "filled" : "no_fill_target",
         filledCount: Number(playwrightFill?.filledCount || 0),
         uboYes: Boolean(playwrightFill?.uboYes),
-        hasRequiredError: Boolean(repStatus?.hasErrorText),
-        formReady: Boolean(repStatus?.ready),
-        firstNameOk: Boolean(repStatus?.firstNameOk),
-        lastNameOk: Boolean(repStatus?.lastNameOk),
-        ssnOk: Boolean(repStatus?.ssnOk),
-        dobOk: Boolean(repStatus?.monthOk && repStatus?.dayOk && repStatus?.yearOk),
-        addressOk: Boolean(repStatus?.streetOk && repStatus?.cityOk && repStatus?.stateOk && repStatus?.zipOk),
-        regionOk: Boolean(repStatus?.regionOk),
-        uboOk: Boolean(repStatus?.uboOk),
+        hasRequiredError,
         url: page.url(),
       });
     }
-    // Phase 2: Check status and submit — runs every 600ms, unlimited times until step changes.
-    // This fires rapidly so we never sit idle after the form becomes valid.
-    if (canAttemptStep(state, currentStep, "submit_primary_representative", 600, 9999)) {
-      const repStatus = await readPrimaryRepresentativeStatus(page);
-      if (!repStatus?.ready) {
-        // Form not ready yet — emit a compact status event (rate-limited to avoid log spam).
-        if (canAttemptStep(state, currentStep, "log_primary_rep_wait", 4000, 9999)) {
-          await emitAutoEvent(events, {
-            stage: "primary_representative",
-            action: "submit_primary_representative",
-            result: "blocked_invalid_or_incomplete",
-            firstNameOk: Boolean(repStatus?.firstNameOk),
-            lastNameOk: Boolean(repStatus?.lastNameOk),
-            monthOk: Boolean(repStatus?.monthOk),
-            dayOk: Boolean(repStatus?.dayOk),
-            yearOk: Boolean(repStatus?.yearOk),
-            streetOk: Boolean(repStatus?.streetOk),
-            cityOk: Boolean(repStatus?.cityOk),
-            stateOk: Boolean(repStatus?.stateOk),
-            zipOk: Boolean(repStatus?.zipOk),
-            ssnOk: Boolean(repStatus?.ssnOk),
-            regionOk: Boolean(repStatus?.regionOk),
-            uboOk: Boolean(repStatus?.uboOk),
-            hasErrorText: Boolean(repStatus?.hasErrorText),
-            url: page.url(),
-          });
-          await maybeCaptureStepDiagnostics(
-            page,
-            outputDir,
-            events,
-            state,
-            currentStep,
-            "wait_primary_representative_complete",
-          );
-        }
+    if (canAttemptStep(state, currentStep, "submit_primary_representative", 4500, 8)) {
+      const hasRequiredError = await page
+        .locator("text=/this field is required/i")
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (hasRequiredError) {
+        await emitAutoEvent(events, {
+          stage: "primary_representative",
+          action: "submit_primary_representative",
+          result: "blocked_required_fields",
+          url: page.url(),
+        });
         return;
       }
       if (manualGated) {
@@ -4947,243 +4181,18 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   }
 
   if (currentStep === "shop_information") {
-    const signupContactMode =
-      preferredContactMode === "phone" || preferredContactMode === "email"
-        ? preferredContactMode
-        : seedContext.email
-          ? "email"
-          : "phone";
-    const requiredContactType = signupContactMode === "email" ? "phone" : "email";
-    const requiredContactValue =
-      requiredContactType === "phone"
-        ? String(seedContext.phone || "").trim()
-        : String(seedContext.email || "").trim();
-    const requiredOtpEndpoint =
-      requiredContactType === "phone"
-        ? String(seedContext.phoneApiEndpoint || seedContext.apiPhone || "").trim()
-        : String(seedContext.emailApiEndpoint || seedContext.apiMail || "").trim();
-    state.shopContactType = requiredContactType;
-
     if (canAttemptStep(state, currentStep, "fill_shop_information", 3000, 10)) {
       const info = await fillShopInformationStep(page, seedContext);
-      const status = await readShopInformationStatus(page);
-      const contactStatus = await readShopContactVerificationStatus(page, requiredContactType);
-      state.shopContactVerified = Boolean(contactStatus?.verified);
       await emitAutoEvent(events, {
         stage: "shop_information",
         action: "fill_shop_information",
         result: Number(info?.filledCount || 0) > 0 || Boolean(info?.productChosen) ? "filled" : "no_fill_target",
         filledCount: Number(info?.filledCount || 0),
         productChosen: Boolean(info?.productChosen),
-        formReady: Boolean(status?.ready),
-        shopOk: Boolean(status?.shopOk),
-        emailOk: Boolean(status?.emailOk),
-        phoneOk: Boolean(status?.phoneOk),
-        productOk: Boolean(status?.productOk),
-        hasErrorText: Boolean(status?.hasErrorText),
-        shopNameIssue: String(status?.shopNameIssue || ""),
-        requiredContactType,
-        contactVerified: Boolean(contactStatus?.verified),
         url: page.url(),
       });
     }
-
-    const statusBeforeSubmit = await readShopInformationStatus(page);
-    const contactStatus = await readShopContactVerificationStatus(page, requiredContactType);
-    state.shopContactVerified = Boolean(contactStatus?.verified);
-
-    if (
-      String(statusBeforeSubmit?.shopNameIssue || "").trim() &&
-      canAttemptStep(state, currentStep, "retry_shop_name", 2500, 8)
-    ) {
-      const rename = await setAlternateShopName(page, seedContext, state);
-      await emitAutoEvent(events, {
-        stage: "shop_information",
-        action: "retry_shop_name",
-        result: rename.changed ? "renamed" : "rename_failed",
-        shopNameIssue: String(statusBeforeSubmit?.shopNameIssue || ""),
-        candidate: String(rename.value || ""),
-        url: page.url(),
-      });
-      return;
-    }
-
-    if (!requiredContactValue && canAttemptStep(state, currentStep, "wait_required_contact_value", 3500, 80)) {
-      await emitAutoEvent(events, {
-        stage: "shop_information",
-        action: "wait_required_contact_value",
-        result: "missing_contact_seed",
-        requiredContactType,
-        url: page.url(),
-      });
-      return;
-    }
-
-    if (!contactStatus?.verified) {
-      if (
-        contactStatus?.canUseAnother &&
-        !contactStatus?.usingAnother &&
-        canAttemptStep(state, currentStep, "switch_contact_use_another", 2200, 8)
-      ) {
-        const switched = await clickShopContactAction(page, requiredContactType, "switch_use_another");
-        await emitAutoEvent(events, {
-          stage: "shop_information",
-          action: "switch_contact_use_another",
-          result: switched ? "clicked" : "not_found",
-          requiredContactType,
-          url: page.url(),
-        });
-        return;
-      }
-
-      const currentContactValue = String(contactStatus?.contactValue || "").trim();
-      const placeholderValue = String(contactStatus?.placeholder || "").trim();
-      const shouldFillContact =
-        !currentContactValue ||
-        (placeholderValue &&
-          normalizeSimpleText(currentContactValue) === normalizeSimpleText(placeholderValue)) ||
-        (requiredContactType === "email"
-          ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentContactValue)
-          : normalizeDigitsOnly(currentContactValue).length < 7);
-      if (
-        shouldFillContact &&
-        canAttemptStep(state, currentStep, "fill_required_contact", 2200, 12)
-      ) {
-        const filled = await fillShopContactValue(page, requiredContactType, requiredContactValue);
-        await emitAutoEvent(events, {
-          stage: "shop_information",
-          action: "fill_required_contact",
-          result: filled ? "filled" : "no_fill_target",
-          requiredContactType,
-          contactPreview:
-            requiredContactType === "email"
-              ? `${requiredContactValue.slice(0, 2)}***`
-              : `${normalizeDigitsOnly(requiredContactValue).slice(0, 3)}***`,
-          url: page.url(),
-        });
-        return;
-      }
-
-      if (contactStatus?.canRequestCode && canAttemptStep(state, currentStep, "request_contact_code", 5000, 12)) {
-        const requested = await clickShopContactAction(page, requiredContactType, "request_code");
-        if (requested) {
-          state.shopContactCodeRequestedAt = Date.now();
-        }
-        await emitAutoEvent(events, {
-          stage: "shop_information",
-          action: "request_contact_code",
-          result: requested ? "clicked" : "not_found_or_disabled",
-          requiredContactType,
-          url: page.url(),
-        });
-        return;
-      }
-
-      if (contactStatus?.codeInputVisible) {
-        const otpWarmupMs = 12000;
-        const sinceRequested = state.shopContactCodeRequestedAt
-          ? Date.now() - state.shopContactCodeRequestedAt
-          : otpWarmupMs;
-        if (sinceRequested < otpWarmupMs) {
-          if (canAttemptStep(state, currentStep, "wait_contact_code", 2500, 50)) {
-            await emitAutoEvent(events, {
-              stage: "shop_information",
-              action: "wait_contact_code",
-              result: "waiting_fresh_otp",
-              requiredContactType,
-              waitMs: otpWarmupMs - sinceRequested,
-              url: page.url(),
-            });
-          }
-          return;
-        }
-
-        if (canAttemptStep(state, currentStep, "fill_contact_otp", 3500, 20)) {
-          const otpCode = await fetchOtpCode(requiredOtpEndpoint);
-          await emitAutoEvent(events, {
-            stage: "shop_information",
-            action: "fetch_contact_otp",
-            result: otpCode ? "received" : "empty",
-            requiredContactType,
-            endpoint: requiredOtpEndpoint ? requiredOtpEndpoint.slice(0, 120) : "",
-            codePreview: otpCode ? `${String(otpCode).slice(0, 2)}**` : "",
-            url: page.url(),
-          });
-          if (otpCode) {
-            const filled = await fillOtpInputs(page, otpCode);
-            if (filled) {
-              state.shopContactOtpLastSubmittedCode = String(otpCode).replace(/\D+/g, "");
-            }
-            await emitAutoEvent(events, {
-              stage: "shop_information",
-              action: "fill_contact_otp",
-              result: filled ? "filled" : "input_not_found",
-              requiredContactType,
-              url: page.url(),
-            });
-          }
-        }
-
-        if (canAttemptStep(state, currentStep, "submit_contact_otp", 5000, 20)) {
-          const submitted =
-            (await clickShopContactAction(page, requiredContactType, "submit_code")) ||
-            (await fallbackClickButtonByText(page, ["verify", "confirm", "continue"]));
-          await emitAutoEvent(events, {
-            stage: "shop_information",
-            action: "submit_contact_otp",
-            result: submitted ? "clicked" : "submit_not_found",
-            requiredContactType,
-            url: page.url(),
-          });
-        }
-        return;
-      }
-
-      if (canAttemptStep(state, currentStep, "wait_contact_verification", 2500, 60)) {
-        await emitAutoEvent(events, {
-          stage: "shop_information",
-          action: "wait_contact_verification",
-          result: "required_before_next",
-          requiredContactType,
-          sectionFound: Boolean(contactStatus?.sectionFound),
-          usingAnother: Boolean(contactStatus?.usingAnother),
-          canRequestCode: Boolean(contactStatus?.canRequestCode),
-          codeInputVisible: Boolean(contactStatus?.codeInputVisible),
-          url: page.url(),
-        });
-      }
-      return;
-    }
-
     if (canAttemptStep(state, currentStep, "submit_shop_information", 4500, 8)) {
-      const status = await readShopInformationStatus(page);
-      if (!status?.ready || !state.shopContactVerified) {
-        if (canAttemptStep(state, currentStep, "wait_shop_information_complete", 3000, 40)) {
-          await emitAutoEvent(events, {
-            stage: "shop_information",
-            action: "submit_shop_information",
-            result: "blocked_invalid_or_incomplete",
-            shopOk: Boolean(status?.shopOk),
-            emailOk: Boolean(status?.emailOk),
-            phoneOk: Boolean(status?.phoneOk),
-            productOk: Boolean(status?.productOk),
-            hasErrorText: Boolean(status?.hasErrorText),
-            shopNameIssue: String(status?.shopNameIssue || ""),
-            requiredContactType,
-            contactVerified: Boolean(state.shopContactVerified),
-            url: page.url(),
-          });
-          await maybeCaptureStepDiagnostics(
-            page,
-            outputDir,
-            events,
-            state,
-            currentStep,
-            "wait_shop_information_complete",
-          );
-        }
-        return;
-      }
       if (manualGated) {
         await emitAutoEvent(events, {
           stage: "shop_information",
@@ -5208,102 +4217,10 @@ async function bestEffortAutomationTick(page, events, seedContext, state, option
   }
 
   if (currentStep === "review_application") {
-    const reviewStatus = await readReviewApplicationStatus(page);
-    if (reviewStatus.hasUnderReview) {
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "review_status",
-        result: "under_review",
-        url: page.url(),
-      });
-      return;
-    }
-    if (reviewStatus.hasInformationRequired) {
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "review_status",
-        result: "information_required",
-        url: page.url(),
-      });
-      return;
-    }
-    if (reviewStatus.hasApplicationRejected) {
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "review_status",
-        result: "application_rejected",
-        url: page.url(),
-      });
-      return;
-    }
-
-    if (reviewStatus.requiredUnchecked > 0 && canAttemptStep(state, currentStep, "accept_review_checkboxes", 3000, 8)) {
-      await page
-        .evaluate(() => {
-          const visible = (node) => node instanceof HTMLElement && node.offsetParent !== null;
-          const boxes = Array.from(document.querySelectorAll("input[type='checkbox']"))
-            .filter((node) => node instanceof HTMLInputElement && visible(node) && !node.checked);
-          for (const box of boxes) {
-            const container = box.closest("label,div,section,fieldset") || box.parentElement;
-            const line = String(container?.textContent || "").toLowerCase();
-            if (
-              line.includes("i confirm") ||
-              line.includes("i agree") ||
-              line.includes("information on this page is true") ||
-              line.includes("accurate")
-            ) {
-              box.click();
-              box.checked = true;
-              box.dispatchEvent(new Event("input", { bubbles: true }));
-              box.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-          }
-        })
-        .catch(() => {});
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "accept_review_checkboxes",
-        result: "attempted",
-        requiredUnchecked: Number(reviewStatus.requiredUnchecked || 0),
-        url: page.url(),
-      });
-      return;
-    }
-
-    if (manualGated) {
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "ready_to_submit_review_application",
-        result: reviewStatus.readyToSubmit ? "manual_required" : "waiting_review_ready",
-        requiredUnchecked: Number(reviewStatus.requiredUnchecked || 0),
-        submitEnabled: Boolean(reviewStatus.submitEnabled),
-        url: page.url(),
-      });
-      return;
-    }
-
-    if (reviewStatus.readyToSubmit && canAttemptStep(state, currentStep, "submit_review_application", 5000, 6)) {
-      const clicked =
-        (await safeClick(page.locator("button", { hasText: "Submit application" }))) ||
-        (await safeClick(page.locator("button", { hasText: "Submit" }))) ||
-        (await safeClick(page.locator("button", { hasText: "Continue" }))) ||
-        (await safeClick(page.locator("button", { hasText: "Next" }))) ||
-        (await fallbackClickButtonByText(page, ["submit application", "submit", "continue", "next"]));
-      await emitAutoEvent(events, {
-        stage: "review_application",
-        action: "submit_review_application",
-        result: clicked ? "clicked" : "submit_disabled_or_not_found",
-        url: page.url(),
-      });
-      return;
-    }
-
     await emitAutoEvent(events, {
       stage: "review_application",
       action: "reached_review_application",
-      result: "waiting_ready",
-      requiredUnchecked: Number(reviewStatus.requiredUnchecked || 0),
-      submitEnabled: Boolean(reviewStatus.submitEnabled),
+      result: "ready",
       url: page.url(),
     });
     return;
@@ -6153,13 +5070,11 @@ async function main() {
     ...(executablePath ? { executablePath } : {}),
   };
   const resolvedExtensionPath = browserType === "chromium" && extensionPath ? path.resolve(extensionPath) : "";
-  if (browserType === "chromium") {
-    launchOptions.args = launchOptions.args || [];
-    launchOptions.args.push("--remote-debugging-port=9222");
-    if (extensionPath) {
-      launchOptions.args.push(`--disable-extensions-except=${resolvedExtensionPath}`);
-      launchOptions.args.push(`--load-extension=${resolvedExtensionPath}`);
-    }
+  if (browserType === "chromium" && extensionPath) {
+    launchOptions.args = [
+      `--disable-extensions-except=${resolvedExtensionPath}`,
+      `--load-extension=${resolvedExtensionPath}`,
+    ];
   }
   const parsedProxy = parseProxyValue(proxyValue);
   if (parsedProxy?.server) {

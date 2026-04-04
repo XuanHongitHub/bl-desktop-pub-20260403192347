@@ -1,19 +1,24 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use calamine::{open_workbook_auto, Data, Reader};
 use chrono::Utc;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 // Store pending URLs that need to be handled when the window is ready
 static PENDING_URLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+// Prevent duplicate probe starts for the same profile within a short window.
+lazy_static::lazy_static! {
+  static ref TIKTOK_PROBE_LAUNCH_GUARD: Mutex<HashMap<String, Instant>> = Mutex::new(HashMap::new());
+}
 
 fn is_app_auto_update_enabled() -> bool {
   match env::var("BUGLOGIN_APP_AUTO_UPDATE_ENABLED") {
@@ -1112,6 +1117,15 @@ fn extract_email_like_value(value: &str) -> String {
   if trimmed.is_empty() {
     return String::new();
   }
+  if trimmed.contains('|') {
+    if let Some(part) = trimmed
+      .split('|')
+      .map(str::trim)
+      .find(|part| !part.is_empty() && part.contains('@'))
+    {
+      return part.to_string();
+    }
+  }
   if trimmed.contains('@') {
     return trimmed.to_string();
   }
@@ -1149,14 +1163,36 @@ fn split_hotmail_bundle(value: &str) -> (String, String) {
   }
 
   let email = parts
-    .first()
-    .map(|value| extract_email_like_value(value))
-    .unwrap_or_default();
-  let api_mail = parts
-    .get(3)
+    .iter()
+    .find(|part| part.contains('@'))
     .map(|value| value.to_string())
     .unwrap_or_default();
+  let api_mail = if parts.len() >= 3 {
+    trimmed.to_string()
+  } else {
+    String::new()
+  };
   (email, api_mail)
+}
+
+fn looks_like_uuid(value: &str) -> bool {
+  let trimmed = value.trim();
+  if trimmed.len() != 36 {
+    return false;
+  }
+  let bytes = trimmed.as_bytes();
+  for (index, byte) in bytes.iter().enumerate() {
+    if matches!(index, 8 | 13 | 18 | 23) {
+      if *byte != b'-' {
+        return false;
+      }
+      continue;
+    }
+    if !(*byte as char).is_ascii_hexdigit() {
+      return false;
+    }
+  }
+  true
 }
 
 fn map_seed_row_from_columns(
@@ -1235,10 +1271,11 @@ fn map_seed_row_from_columns(
   ));
   let hotmail_bundle = get(header_index(headers, &["hotmail", "hot_mail", "outlook"]));
   let (hotmail_email, hotmail_api_mail) = split_hotmail_bundle(&hotmail_bundle);
+  email = extract_email_like_value(&email);
   if email.is_empty() {
     email = hotmail_email;
   }
-  if api_mail.is_empty() {
+  if api_mail.is_empty() || looks_like_uuid(&api_mail) {
     api_mail = hotmail_api_mail;
   }
   let password = get(header_index(
@@ -2000,6 +2037,38 @@ fn start_tiktok_probe_session(
     "Missing required payload: input. Expected invoke('start_tiktok_probe_session', { input: {...} })."
       .to_string()
   })?;
+  let launch_guard_key = input
+    .profile_id
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(|value| format!("profile:{value}"))
+    .or_else(|| {
+      input
+        .profile_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("name:{value}"))
+    })
+    .unwrap_or_else(|| "unknown".to_string());
+  {
+    let mut guard = TIKTOK_PROBE_LAUNCH_GUARD
+      .lock()
+      .map_err(|error| format!("Failed to lock probe launch guard: {error}"))?;
+    let now = Instant::now();
+    guard.retain(|_, started_at| now.saturating_duration_since(*started_at) < Duration::from_secs(120));
+    if let Some(previous) = guard.get(&launch_guard_key) {
+      let elapsed = now.saturating_duration_since(*previous);
+      if elapsed < Duration::from_secs(20) {
+        return Err(format!(
+          "Probe launch already in progress for this profile ({}s). Please wait a moment and retry.",
+          elapsed.as_secs()
+        ));
+      }
+    }
+    guard.insert(launch_guard_key.clone(), now);
+  }
   let settings = settings_manager::SettingsManager::instance()
     .load_settings()
     .map_err(|error| format!("Failed to load settings: {error}"))?;

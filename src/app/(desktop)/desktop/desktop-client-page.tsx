@@ -3996,10 +3996,6 @@ export default function Home() {
       onTogglePinnedOnly={() => setShowPinnedOnly((prev) => !prev)}
     />
   );
-  const profileTableModeProps = {
-    tableMode: normalizedActiveSection === "groups" ? "group" : "default",
-  } as Record<string, unknown>;
-
   const profilesWorkspaceContent = (
     <>
       {filteredProfiles.length === 0 &&
@@ -4072,7 +4068,6 @@ export default function Home() {
             storedProxies={storedProxies}
             vpnConfigs={vpnConfigs}
             isProxyVpnCatalogLoading={proxiesLoading || vpnConfigsLoading}
-            {...profileTableModeProps}
           />
         </div>
       </div>
@@ -4084,7 +4079,7 @@ export default function Home() {
         <GroupManagementDialog
           isOpen={true}
           onClose={() => void 0}
-          mode="page"
+          mode="embedded"
           selectedGroupId={selectedGroupId}
           onSelectedGroupChange={handleSelectGroup}
           workspaceRole={selectedWorkspaceRole}

@@ -226,8 +226,16 @@ fn cleanup_firefox_urlbar_profile_badge(profile_path: &Path) -> Result<(), Strin
   )?;
   upsert_user_pref_bool(&profile_path.join("user.js"), PREF_KEY_STYLESHEETS, true)?;
   upsert_user_pref_bool(&profile_path.join("prefs.js"), PREF_KEY_STYLESHEETS, true)?;
-  upsert_user_pref_bool(&profile_path.join("user.js"), PREF_KEY_TASKBAR_GROUPING, false)?;
-  upsert_user_pref_bool(&profile_path.join("prefs.js"), PREF_KEY_TASKBAR_GROUPING, false)?;
+  upsert_user_pref_bool(
+    &profile_path.join("user.js"),
+    PREF_KEY_TASKBAR_GROUPING,
+    false,
+  )?;
+  upsert_user_pref_bool(
+    &profile_path.join("prefs.js"),
+    PREF_KEY_TASKBAR_GROUPING,
+    false,
+  )?;
   Ok(())
 }
 
@@ -249,7 +257,10 @@ fn ensure_chromium_runtime_identity_extension(
   }
 }
 "#
-  .replace("__BUGLOGIN_RUNTIME_IDENTITY_NAME__", RUNTIME_IDENTITY_EXTENSION_NAME)
+  .replace(
+    "__BUGLOGIN_RUNTIME_IDENTITY_NAME__",
+    RUNTIME_IDENTITY_EXTENSION_NAME,
+  )
   .replace(
     "__BUGLOGIN_RUNTIME_IDENTITY_VERSION__",
     RUNTIME_IDENTITY_EXTENSION_VERSION,

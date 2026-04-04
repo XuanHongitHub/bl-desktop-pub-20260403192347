@@ -806,8 +806,9 @@ impl CamoufoxManager {
           || arg_lower.contains("firefox")
       });
       let exe_lower = process.name().to_string_lossy().to_lowercase();
-      let exe_match =
-        exe_lower.contains("bugox") || exe_lower.contains("camoufox") || exe_lower.contains("firefox");
+      let exe_match = exe_lower.contains("bugox")
+        || exe_lower.contains("camoufox")
+        || exe_lower.contains("firefox");
 
       if cmd_match || exe_match {
         // Found running Camoufox process

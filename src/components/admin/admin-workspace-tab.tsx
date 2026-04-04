@@ -42,6 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import { formatLocaleDate } from "@/lib/locale-format";
+import { getUnifiedPlanLabel } from "@/lib/plan-display";
 import { cn } from "@/lib/utils";
 import type {
   ControlInvite,
@@ -69,6 +70,12 @@ interface AdminWorkspaceTabProps {
   setWorkspaceName: (name: string) => void;
   workspaceMode: "personal" | "team";
   setWorkspaceMode: (mode: "personal" | "team") => void;
+  workspacePlanId: "free" | "starter" | "team" | "scale" | "enterprise";
+  setWorkspacePlanId: (
+    planId: "free" | "starter" | "team" | "scale" | "enterprise",
+  ) => void;
+  workspaceBillingCycle: "monthly" | "yearly";
+  setWorkspaceBillingCycle: (cycle: "monthly" | "yearly") => void;
   inviteEmail: string;
   setInviteEmail: (email: string) => void;
   inviteRole: TeamRole;
@@ -206,7 +213,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
   const isPermissionActionDisabled = props.isBusy || !canManageUserPermissions;
   const isActionDisabled = props.isBusy || !canManageWorkspace;
   const canSwitchWorkspaceContext = props.isPlatformAdmin && !workspaceScopedOnly;
-  const canProvisionWorkspace = props.isPlatformAdmin && !workspaceScopedOnly;
+  const canProvisionWorkspace = canManageWorkspace && !workspaceScopedOnly;
 
   useEffect(() => {
     if (!props.forcedFlow) {
@@ -581,7 +588,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
             disabled={isActionDisabled || !canProvisionWorkspace}
             className="h-9 bg-background"
           />
-          <div className="grid grid-cols-[1fr_140px] gap-2">
+          <div className="grid grid-cols-[1fr_130px_120px_140px] gap-2">
             <Select
               value={props.workspaceMode}
               onValueChange={(value) =>
@@ -599,6 +606,55 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 <SelectItem value="personal">
                   {t("adminWorkspace.controlPlane.modePersonal")}
                 </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={props.workspacePlanId}
+              onValueChange={(value) =>
+                props.setWorkspacePlanId(
+                  value as "free" | "starter" | "team" | "scale" | "enterprise",
+                )
+              }
+              disabled={isActionDisabled || !canProvisionWorkspace}
+            >
+              <SelectTrigger className="h-9 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="free">
+                  {getUnifiedPlanLabel({ planId: "free" })}
+                </SelectItem>
+                <SelectItem value="starter">
+                  {getUnifiedPlanLabel({ planId: "starter" })}
+                </SelectItem>
+                <SelectItem value="team">
+                  {getUnifiedPlanLabel({ planId: "team" })}
+                </SelectItem>
+                <SelectItem value="scale">
+                  {getUnifiedPlanLabel({ planId: "scale" })}
+                </SelectItem>
+                <SelectItem value="enterprise">
+                  {getUnifiedPlanLabel({ planId: "enterprise" })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={props.workspaceBillingCycle}
+              onValueChange={(value) =>
+                props.setWorkspaceBillingCycle(value as "monthly" | "yearly")
+              }
+              disabled={
+                isActionDisabled ||
+                !canProvisionWorkspace ||
+                props.workspacePlanId === "free"
+              }
+            >
+              <SelectTrigger className="h-9 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">{t("authLanding.monthly")}</SelectItem>
+                <SelectItem value="yearly">{t("authLanding.yearly")}</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -621,7 +677,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
           )}
           {canManageWorkspace && !canProvisionWorkspace && (
             <p className="text-[11px] text-muted-foreground">
-              {t("adminWorkspace.ui.platformAdminHint")}
+              {t("adminWorkspace.ui.workspaceScopedModeHint")}
             </p>
           )}
         </div>
