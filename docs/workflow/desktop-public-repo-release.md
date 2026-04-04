@@ -71,7 +71,7 @@ Expected top-level list must not include `docs`, `openspec`, `buglogin-sync`, `p
 1. Confirm endpoints:
    - `https://api.buglogin.com/v1/browser/bugox.json`
    - `https://api.buglogin.com/v1/browser/bugium.json`
-2. Confirm public repo variables are set (no `gnohh.com`).
+2. Confirm public repo variables are set (no `buglogin.com`).
 3. Run workflow `Release Packaging Pipeline` in public repo.
 4. Verify release assets created in target repo.
 
@@ -132,21 +132,21 @@ If you host metadata on `buglogin-sync`, configure these keys at deploy time:
 - `BUGLOGIN_BUGIUM_VERSION`, `BUGLOGIN_BUGIUM_WINDOWS_X64`, `BUGLOGIN_BUGIUM_WINDOWS_ARM64`, `BUGLOGIN_BUGIUM_LINUX_X64`, `BUGLOGIN_BUGIUM_LINUX_ARM64`, `BUGLOGIN_BUGIUM_MACOS_X64`, `BUGLOGIN_BUGIUM_MACOS_ARM64`
 - Optional policy keys: `BUGLOGIN_BUGOX_UPDATE_MODE`, `BUGLOGIN_BUGIUM_UPDATE_MODE`, `BUGLOGIN_BUGOX_MIN_SUPPORTED_VERSION`, `BUGLOGIN_BUGIUM_MIN_SUPPORTED_VERSION`
 
-## Build and release desktop (free-budget path)
+## Build and release desktop (mandatory 2-phase)
 
 Workflow file: `.github/workflows/desktop-release-public.yml`
 
-### Option A: Manual release
+### Phase 1: Verify build only (required)
 - Open GitHub Actions
-- Run workflow `Desktop Release (Public Repo)`
-- Input `release_tag` (example `v0.17.1-desktop.1`)
-- Keep `publish_release=true`
+- Run workflow `Release Packaging Pipeline`
+- Set `publish_release=false`
+- Wait until both jobs (`build-windows`, `build-macos`) are green
 
-### Option B: Tag-based release
+### Phase 2: Publish release (manual only)
+- Run workflow `Release Packaging Pipeline` again
+- Set:
+  - `publish_release=true`
+  - `release_tag=vX.Y.Z-desktop.N`
+  - `target_repo=keyduc91/Malvanut-Login` (or desired target)
 
-```powershell
-git tag v0.17.1-desktop.1
-git push origin v0.17.1-desktop.1
-```
-
-The workflow runs on `windows-latest`, builds NSIS installer only, uploads artifact, and publishes GitHub Release.
+Tag-push auto release is disabled by design. Publish is always manual after verify passes.

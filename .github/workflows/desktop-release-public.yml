@@ -4,15 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag for target repo (for example v1.0.0)"
-        required: true
+        description: "Release tag for target repo (required only when publish_release=true)"
+        required: false
       target_repo:
-        description: "Target repository (owner/name)"
-        required: true
+        description: "Target repository (required only when publish_release=true)"
+        required: false
         default: "keyduc91/Malvanut-Login"
-  push:
-    tags:
-      - "v*-desktop*"
+      publish_release:
+        description: "false = verify build only, true = build + publish release"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,7 +71,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $blockedHosts = @("gnohh.com", "api.gnohh.com")
+          $blockedHosts = @("buglogin.com", "api.buglogin.com")
           $varsToCheck = @(
             "BUGLOGIN_BROWSER_API_BASE",
             "NEXT_PUBLIC_SYNC_SERVER_URL",
@@ -169,7 +171,7 @@ jobs:
               echo "Missing required env: $name" >&2
               exit 1
             fi
-            if [[ "$value" == *"gnohh.com"* ]]; then
+            if [[ "$value" == *"buglogin.com"* ]]; then
               echo "Blocked legacy host in $name=$value" >&2
               exit 1
             fi
@@ -206,7 +208,7 @@ jobs:
       - build-macos
     runs-on: ubuntu-latest
     # Only run on the public repo — prevent accidental release builds on the private repo
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' && inputs.publish_release == true
     steps:
       - name: Download workflow artifacts
         uses: actions/download-artifact@v4
@@ -218,7 +220,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
           TARGET_REPO: ${{ inputs.target_repo || 'keyduc91/Malvanut-Login' }}
-          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
