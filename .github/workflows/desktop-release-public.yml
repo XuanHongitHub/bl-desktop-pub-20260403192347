@@ -71,7 +71,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $blockedHosts = @("buglogin.com", "api.buglogin.com")
+          $blockedHosts = @("gnohh.com", "api.gnohh.com")
           $varsToCheck = @(
             "BUGLOGIN_BROWSER_API_BASE",
             "NEXT_PUBLIC_SYNC_SERVER_URL",
@@ -171,7 +171,7 @@ jobs:
               echo "Missing required env: $name" >&2
               exit 1
             fi
-            if [[ "$value" == *"buglogin.com"* ]]; then
+            if [[ "$value" == *"gnohh.com"* ]]; then
               echo "Blocked legacy host in $name=$value" >&2
               exit 1
             fi
