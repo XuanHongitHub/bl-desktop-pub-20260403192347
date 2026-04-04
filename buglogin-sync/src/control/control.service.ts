@@ -1107,7 +1107,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("password_login_not_linked");
     }
     if (
-      !this.verifyPassword(
+      !this.verifyPasswordWithTrimFallback(
         normalizedPassword,
         record.passwordSalt,
         record.passwordHash,
@@ -1310,7 +1310,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException("invalid_credentials");
     }
     if (
-      !this.verifyPassword(
+      !this.verifyPasswordWithTrimFallback(
         normalizedPassword,
         record.passwordSalt,
         record.passwordHash,
@@ -6670,6 +6670,21 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     } catch {
       return false;
     }
+  }
+
+  private verifyPasswordWithTrimFallback(
+    password: string,
+    salt: string,
+    hash: string,
+  ): boolean {
+    if (this.verifyPassword(password, salt, hash)) {
+      return true;
+    }
+    const trimmed = password.trim();
+    if (!trimmed || trimmed === password) {
+      return false;
+    }
+    return this.verifyPassword(trimmed, salt, hash);
   }
 
   private normalizeAuthProvider(value: unknown): AuthProvider {
