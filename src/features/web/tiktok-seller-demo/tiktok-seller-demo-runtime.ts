@@ -19,6 +19,12 @@ const FIXTURE_ROOT = path.join(
   process.cwd(),
   "src/features/web/tiktok-seller-demo/fixtures",
 );
+const GOOGLE_MAPS_KEY_PLACEHOLDER = "__BUGLOGIN_GOOGLE_MAPS_API_KEY__";
+
+function injectRuntimeSecrets(html: string): string {
+  const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+  return html.replaceAll(GOOGLE_MAPS_KEY_PLACEHOLDER, mapsApiKey);
+}
 
 export function resolveTiktokSellerDemoStep(
   slug?: string[],
@@ -39,7 +45,8 @@ export async function readTiktokSellerDemoDocument(
   step: TiktokSellerDemoStep,
 ): Promise<string> {
   const docPath = path.join(FIXTURE_ROOT, `${step}.html`);
-  return fs.readFile(docPath, "utf8");
+  const source = await fs.readFile(docPath, "utf8");
+  return injectRuntimeSecrets(source);
 }
 
 export function buildTiktokSellerDemoDocument(

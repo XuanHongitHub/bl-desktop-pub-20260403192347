@@ -9,6 +9,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, "..");
 const sidecarTargetDir = resolve(rootDir, ".sidecar-target");
 const isWindows = process.platform === "win32";
+const useTurbopack = process.env.BUGLOGIN_DEV_BUNDLER === "turbopack";
 const envFiles = [resolve(rootDir, ".env"), resolve(rootDir, ".env.local")];
 
 function parseEnvFile(filePath) {
@@ -67,7 +68,11 @@ function spawnPnpm(args, extraEnv = {}) {
   });
 }
 
-const devProc = spawnPnpm(["dev"]);
+const devCommand = useTurbopack ? ["dev"] : ["dev:webpack"];
+console.log(
+  `Starting Next.js dev server with ${useTurbopack ? "Turbopack" : "Webpack"} bundler`,
+);
+const devProc = spawnPnpm(devCommand);
 const copyProc = spawnPnpm(["copy-proxy-binary"], {
   SIDECAR_CARGO_TARGET_DIR: sidecarTargetDir,
 });
