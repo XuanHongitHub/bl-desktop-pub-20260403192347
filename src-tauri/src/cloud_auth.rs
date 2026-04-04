@@ -1252,7 +1252,7 @@ pub async fn local_control_public_auth(
     _ => return Err("invalid_auth_route".to_string()),
   };
 
-  let settings = crate::settings_manager::get_sync_settings(app_handle).await?;
+  let settings = crate::settings_manager::get_sync_settings(app_handle.clone()).await?;
   let existing_sync_token = normalize_optional_token(settings.sync_token.clone());
   let base_url = settings
     .sync_server_url
