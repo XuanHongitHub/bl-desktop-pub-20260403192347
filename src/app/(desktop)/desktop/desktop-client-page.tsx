@@ -1166,9 +1166,15 @@ export default function Home() {
         if (cloudUser?.platformRole) {
           headers["x-platform-role"] = cloudUser?.platformRole;
         }
-        if (settings.sync_token?.trim()) {
-          headers.Authorization = `Bearer ${settings.sync_token.trim()}`;
+        const controlToken = settings.sync_token?.trim() ?? "";
+        if (!controlToken) {
+          if (!isCancelled) {
+            setWorkspaceSwitcherSummaries([]);
+            setWorkspaceSwitcherError("missing_control_token");
+          }
+          return;
         }
+        headers.Authorization = `Bearer ${controlToken}`;
 
         const actorResponse = await fetch(`${baseUrl}/v1/control/auth/me`, {
           method: "GET",
@@ -2739,6 +2745,7 @@ export default function Home() {
             showErrorToast(t("authDialog.loginFailed"), {
               description: authMessage,
             });
+          } finally {
             setIsPostLoginTransitioning(false);
           }
           return;
