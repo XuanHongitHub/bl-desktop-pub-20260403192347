@@ -390,7 +390,7 @@ export function migrateDataScopeAccount(
         continue;
       }
       const currentWorkspaceId = scopeKey.split("::")[1]?.trim() || "";
-      const targetWorkspaceId = allowedWorkspaceSet.has(currentWorkspaceId)
+      const targetWorkspaceId: string = allowedWorkspaceSet.has(currentWorkspaceId)
         ? currentWorkspaceId
         : fallbackWorkspaceId;
       const targetScopeKey = toDataScopeKey({
@@ -465,7 +465,7 @@ export function normalizeDataScopeWorkspacesForAccount(
 
       const targetScopeKey = toDataScopeKey({
         accountId: sanitizedAccountId,
-        workspaceId: fallbackWorkspaceId,
+        workspaceId: fallbackWorkspaceId as string,
       });
       if (entityRegistry[id] !== targetScopeKey) {
         entityRegistry[id] = targetScopeKey;
