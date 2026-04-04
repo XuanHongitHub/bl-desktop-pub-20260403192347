@@ -225,7 +225,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build macOS installer (DMG)
+      - name: Build macOS installer (verify mode, unsigned)
+        if: inputs.publish_release != true
+        run: pnpm tauri build --bundles dmg
+
+      - name: Build macOS installer (publish mode, signed + notarized)
+        if: inputs.publish_release == true
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
