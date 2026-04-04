@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, LayoutGrid, KeyRound, MonitorSmartphone, Search, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import type { ControlMembership, ControlShareGrant, TeamRole } from "@/types";
+import type { ControlMembership, ControlShareGrant } from "@/types";
 
 interface ResourceItem {
   id: string;
@@ -33,7 +32,6 @@ export function MemberPermissionsMatrix({
   availableResources,
   onToggleGrant 
 }: MemberPermissionsMatrixProps) {
-  const { t } = useTranslation();
   const [searchMember, setSearchMember] = useState("");
   const [searchResource, setSearchResource] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(memberships[0]?.userId ?? null);
@@ -41,9 +39,9 @@ export function MemberPermissionsMatrix({
 
   const activeMember = memberships.find(m => m.userId === selectedUserId);
 
-  // Filter out system owners since they have full access anyway
+  // Show all members including owners so admins can inspect any member's grants
   const manageableMembers = useMemo(() => {
-    return memberships.filter(m => m.role !== "owner").filter(m => {
+    return memberships.filter(m => {
       if (!searchMember) return true;
       return m.email.toLowerCase().includes(searchMember.toLowerCase());
     });
