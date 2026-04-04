@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/buglogin/app}"
+APP_DIR="${APP_DIR:-$(pwd)}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 SKIP_GIT_PULL="${SKIP_GIT_PULL:-0}"
 VERIFY_STRICT="${VERIFY_STRICT:-1}"
@@ -61,8 +61,6 @@ require_cmd curl
 require_cmd git
 require_cmd flock
 
-cd "$APP_DIR"
-
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log "Another deploy is running (lock: $LOCK_FILE). Exit."
@@ -72,7 +70,7 @@ fi
 if [ "$SKIP_GIT_PULL" != "1" ]; then
   log "Syncing git branch ($DEPLOY_BRANCH) with fast-forward only"
   if [ -n "$(git status --porcelain)" ]; then
-    log "Working tree is dirty at $APP_DIR. Commit/stash changes first, or run with SKIP_GIT_PULL=1."
+    log "Working tree is dirty at $(pwd). Commit/stash changes first, or run with SKIP_GIT_PULL=1."
     exit 1
   fi
   git fetch origin "$DEPLOY_BRANCH"
@@ -107,19 +105,19 @@ NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}" ./node_modules/.bin/ne
 log "Building API (Nest production build)"
 pnpm --filter buglogin-sync build
 
-if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
+if [ ! -f ".next/BUILD_ID" ]; then
   log "Missing Next.js build artifact (.next/BUILD_ID). Abort."
   exit 1
 fi
 
-if [ ! -f "$APP_DIR/buglogin-sync/dist/main.js" ]; then
+if [ ! -f "buglogin-sync/dist/main.js" ]; then
   log "Missing API build artifact (buglogin-sync/dist/main.js). Abort."
   exit 1
 fi
 
 log "Reloading PM2 processes"
-start_or_reload_pm2 "$WEB_PROCESS" pnpm --name "$WEB_PROCESS" --cwd "$APP_DIR" -- exec next start -p "$WEB_PORT"
-start_or_reload_pm2 "$API_PROCESS" pnpm --name "$API_PROCESS" --cwd "$APP_DIR/buglogin-sync" -- start:prod
+start_or_reload_pm2 "$WEB_PROCESS" pnpm --name "$WEB_PROCESS" --cwd "$(pwd)" -- exec next start -p "$WEB_PORT"
+start_or_reload_pm2 "$API_PROCESS" pnpm --name "$API_PROCESS" --cwd "$(pwd)/buglogin-sync" -- start:prod
 
 log "Running post-deploy healthchecks"
 healthcheck "web" "http://127.0.0.1:${WEB_PORT}/signin"
