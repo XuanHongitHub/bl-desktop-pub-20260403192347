@@ -23,6 +23,7 @@ interface PublicAuthUser {
 
 interface PublicAuthResponse {
   user: PublicAuthUser;
+  controlToken: string;
 }
 
 interface ControlAuthProfileResponse {
@@ -147,27 +148,7 @@ function resolveControlTokenFromSettings(
   settings?: SyncSettings | null,
 ): string | null {
   const configuredToken = settings?.sync_token?.trim();
-  const envToken = process.env.NEXT_PUBLIC_SYNC_TOKEN?.trim();
-
-  if (process.env.NODE_ENV !== "production") {
-    if (envToken && envToken.length > 0) {
-      return envToken;
-    }
-    if (configuredToken && configuredToken.length > 0) {
-      return configuredToken;
-    }
-    return null;
-  }
-
-  if (envToken && envToken.length > 0) {
-    return envToken;
-  }
-
-  if (configuredToken && configuredToken.length > 0) {
-    return configuredToken;
-  }
-
-  return null;
+  return configuredToken && configuredToken.length > 0 ? configuredToken : null;
 }
 
 function deriveLocalUserId(normalizedEmail: string): string {
@@ -412,16 +393,26 @@ export function useCloudAuth(): UseCloudAuthReturn {
     [],
   );
 
-  const enrichUserFromControlPlane = useCallback(async (user: CloudUser) => {
-    const cacheKey = `${user.id}::${user.email}::${user.platformRole ?? "-"}`;
-    const cached = enrichUserCacheRef.current;
-    if (cached && cached.key === cacheKey && cached.expiresAt > Date.now()) {
-      return cached.user;
-    }
-    const inFlight = enrichUserInFlightRef.current.get(cacheKey);
-    if (inFlight) {
-      return inFlight;
-    }
+  const enrichUserFromControlPlane = useCallback(
+    async (
+      user: CloudUser,
+      options?: { forceRefresh?: boolean; strict?: boolean },
+    ) => {
+      const cacheKey = `${user.id}::${user.email}::${user.platformRole ?? "-"}`;
+
+      if (options?.forceRefresh) {
+        enrichUserCacheRef.current = null;
+        enrichUserInFlightRef.current.delete(cacheKey);
+      }
+
+      const cached = enrichUserCacheRef.current;
+      if (cached && cached.key === cacheKey && cached.expiresAt > Date.now()) {
+        return cached.user;
+      }
+      const inFlight = enrichUserInFlightRef.current.get(cacheKey);
+      if (inFlight) {
+        return inFlight;
+      }
 
     const task = (async (): Promise<CloudUser> => {
       let syncSettings: SyncSettings | null = null;
@@ -438,9 +429,11 @@ export function useCloudAuth(): UseCloudAuthReturn {
         syncSettings = null;
       }
 
-      const baseUrls =
-        resolveControlBaseUrlCandidatesFromSettings(syncSettings);
+      const baseUrls = resolveControlBaseUrlCandidatesFromSettings(syncSettings);
       if (baseUrls.length === 0) {
+        if (options?.strict) {
+          throw new Error("control_auth_not_configured");
+        }
         return user;
       }
 
@@ -454,6 +447,9 @@ export function useCloudAuth(): UseCloudAuthReturn {
       }
       const controlToken = resolveControlTokenFromSettings(syncSettings);
       if (!controlToken) {
+        if (options?.strict) {
+          throw new Error("missing_control_token");
+        }
         return user;
       }
       headers.Authorization = `Bearer ${controlToken}`;
@@ -586,6 +582,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
         };
       };
 
+      let encounteredError = false;
       for (const baseUrl of baseUrls) {
         try {
           const enriched = await enrichFromBaseUrl(baseUrl);
@@ -598,8 +595,15 @@ export function useCloudAuth(): UseCloudAuthReturn {
             return enriched;
           }
         } catch {
+          encounteredError = true;
           // Try next candidate URL in self-host local dev fallback list.
         }
+      }
+
+      if (options?.strict) {
+        throw new Error(
+          encounteredError ? "control_auth_unreachable" : "control_auth_unauthorized",
+        );
       }
 
       enrichUserCacheRef.current = {
@@ -638,7 +642,11 @@ export function useCloudAuth(): UseCloudAuthReturn {
               payload,
             },
           );
-          if (!response?.user?.id || !response.user.email) {
+          if (
+            !response?.user?.id ||
+            !response.user.email ||
+            !response.controlToken?.trim()
+          ) {
             throw new Error("invalid_auth_response");
           }
           invalidateInvokeCache("get_sync_settings");
@@ -698,7 +706,11 @@ export function useCloudAuth(): UseCloudAuthReturn {
           throw new Error(await parseHttpError(response));
         }
         const parsed = (await response.json()) as PublicAuthResponse;
-        if (!parsed?.user?.id || !parsed.user.email) {
+        if (
+          !parsed?.user?.id ||
+          !parsed.user.email ||
+          !parsed.controlToken?.trim()
+        ) {
           throw new Error("invalid_auth_response");
         }
         return parsed;
@@ -738,7 +750,9 @@ export function useCloudAuth(): UseCloudAuthReturn {
         email: normalizedEmail,
         platformRole: resolvedPlatformRole,
       };
-      const enrichedUser = await enrichUserFromControlPlane(seedUser);
+      const enrichedUser = await enrichUserFromControlPlane(seedUser, {
+        strict: true,
+      });
       const finalState: CloudAuthState = {
         logged_in_at: new Date().toISOString(),
         user: {
@@ -861,14 +875,20 @@ export function useCloudAuth(): UseCloudAuthReturn {
             Array.isArray(normalizedState.user.workspaceSeeds) &&
             normalizedState.user.workspaceSeeds.length > 0;
           const now = Date.now();
-          const shouldEnrich =
-            !hasPersistedWorkspaceSeeds &&
-            (lastEnrichedUserIdRef.current !== normalizedState.user.id ||
-              now - lastEnrichedAtRef.current >= CONTROL_ENRICH_CACHE_TTL_MS);
-          if (hasPersistedWorkspaceSeeds) {
-            lastEnrichedAtRef.current = now;
+
+          // We want to background refresh if TTL elapsed or no seeds.
+          // Setting the ref here prevented that refresh. We now only set it if it's recent.
+          if (hasPersistedWorkspaceSeeds && lastEnrichedAtRef.current === 0) {
+            // Keep the previous lastEnrichedAt if it was 0, so shouldEnrich becomes true
+            // but we still update the state instantly for fast boot.
             lastEnrichedUserIdRef.current = normalizedState.user.id;
           }
+
+          const shouldEnrich =
+            lastEnrichedUserIdRef.current !== normalizedState.user.id ||
+            now - lastEnrichedAtRef.current >= CONTROL_ENRICH_CACHE_TTL_MS ||
+            !hasPersistedWorkspaceSeeds;
+
           if (!shouldEnrich) {
             return;
           }
@@ -1023,7 +1043,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
       if (!authState) {
         throw new Error("not_logged_in");
       }
-      const enrichedUser = await enrichUserFromControlPlane(authState.user);
+      const enrichedUser = await enrichUserFromControlPlane(authState.user, { forceRefresh: true });
       const nextState = {
         ...authState,
         user: enrichedUser,

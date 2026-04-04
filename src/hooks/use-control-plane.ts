@@ -327,27 +327,7 @@ function resolveRuntimeBaseUrl(settings?: SyncSettings | null): string | null {
 
 function resolveRuntimeToken(settings?: SyncSettings | null): string | null {
   const configuredToken = settings?.sync_token?.trim();
-  const envToken = process.env.NEXT_PUBLIC_SYNC_TOKEN?.trim();
-
-  if (process.env.NODE_ENV !== "production") {
-    if (envToken && envToken.length > 0) {
-      return envToken;
-    }
-    if (configuredToken && configuredToken.length > 0) {
-      return configuredToken;
-    }
-    return null;
-  }
-
-  if (envToken && envToken.length > 0) {
-    return envToken;
-  }
-
-  if (configuredToken && configuredToken.length > 0) {
-    return configuredToken;
-  }
-
-  return null;
+  return configuredToken && configuredToken.length > 0 ? configuredToken : null;
 }
 
 function compactWorkflowCookiePreview(value?: string | null): string | null {
