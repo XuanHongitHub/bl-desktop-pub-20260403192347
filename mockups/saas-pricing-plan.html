@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BugLogin Pricing - SaaS Business Subscription</title>
+    <style>
+      @font-face {
+        font-family: "Inter";
+        src: url("../public/fonts/InterVariable.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Berkeley Mono";
+        src: url("../public/fonts/Berkeley-Mono-Variable.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+      }
+
+      :root {
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-2: #f0f4f9;
+        --text: #0f1d2f;
+        --muted: #5e6b7f;
+        --border: #dbe3ee;
+        --primary: #0f8b8d;
+        --primary-strong: #0b5f75;
+        --accent: #11a36a;
+        --ring: rgba(15, 139, 141, 0.2);
+        --shadow: 0 24px 50px rgba(12, 35, 64, 0.09);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 600px at 10% -20%, #caedf0 0%, transparent 60%),
+          radial-gradient(900px 500px at 95% 0%, #d5e4ff 0%, transparent 55%),
+          var(--bg);
+      }
+
+      .container {
+        width: min(1160px, calc(100% - 2rem));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 0;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: Sora, sans-serif;
+        font-weight: 700;
+      }
+
+      .brand-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+      }
+
+      .pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 6px;
+        display: inline-grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .pill button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-family: inherit;
+        font-weight: 700;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .pill button.active {
+        background: var(--text);
+        color: white;
+      }
+
+      .hero {
+        padding: 18px 0 22px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-family: Sora, sans-serif;
+        font-size: clamp(30px, 4.2vw, 54px);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        margin: 16px 0 0;
+        color: var(--muted);
+        max-width: 760px;
+      }
+
+      .plans {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        padding: 24px 0 54px;
+      }
+
+      .card {
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card.popular {
+        border-color: rgba(17, 163, 106, 0.4);
+        background: linear-gradient(180deg, rgba(17, 163, 106, 0.07), rgba(255, 255, 255, 0.95));
+      }
+
+      .tag {
+        display: inline-flex;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        background: rgba(17, 163, 106, 0.14);
+        color: #0e7d53;
+      }
+
+      .plan-name {
+        margin: 0;
+        font-family: Sora, sans-serif;
+        font-size: 24px;
+      }
+
+      .price {
+        margin: 0;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .price strong {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+        color: var(--text);
+        font-size: 34px;
+        letter-spacing: -0.03em;
+        font-family: Sora, sans-serif;
+      }
+
+      .price strong span {
+        font-size: 14px;
+        color: var(--muted);
+        font-family: Manrope, sans-serif;
+      }
+
+      .features {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+
+      .features li {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        color: #324158;
+        font-size: 14px;
+      }
+
+      .features li::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        margin-top: 6px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        flex-shrink: 0;
+      }
+
+      .cta {
+        margin-top: auto;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        background: var(--text);
+        color: white;
+        transition: transform 0.16s ease, box-shadow 0.2s ease;
+      }
+
+      .card.popular .cta {
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+      }
+
+      .cta:hover {
+        transform: translateY(-1px);
+      }
+
+      .subnote {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .footer-note {
+        border-top: 1px solid var(--border);
+        padding: 18px 0 32px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1100px) {
+        .plans {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 700px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .plans {
+          grid-template-columns: 1fr;
+          padding-bottom: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          BugLogin Subscription
+        </div>
+        <div class="pill" role="tablist" aria-label="Billing cycle">
+          <button id="monthlyBtn" class="active" type="button">Theo tháng</button>
+          <button id="yearlyBtn" type="button">Theo năm (tiết kiệm 20%)</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <h1>Business Pricing Plans cho team vận hành automation</h1>
+        <p>
+          Chọn gói phù hợp theo quy mô đội ngũ. Sau khi bấm chọn gói, hệ thống sẽ mở trang
+          thanh toán riêng để bạn xử lý qua Stripe hoặc nhập license (phụ).
+        </p>
+      </section>
+
+      <section class="plans" id="plans">
+        <article class="card" data-plan="starter" data-monthly="29" data-yearly="23">
+          <h3 class="plan-name">Starter</h3>
+          <p class="price"><strong><span>$</span><span data-price>29</span></strong> / tháng</p>
+          <ul class="features">
+            <li>100 profiles</li>
+            <li>5 thành viên</li>
+            <li>Proxy + cookie workflows cơ bản</li>
+            <li>Hỗ trợ qua ticket</li>
+          </ul>
+          <button class="cta" type="button" data-select-plan="starter">Chọn Starter</button>
+        </article>
+
+        <article class="card popular" data-plan="growth" data-monthly="79" data-yearly="63">
+          <span class="tag">Most popular</span>
+          <h3 class="plan-name">Growth</h3>
+          <p class="price"><strong><span>$</span><span data-price>79</span></strong> / tháng</p>
+          <ul class="features">
+            <li>300 profiles</li>
+            <li>20 thành viên</li>
+            <li>BugIdea automation + bulk actions</li>
+            <li>Ưu tiên hỗ trợ kỹ thuật</li>
+          </ul>
+          <button class="cta" type="button" data-select-plan="growth">Nâng cấp Growth</button>
+        </article>
+
+        <article class="card" data-plan="scale" data-monthly="149" data-yearly="119">
+          <h3 class="plan-name">Scale</h3>
+          <p class="price"><strong><span>$</span><span data-price>149</span></strong> / tháng</p>
+          <ul class="features">
+            <li>1000 profiles</li>
+            <li>Không giới hạn workspace nội bộ</li>
+            <li>Role templates + policy controls</li>
+            <li>SLA phản hồi nâng cao</li>
+          </ul>
+          <button class="cta" type="button" data-select-plan="scale">Chọn Scale</button>
+        </article>
+
+        <article class="card" data-plan="enterprise" data-monthly="299" data-yearly="239">
+          <h3 class="plan-name">Enterprise</h3>
+          <p class="price"><strong><span>$</span><span data-price>299</span></strong> / tháng</p>
+          <ul class="features">
+            <li>2000+ profiles</li>
+            <li>SSO/SAML, private deployment</li>
+            <li>Dedicated success engineer</li>
+            <li>Tùy biến hợp đồng doanh nghiệp</li>
+          </ul>
+          <button class="cta" type="button" data-select-plan="enterprise">Chọn Enterprise</button>
+        </article>
+      </section>
+
+      <p class="subnote">
+        Giá chưa gồm VAT. Bạn có thể đổi chu kỳ thanh toán ngay trong trang checkout.
+      </p>
+
+      <div class="footer-note">BugLogin • SaaS Subscription Mockup</div>
+    </div>
+
+    <script>
+      const monthlyBtn = document.getElementById("monthlyBtn");
+      const yearlyBtn = document.getElementById("yearlyBtn");
+      const cards = Array.from(document.querySelectorAll(".card[data-plan]"));
+
+      let cycle = "monthly";
+
+      function updateCycle(nextCycle) {
+        cycle = nextCycle;
+        monthlyBtn.classList.toggle("active", cycle === "monthly");
+        yearlyBtn.classList.toggle("active", cycle === "yearly");
+
+        cards.forEach((card) => {
+          const value = card.dataset[cycle];
+          const priceNode = card.querySelector("[data-price]");
+          const priceLine = card.querySelector(".price");
+          if (priceNode) priceNode.textContent = value;
+          if (priceLine) {
+            priceLine.lastChild.textContent = cycle === "yearly" ? " / tháng (cam kết năm)" : " / tháng";
+          }
+        });
+      }
+
+      monthlyBtn.addEventListener("click", () => updateCycle("monthly"));
+      yearlyBtn.addEventListener("click", () => updateCycle("yearly"));
+
+      document.querySelectorAll("[data-select-plan]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const plan = button.getAttribute("data-select-plan");
+          const card = button.closest(".card");
+          const amount = card?.dataset?.[cycle] ?? "0";
+          const target = new URL("./saas-checkout.html", window.location.href);
+          target.searchParams.set("plan", plan || "starter");
+          target.searchParams.set("cycle", cycle);
+          target.searchParams.set("amount", amount);
+          window.location.href = target.toString();
+        });
+      });
+
+      updateCycle("monthly");
+    </script>
+  </body>
+</html>

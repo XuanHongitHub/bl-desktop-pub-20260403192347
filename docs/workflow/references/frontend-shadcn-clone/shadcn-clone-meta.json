@@ -1,0 +1,75 @@
+{
+  "previews": [
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "dashboard",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-dashboard.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "tasks",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-tasks.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "playground",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-playground.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "authentication",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-authentication.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "rtl",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-rtl.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "components",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-components.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "charts",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-charts.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "directory",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-directory.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "create",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-create.png"
+    },
+    {
+      "surface": "web",
+      "route": "/shadcn-clone",
+      "state": "docs",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-web-docs.png"
+    },
+    {
+      "surface": "desktop",
+      "route": "/app-shadcn-clone",
+      "state": "dashboard",
+      "output": "docs/workflow/references/frontend-shadcn-clone/shadcn-clone-desktop.png"
+    }
+  ],
+  "timestamp": "2026-03-30T03:03:24.643Z",
+  "sourceRepo": "https://github.com/shadcn-ui/ui",
+  "shellSourceRepo": "https://github.com/JCodesMore/ai-website-cloner-template",
+  "registryCoverage": "full",
+  "clonedComponentCount": 57
+}

@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notion VI Landing Clone</title>
+    <link rel="preconnect" href="https://images.ctfassets.net" />
+    <link rel="preconnect" href="https://videos.ctfassets.net" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="#hero" aria-label="Notion clone home">
+          <img src="https://www.notion.com/front-static/logo-ios.png" alt="Notion" />
+          <span>Notion</span>
+        </a>
+
+        <nav class="main-nav" aria-label="Primary">
+          <a href="#intro">Notion</a>
+          <a href="#apps">Mail</a>
+          <a href="#apps">Calendar</a>
+          <a href="#features">AI</a>
+          <a href="#social-proof">Enterprise</a>
+          <a href="#roi">Bảng giá</a>
+        </nav>
+
+        <div class="header-actions">
+          <a class="text-link" href="#footer">Liên hệ bộ phận kinh doanh</a>
+          <a class="text-link" href="#">Đăng nhập</a>
+          <a class="btn btn-dark" href="#apps">Dùng Notion miễn phí</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="hero">
+        <div class="hero-grid shell">
+          <div class="hero-copy reveal">
+            <p class="eyebrow">Không gian làm việc AI phù hợp với bạn.</p>
+            <h1>Làm việc nhanh hơn với đội nhóm AI.</h1>
+            <p class="hero-body">
+              Notion là không gian làm việc AI, nơi các đội nhóm và trợ lý AI cùng nhau hoàn thành nhiều công việc hơn.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-light" href="#apps">Dùng Notion miễn phí</a>
+              <a class="btn btn-outline-light" href="#social-proof">Yêu cầu bản demo</a>
+            </div>
+          </div>
+
+          <div class="hero-stage reveal">
+            <img
+              class="hero-stage-line"
+              src="https://www.notion.com/front-static/pages/home/fall/hero/homepage-hero-animation-lf.png"
+              alt=""
+              aria-hidden="true"
+            />
+
+            <div class="hero-chip hero-chip-left">
+              <span class="hero-dot"></span>
+              <div>
+                <strong>Trợ lý AI</strong>
+                <span>Nhận nhiệm vụ và hành động</span>
+              </div>
+            </div>
+
+            <div class="hero-chip hero-chip-right">
+              <span class="hero-dot amber"></span>
+              <div>
+                <strong>Enterprise Search</strong>
+                <span>Tất cả trong một lần tìm</span>
+              </div>
+            </div>
+
+            <div class="hero-device-frame">
+              <video
+                class="hero-video"
+                src="https://videos.ctfassets.net/spoqsaf9291f/60rdYX9BPk9yOnCdEb0nJC/a04c661d50bdad019963c8f9da70fa35/Desktop_HomepageHero_compressed_v007_650.mp4"
+                poster="https://images.ctfassets.net/spoqsaf9291f/6U5lzMyWTczZJr7OYiXXbo/672079b3e1f41771150dfe3f3881a8ec/vi-VN_Hero.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="logo-strip shell reveal" aria-labelledby="logo-strip-title">
+        <p class="eyebrow center" id="logo-strip-title">Được các đội ngũ hàng đầu tin dùng</p>
+        <div class="logo-marquee">
+          <img src="https://images.ctfassets.net/spoqsaf9291f/jWkCPMAAj0Av69704DQoB/84499b606028b276e0bf94c238f07097/OpenAI-black-wordmark-cropped.png" alt="OpenAI" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/502ApiNcRHgIwrDU8XRYTQ/497492503acb3fa21bbd9dd1aec193c3/Figma-logo-color.svg" alt="Figma" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/4xtSoCGKxiZcTwsYPlBB5h/0fb7d4155e89ef5a852936099e014313/volvo.png" alt="Volvo" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/4eiEZBWL5gEClwB1IHi18I/b9b86479965977121ceabd01f45567a7/ramp.png" alt="Ramp" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/3CSWr4Z4uIvbfO7102KPY/bbd97c8edd0673853ac8dae2887a638d/cursor.png" alt="Cursor" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/7FiQxfDAOyovrCIauqR2BC/f0150affe329526bd3773c07449e747b/NVIDIA-logo.png" alt="NVIDIA" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/3hzRKZTT0Mi4Q3JLPQpQyF/28256f50d0bf6b63bfbed7862b8cbe68/Perplexity_AI_logo.svg.png" alt="Perplexity" />
+          <img src="https://images.ctfassets.net/spoqsaf9291f/15en0a60cYTRxNO1QlHbdg/f09657a6b8287f1db0e628a048267e2c/vercel-logotype-light.svg" alt="Vercel" />
+        </div>
+      </section>
+
+      <section class="intro shell" id="intro">
+        <div class="section-heading reveal">
+          <div>
+            <p class="eyebrow">Ứng dụng AI đa năng của bạn.</p>
+            <h2>Giới thiệu Notion 3.0</h2>
+            <p>
+              Bạn giao nhiệm vụ. Trợ lý Notion thực hiện. Khối dưới đây giữ đúng cảm giác điều hướng, phân tầng nội dung và nhịp chuyển động của phần giới thiệu trên trang gốc.
+            </p>
+          </div>
+          <div class="quote-pill">
+            <img src="https://images.ctfassets.net/spoqsaf9291f/3FH43ruDfwZILGSgjnJ2sn/82bb2e9bfd3521c58e53a395bd72c6f6/forbes.png" alt="Forbes" />
+            <span>Ứng dụng AI đa năng của bạn.</span>
+          </div>
+        </div>
+
+        <div class="intro-card reveal">
+          <div class="intro-sidebar" role="tablist" aria-label="Notion 3.0 slides">
+            <button
+              class="intro-tab is-active"
+              type="button"
+              data-slide-title="Giao lại những việc vặt không tên"
+              data-slide-copy="Việc từng tốn vài ngày nay chỉ mất vài phút. Bạn chỉ cần nêu ra mục tiêu và quan sát trợ lý bắt tay vào việc."
+              data-slide-image="https://images.ctfassets.net/spoqsaf9291f/5YQCShRSSTzBGeNEJ4rq9r/7c7716af3473c233a302f9d4319aca0f/Slide_A_1584x1080_isolated_final_compressed_500k_first_frame.jpg"
+            >
+              Giao lại những việc vặt không tên
+            </button>
+            <button
+              class="intro-tab"
+              type="button"
+              data-slide-title="Hợp tác với đội nhóm của bạn"
+              data-slide-copy="Cứ như thể bạn có một trợ thủ đắc lực tích hợp sẵn đồng hành cùng đội ngũ của mình vậy."
+              data-slide-image="https://images.ctfassets.net/spoqsaf9291f/2Au7fvWafMpLZ9AEw3bC9j/63d0a6664f66b595cf8b01ae32254120/Slide_B_1584x1080_isolated_final_compressed_1100k_first_frame.jpg"
+            >
+              Hợp tác với đội nhóm của bạn
+            </button>
+            <button
+              class="intro-tab"
+              type="button"
+              data-slide-title="Biết tất cả những gì bạn biết"
+              data-slide-copy="Tìm kiếm trên mọi trang, tin nhắn, tệp và web để mang đến đúng thứ bạn cần."
+              data-slide-image="https://images.ctfassets.net/spoqsaf9291f/4qtBbCyYnRl56l1WV1TNEZ/c648f4c81dc75f7bc61dd521983ac3a7/Slide_C_1584x1080_isolated_final_compressed_1100k_first_frame.jpg"
+            >
+              Biết tất cả những gì bạn biết
+            </button>
+            <button
+              class="intro-tab"
+              type="button"
+              data-slide-title="Được cá nhân hóa cho bạn"
+              data-slide-copy="Trợ lý học cách bạn làm việc. Bạn nắm quyền kiểm soát mọi thứ, từ cách nó hoạt động cho đến vẻ ngoài của nó."
+              data-slide-image="https://images.ctfassets.net/spoqsaf9291f/58tNscjSP1mgkKTFkXwfg2/e33432b1e2fea7ea177f7e3fa002abae/Slide_D_1584x1080_isolated_final_compressed_500k_first_frame.jpg"
+            >
+              Được cá nhân hóa cho bạn
+            </button>
+          </div>
+
+          <div class="intro-preview" style="background-image: url('https://images.ctfassets.net/spoqsaf9291f/4OTM5AmiifFydzyiBJQ8EG/31a43265a305dd016808647741aebaf6/accordion-background.jpg')">
+            <div class="intro-copy-box">
+              <p class="eyebrow">Trợ lý Notion</p>
+              <h3 id="intro-slide-title">Giao lại những việc vặt không tên</h3>
+              <p id="intro-slide-copy">
+                Việc từng tốn vài ngày nay chỉ mất vài phút. Bạn chỉ cần nêu ra mục tiêu và quan sát trợ lý bắt tay vào việc.
+              </p>
+              <a class="text-link strong" href="#features">Dùng thử Trợ lý Notion</a>
+            </div>
+            <div class="intro-shot-frame">
+              <img
+                id="intro-slide-image"
+                src="https://images.ctfassets.net/spoqsaf9291f/5YQCShRSSTzBGeNEJ4rq9r/7c7716af3473c233a302f9d4319aca0f/Slide_A_1584x1080_isolated_final_compressed_500k_first_frame.jpg"
+                alt="Notion 3.0 preview"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-stack shell" id="features">
+        <div class="section-heading reveal compact">
+          <div>
+            <p class="eyebrow">Hỗ trợ tại bất cứ khi nào bạn cần.</p>
+            <h2>Mỗi block là một capability thật, không phải thẻ minh họa.</h2>
+          </div>
+        </div>
+
+        <div class="bento-grid">
+          <article class="bento-card bento-wide teal reveal">
+            <div class="bento-copy">
+              <p class="eyebrow">Trợ lý tùy chỉnh</p>
+              <h3>Tự động hóa các nhiệm vụ lặp đi lặp lại.</h3>
+              <p>Nhịp của phần này được dựng lại bằng khối text lớn ở trái và hai tấm product visual ở phải.</p>
+              <a class="text-link strong" href="#apps">Dùng thử</a>
+            </div>
+            <div class="bento-duo">
+              <img src="https://images.ctfassets.net/spoqsaf9291f/5sE5GLBT9su7AZWQzUp8tG/bea73a14e76b6fbac7716dbdd97ae662/vi-VN_agents-a.jpg" alt="Custom agents panel" />
+              <img src="https://images.ctfassets.net/spoqsaf9291f/3ZLuTZxiiAEkG65LcdQEcq/740a52175dee2e04b56a3dd6737aba70/vi-VN_agents-b.jpg" alt="Custom agents list" />
+            </div>
+          </article>
+
+          <article class="bento-card red reveal">
+            <div class="bento-copy">
+              <p class="eyebrow">Tìm kiếm ở cấp độ tổ chức</p>
+              <h3>Tất cả trong một lần tìm.</h3>
+              <a class="text-link strong" href="#social-proof">Dùng thử</a>
+            </div>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/5gAtostQzWHe0xapLDsst1/1e826750ba336232988f374a8bb9b159/vi-VN_EnterpriseSearch.jpg" alt="Enterprise search" />
+          </article>
+
+          <article class="bento-card blue reveal">
+            <div class="bento-copy">
+              <p class="eyebrow">Ghi chép cuộc họp với AI</p>
+              <h3>Ghi chép luôn chỉn chu và đầy đủ.</h3>
+              <a class="text-link strong" href="#apps">Dùng thử</a>
+            </div>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/6ryGYBBeFdl21HUR07Rf45/e3b7b14b33732231b4e4f4de954df0b6/vi-VN_MeetingNotes.jpg" alt="Meeting notes" />
+          </article>
+
+          <article class="bento-card bento-wide yellow reveal">
+            <div class="bento-copy">
+              <p class="eyebrow">Quy trình làm việc linh hoạt</p>
+              <h3>Quản lý bất kỳ dự án nào, bất kể lớn nhỏ.</h3>
+              <p>Khối nền vàng này giữ cùng nhịp hai lớp screenshot chồng nhau giống ảnh tham chiếu.</p>
+              <a class="text-link strong" href="#roi">Dùng thử</a>
+            </div>
+            <div class="bento-duo">
+              <img src="https://images.ctfassets.net/spoqsaf9291f/6lUfkjeFFFGQf7gJHNliJB/47a221a63a02883bb9555d8c52691733/vn-VN_FlexibleWorkflows-a.jpg" alt="Flexible workflows primary" />
+              <img src="https://images.ctfassets.net/spoqsaf9291f/4s1ajMF4hZFzpQhmJ3krbe/9426de6f7681eaa17be6ec7033efdb46/vi-VN_FlexibleWorkflows-b.png" alt="Flexible workflows secondary" />
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="use-cases shell reveal">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Kết nối mọi công việc ở một nơi.</p>
+            <h2>Hãy để Notion AI xử lý những việc vặt không tên.</h2>
+          </div>
+          <a class="text-link strong" href="#apps">Khám phá thêm</a>
+        </div>
+
+        <div class="use-case-frame">
+          <img src="https://images.ctfassets.net/spoqsaf9291f/66v6l4XnHVR2L6Sr1lgZdW/b36806193b2a88b4d1e5e1cdb12de77b/asset-use-cases.png" alt="AI use cases strip" />
+          <div class="use-case-list">
+            <span>Từ ý tưởng đến lộ trình</span>
+            <span>Biến các buổi họp thành bài đăng trên mạng xã hội</span>
+            <span>Sắp xếp không gian làm việc</span>
+            <span>Đào tạo nhập môn cho nhân sự mới</span>
+            <span>Chỉnh sửa trang đích</span>
+            <span>Lên kế hoạch cho hoạt động ngoài văn phòng</span>
+            <span>Theo dõi các nhà hàng yêu thích</span>
+            <span>Biến các ghi chú thành nhiệm vụ</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="roi shell" id="roi">
+        <div class="section-heading reveal compact">
+          <div>
+            <p class="eyebrow">Giảm công cụ. Tăng hiệu suất.</p>
+            <h2>Gom mọi công cụ và đội nhóm về một nơi duy nhất.</h2>
+            <p>Tính ngay bạn tiết kiệm được bao nhiêu dưới đây.</p>
+          </div>
+          <a class="text-link strong" href="#apps">Xem bảng giá</a>
+        </div>
+
+        <div class="roi-card reveal">
+          <div class="roi-stats">
+            <div>
+              <span>10</span>
+              <small>Công cụ riêng lẻ</small>
+            </div>
+            <div>
+              <span>349 USD</span>
+              <small>Chi phí / người dùng / tháng</small>
+            </div>
+            <div>
+              <span>4.080 USD</span>
+              <small>Tiết kiệm / năm</small>
+            </div>
+          </div>
+          <img src="https://images.ctfassets.net/spoqsaf9291f/2FoagXHQUpf8Uw9jo5qEcQ/2e2e3542e9dc6635a0f706df48aa04d8/asset-calculator.png" alt="ROI calculator" />
+        </div>
+      </section>
+
+      <section class="social-proof shell" id="social-proof">
+        <div class="section-heading reveal compact">
+          <div>
+            <p class="eyebrow">Được các đội ngũ hiệu suất cao tin dùng.</p>
+            <h2>Được các đội ngũ hiệu suất cao tin dùng.</h2>
+          </div>
+        </div>
+
+        <div class="social-grid reveal">
+          <article class="testimonial-feature">
+            <img class="social-logo" src="https://images.ctfassets.net/spoqsaf9291f/jWkCPMAAj0Av69704DQoB/84499b606028b276e0bf94c238f07097/OpenAI-black-wordmark-cropped.png" alt="OpenAI" />
+            <blockquote>
+              “Thật tuyệt vời khi mọi công việc của bạn có thể được thực hiện trên một nền tảng duy nhất. Notion chính là nơi đó.”
+            </blockquote>
+            <a class="text-link strong" href="#apps">Đọc toàn bộ câu chuyện</a>
+          </article>
+
+          <figure class="social-video-card">
+            <img src="https://images.ctfassets.net/spoqsaf9291f/28Oz1efdtQCyLG1ocTdmHK/0dfc68573f753a757caea09a929baa07/image.png" alt="OpenAI customer story poster" />
+            <figcaption>OpenAI customer story</figcaption>
+          </figure>
+        </div>
+
+        <div class="stat-pills reveal">
+          <span>Hơn 100 triệu người dùng trên toàn thế giới</span>
+          <span>62% công ty Fortune 100</span>
+          <span>Hơn 50% công ty thuộc YC</span>
+          <span>#Nền tảng kiến thức số 1 trong 3 năm liền (G2)</span>
+          <span>#Công cụ tìm kiếm AI ở cấp độ tổ chức số 1 (G2)</span>
+          <span>#Công cụ viết AI được đánh giá số 1 (G2)</span>
+        </div>
+
+        <div class="quote-grid reveal">
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/1fJCIIjK31CRPMPj7Bp9Mu/eb1ea6eb7872170d426227da4ab898b6/toyota-red.svg" alt="Toyota" />
+            <p>Quy trình làm việc tinh gọn giúp rút ngắn thời gian gấp 3 lần.</p>
+          </article>
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/4eiEZBWL5gEClwB1IHi18I/b9b86479965977121ceabd01f45567a7/ramp.png" alt="Ramp" />
+            <p>“Với Notion, mỗi nhân viên tại Ramp đều có một trợ lý AI.”</p>
+          </article>
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/15en0a60cYTRxNO1QlHbdg/f09657a6b8287f1db0e628a048267e2c/vercel-logotype-light.svg" alt="Vercel" />
+            <p>“Notion hiểu rằng bạn có thể giải quyết rất nhiều vấn đề chỉ với một công cụ.”</p>
+          </article>
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/2Z03v7BH2brwtBG2qdA5dp/d6cd228d2f7b6048edcec9f4d5bcce3c/match.png" alt="Match" />
+            <p>“Notion là giải pháp mạnh mẽ và hiệu quả nhất để tối ưu hoá quy trình làm việc của chúng tôi.”</p>
+          </article>
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/3CSWr4Z4uIvbfO7102KPY/bbd97c8edd0673853ac8dae2887a638d/cursor.png" alt="Cursor" />
+            <p>“Việc sử dụng các công cụ hoạt động dựa trên AI như Notion chính là một lợi thế cạnh tranh quan trọng đối với chúng tôi.”</p>
+          </article>
+          <article>
+            <img src="https://images.ctfassets.net/spoqsaf9291f/502ApiNcRHgIwrDU8XRYTQ/497492503acb3fa21bbd9dd1aec193c3/Figma-logo-color.svg" alt="Figma" />
+            <p>Một trung tâm cho công việc và AI giúp mọi người luôn nắm bắt thông tin và công việc thông suốt.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="apps reveal" id="apps">
+        <div class="shell">
+          <div class="section-heading compact light">
+            <div>
+              <p class="eyebrow">Dùng thử miễn phí.</p>
+              <h2>Dùng thử miễn phí.</h2>
+              <p>Tải xuống cho Mac và dùng các sản phẩm kề bên để giữ đúng bố cục cuối trang trong ảnh tham chiếu.</p>
+            </div>
+            <a class="btn btn-light" href="#hero">Dùng Notion miễn phí</a>
+          </div>
+
+          <div class="app-cards">
+            <article class="app-card desktop-card">
+              <div class="app-card-copy">
+                <h3>Tải xuống cho Mac</h3>
+                <p>Tải xuống ứng dụng desktop để giữ nhịp làm việc tập trung trong không gian đầy đủ.</p>
+                <div class="download-badge">macOS</div>
+              </div>
+              <div class="window-preview desktop-window">
+                <div class="window-bar"></div>
+                <div class="window-body">
+                  <aside></aside>
+                  <section></section>
+                  <div></div>
+                </div>
+              </div>
+            </article>
+
+            <article class="app-card mail-card">
+              <div class="app-card-copy">
+                <h3>Notion Mail</h3>
+                <p>Hộp thư phối hợp cùng không gian làm việc của bạn.</p>
+                <a class="text-link strong" href="#hero">Tìm hiểu thêm</a>
+              </div>
+              <div class="window-preview mail-window">
+                <div class="window-bar"></div>
+                <div class="mail-columns">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </article>
+
+            <article class="app-card calendar-card">
+              <div class="app-card-copy">
+                <h3>Lịch Notion</h3>
+                <p>Lịch làm việc hợp nhất, nằm đúng nhịp cùng phần cuối trang gốc.</p>
+                <a class="text-link strong" href="#hero">Tìm hiểu thêm</a>
+              </div>
+              <div class="window-preview calendar-window">
+                <div class="window-bar"></div>
+                <div class="calendar-grid">
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="footer">
+      <div class="shell footer-grid">
+        <div class="footer-brand">
+          <div class="brand brand-footer">
+            <img src="https://www.notion.com/front-static/logo-ios.png" alt="Notion" />
+            <span>Notion</span>
+          </div>
+          <p>Một bản clone HTML/CSS desktop-first dựa trên `notion.com/vi` và ảnh chụp tham chiếu ngày 2026-03-27.</p>
+          <small>© <span id="year"></span> Notion UI clone study</small>
+        </div>
+
+        <div>
+          <h4>Sản phẩm</h4>
+          <a href="#intro">Notion AI</a>
+          <a href="#apps">Mail</a>
+          <a href="#apps">Calendar</a>
+          <a href="#features">Enterprise Search</a>
+        </div>
+
+        <div>
+          <h4>Khám phá</h4>
+          <a href="#features">Trợ lý tùy chỉnh</a>
+          <a href="#roi">Bảng giá</a>
+          <a href="#social-proof">Khách hàng</a>
+          <a href="#apps">Tải ứng dụng</a>
+        </div>
+
+        <div>
+          <h4>Tài nguyên</h4>
+          <a href="#hero">Bắt đầu</a>
+          <a href="#footer">Liên hệ bộ phận kinh doanh</a>
+          <a href="#hero">Đăng nhập</a>
+          <a href="#intro">Demo</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

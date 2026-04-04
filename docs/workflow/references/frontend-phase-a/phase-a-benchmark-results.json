@@ -1,0 +1,90 @@
+[
+  {
+    "mode": "legacy",
+    "datasetSize": 50,
+    "renderLatencyMs": 54.2,
+    "interactionDelayMs": 50.6,
+    "scrollFps": 60.45,
+    "minFps": 59.52,
+    "cpuBusyPercent": 0,
+    "longTaskMs": 0,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "optimized",
+    "datasetSize": 50,
+    "renderLatencyMs": 104.8,
+    "interactionDelayMs": 48.1,
+    "scrollFps": 60.45,
+    "minFps": 59.52,
+    "cpuBusyPercent": 2.43,
+    "longTaskMs": 58,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "legacy",
+    "datasetSize": 500,
+    "renderLatencyMs": 441.3,
+    "interactionDelayMs": 44.7,
+    "scrollFps": 60.45,
+    "minFps": 59.52,
+    "cpuBusyPercent": 17.89,
+    "longTaskMs": 505,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "optimized",
+    "datasetSize": 500,
+    "renderLatencyMs": 560.1,
+    "interactionDelayMs": 37.8,
+    "scrollFps": 60.45,
+    "minFps": 59.52,
+    "cpuBusyPercent": 18.19,
+    "longTaskMs": 519,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "legacy",
+    "datasetSize": 2000,
+    "renderLatencyMs": 1068,
+    "interactionDelayMs": 197.4,
+    "scrollFps": 37.17,
+    "minFps": 20,
+    "cpuBusyPercent": 37.1,
+    "longTaskMs": 1355,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "optimized",
+    "datasetSize": 2000,
+    "renderLatencyMs": 1252.5,
+    "interactionDelayMs": 183.2,
+    "scrollFps": 39.7,
+    "minFps": 20,
+    "cpuBusyPercent": 38.64,
+    "longTaskMs": 1478,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "legacy",
+    "datasetSize": 5000,
+    "renderLatencyMs": 2385.5,
+    "interactionDelayMs": 379.9,
+    "scrollFps": 10.67,
+    "minFps": 7.5,
+    "cpuBusyPercent": 97.73,
+    "longTaskMs": 6271,
+    "memoryMb": 202.18
+  },
+  {
+    "mode": "optimized",
+    "datasetSize": 5000,
+    "renderLatencyMs": 3046.8,
+    "interactionDelayMs": 476.3,
+    "scrollFps": 10.67,
+    "minFps": 6.67,
+    "cpuBusyPercent": 95.37,
+    "longTaskMs": 6088,
+    "memoryMb": 202.18
+  }
+]

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BugLogin HTML Kit - Pricing</title>
+    <link rel="stylesheet" href="./assets/ui.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="container">
+        <header class="topbar" role="banner">
+          <a href="index.html" class="brand" aria-label="BugLogin home">
+            <span class="brand-mark">BL</span>
+            <span class="brand-text"><strong>BugLogin</strong><span>Official Website</span></span>
+          </a>
+          <nav class="topnav" data-mobile-nav aria-label="Primary">
+            <a class="nav-link" data-page="index.html" href="index.html">Landing</a>
+            <a class="nav-link" data-page="pricing.html" href="pricing.html">Pricing</a>
+            <a class="nav-link" data-page="billing-management.html" href="billing-management.html">Billing</a>
+            <a class="nav-link" data-page="workspace-owner.html" href="workspace-owner.html">Workspace Owner</a>
+            <a class="nav-link" data-page="super-admin.html" href="super-admin.html">Super Admin</a>
+          </nav>
+          <div style="display: flex; gap: 8px">
+            <button class="icon-btn mobile-only" data-mobile-toggle aria-label="Toggle navigation" aria-expanded="false">Menu</button>
+            <button class="icon-btn" data-theme-toggle aria-label="Switch to dark mode">Dark</button>
+          </div>
+        </header>
+
+        <section class="section" aria-labelledby="pricing-title">
+          <div class="section-head">
+            <div>
+              <h2 id="pricing-title">Pricing & Plans</h2>
+              <p>Compact plan comparison with clear operational limits.</p>
+            </div>
+            <div class="pill-group" role="group" aria-label="Billing cycle">
+              <button class="pill active" data-cycle="monthly" aria-pressed="true">Monthly</button>
+              <button class="pill" data-cycle="yearly" aria-pressed="false">Yearly</button>
+            </div>
+          </div>
+
+          <div class="grid cols-4">
+            <article class="card">
+              <span class="badge">Starter</span>
+              <div class="metric" style="font-size: 26px; margin-top: 8px">$<span data-price-month="29" data-price-year="290">29</span></div>
+              <p>/ workspace / month</p>
+              <ul class="list" style="margin-top: 10px">
+                <li>100 profiles</li>
+                <li>3 members</li>
+                <li>20 GB sync storage</li>
+                <li>20 GB proxy bandwidth</li>
+              </ul>
+              <div class="hero-actions" style="margin-top: 12px"><button class="btn btn-primary">Choose Starter</button></div>
+            </article>
+
+            <article class="card">
+              <span class="badge primary">Growth</span>
+              <div class="metric" style="font-size: 26px; margin-top: 8px">$<span data-price-month="79" data-price-year="790">79</span></div>
+              <p>/ workspace / month</p>
+              <ul class="list" style="margin-top: 10px">
+                <li>300 profiles</li>
+                <li>8 members</li>
+                <li>100 GB sync storage</li>
+                <li>100 GB proxy bandwidth</li>
+              </ul>
+              <div class="hero-actions" style="margin-top: 12px"><button class="btn btn-primary">Choose Growth</button></div>
+            </article>
+
+            <article class="card">
+              <span class="badge">Scale</span>
+              <div class="metric" style="font-size: 26px; margin-top: 8px">$<span data-price-month="149" data-price-year="1490">149</span></div>
+              <p>/ workspace / month</p>
+              <ul class="list" style="margin-top: 10px">
+                <li>1000 profiles</li>
+                <li>20 members</li>
+                <li>500 GB sync storage</li>
+                <li>500 GB proxy bandwidth</li>
+              </ul>
+              <div class="hero-actions" style="margin-top: 12px"><button class="btn btn-primary">Choose Scale</button></div>
+            </article>
+
+            <article class="card">
+              <span class="badge warning">Custom</span>
+              <div class="metric" style="font-size: 26px; margin-top: 8px">Contact</div>
+              <p>Tailored enterprise controls and SLA.</p>
+              <ul class="list" style="margin-top: 10px">
+                <li>Custom profile limits</li>
+                <li>Dedicated support lane</li>
+                <li>Private deployment options</li>
+                <li>Security review workflows</li>
+              </ul>
+              <div class="hero-actions" style="margin-top: 12px"><button class="btn">Talk to Sales</button></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="matrix-title">
+          <div class="section-head">
+            <div>
+              <h2 id="matrix-title">Feature Matrix</h2>
+              <p>Designed for quick procurement review and clean conversion.</p>
+            </div>
+            <span class="badge">Updated today</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Capability</th>
+                  <th>Starter</th>
+                  <th>Growth</th>
+                  <th>Scale</th>
+                  <th>Custom</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Cloud sync</td>
+                  <td>Basic</td>
+                  <td>Advanced</td>
+                  <td>Advanced + bulk</td>
+                  <td>Advanced + dedicated endpoint</td>
+                </tr>
+                <tr>
+                  <td>Workspace roles</td>
+                  <td>Owner + Member</td>
+                  <td>Owner + Operator</td>
+                  <td>Owner + Operator + Audit</td>
+                  <td>Custom RBAC</td>
+                </tr>
+                <tr>
+                  <td>Billing controls</td>
+                  <td>Self-service</td>
+                  <td>Self-service + coupon</td>
+                  <td>Invoice + coupon + license</td>
+                  <td>Contract billing</td>
+                </tr>
+                <tr>
+                  <td>Support SLA</td>
+                  <td>Community</td>
+                  <td>24h</td>
+                  <td>8h</td>
+                  <td>Dedicated channel</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p class="footer-note">
+          Accessibility baseline: semantic table, high-contrast text, no information conveyed by color alone.
+        </p>
+      </div>
+    </div>
+
+    <script src="./assets/ui.js"></script>
+  </body>
+</html>

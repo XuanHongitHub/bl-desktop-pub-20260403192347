@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"SaaS desktop app sidebar navigation\" --domain product -n 2)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"minimal dark sidebar header\" --domain style -n 2)",
+      "Bash(pnpm tsc:*)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"desktop app sidebar navigation layout\" --domain ux -n 3)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"SaaS dashboard\" --domain product -n 2)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"animation transition layout\" --domain ux -n 3)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(cargo check:*)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}
