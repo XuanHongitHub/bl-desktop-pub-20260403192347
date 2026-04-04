@@ -1,5 +1,80 @@
 # Desktop Public Repo Release (Windows + GH CLI)
 
+## Public repo camouflage contract (required)
+
+Goal:
+- Private repo (`keyduc91/Malvanut-Login`) keeps full source.
+- Public repo (`XuanHongitHub/ops-snapshot-labs`) is **release-only** for desktop packaging.
+
+Public repo `main` must contain only:
+- `.github/workflows/desktop-release-public.yml`
+- `src/`, `src-tauri/`, `public/`, `scripts/`
+- build/config files needed by Tauri/Next static build (`package.json`, `pnpm-lock.yaml`, `next.config.ts`, `tsconfig.json`, etc.)
+- `PUBLIC_REPO_SCOPE.md`
+
+Must NOT exist in public repo:
+- `buglogin-sync/`, `docs/`, `openspec/`, `private/`, `mockups/`, internal workflows, and any sensitive operations data.
+
+## Commit/push flow (do not skip)
+
+1. Commit normal work to private repo first.
+2. Push private:
+
+```powershell
+git push origin main
+```
+
+3. Sync **release-only scope** to public `main` (from private HEAD) using a temporary worktree:
+
+```powershell
+$tmp = Join-Path $env:TEMP "public-release-only-$([guid]::NewGuid().ToString('N'))"
+git worktree add -B temp-public-release-only $tmp desktop-public/main
+Push-Location $tmp
+
+git rm -r .
+git clean -fdx
+
+git -C "E:\bug-login" archive --format=tar HEAD `
+  .github/workflows/desktop-release-public.yml `
+  .gitignore `
+  LICENSE README.md components.json `
+  next-env.d.ts next.config.ts package.json `
+  pnpm-lock.yaml pnpm-workspace.yaml `
+  postcss.config.mjs tailwind.config.js tsconfig.json `
+  public scripts src src-tauri `
+| tar -xf -
+
+@'
+# Public Release-Only Scope
+This repository is intentionally limited to desktop app release packaging.
+'@ | Set-Content PUBLIC_REPO_SCOPE.md
+
+git add -A
+git commit -m "chore(public): sync release-only desktop packaging scope"
+git push desktop-public HEAD:main
+
+Pop-Location
+git worktree remove $tmp --force
+git branch -D temp-public-release-only
+```
+
+4. Before releasing, verify public scope quickly:
+
+```powershell
+git ls-tree --name-only desktop-public/main
+```
+
+Expected top-level list must not include `docs`, `openspec`, `buglogin-sync`, `private`, `mockups`.
+
+## Release checklist (pre-run)
+
+1. Confirm endpoints:
+   - `https://api.buglogin.com/v1/browser/bugox.json`
+   - `https://api.buglogin.com/v1/browser/bugium.json`
+2. Confirm public repo variables are set (no `gnohh.com`).
+3. Run workflow `Release Packaging Pipeline` in public repo.
+4. Verify release assets created in target repo.
+
 ## Security toggles to enable (recommended)
 
 1. Branch protection on `main`:
