@@ -3,6 +3,11 @@ name: Release Packaging Pipeline
 on:
   workflow_dispatch:
     inputs:
+      run_on_private:
+        description: "Allow manual build jobs on private repo (verify only)"
+        required: true
+        type: boolean
+        default: false
       release_tag:
         description: "Release tag for target repo (required only when publish_release=true)"
         required: false
@@ -26,8 +31,8 @@ concurrency:
 jobs:
   build-windows:
     runs-on: windows-latest
-    # Only run on the public repo — prevent accidental release builds on the private repo
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    # Default: public only. Private can run only when manually enabled by run_on_private=true.
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' || (github.repository == 'keyduc91/Malvanut-Login' && inputs.run_on_private == true)
     timeout-minutes: 90
     env: &desktop_env
       BUGLOGIN_BROWSER_API_BASE: ${{ vars.BUGLOGIN_BROWSER_API_BASE || 'https://api.buglogin.com' }}
@@ -124,8 +129,8 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    # Only run on the public repo — prevent accidental release builds on the private repo
-    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
+    # Default: public only. Private can run only when manually enabled by run_on_private=true.
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs' || (github.repository == 'keyduc91/Malvanut-Login' && inputs.run_on_private == true)
     timeout-minutes: 90
     env: *desktop_env
     steps:
@@ -248,7 +253,7 @@ jobs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
-    # Only run on the public repo — prevent accidental release builds on the private repo
+    # Publish is strictly public-only.
     if: github.repository == 'XuanHongitHub/ops-snapshot-labs' && inputs.publish_release == true
     steps:
       - name: Download workflow artifacts
