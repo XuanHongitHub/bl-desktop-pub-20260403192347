@@ -76,6 +76,9 @@
       }
     },
     "windows": {
+      "nsis": {
+        "installerHooks": "installer.nsh"
+      },
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
