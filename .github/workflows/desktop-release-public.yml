@@ -24,6 +24,8 @@ concurrency:
 jobs:
   build-windows:
     runs-on: windows-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
     timeout-minutes: 90
     env: &desktop_env
       BUGLOGIN_BROWSER_API_BASE: https://api.buglogin.com
@@ -86,6 +88,8 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
     timeout-minutes: 90
     env: *desktop_env
     steps:
@@ -134,6 +138,8 @@ jobs:
       - build-windows
       - build-macos
     runs-on: ubuntu-latest
+    # Only run on the public repo — prevent accidental release builds on the private repo
+    if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
     steps:
       - name: Download workflow artifacts
         uses: actions/download-artifact@v4
