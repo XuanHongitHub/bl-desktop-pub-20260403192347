@@ -171,7 +171,7 @@ export function CreateProfileDialog({
 
   // Browser selection states
   const [selectedBrowser, setSelectedBrowser] =
-    useState<BrowserTypeString | null>("wayfern");
+    useState<BrowserTypeString | null>("camoufox");
   const [proxyForm, setProxyForm] = useState<ProxyFormState>({
     quickInput: "",
     proxy_type: "http",
@@ -219,7 +219,7 @@ export function CreateProfileDialog({
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setCurrentStep("browser-config");
-    setSelectedBrowser("wayfern");
+    setSelectedBrowser("camoufox");
     setProfileName("");
     setProxyForm({
       quickInput: "",
@@ -944,7 +944,7 @@ export function CreateProfileDialog({
     setProfileName("");
     setCurrentStep("browser-config");
     setActiveTab("anti-detect");
-    setSelectedBrowser("wayfern");
+    setSelectedBrowser("camoufox");
     setProxyForm({
       quickInput: "",
       proxy_type: "http",
@@ -1067,7 +1067,7 @@ export function CreateProfileDialog({
         <Label>{t("createProfile.antiDetect.title")}</Label>
         <div className="max-w-[640px]">
           <Select
-            value={selectedBrowser ?? "wayfern"}
+            value={selectedBrowser ?? "camoufox"}
             onValueChange={(value) =>
               setSelectedBrowser(value as "wayfern" | "camoufox")
             }

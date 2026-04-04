@@ -720,7 +720,8 @@ impl WayfernManager {
             "Wayfern.getFingerprint not available in this runtime; falling back to stored fingerprint config when possible"
           );
           if let Some(raw_fingerprint) = config.fingerprint.as_deref() {
-            if let Ok(mut fallback_fp) = serde_json::from_str::<serde_json::Value>(raw_fingerprint) {
+            if let Ok(mut fallback_fp) = serde_json::from_str::<serde_json::Value>(raw_fingerprint)
+            {
               self
                 .sync_fingerprint_with_proxy_context(
                   profile,
@@ -740,8 +741,29 @@ impl WayfernManager {
               return Err(format!("Failed to parse stored fingerprint config after Wayfern.getFingerprint missing: {e}").into());
             }
           } else {
-            cleanup().await;
-            return Err(format!("Failed to get fingerprint: {e}").into());
+            log::warn!(
+              "No stored fingerprint available and Wayfern CDP not present; generating minimal software fingerprint"
+            );
+            let mut fallback_fp = json!({
+              "localStorage": true,
+              "sessionStorage": true,
+              "indexedDb": true,
+              "cookieEnabled": true,
+            });
+            if let Some(runtime_ua) = runtime_user_agent.as_deref() {
+              Self::sync_runtime_user_agent(&mut fallback_fp, runtime_ua);
+            }
+            self
+              .sync_fingerprint_with_proxy_context(
+                profile,
+                config,
+                config.proxy.as_deref(),
+                &mut fallback_fp,
+              )
+              .await;
+            Self::enforce_storage_signals(&mut fallback_fp, profile.ephemeral);
+            Self::ensure_timezone_defaults(&mut fallback_fp);
+            fallback_fp
           }
         } else {
           cleanup().await;

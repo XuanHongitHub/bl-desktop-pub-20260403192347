@@ -183,6 +183,10 @@ interface UseControlPlaneResult {
   createWorkspace: (
     name: string,
     mode: "personal" | "team",
+    options?: {
+      planId?: "starter" | "team" | "scale" | "enterprise" | null;
+      billingCycle?: "monthly" | "yearly";
+    },
   ) => Promise<ControlWorkspace>;
   createInvite: (
     workspaceId: string,
@@ -1296,7 +1300,14 @@ export function useControlPlane(
   }, [runWithLoading, runtime.baseUrl, runtime.token]);
 
   const createWorkspace = useCallback(
-    async (name: string, mode: "personal" | "team") => {
+    async (
+      name: string,
+      mode: "personal" | "team",
+      options?: {
+        planId?: "starter" | "team" | "scale" | "enterprise" | null;
+        billingCycle?: "monthly" | "yearly";
+      },
+    ) => {
       return runWithLoading(async () => {
         setError(null);
         if (!runtime.baseUrl || !runtime.token) {
@@ -1310,6 +1321,16 @@ export function useControlPlane(
             mode,
           },
         );
+        if (options?.planId && options.billingCycle) {
+          await request(
+            "PATCH",
+            `/v1/control/workspaces/${created.id}/billing/subscription/admin-override`,
+            {
+              planId: options.planId,
+              billingCycle: options.billingCycle,
+            },
+          );
+        }
         await refreshWorkspaceList();
         setSelectedWorkspaceId(created.id);
         return created;

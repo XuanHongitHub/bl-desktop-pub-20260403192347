@@ -841,7 +841,8 @@ function AppSidebarComponent({
   );
 
   const renderAccountMenuContent = () => {
-    const canOpenWorkspaceOwnerPanel = false;
+    const canOpenWorkspaceOwnerPanel =
+      canAccessWorkspaceGovernance && panelMode === "workspace";
     const canOpenSuperAdminPanel = isPlatformAdmin && panelMode === "workspace";
     const canBackToWorkspace = panelMode !== "workspace";
     const isPortalSuperAdminMenu =

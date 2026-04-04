@@ -574,7 +574,11 @@ mod windows {
       || name.contains("bugium")
   }
 
-  fn find_firefox_executable_recursive(dir: &Path, depth: usize, max_depth: usize) -> Option<PathBuf> {
+  fn find_firefox_executable_recursive(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+  ) -> Option<PathBuf> {
     if depth > max_depth {
       return None;
     }

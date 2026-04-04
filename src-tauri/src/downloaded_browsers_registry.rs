@@ -95,7 +95,10 @@ impl DownloadedBrowsersRegistry {
   pub fn remove_browser(&self, browser: &str, version: &str) -> Option<DownloadedBrowserInfo> {
     let mut data = self.data.lock().unwrap();
     let canonical = Self::canonical_browser_key(browser);
-    data.browsers.get_mut(canonical).and_then(|v| v.remove(version))
+    data
+      .browsers
+      .get_mut(canonical)
+      .and_then(|v| v.remove(version))
   }
 
   /// Check if browser is registered in the registry (without disk validation)
@@ -1005,9 +1008,7 @@ impl DownloadedBrowsersRegistry {
       } else {
         format!("{} profiles", profile_names.len())
       };
-      log::info!(
-        "Downloading missing binary for {profile_hint}: {browser} {version}"
-      );
+      log::info!("Downloading missing binary for {profile_hint}: {browser} {version}");
 
       match crate::downloader::download_browser(
         app_handle.clone(),
@@ -1017,9 +1018,7 @@ impl DownloadedBrowsersRegistry {
       .await
       {
         Ok(_) => {
-          downloaded.push(format!(
-            "{browser} {version} (for {profile_hint})"
-          ));
+          downloaded.push(format!("{browser} {version} (for {profile_hint})"));
 
           // After successful download, update profiles that use this browser to the new version
           match self
@@ -1051,9 +1050,7 @@ impl DownloadedBrowsersRegistry {
               "Skipped duplicate download request for {browser} {version} ({profile_hint}): {err_text}"
             );
           } else {
-            log::error!(
-              "Failed to download {browser} {version} ({profile_hint}): {err_text}"
-            );
+            log::error!("Failed to download {browser} {version} ({profile_hint}): {err_text}");
           }
         }
       }

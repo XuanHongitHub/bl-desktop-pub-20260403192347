@@ -792,8 +792,13 @@ impl ProfileManager {
         candidates.sort();
         candidates.dedup();
 
-        let strip_buglogin_suffix =
-          |value: &str| -> String { value.split("-buglogin.").next().unwrap_or(value).to_string() };
+        let strip_buglogin_suffix = |value: &str| -> String {
+          value
+            .split("-buglogin.")
+            .next()
+            .unwrap_or(value)
+            .to_string()
+        };
 
         let requested_base = strip_buglogin_suffix(version);
         if let Some(candidate) = candidates.into_iter().find(|candidate| {

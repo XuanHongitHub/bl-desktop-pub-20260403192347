@@ -2190,6 +2190,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
   const workflowHeartbeatAtRef = useRef<number>(Date.now());
   const workflowOtpFetchInFlightRef = useRef<Set<string>>(new Set());
   const workflowLastOtpCodeRef = useRef<Map<string, string>>(new Map());
+  const sellerLaunchInFlightRef = useRef<Set<string>>(new Set());
   const automationPollInFlightRef = useRef(false);
   const adminStateSaveInFlightRef = useRef<Promise<void> | null>(null);
   const automationEventsSinceRef = useRef<string | null>(null);
@@ -5669,29 +5670,35 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           (proxy) => proxy.id === (runtimeProfile?.proxy_id ?? row.proxyId),
         ) ?? null;
       const omoKey = workflowCaptchaApiKey.trim();
+      const runtimeBrowser = normalizeWorkflowBrowser(
+        runtimeProfile?.browser || row.browser || "camoufox",
+      );
+      const probeBrowserType = runtimeBrowser === "chromium" ? "chromium" : "firefox";
       const result = await invoke<StartTiktokProbeSessionResult>(
         "start_tiktok_probe_session",
         {
-          profileId: row.profileId,
-          profileName: row.profileName,
-          flowType: "signup_seller",
-          startUrl: "https://seller-us.tiktok.com/account/register",
-          browserType: "firefox",
-          executablePath:
-            diagnostic?.resolved_executable_path ||
-            diagnostic?.configured_executable_path ||
-            undefined,
-          proxyUrl: buildStoredProxyUrl(runtimeProxy) || undefined,
-          headless: false,
-          maxDurationSeconds: 1800,
-          seedPayload: buildSellerSeedPayload(row),
-          userDataDir: diagnostic?.effective_profile_path || undefined,
-          keepOpen: true,
-          autoBestEffort: true,
-          contactMode: "auto",
-          entryMode: "register",
-          einSubmit: false,
-          omoKey: omoKey || undefined,
+          input: {
+            profileId: row.profileId,
+            profileName: row.profileName,
+            flowType: "signup_seller",
+            startUrl: "https://seller-us.tiktok.com/account/register",
+            browserType: probeBrowserType,
+            executablePath:
+              diagnostic?.resolved_executable_path ||
+              diagnostic?.configured_executable_path ||
+              undefined,
+            proxyUrl: buildStoredProxyUrl(runtimeProxy) || undefined,
+            headless: false,
+            maxDurationSeconds: 1800,
+            seedPayload: buildSellerSeedPayload(row),
+            userDataDir: diagnostic?.effective_profile_path || undefined,
+            keepOpen: true,
+            autoBestEffort: true,
+            contactMode: "auto",
+            entryMode: "register",
+            einSubmit: false,
+            omoKey: omoKey || undefined,
+          },
         },
       );
 
@@ -5725,7 +5732,7 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
 
       return result;
     },
-    [storedProxies, updateWorkflowRow],
+    [storedProxies, updateWorkflowRow, workflowCaptchaApiKey],
   );
 
   const syncSellerRuntimeStepFromBackend = useCallback(
@@ -5818,14 +5825,23 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
           .join(" | ");
 
         await updateSellerWorkflowStep(row, nextStep, nextStatus, statusText);
+        if (snapshot.error?.trim()) {
+          updateWorkflowRow(row.profileId, {
+            status: "push_failed",
+            lastError: snapshot.error.trim(),
+          });
+        }
         await syncSellerRuntimeStepFromBackend({
           ...row,
           sellerStep: nextStep,
           status: nextStatus,
           sellerStatusText: statusText,
         });
-      } catch {
-        // Keep seller polling resilient.
+      } catch (error) {
+        updateWorkflowRow(row.profileId, {
+          status: "push_failed",
+          lastError: extractRootError(error),
+        });
       }
     },
     [automationFlowType, syncSellerRuntimeStepFromBackend, updateSellerWorkflowStep],
@@ -5924,6 +5940,12 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
         return;
       }
     }
+    if (automationFlowType === "signup_seller") {
+      if (sellerLaunchInFlightRef.current.has(row.profileId)) {
+        return;
+      }
+      sellerLaunchInFlightRef.current.add(row.profileId);
+    }
     autoWorkflowStopRequestedRef.current = false;
     workflowLaunchTimestampRef.current.set(row.profileId, Date.now());
     markWorkflowHeartbeat();
@@ -5982,6 +6004,9 @@ export function AdminTiktokCookiesTab(props: AdminTiktokCookiesTabProps) {
       workflowLaunchTimestampRef.current.delete(row.profileId);
       autoWorkflowLaunchIntentRef.current.delete(row.profileId);
     } finally {
+      if (automationFlowType === "signup_seller") {
+        sellerLaunchInFlightRef.current.delete(row.profileId);
+      }
       setActiveWorkflowProfileId((current) =>
         current === row.profileId ? null : current,
       );
