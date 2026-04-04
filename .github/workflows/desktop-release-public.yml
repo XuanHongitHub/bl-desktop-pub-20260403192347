@@ -173,7 +173,7 @@ jobs:
           done
 
       - name: Import Apple signing certificate
-        if: secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != ''
+        if: inputs.publish_release == true
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
