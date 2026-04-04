@@ -33,6 +33,7 @@ jobs:
       NEXT_PUBLIC_BILLING_PORTAL_URL: https://buglogin.com
       NEXT_PUBLIC_STRIPE_BILLING_URL: https://buglogin.com
       BUGLOGIN_AUTH_API_URL: https://api.buglogin.com
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: 403889738022-q2k5otjm1jigt17hrs3oolarlh14759r.apps.googleusercontent.com
       RUSTFLAGS: -C debuginfo=0
       CARGO_INCREMENTAL: 0
     steps:

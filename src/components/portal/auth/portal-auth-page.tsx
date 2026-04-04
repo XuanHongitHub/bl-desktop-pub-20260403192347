@@ -481,7 +481,11 @@ export function PortalAuthPage({
     try {
       setIsSubmitting(true);
       setGoogleAuthState("idle");
-      const callback = new URL("/oauth-callback", window.location.origin);
+      const callbackOrigin =
+        surface === "desktop"
+          ? process.env.NEXT_PUBLIC_WEB_PORTAL_URL || "https://bugdev.site"
+          : window.location.origin;
+      const callback = new URL("/oauth-callback", callbackOrigin);
       const nonce = Math.random().toString(36).slice(2);
       const state = encodeOAuthState({
         target: "portal",
