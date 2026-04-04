@@ -352,9 +352,9 @@ const PLAN_PROFILE_LIMIT_FALLBACK: Record<
   scale: 1000,
   enterprise: 2000,
 };
-const WORKSPACE_SWITCH_MIN_DURATION_MS = 1100;
-const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 700;
-const SECTION_SWITCH_MIN_DURATION_MS = 180;
+const WORKSPACE_SWITCH_MIN_DURATION_MS = 700;
+const POST_LOGIN_TRANSITION_MIN_DURATION_MS = 300;
+const SECTION_SWITCH_MIN_DURATION_MS = 100;
 const URL_DEDUP_WINDOW_MS = 8_000;
 const WORKSPACE_DATA_CACHE_TTL_MS = 4_000;
 const SYNC_SETTINGS_CACHE_TTL_MS = 30_000;
@@ -4415,13 +4415,16 @@ export default function Home() {
     return null;
   }
 
+  // Desktop: initial boot loader — only shown when there's no cached auth state.
+  // After our fix, loginWithGoogle/Email already clears isLoading immediately,
+  // so this only appears on cold boot (before local Tauri storage responds).
   if (!cloudUser && isCloudAuthLoading) {
     return <PageLoader mode="fullscreen" className="type-ui" />;
   }
 
   if (!cloudUser) {
     return (
-      <div className="type-ui relative flex min-h-screen bg-background">
+      <div className="type-ui relative flex min-h-screen bg-background animate-in fade-in duration-200">
         {pendingConfigMessages.length > 0 && (
           <div className="type-section fixed top-0 left-0 right-0 z-50 flex justify-center border-b border-border bg-muted/80 px-4 py-2 uppercase text-muted-foreground backdrop-blur-md">
             {pendingConfigMessages.join(" • ")}
@@ -4439,10 +4442,6 @@ export default function Home() {
         />
       </div>
     );
-  }
-
-  if (isPostLoginTransitioning) {
-    return <PageLoader mode="fullscreen" className="type-ui" />;
   }
 
   return (
@@ -4516,13 +4515,21 @@ export default function Home() {
         </div>
       </main>
 
+      {/* Post-login transition — soft overlay that fades away as the workspace loads.
+          Lighter than workspace-switch overlay to give a sense of "arriving" rather than blocking. */}
+      <PageLoaderOverlay
+        open={isPostLoginTransitioning && !workspaceSwitchState}
+        overlayClassName="bg-background/80"
+      />
+      {/* Workspace switch — opaque so profile list doesn't flash half-loaded */}
       <PageLoaderOverlay
         open={Boolean(workspaceSwitchState)}
         overlayClassName="bg-background"
       />
+      {/* Section switch — suppressed during post-login / workspace switch to avoid double-spinner */}
       <PageLoaderOverlay
-        open={isSectionSwitching && !workspaceSwitchState}
-        overlayClassName="bg-background/45"
+        open={isSectionSwitching && !workspaceSwitchState && !isPostLoginTransitioning}
+        overlayClassName="bg-background/30"
       />
       {importProfileDialogOpen && (
         <ImportProfileDialog
