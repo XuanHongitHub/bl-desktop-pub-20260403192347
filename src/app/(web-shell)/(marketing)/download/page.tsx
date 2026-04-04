@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownToLine, Boxes, Laptop, RefreshCcw } from "lucide-react";
+import { DownloadInstallersPanel } from "@/components/portal/marketing/download-installers-panel";
 import { MarketingInfoPage } from "@/components/portal/marketing/marketing-info-page";
 
 const DOWNLOAD_CARDS = [
@@ -17,6 +18,8 @@ export default function DownloadPage() {
       cards={DOWNLOAD_CARDS}
       primaryCta={{ href: "/signin", key: "portalSite.nav.signIn" }}
       secondaryCta={{ href: "/pricing", key: "portalSite.nav.pricing" }}
-    />
+    >
+      <DownloadInstallersPanel />
+    </MarketingInfoPage>
   );
 }

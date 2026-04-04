@@ -5303,6 +5303,20 @@
       "badge": "Download",
       "title": "Download the BugLogin desktop app.",
       "description": "Get the runtime app and keep entitlement synced from the web portal.",
+      "installers": {
+        "title": "Desktop Installers",
+        "description": "Auto-resolved from the latest release in the deployment repository.",
+        "latest": "Latest release: {{tag}}",
+        "loading": "Loading installers...",
+        "error": "Cannot load installer links right now.",
+        "downloadForCurrentOs": "Download for this device",
+        "download": "Download",
+        "windows": "Windows",
+        "macIntel": "macOS (Intel)",
+        "macApple": "macOS (Apple Silicon)",
+        "linux": "Linux",
+        "empty": "No installer available yet."
+      },
       "cards": {
         "windows": {
           "title": "Windows-ready package",
