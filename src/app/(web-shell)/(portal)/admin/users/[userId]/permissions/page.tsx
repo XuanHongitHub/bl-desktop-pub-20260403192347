@@ -1,5 +1,9 @@
 import { AdminUserPermissionsPage } from "@/components/portal/admin/users/admin-user-permissions-page";
 
+export function generateStaticParams() {
+  return [{ userId: "placeholder" }];
+}
+
 export default async function AdminUserPermissionsRoute({
   params,
 }: {
