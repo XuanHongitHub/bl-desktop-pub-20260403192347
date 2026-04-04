@@ -30,8 +30,13 @@ function buildErrorDescription(error: unknown, fallback: string): string {
 
 export default function AccountPlanPage() {
   const { t } = useTranslation();
-  const { connection, selectedWorkspaceId, billingState, refreshBilling } =
-    usePortalBillingData();
+  const {
+    connection,
+    selectedWorkspaceId,
+    selectedWorkspace,
+    billingState,
+    refreshBilling,
+  } = usePortalBillingData();
   const [couponCode, setCouponCode] = useState("");
   const [licenseKey, setLicenseKey] = useState("");
   const [submittingCoupon, setSubmittingCoupon] = useState(false);
@@ -39,6 +44,8 @@ export default function AccountPlanPage() {
 
   const subscription = billingState?.subscription ?? null;
   const usage = billingState?.usage ?? null;
+  const workspaceRole = selectedWorkspace?.actorRole ?? "viewer";
+  const canManagePlan = workspaceRole === "owner" || workspaceRole === "admin";
   const storagePercent = useMemo(
     () => computeStorageUsagePercent(usage),
     [usage],
@@ -50,6 +57,10 @@ export default function AccountPlanPage() {
   );
 
   const redeemCoupon = async () => {
+    if (!canManagePlan) {
+      showErrorToast(t("billingPage.memberReadonlyHint"));
+      return;
+    }
     if (!connection || !selectedWorkspaceId) {
       showErrorToast(t("portalSite.commerce.errors.connectionMissing"));
       return;
@@ -76,6 +87,10 @@ export default function AccountPlanPage() {
   };
 
   const redeemLicense = async () => {
+    if (!canManagePlan) {
+      showErrorToast(t("billingPage.memberReadonlyHint"));
+      return;
+    }
     if (!connection || !selectedWorkspaceId) {
       showErrorToast(t("portalSite.commerce.errors.connectionMissing"));
       return;
@@ -107,7 +122,7 @@ export default function AccountPlanPage() {
       title={t("portalSite.account.planMenu")}
       description={t("portalSite.commerce.accountPlan.description")}
       actions={
-        <Button asChild size="sm" variant="outline">
+        <Button asChild size="sm" variant="outline" disabled={!canManagePlan}>
           <Link href="/pricing">
             {t("portalSite.account.changePlan")}
             <ArrowRight className="h-4 w-4" />
@@ -151,6 +166,11 @@ export default function AccountPlanPage() {
           </div>
           <Progress value={storagePercent} />
         </div>
+        {!canManagePlan ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t("billingPage.memberReadonlyHint")}
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
@@ -165,10 +185,11 @@ export default function AccountPlanPage() {
               onChange={(event) => setCouponCode(event.target.value)}
               placeholder={t("portalSite.commerce.fields.couponCode")}
               className="h-9"
+              disabled={!canManagePlan || submittingCoupon}
             />
             <Button
               onClick={() => void redeemCoupon()}
-              disabled={submittingCoupon}
+              disabled={!canManagePlan || submittingCoupon}
             >
               {t("portalSite.commerce.actions.redeemCoupon")}
             </Button>
@@ -186,10 +207,11 @@ export default function AccountPlanPage() {
               onChange={(event) => setLicenseKey(event.target.value)}
               placeholder={t("portalSite.commerce.fields.licenseKey")}
               className="h-9"
+              disabled={!canManagePlan || submittingLicense}
             />
             <Button
               onClick={() => void redeemLicense()}
-              disabled={submittingLicense}
+              disabled={!canManagePlan || submittingLicense}
             >
               {t("portalSite.commerce.actions.redeemLicense")}
             </Button>

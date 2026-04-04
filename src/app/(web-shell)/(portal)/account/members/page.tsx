@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminWorkspaceTab } from "@/components/admin/admin-workspace-tab";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  listWorkspaceMembers,
-  listWorkspaceInvites,
   inviteWorkspaceMember,
+  listWorkspaceInvites,
+  listWorkspaceMembers,
   revokeWorkspaceInvite,
   updateWorkspaceMemberRole,
 } from "@/components/web-billing/control-api";
-import { buildControlApiUrl } from "@/lib/control-api-routes";
 import { usePortalBillingData } from "@/hooks/use-portal-billing-data";
+import { buildControlApiUrl } from "@/lib/control-api-routes";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { ControlInvite, ControlMembership, TeamRole } from "@/types";
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AccountMembersPage() {
   const { t } = useTranslation();
@@ -26,7 +26,6 @@ export default function AccountMembersPage() {
   } = usePortalBillingData();
 
   const activeWorkspaceRole = selectedWorkspace?.actorRole ?? "viewer";
-  const isPlatformAdmin = connection?.platformRole === "platform_admin";
   const isTeamOperator = activeWorkspaceRole === "owner" || activeWorkspaceRole === "admin";
 
   const [activeTab, setActiveTab] = useState<"directory" | "permissions">("directory");
@@ -135,7 +134,7 @@ export default function AccountMembersPage() {
     setIsBusy(true);
     try {
       const response = await fetch(
-        buildControlApiUrl(connection.controlBaseUrl, "workspaceMembers", { workspaceId: selectedWorkspaceId }) + `/${encodeURIComponent(userId)}/remove`,
+        `${buildControlApiUrl(connection.controlBaseUrl, "workspaceMembers", { workspaceId: selectedWorkspaceId })}/${encodeURIComponent(userId)}/remove`,
         {
           method: "POST",
           headers: {
@@ -171,6 +170,19 @@ export default function AccountMembersPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1120px] p-4 lg:p-8">
+      {!isTeamOperator ? (
+        <section className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center md:py-24">
+          <ShieldCheck className="mb-4 h-12 w-12 text-muted-foreground opacity-50" />
+          <h2 className="text-lg font-semibold text-foreground">
+            {t("billingPage.ownerOnlyTitle")}
+          </h2>
+          <p className="mt-2 max-w-[560px] text-sm text-muted-foreground">
+            {t("billingPage.ownerOnlyDescription")}
+          </p>
+        </section>
+      ) : null}
+      {isTeamOperator ? (
+      <>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-foreground">
@@ -195,7 +207,7 @@ export default function AccountMembersPage() {
         <AdminWorkspaceTab
           isBusy={isBusy}
           runtimeBaseUrl={null}
-          isPlatformAdmin={isPlatformAdmin}
+          isPlatformAdmin={false}
           isTeamOperator={isTeamOperator}
           workspaceRole={activeWorkspaceRole}
           workspaces={[]}
@@ -240,6 +252,8 @@ export default function AccountMembersPage() {
           showFlowTabs={false}
         />
       </Tabs>
+      </>
+      ) : null}
     </div>
   );
 }

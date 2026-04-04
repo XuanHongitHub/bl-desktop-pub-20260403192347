@@ -227,9 +227,9 @@ function PortalSidebarShell({
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const activeWorkspaceRole: TeamRole = session?.user.platformRole === "platform_admin"
-    ? "owner"
-    : (workspaces.find((w) => w.id === selectedWorkspaceId)?.actorRole ?? "viewer");
+  const activeWorkspaceRole: TeamRole =
+    workspaces.find((workspace) => workspace.id === selectedWorkspaceId)
+      ?.actorRole ?? "viewer";
 
   return (
     <div className="type-ui flex h-[calc(100vh-var(--window-titlebar-height,0px))] overflow-hidden bg-background">

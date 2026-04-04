@@ -204,15 +204,16 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
   const normalizedCurrentUserEmail = props.currentUserEmail?.trim().toLowerCase() ?? "";
   const normalizedCurrentUserId = props.currentUserId?.trim() ?? "";
 
-  const isLocalMode = !props.runtimeBaseUrl;
-  const canManageWorkspace = props.isPlatformAdmin || props.isTeamOperator;
+  const _isLocalMode = !props.runtimeBaseUrl;
+  const canManageAsPlatformAdmin = props.isPlatformAdmin && !workspaceScopedOnly;
+  const canManageWorkspace = canManageAsPlatformAdmin || props.isTeamOperator;
   const isWorkspaceOwner = props.workspaceRole === "owner";
   const isWorkspaceAdmin = props.workspaceRole === "admin";
   const canManageMembers =
-    props.isPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
+    canManageAsPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
   const canManageUserPermissions =
-    props.isPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
-  const canManagePlan = props.isPlatformAdmin || isWorkspaceOwner;
+    canManageAsPlatformAdmin || isWorkspaceOwner || isWorkspaceAdmin;
+  const canManagePlan = canManageAsPlatformAdmin || isWorkspaceOwner;
   const isMemberActionDisabled = props.isBusy || !canManageMembers;
   const isPermissionActionDisabled = props.isBusy || !canManageUserPermissions;
   const isActionDisabled = props.isBusy || !canManageWorkspace;
@@ -754,7 +755,10 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
                       const canEditThisMember = (() => {
                         if (isSelfMembership) return false;
-                        if (props.isPlatformAdmin) return true;
+                        if (workspaceScopedOnly && membership.role === "owner") {
+                          return false;
+                        }
+                        if (canManageAsPlatformAdmin) return true;
                         if (props.workspaceRole === "owner") return true;
                         if (props.workspaceRole === "admin") {
                           return membership.role === "member" || membership.role === "viewer";
@@ -763,7 +767,7 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                       })();
 
                       const allowedRoleOptions = MEMBER_ROLE_OPTIONS.filter((option) => {
-                        if (props.isPlatformAdmin) return true;
+                        if (canManageAsPlatformAdmin) return true;
                         if (props.workspaceRole === "owner") return true;
                         if (props.workspaceRole === "admin") {
                           return option !== "owner" && option !== "admin";
@@ -823,7 +827,10 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
 
                       const canEditThisMember = (() => {
                         if (isSelfMembership) return false;
-                        if (props.isPlatformAdmin) return true;
+                        if (workspaceScopedOnly && membership.role === "owner") {
+                          return false;
+                        }
+                        if (canManageAsPlatformAdmin) return true;
                         if (props.workspaceRole === "owner") return true;
                         if (props.workspaceRole === "admin") {
                           return membership.role === "member" || membership.role === "viewer";

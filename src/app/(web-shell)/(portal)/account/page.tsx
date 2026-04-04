@@ -52,14 +52,12 @@ export default function AccountOverviewPage() {
     refreshWorkspaces,
     loadingBilling,
     loadingWorkspaces,
-    session,
   } = usePortalBillingData();
 
-  const isPlatformAdmin = session?.user?.platformRole === "platform_admin";
   const isOperator =
     selectedWorkspace?.actorRole === "owner" ||
     selectedWorkspace?.actorRole === "admin";
-  const canViewBilling = isPlatformAdmin || isOperator;
+  const canViewBilling = isOperator;
 
   const [workspaceQuery, setWorkspaceQuery] = useState("");
 

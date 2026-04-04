@@ -34,6 +34,8 @@ export default function AccountBillingPage() {
   >(null);
   const usage = billingState?.usage ?? null;
   const subscription = billingState?.subscription ?? null;
+  const workspaceRole = selectedWorkspace?.actorRole ?? "viewer";
+  const canManageBilling = workspaceRole === "owner" || workspaceRole === "admin";
   const hasPaidPlan = Boolean(subscription?.planId);
   const canReactivate = hasPaidPlan && Boolean(subscription?.cancelAtPeriodEnd);
   const canCancel = hasPaidPlan && subscription?.status !== "canceled";
@@ -58,6 +60,10 @@ export default function AccountBillingPage() {
   const handleSubscriptionAction = async (
     mode: "period_end" | "immediate" | "reactivate",
   ) => {
+    if (!canManageBilling) {
+      showErrorToast(t("billingPage.memberReadonlyHint"));
+      return;
+    }
     if (!connection || !selectedWorkspaceId) {
       showErrorToast(t("portalSite.account.actionFailed"));
       return;
@@ -88,13 +94,13 @@ export default function AccountBillingPage() {
       description={t("portalSite.account.subscriptionDescription")}
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild size="sm">
+          <Button asChild size="sm" disabled={!canManageBilling}>
             <Link href="/pricing">
               {t("portalSite.account.openPricing")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="sm" variant="outline" disabled={!canManageBilling}>
             <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
           </Button>
         </div>
@@ -150,10 +156,10 @@ export default function AccountBillingPage() {
             </dl>
 
             <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
+              <Button asChild size="sm" disabled={!canManageBilling}>
                 <Link href="/checkout">{t("portalSite.account.goToCheckout")}</Link>
               </Button>
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="outline" disabled={!canManageBilling}>
                 <Link href="/pricing">{t("portalSite.account.changePlan")}</Link>
               </Button>
               <Button asChild size="sm" variant="ghost">
@@ -181,9 +187,19 @@ export default function AccountBillingPage() {
             <p className="text-xs text-muted-foreground">
               {t("portalSite.account.paymentMethodDescription")}
             </p>
+            {!canManageBilling ? (
+              <p className="text-sm text-muted-foreground">
+                {t("billingPage.memberReadonlyHint")}
+              </p>
+            ) : null}
 
             {!hasPaidPlan ? (
-              <Button asChild size="sm" variant="secondary">
+              <Button
+                asChild
+                size="sm"
+                variant="secondary"
+                disabled={!canManageBilling}
+              >
                 <Link href="/pricing">{t("portalSite.account.selectPlan")}</Link>
               </Button>
             ) : (
@@ -192,7 +208,7 @@ export default function AccountBillingPage() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={pendingAction !== null}
+                    disabled={!canManageBilling || pendingAction !== null}
                     onClick={() => void handleSubscriptionAction("reactivate")}
                   >
                     {t("portalSite.account.reactivate")}
@@ -203,7 +219,7 @@ export default function AccountBillingPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={pendingAction !== null}
+                      disabled={!canManageBilling || pendingAction !== null}
                       onClick={() => void handleSubscriptionAction("period_end")}
                     >
                       {t("portalSite.account.cancelAtPeriodEnd")}
@@ -211,7 +227,7 @@ export default function AccountBillingPage() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      disabled={pendingAction !== null}
+                      disabled={!canManageBilling || pendingAction !== null}
                       onClick={() => void handleSubscriptionAction("immediate")}
                     >
                       {t("portalSite.account.cancelNow")}
