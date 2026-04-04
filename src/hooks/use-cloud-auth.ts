@@ -5,7 +5,7 @@ import type { AuthLoginScope } from "@/lib/auth-quick-presets";
 import { type BillingCycle, type BillingPlanId } from "@/lib/billing-plans";
 import { buildControlApiUrl } from "@/lib/control-api-routes";
 import { extractRootError } from "@/lib/error-utils";
-import { invokeCached } from "@/lib/ipc-query-cache";
+import { invalidateInvokeCache, invokeCached } from "@/lib/ipc-query-cache";
 import { normalizeTeamRole } from "@/lib/team-permissions";
 import { normalizePlanIdFromLabel } from "@/lib/workspace-billing-logic";
 import type { CloudAuthState, CloudUser, ControlWorkspace } from "@/types";
@@ -648,6 +648,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
           if (!response?.user?.id || !response.user.email) {
             throw new Error("invalid_auth_response");
           }
+          invalidateInvokeCache("get_sync_settings");
           return response;
         } catch (error) {
           throw new Error(extractRootError(error) || "control_auth_unreachable");
