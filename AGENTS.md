@@ -88,3 +88,11 @@
   1. fork-custom artifact,
   2. verified previous stable fork artifact,
   3. temporary upstream mirror fallback (explicitly marked).
+
+## 10. Public Repo Camouflage Contract (Global, Required)
+- Private repo (`keyduc91/Malvanut-Login`) is the source of truth and keeps full code.
+- Public repo (`XuanHongitHub/ops-snapshot-labs`) is **release-only** for desktop packaging.
+- Never push full private contents to public repo.
+- Public repo must only contain release scope (desktop app build/runtime sources and required workflow/config files).
+- Before any public release run, sync only the release scope and verify public top-level tree excludes internal folders (`docs`, `openspec`, `buglogin-sync`, `private`, `mockups`, internal workflow sets).
+- Canonical runbook: `docs/workflow/desktop-public-repo-release.md`.
