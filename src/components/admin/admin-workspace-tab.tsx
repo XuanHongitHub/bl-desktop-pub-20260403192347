@@ -44,6 +44,8 @@ import { TablePaginationControls } from "@/components/ui/table-pagination-contro
 import { formatLocaleDate } from "@/lib/locale-format";
 import { getUnifiedPlanLabel } from "@/lib/plan-display";
 import { cn } from "@/lib/utils";
+import { CustomRolesManager, type CustomRoleDefinition } from "./custom-roles-manager";
+import { MemberPermissionsMatrix } from "./member-permissions-matrix";
 import type {
   ControlInvite,
   ControlMembership,
@@ -106,6 +108,7 @@ interface AdminWorkspaceTabProps {
 export type WorkspaceAdminFlow =
   | "overview"
   | "directory"
+  | "roles"
   | "permissions"
   | "plan";
 
@@ -1265,42 +1268,58 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     </div>
   );
 
-  const renderPermissionsFlow = () => (
-    <div className="space-y-4">
-      {!canManageUserPermissions && (
-        <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-          {t("adminWorkspace.ui.readOnlyHint")}
-        </div>
-      )}
-      <div className="rounded-lg border border-border/70 bg-background p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[13px] font-semibold text-foreground">
-              {t("adminWorkspace.ui.memberAccessTitle")}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {t("adminWorkspace.ui.memberAccessDescription")}
-            </p>
-          </div>
-          <div className="flex gap-1.5">
-            <Badge variant="outline" className="h-5 px-2 text-[10px]">
-              {t("adminWorkspace.controlPlane.memberCount", {
-                count: props.memberships.length,
-              })}
-            </Badge>
-            <Badge variant="outline" className="h-5 px-2 text-[10px]">
-              {t("adminWorkspace.controlPlane.inviteCount", {
-                count: activeInvites,
-              })}
-            </Badge>
-          </div>
-        </div>
-      </div>
+  const renderRolesFlow = () => {
+    // MOCK DATA for Phase 1 testing
+    const mockRoles: CustomRoleDefinition[] = [
+      { id: "owner", name: "Owner", isSystem: true, capabilities: [] },
+      { id: "admin", name: "Admin", isSystem: true, capabilities: [] },
+      { id: "member", name: "Member", isSystem: true, capabilities: [] },
+      { id: "r_1", name: "Marketing Team", capabilities: ["create_profile", "edit_profile"] }
+    ];
 
-      {renderMembersInvitesTabsCard()}
-      {renderShareCard()}
-    </div>
-  );
+    return (
+      <div className="space-y-4">
+        {!canManageUserPermissions && (
+          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+            {t("adminWorkspace.ui.readOnlyHint")}
+          </div>
+        )}
+        <CustomRolesManager
+          roles={mockRoles}
+          onAddRole={() => {}}
+          onUpdateRole={() => {}}
+          onDeleteRole={() => {}}
+          isPlatformAdmin={props.isPlatformAdmin}
+        />
+      </div>
+    );
+  };
+
+  const renderPermissionsFlow = () => {
+    // MOCK Resource Data for Phase 1 testing
+    const availableResources = [
+      { id: "g1", name: "Facebook Ads Group", type: "group" as const },
+      { id: "g2", name: "TikTok Agency", type: "group" as const },
+      { id: "p1", name: "Profile Via 1", type: "profile" as const },
+    ];
+
+    return (
+      <div className="space-y-4">
+        {!canManageUserPermissions && (
+          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+            {t("adminWorkspace.ui.readOnlyHint")}
+          </div>
+        )}
+        <MemberPermissionsMatrix
+          memberships={props.memberships}
+          shareGrants={props.shareGrants}
+          availableResources={availableResources}
+          onToggleGrant={(u, r, t, s) => { console.log(u, r, t, s); }}
+          isPlatformAdmin={props.isPlatformAdmin}
+        />
+      </div>
+    );
+  };
 
   const renderPlanFlow = () => (
     <div className="space-y-4">
@@ -1377,6 +1396,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
     if (activeFlow === "permissions") {
       return renderPermissionsFlow();
     }
+    if (activeFlow === "roles") {
+      return renderRolesFlow();
+    }
     if (activeFlow === "plan") {
       return renderPlanFlow();
     }
@@ -1424,12 +1446,15 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 className="w-full"
               >
                 <div className="border-b border-border/70 px-4 py-3">
-                  <TabsList className="grid w-full max-w-[720px] grid-cols-3 bg-muted/30 p-1">
+                  <TabsList className="grid w-full max-w-[720px] grid-cols-4 bg-muted/30 p-1">
                     <TabsTrigger value="directory" className="text-[12px]">
                       {t("shell.sections.workspaceAdminMembers")}
                     </TabsTrigger>
+                    <TabsTrigger value="roles" className="text-[12px]">
+                      Vai trò
+                    </TabsTrigger>
                     <TabsTrigger value="permissions" className="text-[12px]">
-                      {t("shell.sections.workspaceOwnerUserPermissions")}
+                      Phân quyền Group/Profile
                     </TabsTrigger>
                     <TabsTrigger value="plan" className="text-[12px]">
                       {t("shell.sections.workspaceOwnerPlanManagement")}
@@ -1439,6 +1464,9 @@ export function AdminWorkspaceTab(props: AdminWorkspaceTabProps) {
                 <div className="p-4">
                   <TabsContent value="directory" className="mt-0">
                     {renderDirectoryFlow()}
+                  </TabsContent>
+                  <TabsContent value="roles" className="mt-0">
+                    {renderRolesFlow()}
                   </TabsContent>
                   <TabsContent value="permissions" className="mt-0">
                     {renderPermissionsFlow()}

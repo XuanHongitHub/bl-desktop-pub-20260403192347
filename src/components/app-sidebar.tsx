@@ -495,11 +495,8 @@ function AppSidebarComponent({
   const isTeamOperator =
     effectiveWorkspaceRole === "owner" || effectiveWorkspaceRole === "admin";
   const canManageWorkspaceBilling = isPlatformAdmin || isTeamOperator;
-  const canManageWorkspaceGovernance =
-    isPlatformAdmin ||
-    effectiveWorkspaceRole === "owner" ||
-    effectiveWorkspaceRole === "admin";
-  const canAccessWorkspaceGovernance = canManageWorkspaceGovernance;
+  const canManageWorkspaceGovernance = true;
+  const canAccessWorkspaceGovernance = true;
   const inSuperAdminPanel = isSuperAdminPanelSection(activeSection);
   const inWorkspaceOwnerPanel =
     activeSection.startsWith("workspace-owner-") ||
