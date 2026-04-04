@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 const isStaticExportBuild = process.env.NEXT_STATIC_EXPORT === "1";
 
+// Required by Next.js when output=export is enabled.
+export const revalidate = 3600;
+
 function readEnv(name: string): string | null {
   const value = process.env[name]?.trim();
   return value ? value : null;
@@ -19,10 +22,7 @@ function resolveToken(): string | null {
   );
 }
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ assetId: string }> },
-) {
+export async function GET(request: Request) {
   if (isStaticExportBuild) {
     return NextResponse.json(
       { message: "desktop_release_asset_api_unavailable_in_static_export" },
@@ -30,7 +30,6 @@ export async function GET(
     );
   }
 
-  const params = await context.params;
   const repo = resolveRepo();
   const token = resolveToken();
   if (!token) {
@@ -40,7 +39,8 @@ export async function GET(
     );
   }
 
-  const assetId = Number(params.assetId);
+  const url = new URL(request.url);
+  const assetId = Number(url.searchParams.get("id"));
   if (!Number.isFinite(assetId) || assetId <= 0) {
     return NextResponse.json({ message: "invalid_asset_id" }, { status: 400 });
   }
@@ -70,8 +70,7 @@ export async function GET(
   }
 
   const fallbackName =
-    new URL(request.url).searchParams.get("name")?.trim() ||
-    "buglogin-installer.bin";
+    url.searchParams.get("name")?.trim() || "buglogin-installer.bin";
   const contentType =
     upstream.headers.get("content-type") ?? "application/octet-stream";
   const contentDisposition =
