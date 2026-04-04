@@ -21,7 +21,7 @@ type PlatformHint =
   | "linux-x64"
   | "unknown";
 
-export const dynamic = "force-dynamic";
+const isStaticExportBuild = process.env.NEXT_STATIC_EXPORT === "1";
 
 function readEnv(name: string): string | null {
   const value = process.env[name]?.trim();
@@ -66,6 +66,13 @@ function inferPlatformHint(name: string): PlatformHint {
 }
 
 export async function GET() {
+  if (isStaticExportBuild) {
+    return NextResponse.json(
+      { message: "desktop_release_latest_api_unavailable_in_static_export" },
+      { status: 501 },
+    );
+  }
+
   const repo = resolveRepo();
   const token = resolveToken();
   if (!token) {

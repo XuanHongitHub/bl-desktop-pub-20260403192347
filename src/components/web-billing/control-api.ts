@@ -290,6 +290,10 @@ async function requestControl<T>(
   },
   init: RequestInit,
 ): Promise<T> {
+  if (!connection?.controlToken) {
+    throw new Error("missing_control_token");
+  }
+
   const response = await fetch(
     buildControlApiUrl(connection.controlBaseUrl, routeKey, routeInput),
     {
