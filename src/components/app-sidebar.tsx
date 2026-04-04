@@ -572,13 +572,25 @@ function AppSidebarComponent({
 
   const navItems = useMemo(() => {
     if (navigationMode === "portal-account") {
-      return [
+      const items: NavEntry[] = [
         {
           type: "item",
           id: "profiles",
           labelKey: "shell.sections.accountOverview",
           icon: LayoutDashboard,
         },
+      ];
+
+      if (canManageWorkspaceGovernance) {
+        items.push({
+          type: "item",
+          id: "account-members",
+          labelKey: "adminWorkspace.ui.memberList",
+          icon: Users,
+        });
+      }
+
+      items.push(
         {
           type: "item",
           id: "pricing",
@@ -597,7 +609,8 @@ function AppSidebarComponent({
           labelKey: "shell.sections.accountSettings",
           icon: Settings2,
         },
-      ] satisfies NavEntry[];
+      );
+      return items;
     }
 
     return buildNavItems({

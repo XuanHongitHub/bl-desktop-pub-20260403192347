@@ -35,6 +35,7 @@ type RouteBuilderInput = {
   campaignId?: string;
   couponId?: string;
   licenseId?: string;
+  shareGrantId?: string;
   auditLimit?: number;
   q?: string;
   page?: number;
@@ -57,6 +58,10 @@ export function buildControlApiPath(
     | "workspaceMembers"
     | "workspaceMemberInvite"
     | "workspaceMemberRole"
+    | "workspaceInvites"
+    | "workspaceInviteRevoke"
+    | "workspaceShareGrants"
+    | "workspaceShareGrantRevoke"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
@@ -121,6 +126,14 @@ export function buildControlApiPath(
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/members/invite`;
     case "workspaceMemberRole":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/members/${encodeURIComponent(input.userId ?? "")}/role`;
+    case "workspaceInvites":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/invites`;
+    case "workspaceInviteRevoke":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/invites/${encodeURIComponent(input.inviteId ?? "")}/revoke`;
+    case "workspaceShareGrants":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/share-grants`;
+    case "workspaceShareGrantRevoke":
+      return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/share-grants/${encodeURIComponent(input.shareGrantId ?? "")}/revoke`;
     case "workspaceStripeCheckout":
       return `${prefix}/workspaces/${encodeURIComponent(input.workspaceId ?? "")}/billing/stripe-checkout`;
     case "workspaceStripeCheckoutConfirm":
@@ -242,6 +255,10 @@ export function buildControlApiUrl(
     | "workspaceMembers"
     | "workspaceMemberInvite"
     | "workspaceMemberRole"
+    | "workspaceInvites"
+    | "workspaceInviteRevoke"
+    | "workspaceShareGrants"
+    | "workspaceShareGrantRevoke"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"

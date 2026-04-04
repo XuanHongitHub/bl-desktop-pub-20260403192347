@@ -22,6 +22,7 @@ import type {
   ControlCoupon,
   ControlInvite,
   ControlMembership,
+  ControlShareGrant,
   ControlStripeCheckoutConfirmResponse,
   ControlStripeCheckoutCreateResponse,
   ControlWorkspaceBillingState,
@@ -231,6 +232,10 @@ async function requestControl<T>(
     | "workspaceMembers"
     | "workspaceMemberInvite"
     | "workspaceMemberRole"
+    | "workspaceInvites"
+    | "workspaceInviteRevoke"
+    | "workspaceShareGrants"
+    | "workspaceShareGrantRevoke"
     | "workspaceStripeCheckout"
     | "workspaceStripeCheckoutConfirm"
     | "workspaceCancelSubscription"
@@ -274,6 +279,7 @@ async function requestControl<T>(
     campaignId?: string;
     couponId?: string;
     licenseId?: string;
+    shareGrantId?: string;
     auditLimit?: number;
     q?: string;
     page?: number;
@@ -492,6 +498,66 @@ export async function inviteWorkspaceMember(
     {
       method: "POST",
       body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function listWorkspaceInvites(
+  connection: WebBillingConnection,
+  workspaceId: string,
+): Promise<ControlInvite[]> {
+  return requestControl<ControlInvite[]>(
+    connection,
+    "workspaceInvites",
+    { workspaceId },
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function revokeWorkspaceInvite(
+  connection: WebBillingConnection,
+  workspaceId: string,
+  inviteId: string,
+): Promise<ControlInvite> {
+  return requestControl<ControlInvite>(
+    connection,
+    "workspaceInviteRevoke",
+    { workspaceId, inviteId },
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: "revoked_from_portal" }),
+    },
+  );
+}
+
+export async function listWorkspaceShareGrants(
+  connection: WebBillingConnection,
+  workspaceId: string,
+): Promise<ControlShareGrant[]> {
+  return requestControl<ControlShareGrant[]>(
+    connection,
+    "workspaceShareGrants",
+    { workspaceId },
+    {
+      method: "GET",
+    },
+  );
+}
+
+export async function revokeWorkspaceShareGrant(
+  connection: WebBillingConnection,
+  workspaceId: string,
+  shareGrantId: string,
+): Promise<ControlShareGrant> {
+  return requestControl<ControlShareGrant>(
+    connection,
+    "workspaceShareGrantRevoke",
+    { workspaceId, shareGrantId },
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: "revoked_from_portal" }),
     },
   );
 }
