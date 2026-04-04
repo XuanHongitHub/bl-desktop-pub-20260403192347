@@ -208,10 +208,12 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     if (!this.postgresPool) {
+      this.bootstrapPlatformAdminPolicyFromConfig();
       this.refreshWorkspaceUsageSnapshots();
       return;
     }
     await this.loadStateFromPostgres();
+    this.bootstrapPlatformAdminPolicyFromConfig();
     this.refreshWorkspaceUsageSnapshots();
   }
 
@@ -4705,9 +4707,6 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
           this.platformAdminEmails.add(normalized);
         }
       }
-      for (const configuredEmail of this.configuredPlatformAdminEmails) {
-        this.platformAdminEmails.add(configuredEmail);
-      }
 
       const snapshot: PersistedControlState = {
         authUsers: authUsersResult.rows
@@ -5580,10 +5579,30 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isPlatformAdminEmail(normalizedEmail: string): boolean {
-    return (
-      this.platformAdminEmails.has(normalizedEmail) ||
-      this.configuredPlatformAdminEmails.has(normalizedEmail)
-    );
+    return this.platformAdminEmails.has(normalizedEmail);
+  }
+
+  private bootstrapPlatformAdminPolicyFromConfig() {
+    if (this.configuredPlatformAdminEmails.size === 0) {
+      return;
+    }
+    let changed = false;
+    for (const email of this.configuredPlatformAdminEmails) {
+      if (!this.platformAdminEmails.has(email)) {
+        this.platformAdminEmails.add(email);
+        changed = true;
+      }
+      const record = this.authUsers.get(email);
+      if (record && record.platformRole !== "platform_admin") {
+        record.platformRole = "platform_admin";
+        record.updatedAt = new Date().toISOString();
+        this.authUsers.set(email, record);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.persistState();
+    }
   }
 
   private resolvePlatformRoleForRegistration(
