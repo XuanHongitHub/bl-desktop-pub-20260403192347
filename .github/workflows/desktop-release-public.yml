@@ -10,6 +10,9 @@ on:
         description: "Target repository (owner/name)"
         required: true
         default: "keyduc91/Malvanut-Login"
+  push:
+    tags:
+      - "v*-desktop*"
 
 permissions:
   contents: read
@@ -135,8 +138,8 @@ jobs:
       - name: Publish release in target repository
         env:
           GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
-          TARGET_REPO: ${{ inputs.target_repo }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET_REPO: ${{ inputs.target_repo || 'keyduc91/Malvanut-Login' }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then

@@ -1,12 +1,15 @@
 name: Mirror Release Assets From Public Repo
 
 on:
+  repository_dispatch:
+    types:
+      - mirror-public-release
   workflow_dispatch:
     inputs:
       source_repo:
         description: "Source public repo (owner/name)"
         required: true
-        default: "XuanHongitHub/bl-desktop-pub-20260403192347"
+        default: "XuanHongitHub/ops-snapshot-labs"
       source_tag:
         description: "Source tag to copy (e.g. v0.17.1-desktop.5)"
         required: true
@@ -31,13 +34,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "SOURCE_REPO=${{ inputs.source_repo }}" >> "$GITHUB_ENV"
-          echo "SOURCE_TAG=${{ inputs.source_tag }}" >> "$GITHUB_ENV"
-          if [ -n "${{ inputs.target_tag }}" ]; then
-            echo "TARGET_TAG=${{ inputs.target_tag }}" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
+            SOURCE_TAG="${{ github.event.client_payload.source_tag }}"
+            TARGET_TAG="${{ github.event.client_payload.target_tag }}"
           else
-            echo "TARGET_TAG=${{ inputs.source_tag }}" >> "$GITHUB_ENV"
+            SOURCE_REPO="${{ inputs.source_repo }}"
+            SOURCE_TAG="${{ inputs.source_tag }}"
+            TARGET_TAG="${{ inputs.target_tag }}"
           fi
+
+          if [ -z "${SOURCE_REPO:-}" ] || [ -z "${SOURCE_TAG:-}" ]; then
+            echo "Missing source repo/tag payload" >&2
+            exit 1
+          fi
+
+          if [ -z "${TARGET_TAG:-}" ]; then
+            TARGET_TAG="$SOURCE_TAG"
+          fi
+
+          echo "SOURCE_REPO=$SOURCE_REPO" >> "$GITHUB_ENV"
+          echo "SOURCE_TAG=$SOURCE_TAG" >> "$GITHUB_ENV"
+          echo "TARGET_TAG=$TARGET_TAG" >> "$GITHUB_ENV"
           echo "TARGET_REPO=${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
 
       - name: Download assets from source release
