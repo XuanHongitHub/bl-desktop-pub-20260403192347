@@ -36,12 +36,26 @@ This script will:
 
 Current production contract used by workflow:
 
-- `BUGLOGIN_BROWSER_API_BASE=https://api.gnohh.com`
-- `NEXT_PUBLIC_SYNC_SERVER_URL=https://api.gnohh.com`
-- `NEXT_PUBLIC_WEB_PORTAL_URL=https://gnohh.com`
-- `NEXT_PUBLIC_BILLING_PORTAL_URL=https://gnohh.com`
-- `NEXT_PUBLIC_STRIPE_BILLING_URL=https://gnohh.com`
-- `BUGLOGIN_AUTH_API_URL=https://api.gnohh.com`
+- `BUGLOGIN_BROWSER_API_BASE=https://api.buglogin.com`
+- `NEXT_PUBLIC_SYNC_SERVER_URL=https://api.buglogin.com`
+- `NEXT_PUBLIC_WEB_PORTAL_URL=https://buglogin.com`
+- `NEXT_PUBLIC_BILLING_PORTAL_URL=https://buglogin.com`
+- `NEXT_PUBLIC_STRIPE_BILLING_URL=https://buglogin.com`
+- `BUGLOGIN_AUTH_API_URL=https://api.buglogin.com`
+
+Do not inject `NEXT_PUBLIC_SYNC_TOKEN` or `BUGLOGIN_DEFAULT_SYNC_TOKEN` into public desktop build workflows. Those values can be extracted from shipped clients.
+
+Managed browser metadata endpoints must be available before starting a desktop release build:
+
+- `https://api.buglogin.com/v1/browser/bugox.json`
+- `https://api.buglogin.com/v1/browser/bugium.json`
+
+If you host metadata on `buglogin-sync`, configure these keys at deploy time:
+
+- `BUGLOGIN_RELEASE_API_TOKEN`
+- `BUGLOGIN_BUGOX_VERSION`, `BUGLOGIN_BUGOX_WINDOWS_X64`, `BUGLOGIN_BUGOX_WINDOWS_ARM64`, `BUGLOGIN_BUGOX_LINUX_X64`, `BUGLOGIN_BUGOX_LINUX_ARM64`, `BUGLOGIN_BUGOX_MACOS_X64`, `BUGLOGIN_BUGOX_MACOS_ARM64`
+- `BUGLOGIN_BUGIUM_VERSION`, `BUGLOGIN_BUGIUM_WINDOWS_X64`, `BUGLOGIN_BUGIUM_WINDOWS_ARM64`, `BUGLOGIN_BUGIUM_LINUX_X64`, `BUGLOGIN_BUGIUM_LINUX_ARM64`, `BUGLOGIN_BUGIUM_MACOS_X64`, `BUGLOGIN_BUGIUM_MACOS_ARM64`
+- Optional policy keys: `BUGLOGIN_BUGOX_UPDATE_MODE`, `BUGLOGIN_BUGIUM_UPDATE_MODE`, `BUGLOGIN_BUGOX_MIN_SUPPORTED_VERSION`, `BUGLOGIN_BUGIUM_MIN_SUPPORTED_VERSION`
 
 ## Build and release desktop (free-budget path)
 

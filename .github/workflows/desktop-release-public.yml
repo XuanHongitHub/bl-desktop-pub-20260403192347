@@ -28,17 +28,16 @@ jobs:
     if: github.repository == 'XuanHongitHub/ops-snapshot-labs'
     timeout-minutes: 90
     env: &desktop_env
-      BUGLOGIN_BROWSER_API_BASE: https://api.buglogin.com
-      NEXT_PUBLIC_SYNC_SERVER_URL: https://api.buglogin.com
-      BUGLOGIN_DEFAULT_SYNC_SERVER_URL: https://api.buglogin.com
-      NEXT_PUBLIC_SYNC_TOKEN: ${{ secrets.BUGLOGIN_SYNC_TOKEN }}
-      BUGLOGIN_DEFAULT_SYNC_TOKEN: ${{ secrets.BUGLOGIN_SYNC_TOKEN }}
-      NEXT_PUBLIC_WEB_PORTAL_URL: https://buglogin.com
-      NEXT_PUBLIC_BILLING_PORTAL_URL: https://buglogin.com
-      NEXT_PUBLIC_STRIPE_BILLING_URL: https://buglogin.com
-      BUGLOGIN_AUTH_API_URL: https://api.buglogin.com
-      BUGLOGIN_CLOUD_API_URL: https://api.buglogin.com
-      BUGLOGIN_CLOUD_SYNC_URL: https://sync.buglogin.com
+      BUGLOGIN_BROWSER_API_BASE: ${{ vars.BUGLOGIN_BROWSER_API_BASE || 'https://api.buglogin.com' }}
+      NEXT_PUBLIC_SYNC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_DEFAULT_SYNC_SERVER_URL: ${{ vars.BUGLOGIN_DEFAULT_SYNC_SERVER_URL || 'https://api.buglogin.com' }}
+      NEXT_PUBLIC_WEB_PORTAL_URL: ${{ vars.NEXT_PUBLIC_WEB_PORTAL_URL || 'https://buglogin.com' }}
+      NEXT_PUBLIC_BILLING_PORTAL_URL: ${{ vars.NEXT_PUBLIC_BILLING_PORTAL_URL || 'https://buglogin.com' }}
+      NEXT_PUBLIC_STRIPE_BILLING_URL: ${{ vars.NEXT_PUBLIC_STRIPE_BILLING_URL || 'https://buglogin.com' }}
+      BUGLOGIN_AUTH_API_URL: ${{ vars.BUGLOGIN_AUTH_API_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_CLOUD_API_URL: ${{ vars.BUGLOGIN_CLOUD_API_URL || 'https://api.buglogin.com' }}
+      BUGLOGIN_CLOUD_SYNC_URL: ${{ vars.BUGLOGIN_CLOUD_SYNC_URL || 'https://sync.buglogin.com' }}
+      BUGLOGIN_RELEASE_API_URL: ${{ vars.BUGLOGIN_RELEASE_API_URL || 'https://api.buglogin.com/v1/browser/release' }}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 403889738022-q2k5otjm1jigt17hrs3oolarlh14759r.apps.googleusercontent.com
       RUSTFLAGS: -C debuginfo=0
       CARGO_INCREMENTAL: 0
@@ -64,6 +63,43 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           shared-key: buglogin-desktop-public-release-win
+
+      - name: Preflight Browser Endpoint Config
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $blockedHosts = @("gnohh.com", "api.gnohh.com")
+          $varsToCheck = @(
+            "BUGLOGIN_BROWSER_API_BASE",
+            "NEXT_PUBLIC_SYNC_SERVER_URL",
+            "BUGLOGIN_DEFAULT_SYNC_SERVER_URL",
+            "BUGLOGIN_AUTH_API_URL",
+            "BUGLOGIN_CLOUD_API_URL",
+            "BUGLOGIN_RELEASE_API_URL"
+          )
+
+          foreach ($name in $varsToCheck) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw "Missing required env: $name"
+            }
+            foreach ($blocked in $blockedHosts) {
+              if ($value.ToLowerInvariant().Contains($blocked)) {
+                throw "Blocked legacy host '$blocked' found in $name=$value"
+              }
+            }
+          }
+
+          $browserBase = $env:BUGLOGIN_BROWSER_API_BASE.TrimEnd("/")
+          foreach ($slug in @("bugox", "bugium")) {
+            $url = "$browserBase/v1/browser/$slug.json"
+            Write-Host "Preflight GET $url"
+            $resp = Invoke-WebRequest -Uri $url -Method GET -TimeoutSec 20
+            if ($resp.StatusCode -lt 200 -or $resp.StatusCode -ge 300) {
+              throw "Non-success status for $url : $($resp.StatusCode)"
+            }
+          }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -114,6 +150,37 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           shared-key: buglogin-desktop-public-release-macos
+
+      - name: Preflight Browser Endpoint Config
+        shell: bash
+        run: |
+          set -euo pipefail
+          vars=(
+            BUGLOGIN_BROWSER_API_BASE
+            NEXT_PUBLIC_SYNC_SERVER_URL
+            BUGLOGIN_DEFAULT_SYNC_SERVER_URL
+            BUGLOGIN_AUTH_API_URL
+            BUGLOGIN_CLOUD_API_URL
+            BUGLOGIN_RELEASE_API_URL
+          )
+          for name in "${vars[@]}"; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required env: $name" >&2
+              exit 1
+            fi
+            if [[ "$value" == *"gnohh.com"* ]]; then
+              echo "Blocked legacy host in $name=$value" >&2
+              exit 1
+            fi
+          done
+
+          base="${BUGLOGIN_BROWSER_API_BASE%/}"
+          for slug in bugox bugium; do
+            url="$base/v1/browser/$slug.json"
+            echo "Preflight GET $url"
+            curl -fsS --max-time 20 "$url" >/dev/null
+          done
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

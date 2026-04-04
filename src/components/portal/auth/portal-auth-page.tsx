@@ -483,7 +483,7 @@ export function PortalAuthPage({
       setGoogleAuthState("idle");
       const callbackOrigin =
         surface === "desktop"
-          ? process.env.NEXT_PUBLIC_WEB_PORTAL_URL || "https://bugdev.site"
+          ? process.env.NEXT_PUBLIC_WEB_PORTAL_URL || "https://buglogin.com"
           : window.location.origin;
       const callback = new URL("/oauth-callback", callbackOrigin);
       const nonce = Math.random().toString(36).slice(2);
