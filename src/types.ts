@@ -1398,6 +1398,7 @@ export type AppSection =
   | "proxies"
   | "pricing"
   | "billing"
+  | "account-members"
   | "workspace-owner-overview"
   | "workspace-owner-directory"
   | "workspace-owner-permissions"
