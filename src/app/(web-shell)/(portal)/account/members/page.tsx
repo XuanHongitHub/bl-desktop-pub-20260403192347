@@ -22,10 +22,12 @@ export default function AccountMembersPage() {
   const {
     connection,
     selectedWorkspaceId,
-    workspaceContext,
-    isTeamOperator,
-    isPlatformAdmin,
+    selectedWorkspace,
   } = usePortalBillingData();
+
+  const activeWorkspaceRole = selectedWorkspace?.actorRole ?? "viewer";
+  const isPlatformAdmin = connection?.platformRole === "platform_admin";
+  const isTeamOperator = activeWorkspaceRole === "owner" || activeWorkspaceRole === "admin";
 
   const [activeTab, setActiveTab] = useState<"directory" | "permissions">("directory");
   const [isBusy, setIsBusy] = useState(false);
@@ -195,7 +197,7 @@ export default function AccountMembersPage() {
           runtimeBaseUrl={null}
           isPlatformAdmin={isPlatformAdmin}
           isTeamOperator={isTeamOperator}
-          workspaceRole={workspaceContext?.role}
+          workspaceRole={activeWorkspaceRole}
           workspaces={[]}
           selectedWorkspaceId={selectedWorkspaceId}
           selectedWorkspace={null}

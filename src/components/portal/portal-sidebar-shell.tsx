@@ -225,7 +225,9 @@ function PortalSidebarShell({
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const workspaceRole: TeamRole = "owner";
+  const activeWorkspaceRole: TeamRole = session?.user.platformRole === "platform_admin"
+    ? "owner"
+    : (workspaces.find((w) => w.id === selectedWorkspaceId)?.actorRole ?? "viewer");
 
   return (
     <div className="type-ui flex h-[calc(100vh-var(--window-titlebar-height,0px))] overflow-hidden bg-background">
@@ -235,8 +237,8 @@ function PortalSidebarShell({
         onSectionChange={handleSectionChange}
         onCollapsedChange={setCollapsed}
         showAdminSection={session?.user.platformRole === "platform_admin"}
-        teamRole={workspaceRole}
-        currentWorkspaceRole={workspaceRole}
+        teamRole={activeWorkspaceRole}
+        currentWorkspaceRole={activeWorkspaceRole}
         platformRole={session?.user.platformRole ?? null}
         isDeveloperBuild={false}
         workspaceOptions={workspaceOptions}

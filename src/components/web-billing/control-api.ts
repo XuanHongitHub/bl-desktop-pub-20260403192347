@@ -44,6 +44,7 @@ export interface WebBillingWorkspaceListItem {
   createdAt: string;
   createdBy: string;
   planLabel: string;
+  actorRole?: import("@/types").TeamRole;
   profileLimit: number;
   memberLimit: number;
   billingCycle: BillingCycle | null;
