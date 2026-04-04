@@ -22,6 +22,8 @@ type PlatformHint =
   | "unknown";
 
 const isStaticExportBuild = process.env.NEXT_STATIC_EXPORT === "1";
+// Required by Next.js when output=export is enabled.
+export const revalidate = 300;
 
 function readEnv(name: string): string | null {
   const value = process.env[name]?.trim();
@@ -116,7 +118,7 @@ export async function GET() {
       size: asset.size,
       updatedAt: asset.updated_at,
       platformHint: inferPlatformHint(asset.name),
-      downloadUrl: `/api/desktop-release/assets/${asset.id}?name=${encodeURIComponent(asset.name)}`,
+      downloadUrl: `/api/desktop-release/assets?id=${asset.id}&name=${encodeURIComponent(asset.name)}`,
     }));
 
   return NextResponse.json(
