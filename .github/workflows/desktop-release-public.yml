@@ -1,4 +1,4 @@
-name: Packaging Matrix
+name: Release Packaging Pipeline
 
 on:
   workflow_dispatch:
